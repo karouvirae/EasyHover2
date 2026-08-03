@@ -12,6 +12,10 @@ end
 function Pid:reset() self.i = 0; self.lastMeas = nil; self.dFilt = 0 end
 function Pid:update(sp, meas, dt, saturated)
   local err = sp - meas
-  return self.kp * err
+  if not saturated and dt > 0 then
+    self.i = self.i + self.ki * err * dt
+    if self.i > self.iMax then self.i = self.iMax elseif self.i < self.iMin then self.i = self.iMin end
+  end
+  return self.kp * err + self.i
 end
 return Pid
