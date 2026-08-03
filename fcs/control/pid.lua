@@ -12,13 +12,14 @@ end
 function Pid:reset() self.i = 0; self.lastMeas = nil; self.dFilt = 0 end
 function Pid:update(sp, meas, dt, saturated)
   local err = sp - meas
-  if not saturated and dt > 0 then
+  local usable = (dt > 0) and (dt <= self.dtMax) and not saturated
+  if usable then
     self.i = self.i + self.ki * err * dt
     if self.i > self.iMax then self.i = self.iMax elseif self.i < self.iMin then self.i = self.iMin end
   end
   local d = 0
-  if self.kd ~= 0 then
-    if self.lastMeas ~= nil and dt > 0 then
+  if self.kd ~= 0 and usable then
+    if self.lastMeas ~= nil then
       local dMeas = (meas - self.lastMeas) / dt
       local alpha = dt / (self.tauD + dt)
       self.dFilt = self.dFilt + alpha * (dMeas - self.dFilt)

@@ -31,3 +31,9 @@ t.test("Kd 0 fully bypasses derivative (no crash, pure PI)", function()
   t.near(p:update(0, 5, 0.1), -5, 1e-9)      -- only P, even with a moving measurement
   t.near(p:update(0, 9, 0.1), -9, 1e-9)
 end)
+t.test("dt spike produces no derivative kick", function()
+  local p = Pid.new({ kp = 0, ki = 0, kd = 1, tauD = 0, dtMax = 0.5 })
+  p:update(0, 0, 0.1)                        -- seed
+  local out = p:update(0, 100, 5.0)          -- huge jump AND huge dt (a stall)
+  t.near(out, 0, 1e-9)                        -- skipped: no kick
+end)
