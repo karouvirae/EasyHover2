@@ -9,3 +9,6 @@ backup/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# SDD scratch (ledger, briefs, review packages)
+.superpowers/
