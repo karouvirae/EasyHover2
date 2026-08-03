@@ -27,7 +27,7 @@ function Sim:step(dt)
   local aV = fz / c.mass - c.g
   self.vSpeed = self.vSpeed + aV * dt
   self.altitude = self.altitude + self.vSpeed * dt
-  if self.altitude < 0 then self.altitude = 0 end
+  if self.altitude < 0 then self.altitude = 0; if self.vSpeed < 0 then self.vSpeed = 0 end end
   self.pitchRate = self.pitchRate + (pm / c.inertia) * dt
   self.pitch = self.pitch + self.pitchRate * dt
   self.rollRate = self.rollRate + (rm / c.inertia) * dt
