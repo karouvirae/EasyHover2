@@ -16,6 +16,16 @@ function Pid:update(sp, meas, dt, saturated)
     self.i = self.i + self.ki * err * dt
     if self.i > self.iMax then self.i = self.iMax elseif self.i < self.iMin then self.i = self.iMin end
   end
-  return self.kp * err + self.i
+  local d = 0
+  if self.kd ~= 0 then
+    if self.lastMeas ~= nil and dt > 0 then
+      local dMeas = (meas - self.lastMeas) / dt
+      local alpha = dt / (self.tauD + dt)
+      self.dFilt = self.dFilt + alpha * (dMeas - self.dFilt)
+      d = -self.kd * self.dFilt
+    end
+    self.lastMeas = meas
+  end
+  return self.kp * err + self.i + d
 end
 return Pid
