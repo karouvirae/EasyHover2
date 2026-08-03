@@ -570,7 +570,7 @@ t.test("all four lift on climbs; none falls", function()
   for _, id in ipairs(s:liftIds()) do s:setThruster(id, true) end
   s:step(0.1)
   t.truthy(s:sensors().vSpeed > 0)           -- 60N up vs 40N weight => climbs
-  local s2 = Sim.new(hoverCfg()); s2:step(0.1)
+  local s2 = Sim.new(hoverCfg()); s2.altitude = 5; s2:step(0.1)  -- airborne so the ground clamp doesn't mask the fall
   t.truthy(s2:sensors().vSpeed < 0)          -- all off => falls
 end)
 t.test("front pair only pitches nose up", function()
