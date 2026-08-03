@@ -7,7 +7,7 @@ local Sim = require("tests.sim")
 local function build()
   local sim = Sim.new({ mass = 4, g = 10, fPer = 15, inertia = 2, armX = 1, armZ = 1 })
   local sc = Scheme.new({ hoverDuty = 0.66,
-    alt = { kp = 0.05, ki = 0.02, kd = 0.0, iMax = 0.3, iMin = -0.3 },
+    alt = { kp = 0.04, ki = 0.02, kd = 0.30, tauD = 0.2, iMax = 0.3, iMin = -0.3 },
     pitch = { kp = 0.3, ki = 0, kd = 0.08, tauD = 0.2 },
     roll = { kp = 0.3, ki = 0, kd = 0.08, tauD = 0.2 } })
   local loop = Loop.new({ scheme = sc, mixer = Mixer.new(),
@@ -30,4 +30,41 @@ t.test("disarmed on the ground commands no thrust", function()
   loop:arm(false); loop:setpoints({ altitude = 5, pitch = 0, roll = 0 })
   for _ = 1, 20 do loop:cycle(0.05); sim:step(0.05) end
   t.truthy(sim:sensors().altitude <= 0)      -- never left the ground
+end)
+local function fly(loop, sim, seconds, dtFn)
+  local tsec, peaks, lastErr, rising = 0, {}, nil, false
+  while tsec < seconds do
+    local dt = dtFn(tsec)
+    loop:cycle(dt); sim:step(dt); tsec = tsec + dt
+    local err = math.abs(10 - sim:sensors().altitude)
+    if lastErr and err > lastErr and not rising then rising = true end
+    if lastErr and err < lastErr and rising then peaks[#peaks+1] = lastErr; rising = false end
+    lastErr = err
+  end
+  return sim:sensors(), peaks
+end
+t.test("settles to altitude 10 and stays level", function()
+  local loop, sim = build(); loop:arm(true); loop:setpoints({ altitude = 10, pitch = 0, roll = 0 })
+  local s = (fly(loop, sim, 40, function() return 0.1 end))
+  t.near(s.altitude, 10, 0.6)                -- within tolerance
+  t.near(s.pitch, 0, 0.05); t.near(s.roll, 0, 0.05)
+end)
+t.test("no limit cycle: late oscillation amplitude decreasing", function()
+  local loop, sim = build(); loop:arm(true); loop:setpoints({ altitude = 10, pitch = 0, roll = 0 })
+  local _, peaks = fly(loop, sim, 40, function() return 0.1 end)
+  t.truthy(#peaks >= 2)
+  t.truthy(peaks[#peaks] <= peaks[#peaks-1] + 1e-6)   -- not growing
+end)
+t.test("variable dt (jitter) stays stable", function()
+  local loop, sim = build(); loop:arm(true); loop:setpoints({ altitude = 10, pitch = 0, roll = 0 })
+  local seed = 1
+  local s = (fly(loop, sim, 40, function() seed = (seed * 1103515245 + 12345) % 2147483648; return 0.05 + (seed % 100) / 1000 end))
+  t.near(s.altitude, 10, 1.0)
+end)
+t.test("a single dt spike causes no altitude kick", function()
+  local loop, sim = build(); loop:arm(true); loop:setpoints({ altitude = 10, pitch = 0, roll = 0 })
+  fly(loop, sim, 20, function() return 0.1 end)
+  local before = sim:sensors().altitude
+  loop:cycle(5.0); sim:step(0.1)             -- stall cycle (clamped, integ/deriv skipped)
+  t.near(sim:sensors().altitude, before, 0.5)
 end)
