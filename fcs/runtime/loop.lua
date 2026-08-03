@@ -12,9 +12,9 @@ function Loop:cycle(dt)
   local m = self.backend:sensors()
   if not self.armed then
     self.scheme:reset()
-    for _, id in ipairs(frame.LIFT) do
-      self.pwm:apply({ [id] = 0 }, dt)
-    end
+    local zeros = {}
+    for _, id in ipairs(frame.LIFT) do zeros[id] = 0 end
+    self.pwm:apply(zeros, dt)
     return
   end
   local demands = self.scheme:update(self.sp, m, dt)
