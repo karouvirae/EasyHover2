@@ -35,6 +35,7 @@ Pilot flight inputs (all as *setpoints*, see §2): **surge** (forward/back), **s
 - A **"pitchable"** control scheme that tilts the lift thrusters to propel/brake forward.
 - NAV/GPS absolute station-keeping and autopilot (drift-free position hold, waypoints).
 - Precision-mode braking, fuel-type profiles, the 4 side proximity sensors.
+- Config schema-versioning + a migrator (additive merge until then, §15); a UI for the Suite (§16).
 
 These land later as alternate **control schemes** and NAV-layer features on the pluggable
 architecture (§8), without disturbing the core.
@@ -427,6 +428,8 @@ Nothing flies until it is green headless (CraftOS-PC), per the workspace convent
 
 ```
 EasyHover2/
+  easyhover2_suite.lua  run-from-GitHub installer/updater (no self-update; §16)
+  manifest.lua          generated: per-file checksums + version, per-role file lists
   docs/            FCS_CORE_DESIGN.md (this), MOD_API notes, etc.
   fcs/             the flight computer
     startup.lua
@@ -451,7 +454,69 @@ Boundaries chosen so each module is testable in isolation — the opposite of v1
 
 ---
 
-## 15. Open questions — validate in sim / in-game, don't assume
+## 15. Configuration & persistence
+
+### Additive now, versioned + migrator later
+- **Now — additive config.** Config is a namespaced table of values, persisted per role. On load,
+  the app **merges defaults *under* the loaded config**: any key the running code expects but the
+  saved file lacks is filled from its default; existing pilot values are never touched. New builds
+  may *add* keys (with defaults) but must not rename or repurpose existing ones. So there is **no
+  migration step and no reconfiguration on update** — a newer build sees its new keys defaulted and
+  every old setting preserved.
+- **Later — schema-versioned config + migrator.** Config gains a `schemaVersion`; when the code's
+  schema is newer, a migrator transforms old → new (rename, restructure, derive) so even *drastic*
+  structural changes never force a reconfig. We build additive now with **sound, namespaced
+  structure** precisely so that future migrator starts from clean ground.
+
+### Config is never clobbered
+- **Config is not part of the code-integrity check (§16).** Telling a corrupt config from a
+  legitimately pilot-changed one isn't reliably possible without overcomplex heuristics, so we don't
+  try: the Suite's checksum / reinstall logic covers **code only.** Config is only ever
+  additively-merged or (later) migrated — never overwritten by an update or repair.
+- **Runtime handles true corruption**, separately from the Suite: if a role app can't *parse* its
+  config at boot, it sets the bad file aside, regenerates defaults, and **annunciates** — rather than
+  flying on garbage or refusing to boot.
+- **At most one automatic config backup on disk** at a time — the latest, replacing the previous
+  (no backup spam). Deliberate backups at meaningful points stay the pilot's to make.
+
+---
+
+## 16. Install / update Suite
+
+A single tool — `easyhover2_suite.lua` — run **directly from GitHub** (`wget run …`) that installs
+and updates any role on a fresh or existing PC. Stepped up from prior suites; **no UI yet** (a UI is
+a later, deliberate addition).
+
+### It never nags about itself
+The Suite **does not self-update.** It runs from GitHub each time, does its job, and exits — no "the
+Suite itself is out of date" loop, ever. It changes only when we deliberately ship a new one (a fix,
+or the future UI).
+
+### What it does, each run
+`wget run` the Suite, then:
+
+| Situation | Action |
+|---|---|
+| Nothing installed | ask role (**FCS / UI / NAV**) → install that role |
+| Installed, **version mismatch** | update to the manifest version |
+| Installed, version matches, **files intact** | nothing to do |
+| Installed, version matches, **files mismatch** (checksum) | **clean reinstall of code** (config untouched) |
+
+- **Integrity is checksum-based** against a published `manifest.lua` (per-file sum + size, plus a
+  rolled-up version digest). Trust root is **HTTPS to a pinned raw GitHub URL**; the checksum only
+  answers "did this arrive intact / has a file drifted."
+- **A clean reinstall replaces code files only.** Config is excluded by design (§15) — an update or
+  repair never costs the pilot their tuning.
+- **One rolling config backup**, latest only.
+
+### Roles
+`FCS` (flight computer), `UI` (cockpit displays), `NAV` (navigation + GPS). Each role declares its
+files, directories, entry point, and config path in the manifest; the Suite installs exactly the
+chosen role on that PC.
+
+---
+
+## 17. Open questions — validate in sim / in-game, don't assume
 
 1. **Heave bob magnitude** under synchronized bang-bang (depends on Sable gravity/thrust scaling).
    → decides whether the modulator gets swapped (§7).
