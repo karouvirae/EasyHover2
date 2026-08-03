@@ -1,0 +1,6 @@
+local t = require("tests.framework")
+local Pid = require("fcs.control.pid")
+t.test("P term is kp*error", function()
+  local p = Pid.new({ kp = 2, ki = 0, kd = 0 })
+  t.near(p:update(10, 4, 0.1), 12, 1e-9)   -- 2 * (10-4)
+end)
