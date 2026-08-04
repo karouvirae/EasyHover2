@@ -4,6 +4,7 @@ local Loop = require("fcs.runtime.loop")
 local Mixer = require("fcs.mixer.level_flight")
 local Pwm = require("fcs.actuate.pwm")
 local Sim = require("tests.sim")
+local Heading = require("fcs.control.heading")
 local function build()
   local sim = Sim.new({ mass = 4, g = 10, fPer = 15, inertia = 2, armX = 1, armZ = 1 })
   local sc = Scheme.new({ hoverDuty = 0.66,
@@ -24,6 +25,17 @@ t.test("scheme outputs hover heave at altitude setpoint, level", function()
   local d = sc:update({ altitude = 10, pitch = 0, roll = 0 },
                       { altitude = 10, vSpeed = 0, pitch = 0, pitchRate = 0, roll = 0, rollRate = 0 }, 0.1)
   t.near(d.heave, 0.66, 1e-9); t.near(d.pitch, 0, 1e-9); t.near(d.roll, 0, 1e-9)
+end)
+t.test("scheme emits a yaw demand toward the heading setpoint", function()
+  local sc = Scheme.new({ hoverDuty = 0.66,
+    alt = { kp = 0.04, ki = 0.02, kd = 0.30, tauD = 0.2, iMax = 0.3, iMin = -0.3 },
+    pitch = { kp = 0.3, ki = 0, kd = 0.4, tauD = 0.2 },
+    roll  = { kp = 0.3, ki = 0, kd = 0.4, tauD = 0.2 },
+    yaw   = { kp = 0.5, ki = 0, kd = 0.2 } })
+  local d = sc:update({ altitude = 10, pitch = 0, roll = 0, heading = 0.4 },
+                      { altitude = 10, vSpeed = 0, pitch = 0, pitchRate = 0, roll = 0, rollRate = 0,
+                        heading = 0.0, yawRate = 0.0 }, 0.1)
+  t.truthy(d.yaw > 0)                     -- +0.4 heading error -> yaw right
 end)
 t.test("disarmed on the ground commands no thrust", function()
   local loop, sim = build()
