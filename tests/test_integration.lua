@@ -7,12 +7,14 @@ local Sim = require("tests.sim")
 local Heading = require("fcs.control.heading")
 local function build()
   local sim = Sim.new({ mass = 4, g = 10, fPer = 15, inertia = 2, armX = 1, armZ = 1,
-    fPerLat = 8, yawInertia = 8 })
+    fPerLat = 6, yawInertia = 8, fMain = 20, fFrontal = 10 })
   local sc = Scheme.new({ hoverDuty = 0.66,
     alt = { kp = 0.04, ki = 0.02, kd = 0.30, tauD = 0.2, iMax = 0.3, iMin = -0.3 },
     pitch = { kp = 0.3, ki = 0, kd = 0.4, tauD = 0.2 },
     roll = { kp = 0.3, ki = 0, kd = 0.4, tauD = 0.2 },
-    yaw = { kp = 0.5, ki = 0, kd = 0.2 } })
+    yaw = { kp = 0.5, ki = 0, kd = 0.2 },
+    sway = { kp = 0.5, ki = 0, kd = 0.5 },
+    surge = { kp = 0.3, ki = 0, kd = 0.5 } })
   local loop = Loop.new({ scheme = sc, mixer = Mixer.new(),
     pwm = Pwm.new({ period = 0.3, backend = sim }), backend = sim, dtMax = 0.5 })
   return loop, sim
@@ -133,4 +135,39 @@ t.test("captures and holds a new commanded heading", function()
   loop:setpoints({ altitude = 10, pitch = 0, roll = 0, heading = 0.8 })
   fly(loop, sim, 30, function() return 0.1 end)
   t.near(sim:sensors().heading, 0.8, 0.05)         -- flew to the commanded heading and held
+end)
+t.test("scheme emits sway/surge force toward a position setpoint", function()
+  local sc = Scheme.new({ hoverDuty = 0.66,
+    alt = { kp = 0.04, ki = 0.02, kd = 0.30, tauD = 0.2, iMax = 0.3, iMin = -0.3 },
+    pitch = { kp = 0.3, ki = 0, kd = 0.4, tauD = 0.2 },
+    roll  = { kp = 0.3, ki = 0, kd = 0.4, tauD = 0.2 },
+    yaw   = { kp = 0.5, ki = 0, kd = 0.2 },
+    sway  = { kp = 0.3, ki = 0, kd = 0.4 },
+    surge = { kp = 0.3, ki = 0, kd = 0.4 } })
+  local m = { altitude=10, vSpeed=0, pitch=0, pitchRate=0, roll=0, rollRate=0,
+    heading=0, yawRate=0, swayPos=0, swayVel=0, surgePos=0, surgeVel=0 }
+  local d = sc:update({ altitude=10, pitch=0, roll=0, heading=0, swayPos=1, surgePos=-1 }, m, 0.1)
+  t.truthy(d.sway > 0)     -- +swayPos error -> push right
+  t.truthy(d.surge < 0)    -- -surgePos error -> push back
+end)
+t.test("damps a sideways drift back to zero position", function()
+  local loop, sim = build(); loop:arm(true)
+  loop:setpoints({ altitude=10, pitch=0, roll=0, heading=0, swayPos=0, surgePos=0 })
+  fly(loop, sim, 8, function() return 0.1 end)
+  sim.swayVel = 1.5; sim.swayPos = 0        -- shove sideways
+  fly(loop, sim, 25, function() return 0.1 end)
+  t.near(sim:sensors().swayPos, 0, 0.1)     -- returns to station (would fail on runaway/wrong sign)
+end)
+t.test("translates forward to a commanded position and holds", function()
+  local loop, sim = build(); loop:arm(true)
+  loop:setpoints({ altitude=10, pitch=0, roll=0, heading=0, swayPos=0, surgePos=3 })
+  fly(loop, sim, 30, function() return 0.1 end)
+  t.near(sim:sensors().surgePos, 3, 0.15)   -- flew forward 3m and held
+end)
+t.test("leash caps the commanded lead distance", function()
+  -- with a leashed setpoint the position error can't exceed maxLead
+  local leash = require("fcs.leash")
+  local sp = 0
+  for _ = 1, 100 do sp = leash.step(sp, 1000, 0, 0.1, 5, 2.0) end
+  t.near(sp, 2.0, 1e-9)                      -- pinned at pos(0)+maxLead(2)
 end)

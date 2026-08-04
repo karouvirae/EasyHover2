@@ -1,4 +1,6 @@
 return {
   LIFT = { "FL", "FR", "RL", "RR" },
-  LATERAL = { "YFL", "YFR", "YRL", "YRR" }
+  LATERAL = { "YFL", "YFR", "YRL", "YRR" },
+  MAIN = { "MAIN" },
+  FRONTAL = { "FRL", "FRR" }
 }

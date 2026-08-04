@@ -15,6 +15,8 @@ function Loop:cycle(dt)
     local zeros = {}
     for _, id in ipairs(frame.LIFT) do zeros[id] = 0 end
     for _, id in ipairs(frame.LATERAL) do zeros[id] = 0 end
+    for _, id in ipairs(frame.MAIN) do zeros[id] = 0 end
+    for _, id in ipairs(frame.FRONTAL) do zeros[id] = 0 end
     self.pwm:apply(zeros, dt)
     return
   end

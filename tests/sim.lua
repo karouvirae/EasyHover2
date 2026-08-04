@@ -8,18 +8,25 @@ local FRONT = { FL = 1, FR = 1, RL = -1, RR = -1 }   -- +1 front, -1 rear
 local ROLL = { FL = 1, FR = -1, RL = 1, RR = -1 }    -- +1 = LEFT side -> positive roll moment
 -- +yaw = nose-right; must match the mixer's YAW_DIR (fcs/mixer/level_flight.lua)
 local YAW_DIR = { YFL = 1, YFR = -1, YRL = -1, YRR = 1 }
+-- must match the mixer's SWAY_DIR (fcs/mixer/level_flight.lua)
+local SWAY_DIR = { YFL = 1, YFR = -1, YRL = 1, YRR = -1 }
 function Sim.new(cfg)
   local self = setmetatable({ cfg = cfg, on = {} }, Sim)
   self.altitude, self.vSpeed = 0, 0
   self.pitch, self.pitchRate = 0, 0
   self.roll, self.rollRate = 0, 0
   self.heading, self.yawRate = 0, 0
+  self.swayVel, self.surgeVel, self.swayPos, self.surgePos = 0, 0, 0, 0
   for _, id in ipairs(frame.LIFT) do self.on[id] = false end
   for _, id in ipairs(frame.LATERAL) do self.on[id] = false end
+  for _, id in ipairs(frame.MAIN) do self.on[id] = false end
+  for _, id in ipairs(frame.FRONTAL) do self.on[id] = false end
   return self
 end
 function Sim:liftIds() return frame.LIFT end
 function Sim:lateralIds() return frame.LATERAL end
+function Sim:mainIds() return frame.MAIN end
+function Sim:frontalIds() return frame.FRONTAL end
 function Sim:setThruster(id, s) self.on[id] = s and true or false end
 function Sim:step(dt)
   local c = self.cfg
@@ -47,12 +54,28 @@ function Sim:step(dt)
   end
   self.yawRate = self.yawRate + (ym / yawInertia) * dt
   self.heading = self.heading + self.yawRate * dt
+  local fMain = c.fMain or 20
+  local fFrontal = c.fFrontal or 10
+  local sway, surge = 0, 0
+  for _, id in ipairs(frame.LATERAL) do
+    if self.on[id] then sway = sway + SWAY_DIR[id] * fPerLat end
+  end
+  if self.on.MAIN then surge = surge + fMain end
+  for _, id in ipairs(frame.FRONTAL) do
+    if self.on[id] then surge = surge - fFrontal end
+  end
+  self.swayVel = self.swayVel + (sway / c.mass) * dt
+  self.surgeVel = self.surgeVel + (surge / c.mass) * dt
+  self.swayPos = self.swayPos + self.swayVel * dt
+  self.surgePos = self.surgePos + self.surgeVel * dt
 end
 function Sim:sensors()
   return { altitude = self.altitude, vSpeed = self.vSpeed,
            pitch = self.pitch, pitchRate = self.pitchRate,
            roll = self.roll, rollRate = self.rollRate,
            heading = self.heading, yawRate = self.yawRate,
+           swayVel = self.swayVel, surgeVel = self.surgeVel,
+           swayPos = self.swayPos, surgePos = self.surgePos,
            onGround = (self.altitude <= 0 and math.abs(self.vSpeed) < 0.01) }
 end
 return Sim
