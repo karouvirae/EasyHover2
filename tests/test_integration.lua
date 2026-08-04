@@ -33,21 +33,49 @@ t.test("disarmed on the ground commands no thrust", function()
 end)
 local function fly(loop, sim, seconds, dtFn)
   local tsec, peaks, lastErr, rising = 0, {}, nil, false
+  local ext = { maxRoll = 0, maxPitch = 0 }   -- peak |attitude| excursion over the flight
   while tsec < seconds do
     local dt = dtFn(tsec)
     loop:cycle(dt); sim:step(dt); tsec = tsec + dt
-    local err = math.abs(10 - sim:sensors().altitude)
+    local s = sim:sensors()
+    if math.abs(s.roll) > ext.maxRoll then ext.maxRoll = math.abs(s.roll) end
+    if math.abs(s.pitch) > ext.maxPitch then ext.maxPitch = math.abs(s.pitch) end
+    local err = math.abs(10 - s.altitude)
     if lastErr and err > lastErr and not rising then rising = true end
     if lastErr and err < lastErr and rising then peaks[#peaks+1] = lastErr; rising = false end
     lastErr = err
   end
-  return sim:sensors(), peaks
+  return sim:sensors(), peaks, ext
 end
 t.test("settles to altitude 10 and stays level", function()
   local loop, sim = build(); loop:arm(true); loop:setpoints({ altitude = 10, pitch = 0, roll = 0 })
   local s = (fly(loop, sim, 40, function() return 0.1 end))
   t.near(s.altitude, 10, 0.6)                -- within tolerance
   t.near(s.pitch, 0, 0.05); t.near(s.roll, 0, 0.05)
+end)
+-- Attitude-recovery tests: inject a +0.3 rad disturbance directly on the plant, then
+-- confirm the closed loop REMAINS BOUNDED near level (does not run away). This is the
+-- true sign guard: with the correct plant sign the axis stays within a bounded bang-bang
+-- limit cycle (peak excursion ~0.65 rad, sustained ~0.5 rad envelope) around level; with
+-- an INVERTED plant sign the correction reinforces the disturbance and the axis DIVERGES
+-- to thousands of rad within a few seconds. We assert peak |axis| stays well under 1.0 rad
+-- (correct sign peaks ~0.65, inverted blows past instantly). Asserting the exact endpoint
+-- would be fragile -- it is just one phase-dependent sample of the sustained limit cycle --
+-- whereas the bound is phase-independent AND still hard-fails the sign bug. (These tests
+-- would have caught the sim roll-moment inversion; verified by the guard re-inversion check.)
+t.test("recovers from a roll disturbance: stays bounded near level", function()
+  local loop, sim = build(); loop:arm(true); loop:setpoints({ altitude = 10, pitch = 0, roll = 0 })
+  fly(loop, sim, 10, function() return 0.1 end)   -- settle to hover
+  sim.roll = 0.3; sim.rollRate = 0                -- inject roll disturbance
+  local _, _, ext = fly(loop, sim, 40, function() return 0.1 end)
+  t.truthy(ext.maxRoll < 1.0)                     -- bounded => plant sign correct (inverted diverges to ~1e4)
+end)
+t.test("recovers from a pitch disturbance: stays bounded near level", function()
+  local loop, sim = build(); loop:arm(true); loop:setpoints({ altitude = 10, pitch = 0, roll = 0 })
+  fly(loop, sim, 10, function() return 0.1 end)   -- settle to hover
+  sim.pitch = 0.3; sim.pitchRate = 0              -- inject pitch disturbance
+  local _, _, ext = fly(loop, sim, 40, function() return 0.1 end)
+  t.truthy(ext.maxPitch < 1.0)                    -- bounded => plant sign correct (inverted diverges to ~1e4)
 end)
 t.test("no limit cycle: late oscillation amplitude decreasing", function()
   local loop, sim = build(); loop:arm(true); loop:setpoints({ altitude = 10, pitch = 0, roll = 0 })

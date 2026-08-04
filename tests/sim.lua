@@ -3,7 +3,9 @@ local Sim = {}
 Sim.__index = Sim
 -- corner geometry: FL front-left, FR front-right, RL rear-left, RR rear-right
 local FRONT = { FL = 1, FR = 1, RL = -1, RR = -1 }   -- +1 front, -1 rear
-local RIGHT = { FL = -1, FR = 1, RL = -1, RR = 1 }   -- +1 right, -1 left
+-- +roll = right-wing-down, physically produced by MORE lift on the LEFT side
+-- (left rises -> right wing drops). So the LEFT thrusters carry the +roll moment.
+local ROLL = { FL = 1, FR = -1, RL = 1, RR = -1 }    -- +1 = LEFT side -> positive roll moment
 function Sim.new(cfg)
   local self = setmetatable({ cfg = cfg, on = {} }, Sim)
   self.altitude, self.vSpeed = 0, 0
@@ -21,7 +23,7 @@ function Sim:step(dt)
     if self.on[id] then
       fz = fz + c.fPer
       pm = pm + c.fPer * FRONT[id] * c.armZ
-      rm = rm + c.fPer * RIGHT[id] * c.armX
+      rm = rm + c.fPer * ROLL[id] * c.armX
     end
   end
   local aV = fz / c.mass - c.g

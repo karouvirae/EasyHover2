@@ -11,9 +11,19 @@ package.path = "/?.lua;/?/init.lua;" .. package.path
 local suites = { "tests.test_smoke", "tests.test_pid", "tests.test_pwm",
                  "tests.test_mixer", "tests.test_sim", "tests.test_integration" }
 local t = require("tests.framework")
-for _, s in ipairs(suites) do pcall(require, s) end
-local ok, summary = t.run()
-local f = fs.open("/results.txt", "w"); f.write((ok and "OK\n" or "FAILED\n") .. summary); f.close()
+local loadErrs = {}
+for _, s in ipairs(suites) do
+  local ok, err = pcall(require, s)
+  if not ok then loadErrs[#loadErrs+1] = s .. ": " .. tostring(err) end
+end
+local passed, summary = t.run()
+local ok = passed and #loadErrs == 0
+local extra = ""
+if #loadErrs > 0 then
+  extra = "\nSUITE LOAD FAILURES (" .. #loadErrs .. "):\n"
+  for _, e in ipairs(loadErrs) do extra = extra .. "  " .. e .. "\n" end
+end
+local f = fs.open("/results.txt", "w"); f.write((ok and "OK\n" or "FAILED\n") .. summary .. extra); f.close()
 os.shutdown()
 LUA
 timeout 60 "/c/Program Files/CraftOS-PC/CraftOS-PC_console.exe" --headless -d "$DATA" >/dev/null 2>&1 || true

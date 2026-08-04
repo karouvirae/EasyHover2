@@ -15,9 +15,9 @@ t.test("front pair only pitches nose up", function()
   s:step(0.1)
   t.truthy(s:sensors().pitchRate > 0)
 end)
-t.test("right pair only rolls right-wing-down", function()
+t.test("left pair only rolls right-wing-down (+roll)", function()
   local s = Sim.new(hoverCfg())
-  s:setThruster("FR", true); s:setThruster("RR", true)
+  s:setThruster("FL", true); s:setThruster("RL", true)  -- boost LEFT -> left rises -> right wing drops
   s:step(0.1)
-  t.truthy(s:sensors().rollRate > 0)
+  t.truthy(s:sensors().rollRate > 0)                    -- +roll = right-wing-down
 end)
