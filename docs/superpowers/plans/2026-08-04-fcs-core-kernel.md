@@ -644,6 +644,8 @@ return Sim
 Run: `bash tests/run_headless.sh`
 Expected: PASS. Each direction test fails if its sign is flipped — verify by temporarily flipping `FRONT`/`RIGHT` and re-running (pins physics against physics, not against the controller).
 
+> **⚠️ Correction (post-implementation, commit `5cba8fc`):** the `RIGHT` roll-moment table above shipped **inverted** — the whole-branch final review caught it as roll *positive feedback* (a disturbed roll would diverge; masked because Plan 1 never disturbs attitude). The self-consistent per-task direction test did not catch it because it agreed with the same wrong convention (the exact v1 trap). Correct signs credit the **LEFT** thrusters positive, matching the mixer: `ROLL = { FL = 1, FR = -1, RL = 1, RR = -1 }`; the roll direction test fires the **LEFT** pair; and roll/pitch **recovery** tests were added that actually exercise the loops and guard the sign. Trust the shipped code, not this illustrative block.
+
 - [ ] **Step 5: Commit**
 
 ```bash
