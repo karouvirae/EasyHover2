@@ -134,3 +134,17 @@ t.test("captures and holds a new commanded heading", function()
   fly(loop, sim, 30, function() return 0.1 end)
   t.near(sim:sensors().heading, 0.8, 0.05)         -- flew to the commanded heading and held
 end)
+t.test("scheme emits sway/surge force toward a position setpoint", function()
+  local sc = Scheme.new({ hoverDuty = 0.66,
+    alt = { kp = 0.04, ki = 0.02, kd = 0.30, tauD = 0.2, iMax = 0.3, iMin = -0.3 },
+    pitch = { kp = 0.3, ki = 0, kd = 0.4, tauD = 0.2 },
+    roll  = { kp = 0.3, ki = 0, kd = 0.4, tauD = 0.2 },
+    yaw   = { kp = 0.5, ki = 0, kd = 0.2 },
+    sway  = { kp = 0.3, ki = 0, kd = 0.4 },
+    surge = { kp = 0.3, ki = 0, kd = 0.4 } })
+  local m = { altitude=10, vSpeed=0, pitch=0, pitchRate=0, roll=0, rollRate=0,
+    heading=0, yawRate=0, swayPos=0, swayVel=0, surgePos=0, surgeVel=0 }
+  local d = sc:update({ altitude=10, pitch=0, roll=0, heading=0, swayPos=1, surgePos=-1 }, m, 0.1)
+  t.truthy(d.sway > 0)     -- +swayPos error -> push right
+  t.truthy(d.surge < 0)    -- -surgePos error -> push back
+end)

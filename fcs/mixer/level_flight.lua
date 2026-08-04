@@ -26,7 +26,8 @@ function Mixer:mix(d)
     FL = clamp(h + p + r), FR = clamp(h + p - r),
     RL = clamp(h - p + r), RR = clamp(h - p - r),
   }
-  for id, duty in pairs(self:mixYaw(d.yaw)) do out[id] = duty end
+  for id, duty in pairs(self:mixLateral(d.sway, d.yaw)) do out[id] = duty end
+  for id, duty in pairs(self:mixSurge(d.surge)) do out[id] = duty end
   return out
 end
 return Mixer
