@@ -6,15 +6,20 @@ local FRONT = { FL = 1, FR = 1, RL = -1, RR = -1 }   -- +1 front, -1 rear
 -- +roll = right-wing-down, physically produced by MORE lift on the LEFT side
 -- (left rises -> right wing drops). So the LEFT thrusters carry the +roll moment.
 local ROLL = { FL = 1, FR = -1, RL = 1, RR = -1 }    -- +1 = LEFT side -> positive roll moment
+-- +yaw = nose-right; must match the mixer's YAW_DIR (fcs/mixer/level_flight.lua)
+local YAW_DIR = { YFL = 1, YFR = -1, YRL = -1, YRR = 1 }
 function Sim.new(cfg)
   local self = setmetatable({ cfg = cfg, on = {} }, Sim)
   self.altitude, self.vSpeed = 0, 0
   self.pitch, self.pitchRate = 0, 0
   self.roll, self.rollRate = 0, 0
+  self.heading, self.yawRate = 0, 0
   for _, id in ipairs(frame.LIFT) do self.on[id] = false end
+  for _, id in ipairs(frame.LATERAL) do self.on[id] = false end
   return self
 end
 function Sim:liftIds() return frame.LIFT end
+function Sim:lateralIds() return frame.LATERAL end
 function Sim:setThruster(id, s) self.on[id] = s and true or false end
 function Sim:step(dt)
   local c = self.cfg
@@ -34,11 +39,20 @@ function Sim:step(dt)
   self.pitch = self.pitch + self.pitchRate * dt
   self.rollRate = self.rollRate + (rm / c.inertia) * dt
   self.roll = self.roll + self.rollRate * dt
+  local fPerLat = c.fPerLat or 8
+  local yawInertia = c.yawInertia or 2
+  local ym = 0
+  for _, id in ipairs(frame.LATERAL) do
+    if self.on[id] then ym = ym + YAW_DIR[id] * fPerLat end
+  end
+  self.yawRate = self.yawRate + (ym / yawInertia) * dt
+  self.heading = self.heading + self.yawRate * dt
 end
 function Sim:sensors()
   return { altitude = self.altitude, vSpeed = self.vSpeed,
            pitch = self.pitch, pitchRate = self.pitchRate,
            roll = self.roll, rollRate = self.rollRate,
+           heading = self.heading, yawRate = self.yawRate,
            onGround = (self.altitude <= 0 and math.abs(self.vSpeed) < 0.01) }
 end
 return Sim
