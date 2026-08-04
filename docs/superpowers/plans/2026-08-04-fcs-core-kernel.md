@@ -106,7 +106,8 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DATA="$(mktemp -d)"
 COMP="$DATA/computer/0"
 mkdir -p "$COMP"
-cp -r "$ROOT/fcs" "$ROOT/tests" "$COMP/"
+if [ -d "$ROOT/fcs" ]; then cp -r "$ROOT/fcs" "$COMP/"; fi
+cp -r "$ROOT/tests" "$COMP/"
 cat > "$COMP/startup.lua" <<'LUA'
 package.path = "/?.lua;/?/init.lua;" .. package.path
 local suites = { "tests.test_smoke", "tests.test_pid", "tests.test_pwm",
@@ -118,7 +119,8 @@ local f = fs.open("/results.txt", "w"); f.write((ok and "OK\n" or "FAILED\n") ..
 os.shutdown()
 LUA
 timeout 60 "/c/Program Files/CraftOS-PC/CraftOS-PC_console.exe" --headless -d "$DATA" >/dev/null 2>&1 || true
-cat "$COMP/../0/results.txt"
+if [ ! -f "$COMP/results.txt" ]; then echo "NO RESULTS (harness did not run)"; exit 1; fi
+cat "$COMP/results.txt"
 grep -q '^OK' "$COMP/results.txt"
 ```
 
@@ -568,7 +570,7 @@ t.test("all four lift on climbs; none falls", function()
   for _, id in ipairs(s:liftIds()) do s:setThruster(id, true) end
   s:step(0.1)
   t.truthy(s:sensors().vSpeed > 0)           -- 60N up vs 40N weight => climbs
-  local s2 = Sim.new(hoverCfg()); s2:step(0.1)
+  local s2 = Sim.new(hoverCfg()); s2.altitude = 5; s2:step(0.1)  -- airborne so the ground clamp doesn't mask the fall
   t.truthy(s2:sensors().vSpeed < 0)          -- all off => falls
 end)
 t.test("front pair only pitches nose up", function()
@@ -641,6 +643,8 @@ return Sim
 
 Run: `bash tests/run_headless.sh`
 Expected: PASS. Each direction test fails if its sign is flipped — verify by temporarily flipping `FRONT`/`RIGHT` and re-running (pins physics against physics, not against the controller).
+
+> **⚠️ Correction (post-implementation, commit `5cba8fc`):** the `RIGHT` roll-moment table above shipped **inverted** — the whole-branch final review caught it as roll *positive feedback* (a disturbed roll would diverge; masked because Plan 1 never disturbs attitude). The self-consistent per-task direction test did not catch it because it agreed with the same wrong convention (the exact v1 trap). Correct signs credit the **LEFT** thrusters positive, matching the mixer: `ROLL = { FL = 1, FR = -1, RL = 1, RR = -1 }`; the roll direction test fires the **LEFT** pair; and roll/pitch **recovery** tests were added that actually exercise the loops and guard the sign. Trust the shipped code, not this illustrative block.
 
 - [ ] **Step 5: Commit**
 

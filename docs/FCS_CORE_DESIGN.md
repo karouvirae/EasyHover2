@@ -527,6 +527,7 @@ chosen role on that PC.
 4. **Velocity sensors** — units (blocks/tick vs /s) and the ~0.05 deadband in practice.
 5. **PID vs PI** — settle against the sim (§5).
 6. Thruster peripheral survival across assembly; re-scan/re-wrap after every assembly.
+7. **Attitude disturbance-rejection limit cycle (found building the kernel).** With the seed gains, a *disturbed* pitch/roll settles into a **bounded ~0.5 rad (~29°) bang-bang limit cycle** rather than tight level — altitude hover is solid, but attitude *hold under disturbance* needs a dedicated tuning pass (more D / slower attitude loop / finer resolution — i.e. the sigma-delta or hybrid modulator from §7) before the craft flies flat against real disturbances. This is the attitude-side echo of the §7 bob question. (Roll-moment sign was inverted in the sim and is now fixed + guarded by recovery tests; see the plan's Task 8 correction note.)
 
 ---
 
