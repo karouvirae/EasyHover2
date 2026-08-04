@@ -6,11 +6,13 @@ local Pwm = require("fcs.actuate.pwm")
 local Sim = require("tests.sim")
 local Heading = require("fcs.control.heading")
 local function build()
-  local sim = Sim.new({ mass = 4, g = 10, fPer = 15, inertia = 2, armX = 1, armZ = 1 })
+  local sim = Sim.new({ mass = 4, g = 10, fPer = 15, inertia = 2, armX = 1, armZ = 1,
+    fPerLat = 8, yawInertia = 8 })
   local sc = Scheme.new({ hoverDuty = 0.66,
     alt = { kp = 0.04, ki = 0.02, kd = 0.30, tauD = 0.2, iMax = 0.3, iMin = -0.3 },
     pitch = { kp = 0.3, ki = 0, kd = 0.4, tauD = 0.2 },
-    roll = { kp = 0.3, ki = 0, kd = 0.4, tauD = 0.2 } })
+    roll = { kp = 0.3, ki = 0, kd = 0.4, tauD = 0.2 },
+    yaw = { kp = 0.5, ki = 0, kd = 0.2 } })
   local loop = Loop.new({ scheme = sc, mixer = Mixer.new(),
     pwm = Pwm.new({ period = 0.3, backend = sim }), backend = sim, dtMax = 0.5 })
   return loop, sim
@@ -117,4 +119,18 @@ t.test("a single dt spike causes no altitude kick", function()
   local before = sim:sensors().altitude
   loop:cycle(5.0); sim:step(0.1)             -- stall cycle (clamped, integ/deriv skipped)
   t.near(sim:sensors().altitude, before, 0.5)
+end)
+t.test("holds commanded heading and converges from a yaw disturbance", function()
+  local loop, sim = build(); loop:arm(true)
+  loop:setpoints({ altitude = 10, pitch = 0, roll = 0, heading = 0.0 })
+  fly(loop, sim, 10, function() return 0.1 end)   -- settle
+  sim.heading = 0.6; sim.yawRate = 0               -- inject a heading disturbance (~34 deg)
+  fly(loop, sim, 25, function() return 0.1 end)
+  t.near(sim:sensors().heading, 0.0, 0.05)         -- re-levels heading (would fail on a limit cycle / wrong sign)
+end)
+t.test("captures and holds a new commanded heading", function()
+  local loop, sim = build(); loop:arm(true)
+  loop:setpoints({ altitude = 10, pitch = 0, roll = 0, heading = 0.8 })
+  fly(loop, sim, 30, function() return 0.1 end)
+  t.near(sim:sensors().heading, 0.8, 0.05)         -- flew to the commanded heading and held
 end)
