@@ -17,14 +17,14 @@ function Scheme:reset()
   self.altPid:reset(); self.pitchPid:reset(); self.rollPid:reset(); self.headingPid:reset()
   self.swayTc:reset(); self.surgeTc:reset()
 end
-function Scheme:update(sp, m, dt)
+function Scheme:update(sp, m, dt, freeze)
   return {
-    heave = self.hoverDuty + self.altPid:update(sp.altitude, m.altitude, dt),
-    pitch = self.pitchPid:update(sp.pitch or 0, m.pitch, dt),
-    roll = self.rollPid:update(sp.roll or 0, m.roll, dt),
-    yaw = self.headingPid:update(sp.heading or 0, m.heading or 0, m.yawRate or 0, dt),
-    sway = self.swayTc:update(sp.swayPos or 0, m.swayPos or 0, m.swayVel or 0, dt),
-    surge = self.surgeTc:update(sp.surgePos or 0, m.surgePos or 0, m.surgeVel or 0, dt),
+    heave = self.hoverDuty + self.altPid:update(sp.altitude, m.altitude, dt, freeze),
+    pitch = self.pitchPid:update(sp.pitch or 0, m.pitch, dt, freeze),
+    roll = self.rollPid:update(sp.roll or 0, m.roll, dt, freeze),
+    yaw = self.headingPid:update(sp.heading or 0, m.heading or 0, m.yawRate or 0, dt, freeze),
+    sway = self.swayTc:update(sp.swayPos or 0, m.swayPos or 0, m.swayVel or 0, dt, freeze),
+    surge = self.surgeTc:update(sp.surgePos or 0, m.surgePos or 0, m.surgeVel or 0, dt, freeze),
   }
 end
 return Scheme

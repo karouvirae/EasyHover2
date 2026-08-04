@@ -164,6 +164,16 @@ t.test("translates forward to a commanded position and holds", function()
   fly(loop, sim, 30, function() return 0.1 end)
   t.near(sim:sensors().surgePos, 3, 0.15)   -- flew forward 3m and held
 end)
+t.test("freeze flag stops integral windup across the scheme", function()
+  local sc = Scheme.new({ hoverDuty = 0.66,
+    alt = { kp = 0, ki = 1, kd = 0 }, pitch = { kp=0,ki=0,kd=0 }, roll = { kp=0,ki=0,kd=0 },
+    yaw = { kp=0,ki=0,kd=0 }, sway = { kp=0,ki=0,kd=0 }, surge = { kp=0,ki=0,kd=0 } })
+  local m = { altitude=0, vSpeed=0, pitch=0, pitchRate=0, roll=0, rollRate=0,
+    heading=0, yawRate=0, swayPos=0, swayVel=0, surgePos=0, surgeVel=0 }
+  local sp = { altitude=10, pitch=0, roll=0, heading=0, swayPos=0, surgePos=0 }
+  for _ = 1, 20 do sc:update(sp, m, 0.1, true) end          -- frozen: no windup
+  t.near(sc:update(sp, m, 0, true).heave, 0.66, 1e-9)        -- heave == hoverDuty (I stayed 0)
+end)
 t.test("leash caps the commanded lead distance", function()
   -- with a leashed setpoint the position error can't exceed maxLead
   local leash = require("fcs.leash")
