@@ -60,4 +60,23 @@ function M.classifyLateralPair(neutral, swaySample, yawSample, opts)
            swayOk = swayStatus == "ok", yawOk = yawStatus == "ok" }
 end
 
+function M.detectHeadingScale(neutralHeading, sampleHeading, opts)
+  opts = opts or {}
+  local degT = opts.degThreshold or M.HEADING_DEG
+  local floor = opts.floor or M.FLOOR
+  local d = sampleHeading - neutralHeading
+  local unit = math.abs(d) > degT and "deg" or "rad"
+  local scale = unit == "deg" and (math.pi / 180) or 1
+  return { sign = signOf(d), scale = scale, unit = unit, magnitude = math.abs(d),
+           status = math.abs(d) >= floor and "ok" or "too-small" }
+end
+
+function M.computeHeightOffset(groundRawAlt, baroThrusterOffset)
+  return -((groundRawAlt or 0) + (baroThrusterOffset or 0))
+end
+
+function M.computeGroundThreshold(opticalOnGround, margin)
+  return (opticalOnGround or 0) + (margin or 0.5)
+end
+
 return M
