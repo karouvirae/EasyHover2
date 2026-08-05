@@ -83,13 +83,14 @@ end
 local function accept(result)
   print(("  status %s"):format(result.status or "ok"))
   if result.status and result.status ~= "ok" then
-    print("  REJECTED (" .. result.status .. ") — redo bigger/cleaner"); return false
+    print("  REJECTED (" .. result.status .. ") - redo bigger/cleaner"); return false
   end
   write("  accept? (y/n): "); return read() == "y"
 end
 
 local function stepAttitude(shim, config)
-  local gim = shim.wrap(config.sensors.gimbal)
+  local gname = config.sensors.gimbal
+  local gim = gname and shim.wrap(gname)
   if not gim then print("no gimbal bound"); return end
   local function angles() return gim.getAngles() or {0, 0} end
   for _, axis in ipairs({ "pitch", "roll" }) do
@@ -103,7 +104,8 @@ local function stepAttitude(shim, config)
 end
 
 local function stepLateral(shim, config)
-  local vf, vr = shim.wrap(config.sensors.velFront), shim.wrap(config.sensors.velRear)
+  local vfname, vrname = config.sensors.velFront, config.sensors.velRear
+  local vf, vr = vfname and shim.wrap(vfname), vrname and shim.wrap(vrname)
   if not (vf and vr) then print("velFront/velRear not bound"); return end
   local nF, nR = readNum(vf, "getVelocity"), readNum(vr, "getVelocity")
   local function pair() return { front = readNum(vf, "getVelocity"), rear = readNum(vr, "getVelocity") } end
@@ -121,11 +123,12 @@ local function stepLateral(shim, config)
     r.signFront, r.signRear, r.signYawRate, r.swayStatus, r.yawStatus))
   if r.swayOk and r.yawOk then
     write("  accept? (y/n): "); if read() == "y" then M.applyLateral(config, r); saveConfig(config); print("  saved") end
-  else print("  REJECTED — sway must be a clean sideways shove, yaw a clean rotation") end
+  else print("  REJECTED - sway must be a clean sideways shove, yaw a clean rotation") end
 end
 
 local function stepSurge(shim, config)
-  local vm = shim.wrap(config.sensors.velMedial)
+  local vmname = config.sensors.velMedial
+  local vm = vmname and shim.wrap(vmname)
   if not vm then print("velMedial not bound"); return end
   local n = readNum(vm, "getVelocity")
   print("SHOVE craft FORWARD, press Enter then shove for 3s"); read()
@@ -136,7 +139,8 @@ local function stepSurge(shim, config)
 end
 
 local function stepHeading(shim, config)
-  local nav = shim.wrap(config.sensors.navTable)
+  local navname = config.sensors.navTable
+  local nav = navname and shim.wrap(navname)
   if not nav then print("navTable not bound"); return end
   print("Face craft at reference heading, press Enter for neutral"); read()
   local n = readNum(nav, "getRelativeAngle")
@@ -148,7 +152,8 @@ local function stepHeading(shim, config)
 end
 
 local function stepGround(shim, config)
-  local alt, opt = shim.wrap(config.sensors.altimeter), shim.wrap(config.sensors.downOptical)
+  local altname, optname = config.sensors.altimeter, config.sensors.downOptical
+  local alt, opt = altname and shim.wrap(altname), optname and shim.wrap(optname)
   if not (alt and opt) then print("altimeter/downOptical not bound"); return end
   print("Set craft ON THE GROUND at rest, press Enter"); read()
   local rawAlt = readNum(alt, "getHeight")
