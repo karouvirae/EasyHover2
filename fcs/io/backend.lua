@@ -17,7 +17,7 @@ function Backend:_periph(name)
 end
 function Backend:setThruster(id, on)
   local p = self:_periph(self.config.thrusters[id])
-  if p then p.setThrust(on and 15 or 0) end   -- CC wrapped peripherals take NO self
+  if p then p.setPower(on and 15 or 0) end   -- real Create thruster method is setPower(0..15); no self
 end
 function Backend:_read(name, method, ...)
   local p = self:_periph(name)

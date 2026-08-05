@@ -7,11 +7,12 @@ function M.shim(periphs)
   }
 end
 -- Fakes mimic real CC wrapped peripherals: methods are PLAIN functions (NO self arg),
--- called as p.setThrust(v) / p.getHeight(). Thruster state is mutated via closure over the table.
+-- called as p.setPower(v) / p.getHeight(). Thruster state is mutated via closure over the table.
+-- Real Create thrusters expose setPower(0..15) (NOT setThrust) + getCurrentThrustKN (confirmed in-game).
 function M.thruster()
   local f = { thrust = 0, fuelledKN = 24, _type = "thruster" }
-  f.setThrust = function(v) f.thrust = v end
-  f.getThrust = function() return f.thrust end
+  f.setPower = function(v) f.thrust = v end
+  f.getPower = function() return f.thrust end
   f.getCurrentThrustKN = function() return f.thrust > 0 and f.fuelledKN or 0 end
   return f
 end
