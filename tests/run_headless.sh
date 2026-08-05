@@ -11,7 +11,7 @@ cat > "$COMP/startup.lua" <<'LUA'
 package.path = "/?.lua;/?/init.lua;" .. package.path
 local suites = { "tests.test_hwconfig", "tests.test_smoke", "tests.test_pid", "tests.test_pwm", "tests.test_sigma_delta",
                  "tests.test_mixer", "tests.test_sim", "tests.test_integration", "tests.test_angle", "tests.test_yaw_mixer",
-                 "tests.test_sim_yaw", "tests.test_heading", "tests.test_surge_mixer", "tests.test_sim_horizontal", "tests.test_translate", "tests.test_leash", "tests.test_envelope", "tests.test_oscillation", "tests.test_backend", "tests.test_backend_dropin", "tests.test_probe", "tests.test_calibration" }
+                 "tests.test_sim_yaw", "tests.test_heading", "tests.test_surge_mixer", "tests.test_sim_horizontal", "tests.test_translate", "tests.test_leash", "tests.test_envelope", "tests.test_oscillation", "tests.test_backend", "tests.test_backend_dropin", "tests.test_probe", "tests.test_calibration", "tests.test_calibrate" }
 local t = require("tests.framework")
 local loadErrs = {}
 for _, s in ipairs(suites) do
