@@ -8,9 +8,11 @@
 local BASE = "https://raw.githubusercontent.com/maar-10/EasyHover2/main/"
 local FILES = {
   "tools/probe.lua",
+  "tools/calibrate.lua",
   "fcs/io/shim.lua",
   "fcs/io/backend.lua",
   "fcs/io/hwconfig.lua",
+  "fcs/io/calibration.lua",
   "fcs/frame.lua",
 }
 
@@ -44,6 +46,14 @@ local lf = fs.open("probe", "w")
 lf.write(LAUNCHER)
 lf.close()
 
+local CAL_LAUNCHER = 'package.path = "/?.lua;/?/init.lua;" .. package.path\n'
+                  .. 'require("tools.calibrate").run()\n'
+local cf = fs.open("calibrate", "w")
+cf.write(CAL_LAUNCHER)
+cf.close()
+
 print("")
 print("Installed. Start the bring-up probe with:")
 print("  probe")
+print("Run guided sensor calibration with:")
+print("  calibrate")
