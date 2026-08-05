@@ -54,10 +54,17 @@ function M.classifyLateralPair(neutral, swaySample, yawSample, opts)
   -- yaw sign from the differential of the sign-normalized yaw sample
   local diff = signFront * yf - signRear * yr
   local comm = signFront * yf + signRear * yr
-  local yawStatus = M.gate(diff, comm, floor, ratio)
+  -- The differential (front-rear) cancels common-mode translation by construction, so
+  -- its sign is the yaw sign no matter how much sway/surge the motion also carried. We
+  -- therefore require ONLY that it clear the noise floor (a real rotation happened) --
+  -- NOT that it dominate the common-mode. A plunger yaw pivots off-center and always
+  -- carries translation; a ratio gate here wrongly rejects clean, obvious turns.
+  local yawFloor = opts.yawFloor or M.FLOOR
+  local yawStatus = math.abs(diff) >= yawFloor and "ok" or "too-small"
   return { signFront = signFront, signRear = signRear, signYawRate = signOf(diff),
            swayStatus = swayStatus, yawStatus = yawStatus,
-           swayOk = swayStatus == "ok", yawOk = yawStatus == "ok" }
+           swayOk = swayStatus == "ok", yawOk = yawStatus == "ok",
+           yawDiff = diff, yawComm = comm }
 end
 
 function M.detectHeadingScale(neutralHeading, sampleHeading, opts)

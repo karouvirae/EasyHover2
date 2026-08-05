@@ -62,12 +62,28 @@ end)
 t.test("classifyLateralPair: yaw contaminated with sway still yields clean yaw sign", function()
   -- nose-right yaw (front +, rear -) plus 30pct common sway drift (+0.6 both)
   local r = cal.classifyLateralPair(NZ, {front=2.0, rear=2.0},
-                                        {front=2.6, rear=-1.4})   -- diff=4.0 dominates comm=1.2
+                                        {front=2.6, rear=-1.4})   -- diff=4.0 (well above floor)
   t.eq(r.signYawRate, 1); t.eq(r.yawOk, true)
 end)
 t.test("classifyLateralPair: a mostly-yaw sway sample is rejected (swayOk false)", function()
   local r = cal.classifyLateralPair(NZ, {front=2.0, rear=-2.0}, {front=2.0, rear=-2.0})
   t.eq(r.swayOk, false)   -- sway sample had no common-mode
+end)
+t.test("classifyLateralPair: off-center-pivot yaw with large common-mode is still accepted", function()
+  -- plunger yaw pivots off-center: front swings far more than rear, so the sample carries
+  -- big common-mode translation. The differential (front-rear) still captures the rotation,
+  -- so this MUST be accepted (the old ratio gate wrongly rejected it as too-ambiguous).
+  local r = cal.classifyLateralPair(NZ, {front=2.0, rear=2.0}, {front=3.0, rear=1.0})
+  t.eq(r.yawOk, true); t.eq(r.signYawRate, 1)   -- diff=2 (>floor), comm=4
+end)
+t.test("classifyLateralPair: nose-left off-center yaw gives signYawRate -1", function()
+  local r = cal.classifyLateralPair(NZ, {front=2.0, rear=2.0}, {front=1.0, rear=3.0})
+  t.eq(r.yawOk, true); t.eq(r.signYawRate, -1)  -- diff=-2
+end)
+t.test("classifyLateralPair: pure translation during the yaw step is rejected (no rotation)", function()
+  -- yaw sample is common motion with no differential -> diff ~ 0 -> too-small
+  local r = cal.classifyLateralPair(NZ, {front=2.0, rear=2.0}, {front=1.5, rear=1.5})
+  t.eq(r.yawOk, false)
 end)
 t.test("detectHeadingScale: 90 deg rotation detected as degrees, sign +", function()
   local r = cal.detectHeadingScale(0, 90)
