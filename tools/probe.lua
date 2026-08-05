@@ -27,7 +27,7 @@ function M.run()
   local Backend = require("fcs.io.backend")
   local config = loadConfig()
   while true do
-    print("\n== EH2 PROBE ==  1 discover 2 bind 3 sensors 4 thruster 5 timing 6 roles q quit")
+    print("\n== EH2 PROBE == 1 discover 2 bind 3 sensors 4 thruster 5 timing 6 roles 7 methods q quit")
     local ch = read()
     if ch == "1" then discover(shim)
     elseif ch == "2" then
@@ -44,7 +44,10 @@ function M.run()
       write("peripheral NAME (e.g. thruster_1): "); local name = read()
       local p = name ~= "" and shim.wrap(name) or nil
       if not p then print("no such peripheral: " .. tostring(name))
-      elseif not p.setThrust then print(tostring(name) .. " has no setThrust")
+      elseif not p.setThrust then
+        print(tostring(name) .. " has no setThrust. Its methods:")
+        local ms = peripheral.getMethods(name)
+        if ms then local s = ""; for _, m in ipairs(ms) do s = s .. m .. " " end; print(s) else print("(none)") end
       else
         p.setThrust(15); sleep(0.5)
         print("thrustKN=" .. tostring(p.getCurrentThrustKN and p.getCurrentThrustKN() or "n/a"))
@@ -63,6 +66,11 @@ function M.run()
     elseif ch == "6" then
       print("THRUSTERS: FL FR RL RR (lift) | YFL YFR YRL YRR (lateral) | MAIN (accel) | FRL FRR (front brakes)")
       print("SENSORS: altimeter gimbal navTable downOptical velFront velRear velMedial | fuelRelay")
+    elseif ch == "7" then
+      write("peripheral NAME: "); local name = read()
+      local ms = peripheral.getMethods(name)
+      if not ms then print("no such peripheral: " .. tostring(name))
+      else local s = ""; for _, m in ipairs(ms) do s = s .. m .. " " end; print(s) end
     elseif ch == "q" then return end
   end
 end
