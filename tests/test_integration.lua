@@ -3,6 +3,7 @@ local Scheme = require("fcs.schemes.level_flight")
 local Loop = require("fcs.runtime.loop")
 local Mixer = require("fcs.mixer.level_flight")
 local Pwm = require("fcs.actuate.pwm")
+local SigmaDelta = require("fcs.actuate.sigma_delta")
 local Sim = require("tests.sim")
 local Heading = require("fcs.control.heading")
 local function build(opts)
@@ -13,12 +14,12 @@ local function build(opts)
     alt = { kp = 0.04, ki = 0.02, kd = 0.30, tauD = 0.2, iMax = 0.3, iMin = -0.3 },
     pitch = { kp = 0.3, ki = 0, kd = 0.4, tauD = 0.2 },
     roll = { kp = 0.3, ki = 0, kd = 0.4, tauD = 0.2 },
-    yaw = { kp = 0.5, ki = 0, kd = 0.2 },
+    yaw = { kp = 0.8, ki = 0, kd = 1.4 },
     sway = { kp = 0.5, ki = 0, kd = 0.5 },
     surge = { kp = 0.3, ki = 0, kd = 0.5 } })
   local loop = Loop.new({ scheme = sc, mixer = Mixer.new(),
-    pwm = Pwm.new({ period = 0.3, backend = sim }), backend = sim, dtMax = 0.5,
-    caps = opts.caps, osc = opts.osc })
+    pwm = Pwm.new({ period = 0.3, backend = sim }), sd = SigmaDelta.new({ backend = sim }),
+    backend = sim, dtMax = 0.5, caps = opts.caps, osc = opts.osc })
   return loop, sim
 end
 t.test("scheme outputs hover heave at altitude setpoint, level", function()
@@ -137,6 +138,26 @@ t.test("captures and holds a new commanded heading", function()
   loop:setpoints({ altitude = 10, pitch = 0, roll = 0, heading = 0.8 })
   fly(loop, sim, 30, function() return 0.1 end)
   t.near(sim:sensors().heading, 0.8, 0.05)         -- flew to the commanded heading and held
+end)
+t.test("runtime routes lift to PWM and non-lift to sigma-delta", function()
+  local SigmaDelta = require("fcs.actuate.sigma_delta")
+  local Pwm = require("fcs.actuate.pwm")
+  local Mixer = require("fcs.mixer.level_flight")
+  local Sim = require("tests.sim")
+  local Scheme = require("fcs.schemes.level_flight")
+  local Loop = require("fcs.runtime.loop")
+  local sim = Sim.new({ mass=4, g=10, fPer=15, inertia=2, armX=1, armZ=1,
+    fPerLat=8, yawInertia=8, fMain=20, fFrontal=10 })
+  local sc = Scheme.new({ hoverDuty=0.66,
+    alt={kp=0.04,ki=0.02,kd=0.30,tauD=0.2,iMax=0.3,iMin=-0.3},
+    pitch={kp=0.3,ki=0,kd=0.4,tauD=0.2}, roll={kp=0.3,ki=0,kd=0.4,tauD=0.2},
+    yaw={kp=0.8,ki=0,kd=1.4}, sway={kp=0.3,ki=0,kd=0.5}, surge={kp=0.3,ki=0,kd=0.5} })
+  local loop = Loop.new({ scheme=sc, mixer=Mixer.new(),
+    pwm=Pwm.new({ period=0.3, backend=sim }),
+    sd=SigmaDelta.new({ backend=sim }), backend=sim, dtMax=0.5 })
+  loop:arm(true); loop:setpoints({ altitude=10, pitch=0, roll=0, heading=0.5, swayPos=0, surgePos=0 })
+  for _ = 1, 60 do loop:cycle(0.1); sim:step(0.1) end
+  t.near(sim:sensors().heading, 0.5, 0.05)      -- yaw still reaches heading via sigma-delta
 end)
 t.test("scheme emits sway/surge force toward a position setpoint", function()
   local sc = Scheme.new({ hoverDuty = 0.66,
