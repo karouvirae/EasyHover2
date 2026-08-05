@@ -27,7 +27,7 @@ function M.run()
   local Backend = require("fcs.io.backend")
   local config = loadConfig()
   while true do
-    print("\n== EH2 PROBE ==  1 discover  2 bind  3 sensors  4 thruster  5 timing  q quit")
+    print("\n== EH2 PROBE ==  1 discover 2 bind 3 sensors 4 thruster 5 timing 6 roles q quit")
     local ch = read()
     if ch == "1" then discover(shim)
     elseif ch == "2" then
@@ -41,15 +41,28 @@ function M.run()
           :format(s.altitude,s.vSpeed,s.pitch,s.roll,s.heading,s.yawRate,s.swayVel,s.surgeVel,tostring(s.onGround)))
         sleep(0.3) end
     elseif ch == "4" then
-      write("thruster id: "); local id = read()
-      local b = Backend.new(shim, config)
-      b:setThruster(id, true); sleep(0.5)
-      local p = shim.wrap(config.thrusters[id]); print("thrustKN=" .. tostring(p and p.getCurrentThrustKN and p.getCurrentThrustKN()))
-      b:setThruster(id, false)
+      write("peripheral NAME (e.g. thruster_1): "); local name = read()
+      local p = name ~= "" and shim.wrap(name) or nil
+      if not p then print("no such peripheral: " .. tostring(name))
+      elseif not p.setThrust then print(tostring(name) .. " has no setThrust")
+      else
+        p.setThrust(15); sleep(0.5)
+        print("thrustKN=" .. tostring(p.getCurrentThrustKN and p.getCurrentThrustKN() or "n/a"))
+        p.setThrust(0)
+      end
     elseif ch == "5" then
-      write("thruster id: "); local id = read()
-      local b = Backend.new(shim, config)
-      print(("avg %.2f ms/write over 40 writes"):format(M.measureWrite(b, id, 40)))
+      write("peripheral NAME: "); local name = read()
+      local p = name ~= "" and shim.wrap(name) or nil
+      if not p or not p.setThrust then print("no thruster peripheral: " .. tostring(name))
+      else
+        local n = 40; local t0 = os.epoch("utc")
+        for i = 1, n do p.setThrust(i % 2 == 0 and 15 or 0) end
+        p.setThrust(0)
+        print(("avg %.2f ms/write over %d writes"):format((os.epoch("utc") - t0) / n, n))
+      end
+    elseif ch == "6" then
+      print("THRUSTERS: FL FR RL RR (lift) | YFL YFR YRL YRR (lateral) | MAIN (accel) | FRL FRR (front brakes)")
+      print("SENSORS: altimeter gimbal navTable downOptical velFront velRear velMedial | fuelRelay")
     elseif ch == "q" then return end
   end
 end
