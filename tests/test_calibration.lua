@@ -47,3 +47,25 @@ end)
 t.test("classifyGimbalAxis: no real motion is too-small", function()
   t.eq(cal.classifyGimbalAxis({0, 0}, {0.001, -0.001}).status, "too-small")
 end)
+local NZ = {front=0, rear=0}
+t.test("classifyLateralPair: clean rightward sway sets both signs +", function()
+  -- both sensors read + for rightward; yaw: front +, rear - (nose-right)
+  local r = cal.classifyLateralPair(NZ, {front=2.0, rear=2.0}, {front=2.0, rear=-2.0})
+  t.eq(r.signFront, 1); t.eq(r.signRear, 1); t.eq(r.signYawRate, 1)
+  t.eq(r.swayOk, true); t.eq(r.yawOk, true)
+end)
+t.test("classifyLateralPair: an inverted rear sensor is caught", function()
+  -- rear sensor wired inverted: reads - for rightward sway
+  local r = cal.classifyLateralPair(NZ, {front=2.0, rear=-2.0}, {front=2.0, rear=2.0})
+  t.eq(r.signFront, 1); t.eq(r.signRear, -1)
+end)
+t.test("classifyLateralPair: yaw contaminated with sway still yields clean yaw sign", function()
+  -- nose-right yaw (front +, rear -) plus 30pct common sway drift (+0.6 both)
+  local r = cal.classifyLateralPair(NZ, {front=2.0, rear=2.0},
+                                        {front=2.6, rear=-1.4})   -- diff=4.0 dominates comm=1.2
+  t.eq(r.signYawRate, 1); t.eq(r.yawOk, true)
+end)
+t.test("classifyLateralPair: a mostly-yaw sway sample is rejected (swayOk false)", function()
+  local r = cal.classifyLateralPair(NZ, {front=2.0, rear=-2.0}, {front=2.0, rear=-2.0})
+  t.eq(r.swayOk, false)   -- sway sample had no common-mode
+end)

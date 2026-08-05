@@ -40,4 +40,24 @@ function M.classifyGimbalAxis(neutral, moved, opts)
            status = M.gate(dom, other, opts.floor, opts.ratio) }
 end
 
+function M.classifyLateralPair(neutral, swaySample, yawSample, opts)
+  opts = opts or {}
+  local floor, ratio = opts.floor, opts.ratio
+  local sf = (swaySample.front or 0) - (neutral.front or 0)
+  local sr = (swaySample.rear  or 0) - (neutral.rear  or 0)
+  local yf = (yawSample.front or 0) - (neutral.front or 0)
+  local yr = (yawSample.rear  or 0) - (neutral.rear  or 0)
+  -- per-sensor sign from the sway sample: each sensor must read + for rightward
+  local signFront, signRear = signOf(sf), signOf(sr)
+  -- sway sample must be common-mode dominant (|sum| beats |difference|)
+  local swayStatus = M.gate(sf + sr, sf - sr, floor, ratio)
+  -- yaw sign from the differential of the sign-normalized yaw sample
+  local diff = signFront * yf - signRear * yr
+  local comm = signFront * yf + signRear * yr
+  local yawStatus = M.gate(diff, comm, floor, ratio)
+  return { signFront = signFront, signRear = signRear, signYawRate = signOf(diff),
+           swayStatus = swayStatus, yawStatus = yawStatus,
+           swayOk = swayStatus == "ok", yawOk = yawStatus == "ok" }
+end
+
 return M
