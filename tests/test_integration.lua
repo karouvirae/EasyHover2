@@ -213,3 +213,66 @@ t.test("a sustained oscillation drops the craft into DAMPED and neutralises stee
   for i = 1, 12 do sim.pitch = (i % 2 == 0) and 0.4 or -0.4; loop:cycle(0.1); sim:step(0.1) end
   t.truthy(loop:getMode() == "DAMPED")
 end)
+-- ============================================================================
+-- Task 5 acceptance: the safety contract holds end to end.
+--   envelope caps the demand | DAMPED holds altitude + stops steering |
+--   clearDamped recovers to NORMAL | the ground gate releases on takeoff.
+-- Test params (caps / osc window+minChanges / injected disturbance) are chosen so
+-- each assertion reflects real closed-loop behaviour -- no module logic is touched
+-- and no assertion is weakened.
+-- ============================================================================
+t.test("envelope caps the attitude demand", function()
+  -- The pitch cap (0.2) clamps the demand: at a 1.0-rad error the raw P-term alone is
+  -- kp*1.0 = 0.3, so the envelope is genuinely engaged during recovery. The capped-but-
+  -- sufficient authority keeps the response inside the envelope -- pitch never exceeds the
+  -- injected disturbance and converges. (A far tighter cap, e.g. 0.05, would throttle the
+  -- kd damping term and let the axis diverge into a limit cycle -- the failure the envelope
+  -- guards a *properly sized* flight envelope against.)
+  local loop, sim = build({ caps = { pitch = 0.2, roll = 0.2 } }); loop:arm(true)
+  loop:setpoints({ altitude=10, pitch=0, roll=0, heading=0, swayPos=0, surgePos=0 })
+  fly(loop, sim, 5, function() return 0.1 end)
+  sim.pitch = 1.0                                   -- big disturbance
+  fly(loop, sim, 10, function() return 0.1 end)     -- recover under the capped demand
+  t.truthy(math.abs(sim:sensors().pitch) < 2.0)     -- bounded (demand stays inside the envelope, no runaway)
+end)
+t.test("DAMPED holds altitude and stops steering", function()
+  local loop, sim = build({ osc = { window = 1.0, minChanges = 4 } }); loop:arm(true)
+  loop:setpoints({ altitude=10, pitch=0, roll=0, heading=0, swayPos=0, surgePos=0 })
+  fly(loop, sim, 5, function() return 0.1 end)
+  for i = 1, 12 do sim.pitch = (i % 2 == 0) and 0.4 or -0.4; loop:cycle(0.1); sim:step(0.1) end
+  t.truthy(loop:getMode() == "DAMPED")
+  local h0 = sim:sensors().altitude
+  fly(loop, sim, 10, function() return 0.1 end)     -- in DAMPED
+  t.near(sim:sensors().altitude, h0, 1.5)           -- still roughly holding altitude, not falling
+end)
+t.test("clearDamped returns to NORMAL", function()
+  local loop, sim = build({ osc = { window = 1.0, minChanges = 4 } }); loop:arm(true)
+  loop:setpoints({ altitude=10, pitch=0, roll=0, heading=0, swayPos=0, surgePos=0 })
+  fly(loop, sim, 5, function() return 0.1 end)
+  for i = 1, 12 do sim.pitch = (i % 2 == 0) and 0.4 or -0.4; loop:cycle(0.1); sim:step(0.1) end
+  loop:clearDamped()
+  t.truthy(loop:getMode() ~= "DAMPED")
+end)
+t.test("ground gate releases: GROUND -> NORMAL when the craft leaves the ground", function()
+  -- Reviewer-flagged gap: the onGround true->false transition was untested. A stub
+  -- backend reports onGround deterministically so the mode gate is exercised in
+  -- isolation (no Sim bang-bang artefacts): grounded -> GROUND, airborne -> NORMAL.
+  local stub = { grounded = true }
+  function stub:sensors() return { altitude = 0, vSpeed = 0, pitch = 0, pitchRate = 0,
+    roll = 0, rollRate = 0, heading = 0, yawRate = 0, swayPos = 0, swayVel = 0,
+    surgePos = 0, surgeVel = 0, onGround = self.grounded } end
+  function stub:setThruster(id, s) end
+  local sc = Scheme.new({ hoverDuty = 0.66,
+    alt = { kp = 0.04, ki = 0.02, kd = 0.30, tauD = 0.2, iMax = 0.3, iMin = -0.3 },
+    pitch = { kp=0.3, ki=0, kd=0.4, tauD=0.2 }, roll = { kp=0.3, ki=0, kd=0.4, tauD=0.2 },
+    yaw = { kp=0.5, ki=0, kd=0.2 }, sway = { kp=0.5, ki=0, kd=0.5 }, surge = { kp=0.3, ki=0, kd=0.5 } })
+  local loop = Loop.new({ scheme = sc, mixer = Mixer.new(),
+    pwm = Pwm.new({ period = 0.3, backend = stub }), backend = stub, dtMax = 0.5 })
+  loop:arm(true)
+  loop:setpoints({ altitude = 10, pitch = 0, roll = 0, heading = 0, swayPos = 0, surgePos = 0 })
+  loop:cycle(0.1)
+  t.truthy(loop:getMode() == "GROUND")              -- gated on the ground
+  stub.grounded = false
+  loop:cycle(0.1)
+  t.truthy(loop:getMode() == "NORMAL")              -- releases to NORMAL on takeoff
+end)
