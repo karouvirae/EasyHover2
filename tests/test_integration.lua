@@ -5,7 +5,8 @@ local Mixer = require("fcs.mixer.level_flight")
 local Pwm = require("fcs.actuate.pwm")
 local Sim = require("tests.sim")
 local Heading = require("fcs.control.heading")
-local function build()
+local function build(opts)
+  opts = opts or {}
   local sim = Sim.new({ mass = 4, g = 10, fPer = 15, inertia = 2, armX = 1, armZ = 1,
     fPerLat = 6, yawInertia = 8, fMain = 20, fFrontal = 10 })
   local sc = Scheme.new({ hoverDuty = 0.66,
@@ -16,7 +17,8 @@ local function build()
     sway = { kp = 0.5, ki = 0, kd = 0.5 },
     surge = { kp = 0.3, ki = 0, kd = 0.5 } })
   local loop = Loop.new({ scheme = sc, mixer = Mixer.new(),
-    pwm = Pwm.new({ period = 0.3, backend = sim }), backend = sim, dtMax = 0.5 })
+    pwm = Pwm.new({ period = 0.3, backend = sim }), backend = sim, dtMax = 0.5,
+    caps = opts.caps, osc = opts.osc })
   return loop, sim
 end
 t.test("scheme outputs hover heave at altitude setpoint, level", function()
@@ -180,4 +182,34 @@ t.test("leash caps the commanded lead distance", function()
   local sp = 0
   for _ = 1, 100 do sp = leash.step(sp, 1000, 0, 0.1, 5, 2.0) end
   t.near(sp, 2.0, 1e-9)                      -- pinned at pos(0)+maxLead(2)
+end)
+t.test("no integral windup while on the ground (no takeoff lurch)", function()
+  -- A stub backend reports onGround=true deterministically every cycle. This isolates
+  -- the ground-gate WIRING (mode + freeze threading) from the full Sim's bang-bang PWM:
+  -- at this suite's dt/thrust/mass, a single "on" pulse alone kicks vSpeed past the
+  -- onGround threshold regardless of freeze -- an artifact of the simulated actuation,
+  -- not of the safety logic under test. kp=0 isolates the accumulating ki term (same
+  -- pattern as the Task-1 scheme test) as the only thing that could cause windup.
+  local stub = {}
+  function stub:sensors() return { altitude = 0, vSpeed = 0, pitch = 0, pitchRate = 0,
+    roll = 0, rollRate = 0, heading = 0, yawRate = 0, swayPos = 0, swayVel = 0,
+    surgePos = 0, surgeVel = 0, onGround = true } end
+  function stub:setThruster(id, s) end
+  local sc = Scheme.new({ hoverDuty = 0.66,
+    alt = { kp = 0, ki = 0.05, kd = 0 }, pitch = { kp=0,ki=0,kd=0 }, roll = { kp=0,ki=0,kd=0 },
+    yaw = { kp=0,ki=0,kd=0 }, sway = { kp=0,ki=0,kd=0 }, surge = { kp=0,ki=0,kd=0 } })
+  local loop = Loop.new({ scheme = sc, mixer = Mixer.new(),
+    pwm = Pwm.new({ period = 0.3, backend = stub }), backend = stub, dtMax = 0.5 })
+  loop:arm(true)
+  loop:setpoints({ altitude = 10, pitch = 0, roll = 0, heading = 0, swayPos = 0, surgePos = 0 })
+  for _ = 1, 40 do loop:cycle(0.1) end
+  t.truthy(loop:getMode() == "GROUND")
+  t.near(sc.altPid.i, 0, 1e-9)      -- integrator frozen the whole time -> never wound up
+end)
+t.test("a sustained oscillation drops the craft into DAMPED and neutralises steering", function()
+  local loop, sim = build({ osc = { window = 1.0, minChanges = 4 } }); loop:arm(true)
+  loop:setpoints({ altitude=10, pitch=0, roll=0, heading=0, swayPos=0, surgePos=0 })
+  fly(loop, sim, 5, function() return 0.1 end)     -- get airborne
+  for i = 1, 12 do sim.pitch = (i % 2 == 0) and 0.4 or -0.4; loop:cycle(0.1); sim:step(0.1) end
+  t.truthy(loop:getMode() == "DAMPED")
 end)
