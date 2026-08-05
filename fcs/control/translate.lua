@@ -8,9 +8,9 @@ function T.new(cfg)
   self:reset(); return self
 end
 function T:reset() self.i = 0 end
-function T:update(sp, meas, vel, dt)
+function T:update(sp, meas, vel, dt, freeze)
   local err = sp - meas
-  if dt > 0 and dt <= self.dtMax then
+  if not freeze and dt > 0 and dt <= self.dtMax then
     self.i = self.i + self.ki * err * dt
     if self.i > self.iMax then self.i = self.iMax elseif self.i < self.iMin then self.i = self.iMin end
   end

@@ -9,9 +9,9 @@ function H.new(cfg)
   self:reset(); return self
 end
 function H:reset() self.i = 0 end
-function H:update(sp, meas, yawRate, dt)
+function H:update(sp, meas, yawRate, dt, freeze)
   local err = angle.wrap(sp - meas)
-  if dt > 0 and dt <= self.dtMax then
+  if not freeze and dt > 0 and dt <= self.dtMax then
     self.i = self.i + self.ki * err * dt
     if self.i > self.iMax then self.i = self.iMax elseif self.i < self.iMin then self.i = self.iMin end
   end
