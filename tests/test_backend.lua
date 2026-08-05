@@ -18,3 +18,46 @@ t.test("liftIds returns the four lift ids", function()
   local b = Backend.new(mocks.shim({}), { thrusters = {}, sensors = {}, bindings = {} })
   t.eq(#b:liftIds(), 4)
 end)
+local function sensorCfg()
+  return { thrusters = {},
+    sensors = { altimeter="alt", gimbal="gim", velFront="vf", velRear="vr", velMedial="vm", navTable="nav", downOptical="opt" },
+    bindings = { heightOffset=2, onGroundThreshold=1.5, yawBaseline=2, vSpeedTau=0.0,
+      gimbalPitchIdx=1, gimbalRollIdx=2, signPitch=1, signRoll=1, signVelFront=1, signVelRear=1, signVelMedial=1 } }
+end
+local function sensorRig(alt, angles, vf, vr, vm, navA, optD)
+  return mocks.shim({ alt=mocks.altitude(alt), gim=mocks.gimbal(angles),
+    vf=mocks.velocity(vf), vr=mocks.velocity(vr), vm=mocks.velocity(vm),
+    nav=mocks.navtable(navA), opt=mocks.optical(optD) })
+end
+t.test("altitude adds the height offset; attitude from gimbal", function()
+  local clk = 0; local b = Backend.new(sensorRig(10, {0.1,-0.2}, 0,0,0, 0.3, 5), sensorCfg(), function() return clk end)
+  local s = b:sensors()
+  t.near(s.altitude, 12, 1e-9)     -- 10 + offset 2
+  t.near(s.pitch, 0.1, 1e-9); t.near(s.roll, -0.2, 1e-9); t.near(s.heading, 0.3, 1e-9)
+end)
+t.test("yaw rate = (front-rear)/baseline; sway = avg; surge = medial", function()
+  local b = Backend.new(sensorRig(10, {0,0}, 3, 1, 4, 0, 5), sensorCfg(), function() return 0 end)
+  local s = b:sensors()
+  t.near(s.yawRate, 1, 1e-9)       -- (3-1)/2
+  t.near(s.swayVel, 2, 1e-9)       -- (3+1)/2
+  t.near(s.surgeVel, 4, 1e-9)
+end)
+t.test("onGround true when optical below threshold", function()
+  local b = Backend.new(sensorRig(10,{0,0},0,0,0,0, 0.5), sensorCfg(), function() return 0 end)
+  t.truthy(b:sensors().onGround == true)
+  local b2 = Backend.new(sensorRig(10,{0,0},0,0,0,0, 9), sensorCfg(), function() return 0 end)
+  t.truthy(b2:sensors().onGround == false)
+end)
+t.test("vSpeed derives from altitude change over dt (tau 0 = unfiltered)", function()
+  local clk = 0
+  local b = Backend.new(sensorRig(10,{0,0},0,0,0,0,5), sensorCfg(), function() return clk end)
+  b:sensors()                       -- first call seeds, vSpeed 0
+  -- rig can't change alt after construction; rebuild with a shared mutable altitude instead:
+  local altP = mocks.altitude(10)
+  local shim = mocks.shim({ alt=altP, gim=mocks.gimbal({0,0}), vf=mocks.velocity(0), vr=mocks.velocity(0),
+    vm=mocks.velocity(0), nav=mocks.navtable(0), opt=mocks.optical(5) })
+  local clk2 = 0; local b3 = Backend.new(shim, sensorCfg(), function() return clk2 end)
+  b3:sensors()                      -- seed at alt 10, t 0
+  altP.getHeight = function() return 11 end; clk2 = 500   -- +1m over 0.5s
+  t.near(b3:sensors().vSpeed, 2, 1e-6)   -- 1m / 0.5s
+end)
