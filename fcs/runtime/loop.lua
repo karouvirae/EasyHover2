@@ -5,9 +5,11 @@ local Loop = {}
 Loop.__index = Loop
 function Loop.new(cfg)
   local self = setmetatable({ scheme = cfg.scheme, mixer = cfg.mixer, pwm = cfg.pwm,
-    backend = cfg.backend, dtMax = cfg.dtMax or 0.5, sp = {}, armed = false,
+    sd = cfg.sd, backend = cfg.backend, dtMax = cfg.dtMax or 0.5, sp = {}, armed = false,
     caps = cfg.caps or {}, mode = "NORMAL" }, Loop)
   if cfg.osc then self.osc = Osc.new(cfg.osc) end
+  self.isLift = {}
+  for _, id in ipairs(frame.LIFT) do self.isLift[id] = true end
   return self
 end
 function Loop:setpoints(t) self.sp = t end
@@ -16,6 +18,18 @@ function Loop:getMode() return self.mode end
 function Loop:clearDamped()
   self.mode = "NORMAL"
   if self.osc then self.osc:reset() end
+end
+function Loop:apply(duties, dt)
+  if not self.sd then
+    self.pwm:apply(duties, dt)
+    return
+  end
+  local lift, rest = {}, {}
+  for id, duty in pairs(duties) do
+    if self.isLift[id] then lift[id] = duty else rest[id] = duty end
+  end
+  self.pwm:apply(lift, dt)
+  self.sd:apply(rest, dt)
 end
 function Loop:cycle(dt)
   if dt < 0 then dt = 0 elseif dt > self.dtMax then dt = self.dtMax end
@@ -27,7 +41,7 @@ function Loop:cycle(dt)
     for _, id in ipairs(frame.LATERAL) do zeros[id] = 0 end
     for _, id in ipairs(frame.MAIN) do zeros[id] = 0 end
     for _, id in ipairs(frame.FRONTAL) do zeros[id] = 0 end
-    self.pwm:apply(zeros, dt)
+    self:apply(zeros, dt)
     return
   end
   local grounded = m.onGround == true
@@ -43,6 +57,6 @@ function Loop:cycle(dt)
   end
   demands = envelope.clamp(demands, self.caps)
   local duties = self.mixer:mix(demands)
-  self.pwm:apply(duties, dt)
+  self:apply(duties, dt)
 end
 return Loop
