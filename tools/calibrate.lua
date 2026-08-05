@@ -1,4 +1,4 @@
--- EasyHover 2 — guided sensor calibration.
+-- EasyHover 2 - guided sensor calibration.
 -- Pure helpers here are headless-tested; the interactive run() shell (added later)
 -- is in-game only. Wrapped peripherals take NO self: p.getAngles(), p.getVelocity().
 local cal = require("fcs.io.calibration")
@@ -68,7 +68,10 @@ local function loadConfig()
   return hwconfig.merge(saved or {}, hwconfig.defaults())
 end
 local function saveConfig(c)
-  local f = fs.open(CONFIG_PATH, "w"); f.write(textutils.serialise(c)); f.close()
+  local tmp = CONFIG_PATH .. ".tmp"
+  local f = fs.open(tmp, "w"); f.write(textutils.serialise(c)); f.close()
+  if fs.exists(CONFIG_PATH) then fs.delete(CONFIG_PATH) end
+  fs.move(tmp, CONFIG_PATH)
 end
 
 local function readNum(p, method) if not p then return 0 end local v = p[method](); return v or 0 end
@@ -92,11 +95,16 @@ local function stepAttitude(shim, config)
   local gname = config.sensors.gimbal
   local gim = gname and shim.wrap(gname)
   if not gim then print("no gimbal bound"); return end
-  local function angles() return gim.getAngles() or {0, 0} end
+  local function avgAngles(secs)
+    local ss = stream(function() return gim.getAngles() or {0, 0} end, secs)
+    local a, b = {}, {}
+    for i, s in ipairs(ss) do a[i] = s[1] or 0; b[i] = s[2] or 0 end
+    return { M.average(a), M.average(b) }
+  end
   for _, axis in ipairs({ "pitch", "roll" }) do
     local prompt = axis == "pitch" and "Tilt NOSE UP ~20 deg and HOLD" or "Roll RIGHT WING DOWN ~20 deg and HOLD"
-    print("Hold craft LEVEL, press Enter for neutral"); read(); local n = angles()
-    print(prompt .. ", press Enter"); read(); local m = angles()
+    print("Hold craft LEVEL, press Enter for neutral"); read(); local n = avgAngles(1)
+    print(prompt .. ", press Enter"); read(); local m = avgAngles(1)
     local r = cal.classifyGimbalAxis(n, m)
     print(("%s -> idx %d sign %d unit %s (%.3f vs %.3f)"):format(axis, r.idx, r.sign, r.unit, r.dominant, r.runnerUp))
     if accept(r) then M.applyGimbal(config, axis, r); saveConfig(config); print("  saved") end
@@ -143,9 +151,9 @@ local function stepHeading(shim, config)
   local nav = navname and shim.wrap(navname)
   if not nav then print("navTable not bound"); return end
   print("Face craft at reference heading, press Enter for neutral"); read()
-  local n = readNum(nav, "getRelativeAngle")
+  local n = M.average(stream(function() return readNum(nav, "getRelativeAngle") end, 1))
   print("Rotate NOSE ~90 deg to the RIGHT and HOLD, press Enter"); read()
-  local m = readNum(nav, "getRelativeAngle")
+  local m = M.average(stream(function() return readNum(nav, "getRelativeAngle") end, 1))
   local r = cal.detectHeadingScale(n, m)
   print(("heading sign %d unit %s (mag %.3f)"):format(r.sign, r.unit, r.magnitude))
   if accept(r) then M.applyHeading(config, r); saveConfig(config); print("  saved") end
@@ -156,8 +164,8 @@ local function stepGround(shim, config)
   local alt, opt = altname and shim.wrap(altname), optname and shim.wrap(optname)
   if not (alt and opt) then print("altimeter/downOptical not bound"); return end
   print("Set craft ON THE GROUND at rest, press Enter"); read()
-  local rawAlt = readNum(alt, "getHeight")
-  local optD = readNum(opt, "getDistance")
+  local rawAlt = M.average(stream(function() return readNum(alt, "getHeight") end, 1))
+  local optD = M.average(stream(function() return readNum(opt, "getDistance") end, 1))
   local off = cal.computeHeightOffset(rawAlt, config.bindings.baroThrusterOffset or 0)
   local thr = cal.computeGroundThreshold(optD)
   print(("heightOffset %.3f  onGroundThreshold %.3f"):format(off, thr))
