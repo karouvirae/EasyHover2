@@ -61,3 +61,23 @@ t.test("vSpeed derives from altitude change over dt (tau 0 = unfiltered)", funct
   altP.getHeight = function() return 11 end; clk2 = 500   -- +1m over 0.5s
   t.near(b3:sensors().vSpeed, 2, 1e-6)   -- 1m / 0.5s
 end)
+t.test("heading applies sign and scale (deg->rad)", function()
+  local cfg = sensorCfg(); cfg.bindings.signHeading = -1; cfg.bindings.headingScale = math.pi/180
+  local b = Backend.new(sensorRig(10, {0,0}, 0,0,0, 90, 5), cfg, function() return 0 end)
+  t.near(b:sensors().heading, -math.pi/2, 1e-6)   -- -1 * (pi/180) * 90
+end)
+t.test("gimbalScale converts pitch/roll from degrees", function()
+  local cfg = sensorCfg(); cfg.bindings.gimbalScale = math.pi/180
+  local b = Backend.new(sensorRig(10, {90,-90}, 0,0,0, 0, 5), cfg, function() return 0 end)
+  t.near(b:sensors().pitch, math.pi/2, 1e-6); t.near(b:sensors().roll, -math.pi/2, 1e-6)
+end)
+t.test("signYawRate flips yaw-rate direction", function()
+  local cfg = sensorCfg(); cfg.bindings.signYawRate = -1
+  local b = Backend.new(sensorRig(10, {0,0}, 3, 1, 0, 0, 5), cfg, function() return 0 end)
+  t.near(b:sensors().yawRate, -1, 1e-9)           -- -1 * (3-1)/2
+end)
+t.test("baroThrusterOffset adds into altitude", function()
+  local cfg = sensorCfg(); cfg.bindings.baroThrusterOffset = 5
+  local b = Backend.new(sensorRig(10, {0,0}, 0,0,0, 0, 5), cfg, function() return 0 end)
+  t.near(b:sensors().altitude, 17, 1e-9)          -- 10 + 5 + heightOffset 2
+end)

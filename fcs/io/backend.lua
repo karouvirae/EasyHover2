@@ -27,16 +27,18 @@ end
 function Backend:sensors()
   local c, b = self.config, self.config.bindings
   local rawAlt = self:_read(c.sensors.altimeter, "getHeight") or 0
-  local altitude = rawAlt + (b.heightOffset or 0)
+  local altitude = rawAlt + (b.baroThrusterOffset or 0) + (b.heightOffset or 0)
   local angles = self:_read(c.sensors.gimbal, "getAngles") or {0, 0}
-  local pitch = (b.signPitch or 1) * (angles[b.gimbalPitchIdx or 1] or 0)
-  local roll  = (b.signRoll  or 1) * (angles[b.gimbalRollIdx  or 2] or 0)
-  local heading = self:_read(c.sensors.navTable, "getRelativeAngle") or 0
+  local gScale = b.gimbalScale or 1
+  local pitch = (b.signPitch or 1) * gScale * (angles[b.gimbalPitchIdx or 1] or 0)
+  local roll  = (b.signRoll  or 1) * gScale * (angles[b.gimbalRollIdx  or 2] or 0)
+  local rawHeading = self:_read(c.sensors.navTable, "getRelativeAngle") or 0
+  local heading = (b.signHeading or 1) * (b.headingScale or 1) * rawHeading
   local vf = (b.signVelFront or 1) * (self:_read(c.sensors.velFront, "getVelocity") or 0)
   local vr = (b.signVelRear  or 1) * (self:_read(c.sensors.velRear,  "getVelocity") or 0)
   local vm = (b.signVelMedial or 1) * (self:_read(c.sensors.velMedial,"getVelocity") or 0)
   local baseline = b.yawBaseline or 1
-  local yawRate = (vf - vr) / (baseline ~= 0 and baseline or 1)
+  local yawRate = (b.signYawRate or 1) * (vf - vr) / (baseline ~= 0 and baseline or 1)
   local swayVel = (vf + vr) / 2
   local surgeVel = vm
   local optD = self:_read(c.sensors.downOptical, "getDistance")
