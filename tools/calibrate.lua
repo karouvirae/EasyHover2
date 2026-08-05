@@ -127,11 +127,11 @@ local function stepLateral(shim, config)
   print("YAW nose to the RIGHT, press Enter then yaw for 3s"); read()
   local yaw = peak(stream(pair, 3), function(df, dr) return df - dr end)
   local r = cal.classifyLateralPair({ front = nF, rear = nR }, sway, yaw)
-  print(("front %d rear %d yawRate %d  sway[%s] yaw[%s]"):format(
-    r.signFront, r.signRear, r.signYawRate, r.swayStatus, r.yawStatus))
+  print(("front %d rear %d yawRate %d (diff %.2f)  sway[%s] yaw[%s]"):format(
+    r.signFront, r.signRear, r.signYawRate, r.yawDiff or 0, r.swayStatus, r.yawStatus))
   if r.swayOk and r.yawOk then
     write("  accept? (y/n): "); if read() == "y" then M.applyLateral(config, r); saveConfig(config); print("  saved") end
-  else print("  REJECTED - sway must be a clean sideways shove, yaw a clean rotation") end
+  else print("  REJECTED - sway needs a clean sideways shove; yaw needs a clearer rotation") end
 end
 
 local function stepSurge(shim, config)
