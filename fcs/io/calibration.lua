@@ -25,4 +25,19 @@ function M.classifyScalarSign(neutralVal, sampleVal, opts)
            status = math.abs(d) >= floor and "ok" or "too-small" }
 end
 
+function M.classifyGimbalAxis(neutral, moved, opts)
+  opts = opts or {}
+  local degT = opts.degThreshold or M.GIMBAL_DEG
+  local d1 = (moved[1] or 0) - (neutral[1] or 0)
+  local d2 = (moved[2] or 0) - (neutral[2] or 0)
+  local idx, dom, other
+  if math.abs(d1) >= math.abs(d2) then idx, dom, other = 1, d1, d2
+  else idx, dom, other = 2, d2, d1 end
+  local unit = math.abs(dom) > degT and "deg" or "rad"
+  local scale = unit == "deg" and (math.pi / 180) or 1
+  return { idx = idx, sign = signOf(dom), unit = unit, scale = scale,
+           dominant = math.abs(dom), runnerUp = math.abs(other),
+           status = M.gate(dom, other, opts.floor, opts.ratio) }
+end
+
 return M
