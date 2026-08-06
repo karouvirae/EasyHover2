@@ -12,16 +12,22 @@
 --     (leadCap) so the altitude error -- and thus climb aggressiveness -- stays bounded
 --     even while grounded (flight #1 opened a 2.7-block error at liftoff -> explosive climb).
 --   * attLimit: the runner aborts to landing if attitude exceeds it (flight #1 flew to 131deg).
+-- Flight #2 (2026-08-06) findings:
+--   * Craft is FAR more powerful than assumed -- true hover duty ~0.3 (T/W ~3), not 0.72.
+--   * The heaveMin=0.4 floor SATURATED the whole climb (heave pinned at 0.4000) and BLOCKED the
+--     altitude vSpeed-brake (kd=0.30 wanted heave < floor to arrest a 27 blk/s climb but couldn't),
+--     so the craft rocketed 54 blocks up and tumbled. Fixes: hoverDuty 0.72->0.35 (near real hover),
+--     heaveMin 0.4->0.05 (below hover so the brake works; band's anti-rail purpose is moot at ~0.3).
 return {
   gains = {
-    hoverDuty = 0.72,
+    hoverDuty = 0.35,
     alt   = { kp = 0.04, ki = 0.02, kd = 0.30, tauD = 0.2, iMax = 0.3, iMin = -0.3 },
     pitch = { kp = 0.3, ki = 0.08, kd = 0.4, tauD = 0.2, iMax = 0.25, iMin = -0.25 },
     roll  = { kp = 0.3, ki = 0.08, kd = 0.4, tauD = 0.2, iMax = 0.25, iMin = -0.25 },
     yaw   = { kp = 0.8, ki = 0, kd = 1.4 },
     sway  = { kp = 0.5, ki = 0, kd = 0.5 },
     surge = { kp = 0.3, ki = 0, kd = 0.5 },
-    heaveMin = 0.4, heaveMax = 0.85,   -- keep lift off both rails -> preserve attitude authority
+    heaveMin = 0.05, heaveMax = 0.85,  -- floor MUST stay below true hover (~0.3) or it blocks the vSpeed brake
   },
   pwmPeriod = 0.3,
   caps = { pitch = 0.2, roll = 0.2, yaw = 0.5, sway = 0.5, surge = 0.5 },  -- attitude/steering only; heave unclamped here (banded in the scheme)
