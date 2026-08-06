@@ -26,12 +26,29 @@
 --     nothing to trim (CoM centered) and added phase lag feeding the slow oscillation.
 --   * Fix: detune attitude/yaw/translation/alt gains ~2x (kd/kp ratio up for phase margin);
 --     remove pitch/roll ki. Detune-and-iterate: sluggish-but-stable first, then firm up.
+-- Flight #7 (2026-08-06) -- FIRST STABLE HOVER (airmode mixer + concurrent write dispatch: loop
+-- held ~13-16Hz through the whole climb/hold/land, max_roll 0.066rad). Residuals to firm up now
+-- that the loop is genuinely fast (the ~2x detune was for the OLD ~5Hz loop):
+--   * Hold sat ~1.2 blocks HIGH: heave settled at 0.257 while hoverDuty was 0.35 -> true hover is
+--     ~0.26; the 0.35 feed-forward was too high and ki=0.01 couldn't trim it out. Fix: hoverDuty
+--     0.35->0.26 (measured), alt ki 0.01->0.02 to zero any residual, alt kd 0.15->0.20 to damp the
+--     ~1.5-block vertical bob.
+--   * Small roll wobble grew late (std 0.002 climb -> 0.028 descend, ~4deg): mildly under-damped.
+--     Fix: firm pitch/roll kd 0.25->0.33 (damping) + kp 0.12->0.15 (stiffness); loop is fast enough.
+-- Flight #8 (2026-08-06) -- stable but a slow oscillation GREW over the flight (roll std 0.004->
+-- 0.077, bob 2.48). It got WORSE than #7 right after the firm-up -> this mode is FED by gain, not
+-- cured by it (not a phase-margin/loop-rate limit anymore). Vertical is the primary oscillator:
+-- heave limit-cycled 0.05<->0.53 at ~1.3s, slamming the floor (each clip winds the integral); roll
+-- (~1.45s) rides on it. Lowering hoverDuty to 0.26 also moved the operating point nearer the 0.05
+-- floor. Flight #9 = SOFTEN (reverse the #8 firm-up), filter the vertical derivative so it damps
+-- instead of buzzing on the coarse vSpeed, and fly higher/longer to see if the oscillation bounds
+-- or keeps growing (marginal instability vs bounded limit cycle).
 return {
   gains = {
-    hoverDuty = 0.35,
-    alt   = { kp = 0.02, ki = 0.01, kd = 0.15, tauD = 0.2, iMax = 0.3, iMin = -0.3 },
-    pitch = { kp = 0.12, ki = 0, kd = 0.25, tauD = 0.2 },   -- detuned ~2x for real actuators; ki off (CoM centered)
-    roll  = { kp = 0.12, ki = 0, kd = 0.25, tauD = 0.2 },
+    hoverDuty = 0.26,
+    alt   = { kp = 0.02, ki = 0.01, kd = 0.15, tauD = 0.35, iMax = 0.3, iMin = -0.3 },  -- ki/kd backed off; tauD up filters coarse vSpeed
+    pitch = { kp = 0.10, ki = 0, kd = 0.22, tauD = 0.2 },   -- SOFTENED (was 0.15/0.33); the firm-up grew the oscillation
+    roll  = { kp = 0.10, ki = 0, kd = 0.22, tauD = 0.2 },
     yaw   = { kp = 0.35, ki = 0, kd = 0.7 },
     sway  = { kp = 0.2, ki = 0, kd = 0.25 },
     surge = { kp = 0.15, ki = 0, kd = 0.25 },
@@ -42,6 +59,6 @@ return {
   osc = { window = 1.0, minChanges = 6 },
   dtMax = 0.5,
   attLimit = 0.6,   -- rad; runner aborts to landing if |pitch| or |roll| exceeds this
-  profile = { climbHeight = 2, climbRate = 0.6, holdTime = 10, descendRate = 0.7,
-              landEps = 0.4, watchdog = 30, overshootMargin = 2, leadCap = 1.0 },
+  profile = { climbHeight = 6, climbRate = 0.6, holdTime = 20, descendRate = 0.7,
+              landEps = 0.4, watchdog = 60, overshootMargin = 2, leadCap = 1.0 },  -- taller+longer for a clearer read; watchdog raised so it doesn't cut the 20s hold
 }

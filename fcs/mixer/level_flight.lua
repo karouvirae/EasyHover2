@@ -20,12 +20,32 @@ function Mixer:mixSurge(surge)
     FRR  = surge < 0 and clamp(-surge) or 0,
   }
 end
+-- Attitude-priority ("airmode") lift mix. The pitch/roll differential is the attitude torque
+-- and MUST survive; the collective (heave) is expendable. So instead of clamping each thruster
+-- independently -- which silently destroys the differential once the collective pushes a
+-- thruster past a rail (Flight #5: roll authority vanished at the heave band floor -> flip) --
+-- we (1) scale pitch+roll TOGETHER if the requested differential can't fit in [0,1] at all, then
+-- (2) shift all four lift thrusters by one common offset to slide them into range, which keeps
+-- every pairwise difference (hence the torque) intact. Collective accuracy is sacrificed first.
+local function mixLift(h, p, r)
+  local FL, FR, RL, RR = h + p + r, h + p - r, h - p + r, h - p - r
+  local lo = math.min(FL, FR, RL, RR)
+  local hi = math.max(FL, FR, RL, RR)
+  local span = hi - lo
+  if span > 1 then
+    -- differential alone exceeds full range; scale both axes equally to fit, torque ratio preserved.
+    local s = 1 / span
+    p, r = p * s, r * s
+    FL, FR, RL, RR = h + p + r, h + p - r, h - p + r, h - p - r
+    lo = math.min(FL, FR, RL, RR); hi = math.max(FL, FR, RL, RR)
+  end
+  local offset = 0
+  if lo < 0 then offset = -lo elseif hi > 1 then offset = 1 - hi end
+  return clamp(FL + offset), clamp(FR + offset), clamp(RL + offset), clamp(RR + offset)
+end
 function Mixer:mix(d)
-  local h, p, r = d.heave or 0, d.pitch or 0, d.roll or 0
-  local out = {
-    FL = clamp(h + p + r), FR = clamp(h + p - r),
-    RL = clamp(h - p + r), RR = clamp(h - p - r),
-  }
+  local FL, FR, RL, RR = mixLift(d.heave or 0, d.pitch or 0, d.roll or 0)
+  local out = { FL = FL, FR = FR, RL = RL, RR = RR }
   for id, duty in pairs(self:mixLateral(d.sway, d.yaw)) do out[id] = duty end
   for id, duty in pairs(self:mixSurge(d.surge)) do out[id] = duty end
   return out

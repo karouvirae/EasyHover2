@@ -7,8 +7,7 @@ local tuning   = require("fcs.tuning")
 local Backend  = require("fcs.io.backend")
 local Scheme   = require("fcs.schemes.level_flight")
 local Mixer    = require("fcs.mixer.level_flight")
-local Pwm      = require("fcs.actuate.pwm")
-local SD       = require("fcs.actuate.sigma_delta")
+local Level    = require("fcs.actuate.level")
 local Loop     = require("fcs.runtime.loop")
 local Profile  = require("fcs.bringup.profile")
 local Inst     = require("fcs.bringup.instrument")
@@ -31,8 +30,8 @@ local function buildLoop(backend)
     roll = g.roll, yaw = g.yaw, sway = g.sway, surge = g.surge,
     heaveMin = g.heaveMin, heaveMax = g.heaveMax })
   return Loop.new({ scheme = scheme, mixer = Mixer.new(),
-    pwm = Pwm.new({ period = tuning.pwmPeriod, backend = backend }),
-    sd = SD.new({ backend = backend }),
+    pwm = Level.new({ backend = backend, steps = 15 }),
+    sd = nil,
     backend = backend, dtMax = tuning.dtMax, caps = tuning.caps, osc = tuning.osc })
 end
 
