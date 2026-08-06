@@ -1,0 +1,5 @@
+local t = require("tests.framework")
+local H = require("tools.hover_test")
+t.test("hover_test module loads and exposes run()", function()
+  t.eq(type(H.run), "function")
+end)
