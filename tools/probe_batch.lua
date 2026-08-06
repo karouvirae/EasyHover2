@@ -11,7 +11,7 @@
 -- (thrusters off). It does NOT fire anything. Fuel state is irrelevant; nothing will move.
 --
 -- Run on the FCS PC:
---   wget https://raw.githubusercontent.com/maar-10/EasyHover2/worktree-level-actuator/tools/probe_batch.lua
+--   wget https://raw.githubusercontent.com/maar-10/EasyHover2/main/tools/probe_batch.lua
 --   probe_batch
 -- (or `wget run <url>` to fetch+run once).
 

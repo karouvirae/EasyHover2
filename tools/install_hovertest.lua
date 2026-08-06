@@ -2,12 +2,10 @@
 -- Fetches tools/hover_test.lua and its full runtime dependency set from GitHub, then writes a
 -- launcher (/hovertest) that sets package.path so require resolves the modules.
 -- Run on the FCS PC with:
---   wget run https://raw.githubusercontent.com/maar-10/EasyHover2/worktree-level-actuator/tools/install_hovertest.lua
+--   wget run https://raw.githubusercontent.com/maar-10/EasyHover2/main/tools/install_hovertest.lua
 -- Re-run any time to update. Safe to run repeatedly (overwrites the code files).
--- NOTE: BASE is pinned to the level-actuator TEST branch (unverified in-game). When this
--- branch merges to main after a good flight, flip BASE back to .../EasyHover2/main/ .
 
-local BASE = "https://raw.githubusercontent.com/maar-10/EasyHover2/worktree-level-actuator/"
+local BASE = "https://raw.githubusercontent.com/maar-10/EasyHover2/main/"
 local FILES = {
   "tools/hover_test.lua",
   "fcs/tuning.lua",

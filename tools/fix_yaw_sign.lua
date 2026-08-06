@@ -12,7 +12,7 @@
 --
 -- Root: signHeading and signYawRate were each calibrated against physics independently and ended
 -- up mutually inconsistent. Persistent fix (later) = teach calibrate.lua to cross-check them.
---   wget run https://raw.githubusercontent.com/maar-10/EasyHover2/worktree-level-actuator/tools/fix_yaw_sign.lua
+--   wget run https://raw.githubusercontent.com/maar-10/EasyHover2/main/tools/fix_yaw_sign.lua
 
 local P = "/eh2_hw_config.tbl"
 if not fs.exists(P) then
