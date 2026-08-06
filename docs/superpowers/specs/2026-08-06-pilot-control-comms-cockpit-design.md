@@ -10,7 +10,7 @@ Take the craft from a static bring-up harness (`tools/hover_test.lua`) to **pilo
 
 - **A — pilot input** (FCS-local): typewriter → setpoints.
 - **B — comms**: inter-PC telemetry + command streams.
-- **C — cockpit**: UI-PC role + Basalt-full flight panels.
+- **C — cockpit**: UI-PC role + a custom cockpit UI toolkit (immediate-mode, not Basalt).
 
 **In scope:** FLAT flight (attitude auto-leveled) — yaw, lateral (sway), surge (forward = main thrust), lift; engage/disengage, GND safety, position-hold, fuel-pump, DAMPED-clear; a cockpit that reflects reported state and sends commands.
 
@@ -29,6 +29,11 @@ Tasks:
 5. **Health (B)** — heartbeat out.
 
 The FCS **flies alone if UI/NAV drop** (control + pilot input are local; comms is additive).
+
+### 2.3 Separation of concerns — the FCS PC stays lean
+Hard rule: the **FCS PC handles ONLY control + pilot-input routing + telemetry-send + command-receive. No UI, no rendering, ever.** All cockpit rendering and touch handling live on the **UI-PC, a separate computer** — and because each CC computer has its own per-tick compute/mainThread budget, UI work on the UI-PC cannot steal a tick from the FCS control loop. That separation is the point.
+
+The only UI-adjacent cost on the FCS is the telemetry **send** (a `modem.transmit`). It must not contend with the control loop: low fixed cadence, fire-and-forget, and its mainThread cost **verified at plan time** (same discipline as the setPower/write-batching investigation) and budgeted so thruster writes always win. Control task has priority; telemetry is best-effort.
 
 ### 2.2 Runtime state machine
 - **DISENGAGED** (default at boot): loop disarmed → all thrusters 0. Safe; the craft cannot fire.
@@ -72,9 +77,12 @@ attitude (pitch, roll, heading), rates (vSpeed, yawRate, sway/surge vel), positi
 - **`fcs/comms/{protocol,telemetry,command,health}.lua`**: the framing / latest-wins / ack-retry logic is **pure and headless-tested against a mock modem**; the real modem is a thin IO shim (same split as the sensor backend).
 - **Profiling** event-stream: no-op stub (deferred).
 
-## 6. Sub-project C — UI-PC role + cockpit
+## 6. Sub-project C — UI-PC role + custom cockpit
 
-- **UI-PC program**: comms client — receives telemetry into a local snapshot, renders panels, sends commands. **Basalt-full only** ([[feedback-basalt-full-build]]). Reported-state only.
+**UI approach: a small custom cockpit toolkit, NOT Basalt.** A flight cockpit is a fixed-layout, telemetry-heavy, parallel-task program with a small fixed button set — the case where immediate-mode custom drawing beats a retained framework. Rationale: (1) fixed layout needs no layout engine; (2) redraw-fields-in-place is fast and flicker-free; (3) buttons are known rectangles → `monitor_touch` coordinate → hit-test → command, with no framework press/release state; (4) **reported-state-only falls out naturally** — each frame draws from the latest telemetry, so there's no retained widget state to desync (the likely source of prior Basalt click-state/optimistic/lag pain, where its event loop also competed with comms tasks); (5) it's the UI-PC's own loop, integrated cleanly with comms; (6) fully headless-testable. Cost: ~4-5 simple primitives.
+
+- **`ui/*` toolkit** (pure where possible): `panel` (framed region), `button` (rect + label + on/off/active draw), `gauge` (bar fill 0..1), `field` (label + value, redraw-in-place), and a **touch dispatcher** (button-rect table → hit-test a `monitor_touch` → command id). Layout math and hit-testing are pure functions (headless-tested); the actual `term`/`monitor` draw calls are a thin sink.
+- **UI-PC program**: comms client — receives telemetry into a local snapshot, redraws changed fields, dispatches touches to commands. Reported-state only.
 - **Panels** (flight-useful set):
   - **FCS control** — ENGAGE / DISENGAGE, CLEAR-DAMPED; shows reported `engaged` + `mode`.
   - **GND safety** — ON/OFF (the engage gate).
@@ -84,7 +92,7 @@ attitude (pitch, roll, heading), rates (vSpeed, yawRate, sway/surge vel), positi
   - **Flight status** — alt, vSpeed, heading, attitude, loopHz, drift readout.
   - **Flight-mode** — scaffold only (shows "NORMAL", switch stubbed).
   - **Link status** — comms up/down (health).
-- Headless test: render one frame with `basalt.update("timer", -1)` against a mock telemetry snapshot; assert command emission via injected comms.
+- Headless test: layout + hit-test as pure functions (a touch at (x,y) resolves to the expected command; a telemetry snapshot resolves to the expected field/gauge render-model), plus command emission via injected comms — no real terminal needed.
 
 ## 7. Testing strategy
 
@@ -96,4 +104,4 @@ attitude (pitch, roll, heading), rates (vSpeed, yawRate, sway/surge vel), positi
 
 **Non-goals:** manual tilt; flight-mode content; world-frame/NAV; monitor-touch flight input; install Suite; profiling spans.
 
-**Verify at plan time:** `linked_typewriter` held-key method (Simulated source); thruster fuel-readback methods (getFuelAmountMb/Capacity — seen in Checkpoint #1); craft modem type + channels; whether the UI-PC reaches the FCS over the craft's wired network or needs a wireless/ender modem.
+**Verify at plan time:** `linked_typewriter` held-key method (Simulated source); thruster fuel-readback methods (getFuelAmountMb/Capacity — seen in Checkpoint #1); **`modem.transmit` mainThread cost on the FCS PC** (must not contend with thruster writes — measure like setPower); craft modem type + channels; whether the UI-PC reaches the FCS over the craft's wired network or needs a wireless/ender modem.
