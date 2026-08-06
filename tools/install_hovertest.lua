@@ -16,6 +16,7 @@ local FILES = {
   "fcs/mixer/level_flight.lua",
   "fcs/actuate/pwm.lua",
   "fcs/actuate/sigma_delta.lua",
+  "fcs/actuate/level.lua",
   "fcs/control/pid.lua",
   "fcs/control/heading.lua",
   "fcs/control/translate.lua",
