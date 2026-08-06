@@ -28,7 +28,8 @@ end
 local function buildLoop(backend)
   local g = tuning.gains
   local scheme = Scheme.new({ hoverDuty = g.hoverDuty, alt = g.alt, pitch = g.pitch,
-    roll = g.roll, yaw = g.yaw, sway = g.sway, surge = g.surge })
+    roll = g.roll, yaw = g.yaw, sway = g.sway, surge = g.surge,
+    heaveMin = g.heaveMin, heaveMax = g.heaveMax })
   return Loop.new({ scheme = scheme, mixer = Mixer.new(),
     pwm = Pwm.new({ period = tuning.pwmPeriod, backend = backend }),
     sd = SD.new({ backend = backend }),
@@ -64,6 +65,11 @@ local function flight(backend, loop, profile, summary, heading0, swayPos0, surge
       local dt = (now - lastT) / 1000
       lastT = now
       local m = backend:sensors()
+      -- magnitude abort: an attitude runaway (flight #1 flew to 131deg) ends the mission but
+      -- KEEPS attitude control active (unlike DAMPED) so the FCS keeps trying to level as it lands.
+      if tuning.attLimit and (math.abs(m.pitch) > tuning.attLimit or math.abs(m.roll) > tuning.attLimit) then
+        profile:abort()
+      end
       local pr = profile:update(dt, m.altitude, m.onGround)
       loop:setpoints({ altitude = pr.targetAlt, pitch = 0, roll = 0,
         heading = heading0, swayPos = swayPos0, surgePos = surgePos0 })

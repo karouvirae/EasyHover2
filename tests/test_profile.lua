@@ -53,3 +53,21 @@ t.test("LANDED stays landed and inactive", function()
   local r = p:update(1, 0, true)
   t.eq(r.phase,"LANDED"); t.eq(r.active,false); t.eq(r.done,true)
 end)
+t.test("vertical leash bounds the target to alt+leadCap while the craft lags", function()
+  local p = P({leadCap=1, climbHeight=5, climbRate=1}); p:begin()
+  p:update(3, 0, false)
+  local r = p:update(3, 0, false)   -- ramp wants 4+, but leashed to alt(0)+leadCap(1)
+  t.near(r.targetAlt, 1, 1e-9); t.eq(r.phase, "CLIMB")
+end)
+t.test("leash lets the target advance as the craft climbs", function()
+  local p = P({leadCap=1, climbHeight=5, climbRate=10}); p:begin()
+  local r = p:update(1, 3, false)   -- min(top 5, 0+10)=5, then min(5, alt 3 + 1)=4
+  t.near(r.targetAlt, 4, 1e-9); t.eq(r.phase, "CLIMB")
+end)
+t.test("leash bounds the descent target to alt-leadCap", function()
+  local p = P({leadCap=1, climbHeight=2, climbRate=10, holdTime=1, descendRate=10}); p:begin()
+  p:update(1, 2, false)              -- -> HOLD at top 2
+  p:update(1, 2, false)              -- held 1 >= 1 -> DESCEND
+  local r = p:update(1, 2, false)    -- raw 2-10=0, leashed up to alt(2)-leadCap(1)=1
+  t.eq(r.phase, "DESCEND"); t.near(r.targetAlt, 1, 1e-9)
+end)

@@ -13,6 +13,7 @@ function Profile.new(cfg)
   self.landEps = cfg.landEps or 0.4
   self.watchdog = cfg.watchdog or 30
   self.overshootMargin = cfg.overshootMargin or 2
+  self.leadCap = cfg.leadCap or math.huge   -- vertical setpoint leash: target stays within leadCap of actual alt
   self.top = self.baseAlt + self.climbHeight
   self.phase = "IDLE"
   self.target = self.baseAlt
@@ -38,6 +39,9 @@ function Profile:update(dt, alt, onGround)
   end
   if self.phase == "CLIMB" then
     self.target = math.min(self.top, self.target + self.climbRate * dt)
+    -- leash the target to the craft: bounds the altitude error (and thus climb aggressiveness)
+    -- even while grounded or lagging, so liftoff can't open a runaway error.
+    if alt then self.target = math.min(self.target, alt + self.leadCap) end
     if self.target >= self.top then self.phase = "HOLD"; self.held = 0 end
   elseif self.phase == "HOLD" then
     self.target = self.top
@@ -45,6 +49,7 @@ function Profile:update(dt, alt, onGround)
     if self.held >= self.holdTime then self.phase = "DESCEND" end
   elseif self.phase == "DESCEND" then
     self.target = math.max(self.baseAlt, self.target - self.descendRate * dt)
+    if alt then self.target = math.max(self.target, alt - self.leadCap) end
     if (onGround == true) or (alt and alt <= self.baseAlt + self.landEps) then
       self.phase = "LANDED"
     end
