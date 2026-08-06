@@ -26,12 +26,21 @@
 --     nothing to trim (CoM centered) and added phase lag feeding the slow oscillation.
 --   * Fix: detune attitude/yaw/translation/alt gains ~2x (kd/kp ratio up for phase margin);
 --     remove pitch/roll ki. Detune-and-iterate: sluggish-but-stable first, then firm up.
+-- Flight #7 (2026-08-06) -- FIRST STABLE HOVER (airmode mixer + concurrent write dispatch: loop
+-- held ~13-16Hz through the whole climb/hold/land, max_roll 0.066rad). Residuals to firm up now
+-- that the loop is genuinely fast (the ~2x detune was for the OLD ~5Hz loop):
+--   * Hold sat ~1.2 blocks HIGH: heave settled at 0.257 while hoverDuty was 0.35 -> true hover is
+--     ~0.26; the 0.35 feed-forward was too high and ki=0.01 couldn't trim it out. Fix: hoverDuty
+--     0.35->0.26 (measured), alt ki 0.01->0.02 to zero any residual, alt kd 0.15->0.20 to damp the
+--     ~1.5-block vertical bob.
+--   * Small roll wobble grew late (std 0.002 climb -> 0.028 descend, ~4deg): mildly under-damped.
+--     Fix: firm pitch/roll kd 0.25->0.33 (damping) + kp 0.12->0.15 (stiffness); loop is fast enough.
 return {
   gains = {
-    hoverDuty = 0.35,
-    alt   = { kp = 0.02, ki = 0.01, kd = 0.15, tauD = 0.2, iMax = 0.3, iMin = -0.3 },
-    pitch = { kp = 0.12, ki = 0, kd = 0.25, tauD = 0.2 },   -- detuned ~2x for real actuators; ki off (CoM centered)
-    roll  = { kp = 0.12, ki = 0, kd = 0.25, tauD = 0.2 },
+    hoverDuty = 0.26,
+    alt   = { kp = 0.02, ki = 0.02, kd = 0.20, tauD = 0.2, iMax = 0.3, iMin = -0.3 },
+    pitch = { kp = 0.15, ki = 0, kd = 0.33, tauD = 0.2 },   -- firmed up on the fast loop (was 0.12/0.25)
+    roll  = { kp = 0.15, ki = 0, kd = 0.33, tauD = 0.2 },
     yaw   = { kp = 0.35, ki = 0, kd = 0.7 },
     sway  = { kp = 0.2, ki = 0, kd = 0.25 },
     surge = { kp = 0.15, ki = 0, kd = 0.25 },
