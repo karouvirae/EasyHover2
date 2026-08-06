@@ -31,9 +31,9 @@ function Loop:apply(duties, dt)
   self.pwm:apply(lift, dt)
   self.sd:apply(rest, dt)
 end
-function Loop:cycle(dt)
+function Loop:cycle(dt, m)
   if dt < 0 then dt = 0 elseif dt > self.dtMax then dt = self.dtMax end
-  local m = self.backend:sensors()
+  m = m or self.backend:sensors()
   if not self.armed then
     self.scheme:reset()
     local zeros = {}
@@ -42,7 +42,7 @@ function Loop:cycle(dt)
     for _, id in ipairs(frame.MAIN) do zeros[id] = 0 end
     for _, id in ipairs(frame.FRONTAL) do zeros[id] = 0 end
     self:apply(zeros, dt)
-    return
+    return { mode = self.mode, m = m, demands = nil, duties = nil }
   end
   local grounded = m.onGround == true
   local demands = self.scheme:update(self.sp, m, dt, grounded)
@@ -58,5 +58,6 @@ function Loop:cycle(dt)
   demands = envelope.clamp(demands, self.caps)
   local duties = self.mixer:mix(demands)
   self:apply(duties, dt)
+  return { mode = self.mode, m = m, demands = demands, duties = duties }
 end
 return Loop
