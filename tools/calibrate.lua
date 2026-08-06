@@ -146,17 +146,46 @@ local function stepSurge(shim, config)
   if accept(r) then M.applyScalarSign(config, "signVelMedial", r.sign); saveConfig(config); print("  saved") end
 end
 
+-- Compute yawRate exactly as fcs/io/backend.lua does, from the live velocity sensors.
+local function readYawRate(vf, vr, b)
+  local vfv = (b.signVelFront or 1) * readNum(vf, "getVelocity")
+  local vrv = (b.signVelRear or 1) * readNum(vr, "getVelocity")
+  local base = (b.yawBaseline and b.yawBaseline ~= 0) and b.yawBaseline or 1
+  return (b.signYawRate or 1) * (vfv - vrv) / base
+end
+
 local function stepHeading(shim, config)
-  local navname = config.sensors.navTable
-  local nav = navname and shim.wrap(navname)
+  local nav = config.sensors.navTable and shim.wrap(config.sensors.navTable)
   if not nav then print("navTable not bound"); return end
-  print("Face craft at reference heading, press Enter for neutral"); read()
+  local vf = config.sensors.velFront and shim.wrap(config.sensors.velFront)
+  local vr = config.sensors.velRear and shim.wrap(config.sensors.velRear)
+  if not (vf and vr) then
+    print("velFront/velRear not bound -- run LATERAL (2) first so heading can be")
+    print("cross-checked against the yaw-rate sensor (prevents the yaw-runaway sign bug).")
+    return
+  end
+  local b = config.bindings
+  print("Face craft at reference heading, hold still, press Enter"); read()
   local n = M.average(stream(function() return readNum(nav, "getRelativeAngle") end, 1))
-  print("Rotate NOSE ~90 deg to the RIGHT and HOLD, press Enter"); read()
-  local m = M.average(stream(function() return readNum(nav, "getRelativeAngle") end, 1))
-  local r = cal.detectHeadingScale(n, m)
-  print(("heading sign %d unit %s (mag %.3f)"):format(r.sign, r.unit, r.magnitude))
-  if accept(r) then M.applyHeading(config, r); saveConfig(config); print("  saved") end
+  print("Rotate NOSE ~90 deg to the RIGHT over ~3s -- KEEP IT MOVING, press Enter then rotate"); read()
+  -- stream heading AND yawRate together during the ONE rotation, so the two are consistent by construction.
+  local heads, yaws = {}, {}
+  local t0 = os.epoch("utc")
+  repeat
+    heads[#heads + 1] = readNum(nav, "getRelativeAngle")
+    yaws[#yaws + 1] = readYawRate(vf, vr, b)
+    sleep(0.1)
+  until (os.epoch("utc") - t0) / 1000 >= 3
+  local m = heads[#heads]
+  local yawPeak = M.peakByAbs(yaws)
+  local r = cal.headingSignScale(n, m, yawPeak)
+  print(("heading sign %d unit %s (mag %.3f, yawPeak %.3f) [%s]"):format(
+    r.sign, r.unit, r.magnitude, yawPeak, r.status))
+  if r.status ~= "ok" then
+    print("  REJECTED -- rotate a clear ~90deg AND keep it moving so the velocity sensors register yaw.")
+    return
+  end
+  if accept(r) then M.applyHeading(config, r); saveConfig(config); print("  saved (heading consistent with yawRate)") end
 end
 
 local function stepGround(shim, config)

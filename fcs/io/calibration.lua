@@ -78,6 +78,28 @@ function M.detectHeadingScale(neutralHeading, sampleHeading, opts)
            status = math.abs(d) >= floor and "ok" or "too-small" }
 end
 
+-- Set signHeading so the CORRECTED heading moves the same direction as the yawRate sensor observed
+-- during the SAME rotation. The heading hold loop damps on yawRate but springs on heading error, so
+-- if the two sensors disagree the position term is a NEGATIVE spring -> yaw runaway (Flight #9: they
+-- were each calibrated against physics independently and ended up opposite, Q corr -0.996). Measuring
+-- them together makes them consistent by construction, immune to which way the human rotates.
+function M.headingSignScale(neutralHeading, sampleHeading, yawRateDuringRotation, opts)
+  opts = opts or {}
+  local degT = opts.degThreshold or M.HEADING_DEG
+  local floor = opts.floor or M.FLOOR
+  local hFloor = opts.headingFloor or M.FLOOR
+  local d = sampleHeading - neutralHeading
+  local unit = math.abs(d) > degT and "deg" or "rad"
+  local scale = unit == "deg" and (math.pi / 180) or 1
+  local headingOk = math.abs(d) >= hFloor
+  local yawOk = math.abs(yawRateDuringRotation) >= floor
+  -- signHeading * sign(d) must equal sign(yawRate)  =>  signHeading = sign(yawRate) * sign(d)
+  local sign = signOf(yawRateDuringRotation) * signOf(d)
+  return { sign = sign, scale = scale, unit = unit, magnitude = math.abs(d),
+           headingOk = headingOk, yawOk = yawOk,
+           status = (headingOk and yawOk) and "ok" or "too-small" }
+end
+
 function M.computeHeightOffset(groundRawAlt, baroThrusterOffset)
   return -((groundRawAlt or 0) + (baroThrusterOffset or 0))
 end
