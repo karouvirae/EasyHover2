@@ -4,7 +4,8 @@ local Translate = require("fcs.control.translate")
 local Scheme = {}
 Scheme.__index = Scheme
 function Scheme.new(cfg)
-  local self = setmetatable({ hoverDuty = cfg.hoverDuty or 0.5 }, Scheme)
+  local self = setmetatable({ hoverDuty = cfg.hoverDuty or 0.5,
+    heaveMin = cfg.heaveMin, heaveMax = cfg.heaveMax }, Scheme)
   self.altPid = Pid.new(cfg.alt or {})
   self.pitchPid = Pid.new(cfg.pitch or {})
   self.rollPid = Pid.new(cfg.roll or {})
@@ -18,8 +19,13 @@ function Scheme:reset()
   self.swayTc:reset(); self.surgeTc:reset()
 end
 function Scheme:update(sp, m, dt, freeze)
+  local heave = self.hoverDuty + self.altPid:update(sp.altitude, m.altitude, dt, freeze)
+  -- Band the collective so lift thrusters never saturate to 0 or 1 -- shared-duty bang-bang
+  -- loses ALL pitch/roll differential authority at the rails. Attitude survival > climb speed.
+  if self.heaveMin and heave < self.heaveMin then heave = self.heaveMin end
+  if self.heaveMax and heave > self.heaveMax then heave = self.heaveMax end
   return {
-    heave = self.hoverDuty + self.altPid:update(sp.altitude, m.altitude, dt, freeze),
+    heave = heave,
     pitch = self.pitchPid:update(sp.pitch or 0, m.pitch, dt, freeze),
     roll = self.rollPid:update(sp.roll or 0, m.roll, dt, freeze),
     yaw = self.headingPid:update(sp.heading or 0, m.heading or 0, m.yawRate or 0, dt, freeze),

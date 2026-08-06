@@ -1,22 +1,33 @@
--- Canonical FCS tuning — the single source of truth for the hover bring-up runner.
--- Known-good sim gains (mirrored from tests/test_integration.lua) + actuator/safety/profile
--- params. RETUNE HERE between flights. hoverDuty=0.66 is the SIM value; if the real craft's
--- thrust-to-weight differs a lot the altitude integrator (+/-0.3 authority) may saturate and
--- it won't hold -- adjust hoverDuty and re-fly.
+-- Canonical FCS tuning -- the single source of truth for the hover bring-up runner.
+-- RETUNE HERE between flights.
+--
+-- Flight #1 (2026-08-06) findings folded in:
+--   * hoverDuty raised 0.66 -> 0.72 (craft lifted at heave ~0.75; real hover ~0.72).
+--   * pitch/roll gained a bounded integral (ki) so the FCS can TRIM the off-center CoM;
+--     with ki=0 it could only hold a biased equilibrium that collapsed under low authority.
+--   * heaveMin/heaveMax band keeps the lift thrusters off both rails so pitch/roll
+--     differential authority survives (shared-duty bang-bang loses all attitude torque
+--     when heave saturates to 0 or 1).
+--   * profile: shorter/gentler climb (2 blocks @ 0.6) + a vertical setpoint leash
+--     (leadCap) so the altitude error -- and thus climb aggressiveness -- stays bounded
+--     even while grounded (flight #1 opened a 2.7-block error at liftoff -> explosive climb).
+--   * attLimit: the runner aborts to landing if attitude exceeds it (flight #1 flew to 131deg).
 return {
   gains = {
-    hoverDuty = 0.66,
+    hoverDuty = 0.72,
     alt   = { kp = 0.04, ki = 0.02, kd = 0.30, tauD = 0.2, iMax = 0.3, iMin = -0.3 },
-    pitch = { kp = 0.3, ki = 0, kd = 0.4, tauD = 0.2 },
-    roll  = { kp = 0.3, ki = 0, kd = 0.4, tauD = 0.2 },
+    pitch = { kp = 0.3, ki = 0.08, kd = 0.4, tauD = 0.2, iMax = 0.25, iMin = -0.25 },
+    roll  = { kp = 0.3, ki = 0.08, kd = 0.4, tauD = 0.2, iMax = 0.25, iMin = -0.25 },
     yaw   = { kp = 0.8, ki = 0, kd = 1.4 },
     sway  = { kp = 0.5, ki = 0, kd = 0.5 },
     surge = { kp = 0.3, ki = 0, kd = 0.5 },
+    heaveMin = 0.4, heaveMax = 0.85,   -- keep lift off both rails -> preserve attitude authority
   },
   pwmPeriod = 0.3,
-  caps = { pitch = 0.2, roll = 0.2, yaw = 0.5, sway = 0.5, surge = 0.5 },  -- attitude/steering only; heave unclamped
+  caps = { pitch = 0.2, roll = 0.2, yaw = 0.5, sway = 0.5, surge = 0.5 },  -- attitude/steering only; heave unclamped here (banded in the scheme)
   osc = { window = 1.0, minChanges = 6 },
   dtMax = 0.5,
-  profile = { climbHeight = 5, climbRate = 1.0, holdTime = 10, descendRate = 0.7,
-              landEps = 0.4, watchdog = 30, overshootMargin = 2 },
+  attLimit = 0.6,   -- rad; runner aborts to landing if |pitch| or |roll| exceeds this
+  profile = { climbHeight = 2, climbRate = 0.6, holdTime = 10, descendRate = 0.7,
+              landEps = 0.4, watchdog = 30, overshootMargin = 2, leadCap = 1.0 },
 }
