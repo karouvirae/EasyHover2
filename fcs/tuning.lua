@@ -18,15 +18,23 @@
 --     altitude vSpeed-brake (kd=0.30 wanted heave < floor to arrest a 27 blk/s climb but couldn't),
 --     so the craft rocketed 54 blocks up and tumbled. Fixes: hoverDuty 0.72->0.35 (near real hover),
 --     heaveMin 0.4->0.05 (below hover so the brake works; band's anti-rail purpose is moot at ~0.3).
+-- Flight #3 (2026-08-06, CoM now centered) findings:
+--   * Vertical CONTROLLED (alt_err_climb max 1.5) but attitude showed a GROWING roll oscillation
+--     (-0.078 -> +0.164 -> bigger) with CORRECT-sign demands -> not inverted, it's an unstable
+--     OVER-GAINED loop. Real thrusters are ~2x stronger than the sim the gains came from (same
+--     reason hoverDuty was off), so every gain was ~2x too hot. The pitch/roll ki (for CoM) had
+--     nothing to trim (CoM centered) and added phase lag feeding the slow oscillation.
+--   * Fix: detune attitude/yaw/translation/alt gains ~2x (kd/kp ratio up for phase margin);
+--     remove pitch/roll ki. Detune-and-iterate: sluggish-but-stable first, then firm up.
 return {
   gains = {
     hoverDuty = 0.35,
-    alt   = { kp = 0.04, ki = 0.02, kd = 0.30, tauD = 0.2, iMax = 0.3, iMin = -0.3 },
-    pitch = { kp = 0.3, ki = 0.08, kd = 0.4, tauD = 0.2, iMax = 0.25, iMin = -0.25 },
-    roll  = { kp = 0.3, ki = 0.08, kd = 0.4, tauD = 0.2, iMax = 0.25, iMin = -0.25 },
-    yaw   = { kp = 0.8, ki = 0, kd = 1.4 },
-    sway  = { kp = 0.5, ki = 0, kd = 0.5 },
-    surge = { kp = 0.3, ki = 0, kd = 0.5 },
+    alt   = { kp = 0.02, ki = 0.01, kd = 0.15, tauD = 0.2, iMax = 0.3, iMin = -0.3 },
+    pitch = { kp = 0.12, ki = 0, kd = 0.25, tauD = 0.2 },   -- detuned ~2x for real actuators; ki off (CoM centered)
+    roll  = { kp = 0.12, ki = 0, kd = 0.25, tauD = 0.2 },
+    yaw   = { kp = 0.35, ki = 0, kd = 0.7 },
+    sway  = { kp = 0.2, ki = 0, kd = 0.25 },
+    surge = { kp = 0.15, ki = 0, kd = 0.25 },
     heaveMin = 0.05, heaveMax = 0.85,  -- floor MUST stay below true hover (~0.3) or it blocks the vSpeed brake
   },
   pwmPeriod = 0.3,
