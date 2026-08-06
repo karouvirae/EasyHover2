@@ -29,3 +29,27 @@ t.test("state returns the last written level, 0 if unseen", function()
   a:apply({ FL = 1 }, 0)
   t.eq(a:state("FL"), 15); t.eq(a:state("XX"), 0)
 end)
+-- The writes must be dispatched CONCURRENTLY so N thruster changes cost ~1 server tick, not N
+-- (Flight #6: sequential writes collapsed the loop to ~3Hz mid-maneuver; the in-game probe
+-- confirmed concurrent dispatch stays flat at one tick). The dispatcher is injectable so the
+-- batching contract can be asserted without real timing.
+t.test("dispatches all changed levels as one concurrent batch", function()
+  local b = fakeBackend()
+  local batches = {}
+  local a = Level.new({ backend = b, steps = 15,
+    dispatch = function(fns) batches[#batches + 1] = #fns; for i = 1, #fns do fns[i]() end end })
+  a:apply({ FL = 1.0, FR = 0.0, RL = 0.5 }, 0.05)
+  t.eq(#batches, 1, "exactly one dispatch call")
+  t.eq(batches[1], 3, "all three changed writes handed over together")
+  t.eq(b.level.FL, 15); t.eq(b.level.RL, 8)
+end)
+t.test("unchanged levels are excluded from the batch", function()
+  local b = fakeBackend()
+  local sizes = {}
+  local a = Level.new({ backend = b, steps = 15,
+    dispatch = function(fns) sizes[#sizes + 1] = #fns; for i = 1, #fns do fns[i]() end end })
+  a:apply({ FL = 1.0 }, 0.05)
+  a:apply({ FL = 1.0 }, 0.05)
+  t.eq(sizes[1], 1, "first apply dispatches the one change")
+  t.eq(sizes[2], 0, "second apply dispatches nothing")
+end)
