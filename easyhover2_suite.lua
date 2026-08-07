@@ -61,7 +61,7 @@ local TOKEN_FILE = "/easyhover2_suite_token.txt"
 --- What is installed here.
 local STATE_FILE = "/easyhover2_install.txt"
 
---- Backups land here, one timestamped folder per run that needed them.
+--- Backups land here: a single-latest folder, one file per path, replaced on each run that needed them.
 local BACKUP_ROOT = "/easyhover2_backup"
 
 --- Staging suffix. Everything lands here first and is verified before anything moves.
@@ -100,7 +100,7 @@ end
 -- ---------------------------------------------------------------- checksum
 
 -- FNV-1a, 32 bit, lower-case hex. MUST agree byte for byte with fnv1a() in
--- tools/gen_manifest.js; tests/run_suite.sh asserts that it does.
+-- tools/gen_manifest.lua; tests/run_headless.sh asserts that it does.
 local FNV_PRIME, FNV_OFFSET = 16777619, 2166136261
 
 function Suite.checksum(s)
@@ -222,7 +222,7 @@ end
 
 --- Which role do the files on disk look like? Used when the install record is missing or
 --- unreadable, which is exactly the corrupt-install case the operator most needs handled.
---- Returns role, matchedCount, totalCount.
+--- Returns role, why.
 -- Identify the installed role. Primary signal: the installed /startup.lua matches exactly one
 -- role's startup launcher (size+sum). Fallback: the role with the most of its UNIQUE files
 -- present (files whose dst appears in only one role).
