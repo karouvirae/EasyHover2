@@ -223,24 +223,50 @@ end
 --- Which role do the files on disk look like? Used when the install record is missing or
 --- unreadable, which is exactly the corrupt-install case the operator most needs handled.
 --- Returns role, matchedCount, totalCount.
-function Suite.detectRole(manifest, exists)
+-- Identify the installed role. Primary signal: the installed /startup.lua matches exactly one
+-- role's startup launcher (size+sum). Fallback: the role with the most of its UNIQUE files
+-- present (files whose dst appears in only one role).
+function Suite.detectRole(manifest, exists, read)
   exists = exists or function(p) return fs.exists(p) and not fs.isDir(p) end
-  local bestRole, bestScore, bestTotal = nil, 0, 0
-  for roleName, spec in pairs(manifest.roles) do
-    if spec.status == "released" and #spec.files > 0 then
-      local matched = 0
-      for _, entry in ipairs(spec.files) do
-        if exists("/" .. entry.dst) then matched = matched + 1 end
-      end
-      -- Prefer the role with the most of its files present; ties go to the larger role, so a
-      -- role that is a strict subset of another cannot win by accident.
-      if matched > bestScore or (matched == bestScore and matched > 0 and #spec.files > bestTotal) then
-        bestRole, bestScore, bestTotal = roleName, matched, #spec.files
+  read = read or function(p)
+    if not fs.exists(p) or fs.isDir(p) then return nil end
+    local f = fs.open(p, "r"); local s = f.readAll(); f.close(); return s
+  end
+
+  -- Primary: startup.lua fingerprint.
+  local startupBody = read("/startup.lua")
+  if startupBody then
+    local size, sum = #startupBody, Suite.checksum(startupBody)
+    for roleName, spec in pairs(manifest.roles) do
+      if spec.status == "released" then
+        for _, e in ipairs(spec.files) do
+          if e.dst == "startup.lua" and e.size == size and e.sum == sum then
+            return roleName, "startup"
+          end
+        end
       end
     end
   end
-  if bestScore == 0 then return nil, 0, 0 end
-  return bestRole, bestScore, bestTotal
+
+  -- Fallback: unique-file count. Build dst -> #roles-owning.
+  local owners = {}
+  for _, spec in pairs(manifest.roles) do
+    if spec.status == "released" then
+      for _, e in ipairs(spec.files) do owners[e.dst] = (owners[e.dst] or 0) + 1 end
+    end
+  end
+  local best, bestScore = nil, 0
+  for roleName, spec in pairs(manifest.roles) do
+    if spec.status == "released" then
+      local score = 0
+      for _, e in ipairs(spec.files) do
+        if owners[e.dst] == 1 and exists("/" .. e.dst) then score = score + 1 end
+      end
+      if score > bestScore then best, bestScore = roleName, score end
+    end
+  end
+  if bestScore == 0 then return nil, "none" end
+  return best, "unique-files"
 end
 
 -- ---------------------------------------------------------------- integrity

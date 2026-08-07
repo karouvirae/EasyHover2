@@ -115,3 +115,36 @@ t.test("choosePlan truth table (carried from v1)", function()
   t.eq(Suite.choosePlan({ anyInstall = true, sameVersion = true, mismatched = false }), "current")
   t.eq(Suite.choosePlan({ anyInstall = true, sameVersion = false }), "update")
 end)
+
+local function fakeManifest()
+  return { roles = {
+    fcs = { status="released", files = {
+      { dst="startup.lua", size=3, sum=Suite.checksum("fcs") },
+      { dst="tools/flight.lua", size=1, sum="x" },
+      { dst="fcs/io/backend.lua", size=1, sum="y" },
+    }},
+    ui = { status="released", files = {
+      { dst="startup.lua", size=2, sum=Suite.checksum("ui") },
+      { dst="ui/main.lua", size=1, sum="z" },
+      { dst="fcs/io/backend.lua", size=1, sum="y" },
+    }},
+  }}
+end
+
+t.test("detectRole keys on the installed startup launcher", function()
+  local m = fakeManifest()
+  local disk = { ["/startup.lua"] = "ui" }  -- matches ui's startup sum
+  local exists = function(p) return disk[p] ~= nil end
+  local read = function(p) return disk[p] end
+  local role = Suite.detectRole(m, exists, read)
+  t.eq(role, "ui")
+end)
+
+t.test("detectRole falls back to unique files when startup is missing", function()
+  local m = fakeManifest()
+  local disk = { ["/tools/flight.lua"] = "a", ["/fcs/io/backend.lua"] = "b" }  -- fcs-unique present
+  local exists = function(p) return disk[p] ~= nil end
+  local read = function(p) return disk[p] end
+  local role = Suite.detectRole(m, exists, read)
+  t.eq(role, "fcs")
+end)
