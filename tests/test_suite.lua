@@ -212,3 +212,106 @@ t.test("statusColour maps plan to colour", function()
   t.eq(Suite.statusColour("repair"), colours.orange)
   t.eq(Suite.statusColour("install"), colours.cyan)
 end)
+
+-- ---------------------------------------------------------------- Task 11: dashboard UI
+
+t.test("diagTools lists root-level shipped files, excludes startup.lua", function()
+  local spec = { files = {
+    { dst = "startup.lua" },
+    { dst = "flight" },
+    { dst = "calibrate" },
+    { dst = "hovertest" },
+    { dst = "fcs/io/config.lua" },   -- not root-level: excluded
+    { dst = "tools/probe.lua" },     -- not root-level: excluded
+  } }
+  t.eq(table.concat(Suite.diagTools(spec), ","), "flight,calibrate,hovertest")
+end)
+
+t.test("diagTools is empty for a spec with no root-level files besides startup", function()
+  local spec = { files = { { dst = "startup.lua" }, { dst = "fcs/io/config.lua" } } }
+  t.eq(#Suite.diagTools(spec), 0)
+end)
+
+t.test("actionSpec omits Go when current, folds standalone Repair when plan is repair", function()
+  local function keys(ctx)
+    local out = {}
+    for _, a in ipairs(Suite.actionSpec(ctx)) do out[#out + 1] = a.key end
+    return table.concat(out, ",")
+  end
+  t.eq(keys({ plan = "current" }), "verify,repair,switch,tools,quit")
+  t.eq(keys({ plan = "install" }), "go,verify,repair,switch,tools,quit")
+  -- plan == repair: "go" already says Repair, so the standalone Repair button is folded away
+  t.eq(keys({ plan = "repair" }), "go,verify,switch,tools,quit")
+end)
+
+t.test("actionButtons fits everything on one page on a 51-wide terminal", function()
+  local actions = Suite.actionSpec({ plan = "update" })
+  local layout = Suite.actionButtons({ x = 1, y = 19, w = 51, h = 1 }, actions, 1)
+  t.eq(layout.pages, 1)
+  t.eq(#layout.buttons, #actions)
+  for _, b in ipairs(layout.buttons) do
+    t.eq(b.x >= 1 and b.x + b.w - 1 <= 51, true)
+    t.eq(b.y, 19)
+  end
+end)
+
+t.test("actionButtons pages on a 26-wide terminal without exceeding the row", function()
+  local actions = Suite.actionSpec({ plan = "update" }) -- 7 buttons
+  local rect = { x = 1, y = 20, w = 26, h = 1 }
+  local layout = Suite.actionButtons(rect, actions, 1)
+  t.eq(layout.pages > 1, true)
+  for _, b in ipairs(layout.buttons) do
+    t.eq(b.x >= 1 and b.x + b.w - 1 <= 26, true)
+  end
+  -- every button across every page is reachable and none collide within a page
+  local seen = {}
+  for page = 1, layout.pages do
+    local pl = Suite.actionButtons(rect, actions, page)
+    local cells = {}
+    for _, b in ipairs(pl.buttons) do
+      seen[b.key] = true
+      for cell = b.x, b.x + b.w - 1 do
+        t.eq(cells[cell], nil, "button collision on page " .. page)
+        cells[cell] = b.key
+      end
+    end
+  end
+  for _, a in ipairs(actions) do t.eq(seen[a.key], true, "missing action " .. a.key) end
+end)
+
+t.test("hitTestButtons finds the button under a click and misses elsewhere", function()
+  local buttons = {
+    { key = "go", x = 1, y = 19, w = 8 },
+    { key = "quit", x = 10, y = 19, w = 6 },
+  }
+  t.eq(Suite.hitTestButtons(buttons, 1, 19), "go")
+  t.eq(Suite.hitTestButtons(buttons, 8, 19), "go")
+  t.eq(Suite.hitTestButtons(buttons, 9, 19), nil)   -- gap between buttons
+  t.eq(Suite.hitTestButtons(buttons, 10, 19), "quit")
+  t.eq(Suite.hitTestButtons(buttons, 1, 5), nil)    -- wrong row
+end)
+
+t.test("listRows lays out one row per item, clipped to panel height", function()
+  local items = { { key = "a", label = "a" }, { key = "b", label = "b" }, { key = "c", label = "c" } }
+  local rows = Suite.listRows({ x = 2, y = 5, w = 10, h = 2 }, items)
+  t.eq(#rows, 2)   -- clipped: only 2 rows of height available
+  t.eq(rows[1].key, "a"); t.eq(rows[1].x, 2); t.eq(rows[1].y, 5)
+  t.eq(rows[2].key, "b"); t.eq(rows[2].y, 6)
+end)
+
+t.test("hit-test dispatch: clicking a diagTools row against uiPanels' diag rect resolves the tool", function()
+  -- Simulates the runUI "tools" mode wiring: uiPanels -> diagTools -> listRows -> hitTestButtons,
+  -- with a fake click coordinate, entirely without a terminal.
+  local spec = { files = {
+    { dst = "startup.lua" }, { dst = "flight" }, { dst = "calibrate" }, { dst = "hovertest" },
+  } }
+  local panels = Suite.uiPanels(51, 19)
+  local names = Suite.diagTools(spec)
+  local items = {}
+  for _, n in ipairs(names) do items[#items + 1] = { key = n, label = n } end
+  local rows = Suite.listRows({ x = panels.diag.x + 1, y = panels.diag.y + 1,
+    w = panels.diag.w - 2, h = panels.diag.h - 2 }, items)
+  t.eq(#rows, #names)
+  local secondRow = rows[2]
+  t.eq(Suite.hitTestButtons(rows, secondRow.x, secondRow.y), names[2])
+end)

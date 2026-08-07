@@ -452,6 +452,130 @@ function Suite.pruneRole(spec, dryRun)
   return removed
 end
 
+--- Carry out the plan Suite.choosePlan decided: back up configs, clear a broken install when
+--- repairing, stage-fetch-verify every file, commit, extend configs, prune anything the release
+--- no longer ships, record the new state, and check whether the Suite itself is stale.
+---
+--- THIS IS THE ENGINE. The v1 keyboard flow and Suite.runUI's "Go"/"Repair" buttons both call
+--- it, unmodified, so an install performed by clicking a button cannot differ from one performed
+--- by running the Suite on a basic terminal.
+function Suite.performPlan(base, manifest, spec, role, plan, fresh)
+  local backupCountBefore = #backedUp
+
+  -- ---- back up configs BEFORE touching anything
+  for _, cfgPath in ipairs(spec.configs or {}) do
+    if fs.exists(cfgPath) then
+      local target = Suite.backupConfig(cfgPath, manifest.version)
+      if target then dim("backed up " .. cfgPath) end
+    end
+  end
+
+  -- ---- clear a broken install (never configs)
+  if plan == "repair" then
+    local cleared = Suite.clearRole(spec, false)
+    for _, path in ipairs(cleared) do dim("cleared " .. path) end
+  end
+
+  -- ---- stage: download and verify EVERYTHING before moving anything into place
+  print("")
+  say(("Fetching %d file(s)..."):format(#spec.files))
+  local staged = {}
+
+  local function discardStaged()
+    for _, item in ipairs(staged) do
+      if fs.exists(item.stage) then fs.delete(item.stage) end
+    end
+  end
+
+  for index, entry in ipairs(spec.files) do
+    local url = ("%s/%s"):format(base, entry.src)
+    local content, fetchErr = fetch(url)
+    if not content then
+      discardStaged()
+      die(("failed on %s (%s)\nNothing was changed; the install is as it was.")
+        :format(entry.src, tostring(fetchErr)))
+    end
+    -- GitHub raw serves what is committed; a proxy that rewrites line endings would show up
+    -- here as a size mismatch rather than as a mysterious runtime error later.
+    if #content ~= entry.size or Suite.checksum(content) ~= entry.sum then
+      discardStaged()
+      die(("%s arrived corrupt (expected %d bytes / %s, got %d / %s)\nNothing was changed.")
+        :format(entry.src, entry.size, entry.sum, #content, Suite.checksum(content)))
+    end
+    local stagePath = "/" .. entry.dst .. STAGE
+    guard("/" .. entry.dst, "write")
+    if not writeRaw(stagePath, content) then
+      discardStaged()
+      die("could not write " .. stagePath .. " (disk full?)\nNothing was changed.")
+    end
+    staged[#staged + 1] = { stage = stagePath, final = "/" .. entry.dst, dst = entry.dst }
+    if index % 5 == 0 or index == #spec.files then
+      dim(("  %d/%d"):format(index, #spec.files))
+    end
+  end
+
+  -- ---- commit: every file arrived intact, so move them all into place
+  for _, item in ipairs(staged) do
+    guard(item.final, "replace")
+    if fs.exists(item.final) then fs.delete(item.final) end
+    fs.move(item.stage, item.final)
+  end
+  good(("Installed %d file(s)."):format(#staged))
+
+  -- ---- configs: extend with any newly added defaults, in place
+  print("")
+  for _, cfgPath in ipairs(spec.configs or {}) do
+    local result = Suite.extendConfig(spec, cfgPath, manifest.version)
+    if result == "extended" then
+      good(("config extended with new defaults: %s"):format(cfgPath))
+    elseif result == "quarantined" then
+      warn(("config %s would not parse: backed up and replaced with defaults"):format(cfgPath))
+    elseif result == "absent" then
+      dim(("no config yet at %s (it is created on first run)"):format(cfgPath))
+    else
+      dim(("config %s: %s"):format(cfgPath, result))
+    end
+  end
+
+  -- ---- drop anything this release no longer ships (after the new files are safely in place)
+  local pruned = Suite.pruneRole(spec, false)
+  for _, path in ipairs(pruned) do dim("removed " .. path .. " (no longer shipped)") end
+
+  -- ---- record what is now installed
+  writeRaw(STATE_FILE, Suite.formatState({
+    version = manifest.version,
+    schema = manifest.schema or 1,
+    role = role,
+    at = timestamp(),
+  }))
+
+  print("")
+  -- Delta over THIS call only: a long-lived Suite.runUI session can call performPlan several
+  -- times in one process, and #backedUp is a whole-process counter, so reading it raw here
+  -- would double-count backups made by an earlier action in the same session.
+  local backedUpThisRun = #backedUp - backupCountBefore
+  if backedUpThisRun > 0 then
+    warn(("%d file(s) backed up in %s"):format(backedUpThisRun, BACKUP_ROOT))
+  end
+  good(("Now at %s as role '%s'."):format(manifest.version, role))
+  if spec.entry ~= "" then
+    if #staged > 0 and not fresh then
+      -- THIS COMPUTER IS STILL RUNNING THE OLD CODE. CC loads a program once; new files on
+      -- disk do nothing until something starts them. Updating a running cockpit and then
+      -- wondering why the new buttons do not work is exactly what happens without this line,
+      -- so it is a warning rather than a dim hint.
+      warn("REBOOT THIS COMPUTER -- it is still running the old version.")
+      dim("  reboot     (or run: " .. spec.entry .. ")")
+    else
+      dim("Reboot to run it, or: " .. spec.entry)
+    end
+  end
+
+  Suite.selfUpdateNotice(base, manifest)
+  colour(colours.white)
+  return true
+end
+
 -- ---------------------------------------------------------------------- UI
 
 --- Where do the main status screen's panels go on THIS terminal?
@@ -502,6 +626,124 @@ function Suite.statusColour(plan)
   if plan == "repair" then return colours.orange end
   if plan == "install" then return colours.cyan end
   return colours.white
+end
+
+--- The shipped diagnostic commands for a role: root-level shipped files (`dst` has no "/"),
+--- excluding `startup.lua` (that is the boot launcher, not something you run by hand).
+--- In manifest order (gen_manifest sorts `files` by dst), so the list is deterministic.
+--- Pure: fed a role spec, never touches the filesystem.
+function Suite.diagTools(spec)
+  local tools = {}
+  for _, entry in ipairs(spec.files) do
+    if entry.dst ~= "startup.lua" and not entry.dst:find("/") then
+      tools[#tools + 1] = entry.dst
+    end
+  end
+  return tools
+end
+
+--- Which action-row buttons apply to this ctx, and what should they say? Pure: only reads
+--- ctx.plan. "Go" (Install/Update/Repair, whichever the plan is) is omitted once the plan is
+--- already "current" -- there is nothing for it to do. "Repair" stays as a standing manual
+--- override regardless of plan, matching --repair on the keyboard flow. There is no separate
+--- dry-run/"Check" button: the status and integrity panels already show what a run would find
+--- (missing/corrupt counts, the plan) continuously, without needing to ask.
+function Suite.actionSpec(ctx)
+  local list = {}
+  if ctx.plan and ctx.plan ~= "current" then
+    local label = (ctx.plan == "install" and "Install")
+      or (ctx.plan == "repair" and "Repair") or "Update"
+    list[#list + 1] = { key = "go", label = label }
+  end
+  list[#list + 1] = { key = "verify", label = "Verify" }
+  if ctx.plan ~= "repair" then list[#list + 1] = { key = "repair", label = "Repair" } end
+  list[#list + 1] = { key = "switch", label = "Switch" }
+  list[#list + 1] = { key = "tools", label = "Tools" }
+  list[#list + 1] = { key = "quit", label = "Quit" }
+  return list
+end
+
+--- Lays out `actions` (ordered {key=, label=}) as "[Label]" buttons left to right in `rect`,
+--- one row. When they all fit, everything is on page 1 with no nav buttons. When they do not,
+--- pages through them with reserved "<"/">" nav buttons -- the 26-wide advanced pocket computer
+--- cannot show six buttons on one row, so this is not an edge case to special-case away.
+---
+--- Pure: no term calls, so every width can be asserted without a screen. Returns
+--- { buttons = { {key=,label=,x=,y=,w=}, ... }, pages = n, page = clamped }.
+function Suite.actionButtons(rect, actions, page)
+  local w = rect.w
+  local function labelW(a) return #a.label + 2 end -- "[Label]"
+
+  local totalW = 0
+  for i, a in ipairs(actions) do
+    totalW = totalW + labelW(a) + (i > 1 and 1 or 0)
+  end
+
+  if totalW <= w then
+    local buttons, x = {}, rect.x
+    for _, a in ipairs(actions) do
+      local lw = labelW(a)
+      buttons[#buttons + 1] = { key = a.key, label = a.label, x = x, y = rect.y, w = lw }
+      x = x + lw + 1
+    end
+    return { buttons = buttons, pages = 1, page = 1 }
+  end
+
+  -- Doesn't fit on one row: reserve nav-arrow space on every page (even the ones that don't
+  -- need it) so the button positions don't jump around from page to page.
+  local usable = math.max(1, w - 4)
+  local pageOf, curPage, curW, start = {}, 1, 0, 1
+  for i, a in ipairs(actions) do
+    local lw = labelW(a) + (i > start and 1 or 0)
+    if curW + lw > usable and curW > 0 then
+      curPage, start, curW = curPage + 1, i, labelW(a)
+    else
+      curW = curW + lw
+    end
+    pageOf[i] = curPage
+  end
+  local pages = curPage
+  page = math.max(1, math.min(page or 1, pages))
+
+  local buttons, x = {}, rect.x
+  if page > 1 then
+    buttons[#buttons + 1] = { key = "__prev", label = "<", x = x, y = rect.y, w = 1 }
+    x = x + 2
+  end
+  for i, a in ipairs(actions) do
+    if pageOf[i] == page then
+      local lw = labelW(a)
+      buttons[#buttons + 1] = { key = a.key, label = a.label, x = x, y = rect.y, w = lw }
+      x = x + lw + 1
+    end
+  end
+  if page < pages then
+    buttons[#buttons + 1] = { key = "__next", label = ">", x = rect.x + w - 1, y = rect.y, w = 1 }
+  end
+
+  return { buttons = buttons, pages = pages, page = page }
+end
+
+--- Which button (if any) sits under a click at (x, y)? Pure hit test, shared by the actions
+--- row and every other clickable list the UI draws (tool picker, yes/no confirm).
+function Suite.hitTestButtons(buttons, x, y)
+  for _, b in ipairs(buttons) do
+    if y == b.y and x >= b.x and x <= b.x + b.w - 1 then return b.key end
+  end
+  return nil
+end
+
+--- Lays out a vertical list of clickable rows inside `rect`, one item per row, clipped to the
+--- panel's height. `items` is an ordered array of {key=, label=}. Pure; feeds the same
+--- Suite.hitTestButtons used for the actions row.
+function Suite.listRows(rect, items)
+  local rows = {}
+  local last = math.min(#items, math.max(0, rect.h))
+  for i = 1, last do
+    rows[#rows + 1] = { key = items[i].key, label = items[i].label,
+      x = rect.x, y = rect.y + i - 1, w = rect.w }
+  end
+  return rows
 end
 
 -- ---------------------------------------------------------------- role picker
@@ -617,6 +859,304 @@ function Suite.askForRole(manifest, order)
       bad(fit("Not a role: " .. tostring(answer)))
       sleep(1.2)
     end
+  end
+end
+
+-- ---------------------------------------------------------------- dashboard drawing
+--
+-- Every function below is fed only a rect and the already-prepared ctx/ui state -- no fs, no
+-- http, no engine calls. The one exception is the terminal itself: these functions are the
+-- screen output, so writing to `term`/`paintutils` is the point, not a violation of "no IO".
+--
+-- Borders are deliberately plain ASCII ("." "'" "-" "|"), not box-drawing Unicode: CC:Tweaked's
+-- built-in font is its own small glyph set, not a real Unicode font, and CraftOS-PC's dev-time
+-- font does not reliably match it -- a border that looks right here could still be mangled on
+-- real hardware. "." and "'" for the corners is the "pseudo-rounded" look the design calls for
+-- while staying inside plain, portable ASCII.
+
+local function fillRect(rect, bg)
+  if rect.w <= 0 or rect.h <= 0 then return end
+  if paintutils and paintutils.drawFilledBox then
+    paintutils.drawFilledBox(rect.x, rect.y, rect.x + rect.w - 1, rect.y + rect.h - 1, bg)
+    return
+  end
+  term.setBackgroundColour(bg)
+  for row = rect.y, rect.y + rect.h - 1 do
+    term.setCursorPos(rect.x, row)
+    term.write((" "):rep(rect.w))
+  end
+end
+
+local function drawBorder(rect, border, bg)
+  if rect.w < 3 or rect.h < 3 then return end
+  term.setBackgroundColour(bg)
+  term.setTextColour(border)
+  local x2, y2 = rect.x + rect.w - 1, rect.y + rect.h - 1
+  term.setCursorPos(rect.x, rect.y)
+  term.write("." .. ("-"):rep(rect.w - 2) .. ".")
+  for row = rect.y + 1, y2 - 1 do
+    term.setCursorPos(rect.x, row); term.write("|")
+    term.setCursorPos(x2, row); term.write("|")
+  end
+  term.setCursorPos(rect.x, y2)
+  term.write("'" .. ("-"):rep(rect.w - 2) .. "'")
+end
+
+--- The writable area inside a bordered panel. Panels too small for a border (some panels can be
+--- 1-2 rows tall on a cramped terminal) just use the whole rect as content.
+local function inset(rect)
+  if rect.w < 3 or rect.h < 3 then return rect end
+  return { x = rect.x + 1, y = rect.y + 1, w = rect.w - 2, h = rect.h - 2 }
+end
+
+local function putLine(x, y, text, fg, bg, maxW)
+  term.setCursorPos(x, y)
+  term.setBackgroundColour(bg)
+  term.setTextColour(fg)
+  text = tostring(text)
+  if maxW and maxW >= 0 and #text > maxW then text = text:sub(1, maxW) end
+  term.write(text)
+end
+
+local function drawPanel(rect, title, bg, border)
+  fillRect(rect, bg)
+  drawBorder(rect, border, bg)
+  if title and rect.w >= #title + 6 then
+    putLine(rect.x + 2, rect.y, " " .. title .. " ", border, bg, rect.w - 4)
+  end
+end
+
+local PANEL_BG, BORDER, LOG_BG = colours.black, colours.lightGrey, colours.black
+
+local function drawTitle(rect, ctx)
+  fillRect(rect, colours.blue)
+  putLine(rect.x, rect.y,
+    ("EasyHover 2 Suite -- %s (%s)"):format(ctx.role, ctx.spec.title or ctx.role),
+    colours.white, colours.blue, rect.w)
+end
+
+local function drawStatus(rect, ctx)
+  drawPanel(rect, "status", PANEL_BG, BORDER)
+  local c = inset(rect)
+  local lines = {
+    { text = ("role       %s"):format(ctx.role), fg = colours.white },
+    { text = ("installed  %s"):format(ctx.state.version or "none"), fg = colours.white },
+    { text = ("release    %s"):format(ctx.manifest.version), fg = colours.white },
+    { text = ("plan       %s"):format(ctx.plan), fg = Suite.statusColour(ctx.plan) },
+    { text = ("source     %s"):format(ctx.base), fg = colours.lightGrey },
+  }
+  for i = 1, math.min(#lines, c.h) do
+    putLine(c.x, c.y + i - 1, lines[i].text, lines[i].fg, PANEL_BG, c.w)
+  end
+end
+
+local function drawIntegrity(rect, ctx)
+  drawPanel(rect, "integrity", PANEL_BG, BORDER)
+  local c = inset(rect)
+  if c.h < 1 then return end
+  local report = ctx.report
+  local ok = math.max(0, report.total - #report.missing - #report.corrupt)
+  local barWidth = math.max(1, c.w - 2)
+  local filled = Suite.progressFill(ok, report.total, barWidth)
+  local bar = "[" .. ("#"):rep(filled) .. ("-"):rep(barWidth - filled) .. "]"
+  putLine(c.x, c.y, bar, colours.lime, PANEL_BG, c.w)
+  if c.h >= 2 then
+    putLine(c.x, c.y + 1, ("%d ok / %d missing / %d corrupt"):format(ok, #report.missing,
+      #report.corrupt), colours.white, PANEL_BG, c.w)
+  end
+end
+
+local function drawActions(rect, buttons)
+  fillRect(rect, colours.grey)
+  for _, b in ipairs(buttons) do
+    local text = (b.key == "__prev" and "<") or (b.key == "__next" and ">") or ("[" .. b.label .. "]")
+    putLine(b.x, b.y, text, colours.white, colours.grey, b.w)
+  end
+end
+
+--- lines: array of { text =, colour = }.
+local function drawDiag(rect, title, lines)
+  drawPanel(rect, title, LOG_BG, BORDER)
+  local c = inset(rect)
+  for i = 1, math.min(#lines, c.h) do
+    local ln = lines[i]
+    putLine(c.x, c.y + i - 1, ln.text, ln.colour or colours.lightGrey, LOG_BG, c.w)
+  end
+end
+
+--- Draws the whole dashboard from ctx (role/versions/report/plan/source) and `ui` (the small
+--- bit of view state runUI owns: mode, log, action page, pending tool). Returns the full set of
+--- clickable rects for THIS frame, already positioned in screen coordinates, so runUI only ever
+--- needs one Suite.hitTestButtons call against whatever this returns.
+function Suite.drawDashboard(ctx, ui)
+  local w, h = term.getSize()
+  local panels = Suite.uiPanels(w, h)
+
+  term.setBackgroundColour(colours.black)
+  term.clear()
+
+  drawTitle(panels.title, ctx)
+  drawStatus(panels.status, ctx)
+  drawIntegrity(panels.integrity, ctx)
+
+  local layout = Suite.actionButtons(panels.actions, Suite.actionSpec(ctx), ui.actionPage)
+  ui.actionPage = layout.page
+  drawActions(panels.actions, layout.buttons)
+
+  local hitAreas = {}
+  for _, b in ipairs(layout.buttons) do hitAreas[#hitAreas + 1] = b end
+
+  if ui.mode == "tools" then
+    local names = Suite.diagTools(ctx.spec)
+    local items, lines = {}, {}
+    for _, name in ipairs(names) do
+      items[#items + 1] = { key = name, label = name }
+      lines[#lines + 1] = { text = name, colour = colours.white }
+    end
+    if #items == 0 then lines[1] = { text = "(no shipped tools)", colour = colours.lightGrey } end
+    drawDiag(panels.diag, "launch tool", lines)
+    local rows = Suite.listRows(inset(panels.diag), items)
+    for _, r in ipairs(rows) do hitAreas[#hitAreas + 1] = r end
+  elseif ui.mode == "confirm" then
+    local c = inset(panels.diag)
+    drawDiag(panels.diag, "confirm", {
+      { text = "Launch '" .. tostring(ui.pendingTool) .. "'?", colour = colours.yellow },
+    })
+    if c.h >= 2 then
+      local confirmRow = { x = c.x, y = c.y + 1, w = c.w, h = 1 }
+      local confirmLayout = Suite.actionButtons(confirmRow,
+        { { key = "__yes", label = "Yes" }, { key = "__no", label = "No" } }, 1)
+      drawActions(confirmRow, confirmLayout.buttons)
+      for _, b in ipairs(confirmLayout.buttons) do hitAreas[#hitAreas + 1] = b end
+    end
+  else
+    drawDiag(panels.diag, "diagnostics", ui.log)
+  end
+
+  term.setCursorPos(1, 1)
+  return { hitAreas = hitAreas }
+end
+
+-- ---------------------------------------------------------------- event loop
+
+--- Keys the action row / confirm row can produce -- everything else, while a tool list is
+--- showing, is a tool name picked off Suite.diagTools instead.
+local RESERVED_KEYS = {
+  go = true, verify = true, repair = true, switch = true, tools = true, quit = true,
+  __prev = true, __next = true, __yes = true, __no = true,
+}
+
+--- The graphical dashboard for an advanced (colour) terminal. `ctx` is exactly what
+--- Suite.main has already computed: role, spec, state, manifest, the integrity report, the
+--- plan, and the source base URL. Every action here calls the SAME engine functions the v1
+--- keyboard flow uses (Suite.performPlan, Suite.integrity, Suite.choosePlan, Suite.clearRole,
+--- Suite.askForRole) -- runUI only adds hit-testing and redraw on top.
+function Suite.runUI(ctx)
+  local ui = { mode = "dashboard", log = {}, actionPage = 1, pendingTool = nil }
+
+  local function pushLog(text, col)
+    ui.log[#ui.log + 1] = { text = text, colour = col or colours.lightGrey }
+  end
+
+  --- Re-derive report/plan/fresh/schemaBump from the CURRENT ctx.spec/state/role -- the same
+  --- computation Suite.main does before ever calling runUI, so Verify/Switch/after-Go all see
+  --- the install exactly as choosePlan would score it fresh.
+  local function recompute()
+    ctx.switching = (ctx.state.role ~= nil and ctx.state.role ~= ctx.role)
+    local sameVersion = (ctx.state.version == ctx.manifest.version) and not ctx.switching
+    local report
+    if ctx.fastPath and sameVersion then
+      report = { ok = true, missing = {}, corrupt = {}, present = #ctx.spec.files,
+        total = #ctx.spec.files }
+    else
+      report = Suite.integrity(ctx.spec)
+    end
+    ctx.report = report
+    local anyInstall = report.present > 0
+    ctx.fresh = not anyInstall
+    ctx.plan = Suite.choosePlan({
+      anyInstall = anyInstall, mismatched = not report.ok, sameVersion = sameVersion,
+      noRecord = (ctx.state.version == nil), forceRepair = false,
+    })
+    ctx.schemaBump = (ctx.state.schema ~= nil and (ctx.manifest.schema or 1) > (ctx.state.schema or 0))
+  end
+
+  --- Runs Suite.performPlan (the SAME engine the keyboard flow calls) for the given plan. Its
+  --- progress text scrolls the real terminal -- the dashboard is redrawn once it returns -- so
+  --- the next event is swallowed here rather than acted on, giving the operator a moment to
+  --- read the summary before the screen clears back to the dashboard.
+  ---
+  --- Wrapped in pcall: performPlan's die() throws on a failed fetch (network blip, corrupt
+  --- download), which is fine for the one-shot keyboard flow -- the process was about to exit
+  --- anyway -- but would otherwise take the whole dashboard session down with it. die() already
+  --- printed the red reason before throwing; this just keeps the UI alive to show it and retry.
+  local function runPlan(plan)
+    term.setBackgroundColour(colours.black)
+    term.clear()
+    term.setCursorPos(1, 1)
+    local ok = pcall(Suite.performPlan, ctx.base, ctx.manifest, ctx.spec, ctx.role, plan, ctx.fresh)
+    ctx.state = Suite.parseState(readFile(STATE_FILE))
+    recompute()
+    if not ok then
+      colour(colours.white)
+      pushLog("action failed -- see message above", colours.red)
+    end
+    print("")
+    dim("click or press any key to return to the dashboard...")
+    os.pullEvent()
+  end
+
+  local hitAreas = Suite.drawDashboard(ctx, ui).hitAreas
+  while true do
+    local ev, _, mx, my = os.pullEvent()
+    if ev == "mouse_click" then
+      local key = Suite.hitTestButtons(hitAreas, mx, my)
+      if key == "__prev" then
+        ui.actionPage = math.max(1, ui.actionPage - 1)
+      elseif key == "__next" then
+        ui.actionPage = ui.actionPage + 1
+      elseif ui.mode == "confirm" and key == "__yes" then
+        local tool = ui.pendingTool
+        ui.mode, ui.pendingTool = "dashboard", nil
+        if tool then
+          term.setBackgroundColour(colours.black)
+          term.clear()
+          term.setCursorPos(1, 1)
+          local ok, err = pcall(shell.run, tool)
+          if not ok then pushLog("tool error: " .. tostring(err), colours.red) end
+          print("")
+          dim("click or press any key to return to the dashboard...")
+          os.pullEvent()
+        end
+      elseif ui.mode == "confirm" then
+        ui.mode, ui.pendingTool = "dashboard", nil -- any other click cancels
+      elseif ui.mode == "tools" and key and not RESERVED_KEYS[key] then
+        ui.pendingTool, ui.mode = key, "confirm"
+      elseif ui.mode == "tools" and key == nil then
+        ui.mode = "dashboard" -- click away cancels
+      elseif key == "go" then
+        runPlan(ctx.plan)
+      elseif key == "verify" then
+        recompute()
+        pushLog("verified: " .. ctx.plan, colours.white)
+      elseif key == "repair" then
+        runPlan("repair")
+      elseif key == "switch" then
+        local newRole = Suite.askForRole(ctx.manifest, ctx.order)
+        if newRole and newRole ~= ctx.role then
+          ctx.role, ctx.spec = newRole, ctx.manifest.roles[newRole]
+          recompute()
+          pushLog("switched to role " .. newRole, colours.yellow)
+        end
+      elseif key == "tools" then
+        ui.mode = "tools"
+      elseif key == "quit" then
+        return true
+      end
+    elseif ev == "term_resize" then
+      -- no-op: the next redraw below re-reads term.getSize()
+    end
+    hitAreas = Suite.drawDashboard(ctx, ui).hitAreas
   end
 end
 
@@ -834,114 +1374,20 @@ function Suite.main(args)
     return true
   end
 
-  -- ---- back up configs BEFORE touching anything
-  for _, cfgPath in ipairs(spec.configs or {}) do
-    if fs.exists(cfgPath) then
-      local target = Suite.backupConfig(cfgPath, manifest.version)
-      if target then dim("backed up " .. cfgPath) end
-    end
+  -- ---- advanced (colour) terminals get the graphical dashboard; everything else -- basic
+  -- computers, and --check/--list, which already returned above -- keeps the v1 text flow.
+  -- Both paths call Suite.performPlan, the same engine, so neither can drift from the other.
+  local advanced = term.isColour and term.isColour()
+  if advanced and not checkOnly and not listOnly then
+    return Suite.runUI({
+      base = base, manifest = manifest, order = order,
+      role = role, spec = spec, state = state,
+      plan = plan, report = report, fresh = fresh,
+      switching = switching, schemaBump = schemaBump, fastPath = fastPath,
+    })
   end
 
-  -- ---- clear a broken install (never configs)
-  if plan == "repair" then
-    local cleared = Suite.clearRole(spec, false)
-    for _, path in ipairs(cleared) do dim("cleared " .. path) end
-  end
-
-  -- ---- stage: download and verify EVERYTHING before moving anything into place
-  print("")
-  say(("Fetching %d file(s)..."):format(#spec.files))
-  local staged = {}
-
-  local function discardStaged()
-    for _, item in ipairs(staged) do
-      if fs.exists(item.stage) then fs.delete(item.stage) end
-    end
-  end
-
-  for index, entry in ipairs(spec.files) do
-    local url = ("%s/%s"):format(base, entry.src)
-    local content, fetchErr = fetch(url)
-    if not content then
-      discardStaged()
-      die(("failed on %s (%s)\nNothing was changed; the install is as it was.")
-        :format(entry.src, tostring(fetchErr)))
-    end
-    -- GitHub raw serves what is committed; a proxy that rewrites line endings would show up
-    -- here as a size mismatch rather than as a mysterious runtime error later.
-    if #content ~= entry.size or Suite.checksum(content) ~= entry.sum then
-      discardStaged()
-      die(("%s arrived corrupt (expected %d bytes / %s, got %d / %s)\nNothing was changed.")
-        :format(entry.src, entry.size, entry.sum, #content, Suite.checksum(content)))
-    end
-    local stagePath = "/" .. entry.dst .. STAGE
-    guard("/" .. entry.dst, "write")
-    if not writeRaw(stagePath, content) then
-      discardStaged()
-      die("could not write " .. stagePath .. " (disk full?)\nNothing was changed.")
-    end
-    staged[#staged + 1] = { stage = stagePath, final = "/" .. entry.dst, dst = entry.dst }
-    if index % 5 == 0 or index == #spec.files then
-      dim(("  %d/%d"):format(index, #spec.files))
-    end
-  end
-
-  -- ---- commit: every file arrived intact, so move them all into place
-  for _, item in ipairs(staged) do
-    guard(item.final, "replace")
-    if fs.exists(item.final) then fs.delete(item.final) end
-    fs.move(item.stage, item.final)
-  end
-  good(("Installed %d file(s)."):format(#staged))
-
-  -- ---- configs: extend with any newly added defaults, in place
-  print("")
-  for _, cfgPath in ipairs(spec.configs or {}) do
-    local result = Suite.extendConfig(spec, cfgPath, manifest.version)
-    if result == "extended" then
-      good(("config extended with new defaults: %s"):format(cfgPath))
-    elseif result == "quarantined" then
-      warn(("config %s would not parse: backed up and replaced with defaults"):format(cfgPath))
-    elseif result == "absent" then
-      dim(("no config yet at %s (it is created on first run)"):format(cfgPath))
-    else
-      dim(("config %s: %s"):format(cfgPath, result))
-    end
-  end
-
-  -- ---- drop anything this release no longer ships (after the new files are safely in place)
-  local pruned = Suite.pruneRole(spec, false)
-  for _, path in ipairs(pruned) do dim("removed " .. path .. " (no longer shipped)") end
-
-  -- ---- record what is now installed
-  writeRaw(STATE_FILE, Suite.formatState({
-    version = manifest.version,
-    schema = manifest.schema or 1,
-    role = role,
-    at = timestamp(),
-  }))
-
-  print("")
-  if #backedUp > 0 then
-    warn(("%d file(s) backed up in %s"):format(#backedUp, BACKUP_ROOT))
-  end
-  good(("Now at %s as role '%s'."):format(manifest.version, role))
-  if spec.entry ~= "" then
-    if #staged > 0 and not fresh then
-      -- THIS COMPUTER IS STILL RUNNING THE OLD CODE. CC loads a program once; new files on
-      -- disk do nothing until something starts them. Updating a running cockpit and then
-      -- wondering why the new buttons do not work is exactly what happens without this line,
-      -- so it is a warning rather than a dim hint.
-      warn("REBOOT THIS COMPUTER -- it is still running the old version.")
-      dim("  reboot     (or run: " .. spec.entry .. ")")
-    else
-      dim("Reboot to run it, or: " .. spec.entry)
-    end
-  end
-
-  Suite.selfUpdateNotice(base, manifest)
-  colour(colours.white)
-  return true
+  return Suite.performPlan(base, manifest, spec, role, plan, fresh)
 end
 
 --- Is the Suite itself current? If not, fetch the new one now -- we are done with our own file
