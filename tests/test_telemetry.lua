@@ -1,0 +1,27 @@
+-- tests/test_telemetry.lua
+local t = require("tests.framework")
+local telemetry = require("fcs.comms.telemetry")
+
+t.test("tx stamps a monotonic seq and carries the snapshot", function()
+  local tx = telemetry.Tx.new()
+  local f1 = tx:frame({ alt = 10 })
+  local f2 = tx:frame({ alt = 11 })
+  t.eq(f1.k, "tel"); t.eq(f1.s.alt, 10)
+  t.truthy(f2.seq > f1.seq, "seq increases")
+end)
+
+t.test("rx keeps the latest and rejects stale/duplicate", function()
+  local tx, rx = telemetry.Tx.new(), telemetry.Rx.new()
+  local f1, f2 = tx:frame({ alt = 10 }), tx:frame({ alt = 11 })
+  t.truthy(rx:accept(f2), "accept newer")
+  t.eq(rx:latest().alt, 11)
+  t.eq(rx:accept(f1), false, "reject older seq")
+  t.eq(rx:latest().alt, 11, "latest unchanged")
+  t.eq(rx:accept(f2), false, "reject duplicate seq")
+end)
+
+t.test("rx ignores non-telemetry frames", function()
+  local rx = telemetry.Rx.new()
+  t.eq(rx:accept({ k = "cmd", id = 1 }), false, "not tel")
+  t.eq(rx:latest(), nil, "no latest")
+end)
