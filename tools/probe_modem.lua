@@ -12,6 +12,7 @@ local function timeN(n)
   return os.epoch("utc") - t0
 end
 for _, n in ipairs({1, 5, 10, 20}) do
-  print(("%3d transmit(s): %d ms  (%.1f ms/call)"):format(n, timeN(n), timeN(n)/n))
+  local elapsed = timeN(n)
+  print(("%3d transmit(s): %d ms  (%.1f ms/call)"):format(n, elapsed, elapsed / n))
 end
 print("Compare to setPower ~50ms/call. If << 50ms, telemetry is cheap.")
