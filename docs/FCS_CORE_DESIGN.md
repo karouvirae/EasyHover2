@@ -533,5 +533,71 @@ chosen role on that PC.
 
 ---
 
+## 18. Pilot control + comms + cockpit
+
+The complete FCS implementation (Tasks C3–D4) spans two programs and five parallel tasks, communicating over fixed modem channels.
+
+### Programs
+
+**FCS runtime** (`tools/flight.lua`, flight PC):
+- Five parallel tasks over a single-writer snapshot (§9, §8 pattern).
+- **Control task:** owns the plant — `Flight:step(dt, held, meas)` runs the loop, pilot, and mixer every cycle. Reads measurements from the backend; writes the unique snapshot.
+- **Input task:** polls typewriter key codes (~50 ms cadence), resolves them to held-flags via `keymap.lua` (default: WASD move, QE yaw, RF lift), and feeds the held map to Control.
+- **Telemetry task:** reads the snapshot (~100 ms cadence), frames it, and transmits on channel 101 (fire-and-forget).
+- **Command task:** listens for incoming commands on channel 102, dispatches them to `Flight:handleCommand()`, and ACKs on channel 103.
+- **Health task:** emits heartbeat on channel 104 (~250 ms cadence).
+
+**UI cockpit** (`ui/main.lua`, UI PC):
+- Three parallel tasks over received snapshots.
+- **Network task:** listens on all channels (101, 103, 104), updates the latest-snapshot on telemetry, processes ACKs for command retry, marks health-link alive, and triggers redraw.
+- **Touch task:** polls monitor/terminal for clicks, dispatches to button, composes a command, and sends it via the command sender.
+- **Retry task:** ticks the command sender (~250 ms), resends any unACK'd commands.
+
+A custom **immediate-mode cockpit** (ui toolkit: `cockpit`, `dispatch`, `render`, `widget`) displays only **reported state** from telemetry — the "no optimistic UI" rule enforced by design. Button presses never update the display; only the next telemetry snapshot does.
+
+### Channel map
+
+| Channel | Direction | Content |
+|---|---|---|
+| **101** | FCS → UI | Telemetry snapshot (fire-and-forget) |
+| **102** | UI → FCS | Commands (event, ACK'd + retried) |
+| **103** | FCS → UI | ACK (command received) |
+| **104** | FCS → UI | Heartbeat / health (presence) |
+
+### Commands (UI → FCS)
+
+`Flight:handleCommand()` (§9) recognizes:
+
+- **`engage`** — arm the FCS and begin stabilization. **Gated:** only honored when `gndSafety == false`.
+- **`disengage`** — disarm. Resets integrators, stops the mixer, holding neutral.
+- **`gndSafety{on}`** — engage ground-safety mode (interlocks armed flight; arm requires `gndSafety==false`).
+- **`positionHold{on}`** — freeze the position/heading setpoints; pilot input no longer ramps them. Leashed translation becomes zero-velocity hold.
+- **`fuelPump{on}`** — toggle fuel relay (the arm signal; §4). No fuel flowing ⇒ FCS disarmed.
+- **`clearDamped`** — reset the oscillation detector (clears auto-degraded axis authority; §11.6).
+- **`flightMode{id}`** — select control scheme (e.g., `NORMAL` vs planned `AEROBATIC`; deferred schemes per §1).
+
+### Telemetry snapshot (FCS → UI)
+
+`Flight:snapshot()` (runtime/flight.lua, lines 49–59) produces:
+
+- **Status:** `engaged` (bool), `gndSafety` (bool), `positionHold` (bool), `fuelPump` (bool)
+- **Mode:** `mode` (from loop state), `flightMode` (pilot-selected scheme ID string)
+- **Measurements** (passthrough from sensors): `altitude`, `vSpeed`, `heading`, `yawRate`, `swayPos`, `surgePos`, `onGround` (bool)
+- **Instrumentation:** `loopHz` (achieved control loop rate)
+- **Fuel detail** (added by runtime wiring): `thrusterFuel[]` (per-lift-thruster duty, as a fraction 0–1 for UI fuel gauges)
+
+### Pilot input
+
+Typewriter held-keys (polled) → `keymap.resolve()` → held-flag names (`surgeFwd`, `swayLeft`, `yawRight`, `up`, etc.) → `Pilot:update()` → setpoint ramps.
+
+**Setpoints** (all measured in craft frame, §3):
+- **Yaw:** slew `heading` at configured `headingRate` per second while held; release freezes it.
+- **Lift:** slew `altitude` at configured `climbRate` per second, leashed to current altitude ± `leadCapVert`.
+- **Sway / surge:** ramp position setpoints toward ±`maxLead` at configured `cruiseSpeed`; leash (§2) caps the lead distance and enforces velocity control.
+
+**Position-hold mode:** when engaged, `Pilot:update()` returns the frozen setpoint table unchanged; pilot input does not move the targets. The leashed translation loop becomes zero-velocity hold (drift braking).
+
+---
+
 *Next step after review: turn this into a step-by-step implementation plan (superpowers
 writing-plans), TDD module by module against `tests/sim.lua`.*
