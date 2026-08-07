@@ -26,7 +26,9 @@ local hbRx = health.Rx.new({ timeout = 2.0 })
 local buttons = cockpit.buttons()
 
 local function snapshot()
-  local s = rx:latest() or {}
+  local latest = rx:latest() or {}
+  local s = {}
+  for k, v in pairs(latest) do s[k] = v end
   s.linkUp = hbRx:up(os.epoch("utc") / 1000)
   return s
 end

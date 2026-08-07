@@ -64,18 +64,29 @@ local function fuelInto(snap)
       snap.thrusterFuel[i] = (ok1 and ok2 and cap and cap > 0) and (amt / cap) or nil
     end
   end
+  -- Aggregate: no separate main-tank peripheral exists (fuel is per-thruster),
+  -- so the main FUEL gauge shows the mean of the available fractions.
+  local sum, count = 0, 0
+  for _, f in pairs(snap.thrusterFuel) do sum = sum + f; count = count + 1 end
+  snap.fuelMain = (count > 0) and (sum / count) or nil
   return snap
 end
 
 -- ---- Tasks ----
 local lastT = os.epoch("utc")
 local function controlTask()
+  -- Self-rescheduling zero-timer: fires as fast as possible while still
+  -- yielding every iteration (required under parallel.waitForAny, and to
+  -- avoid CC:Tweaked's "Too long without yielding" watchdog).
+  local timer = os.startTimer(0)
   while true do
-    local now = os.epoch("utc"); local dt = (now - lastT) / 1000; lastT = now
-    local meas = backend:sensors()
-    local snap = flight:step(dt, heldRef.held, meas)
-    shared.snap = fuelInto(snap)
-    -- fire as fast as possible; loop already clamps dt internally.
+    local ev = { os.pullEvent() }
+    if ev[1] == "timer" and ev[2] == timer then
+      local now = os.epoch("utc"); local dt = (now - lastT) / 1000; lastT = now
+      local meas = backend:sensors()
+      shared.snap = fuelInto(flight:step(dt, heldRef.held, meas))
+      timer = os.startTimer(0)
+    end
   end
 end
 

@@ -584,7 +584,7 @@ A custom **immediate-mode cockpit** (ui toolkit: `cockpit`, `dispatch`, `render`
 - **Mode:** `mode` (from loop state), `flightMode` (pilot-selected scheme ID string)
 - **Measurements** (passthrough from sensors): `altitude`, `vSpeed`, `heading`, `yawRate`, `swayPos`, `surgePos`, `onGround` (bool)
 - **Instrumentation:** `loopHz` (achieved control loop rate)
-- **Fuel detail** (added by runtime wiring): `thrusterFuel[]` (per-lift-thruster fuel level, fraction of tank capacity remaining, for UI fuel gauges)
+- **Fuel detail** (added by runtime wiring): `thrusterFuel[]` (per-lift-thruster fuel level, fraction of tank capacity remaining, for UI fuel gauges); `fuelMain` (mean of the available per-thruster fuel fractions, for the main FUEL gauge — there is no separate main-tank peripheral)
 
 ### Pilot input
 
