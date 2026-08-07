@@ -545,7 +545,7 @@ The complete FCS implementation (Tasks C3–D4) spans two programs and five para
 - **Input task:** polls typewriter key codes (~50 ms cadence), resolves them to held-flags via `keymap.lua` (default: WASD move, QE yaw, RF lift), and feeds the held map to Control.
 - **Telemetry task:** reads the snapshot (~100 ms cadence), frames it, and transmits on channel 101 (fire-and-forget).
 - **Command task:** listens for incoming commands on channel 102, dispatches them to `Flight:handleCommand()`, and ACKs on channel 103.
-- **Health task:** emits heartbeat on channel 104 (~250 ms cadence).
+- **Health task:** polls every ~250 ms and emits a heartbeat on channel 104 once per configured period (~1 s, the `health.Tx` default).
 
 **UI cockpit** (`ui/main.lua`, UI PC):
 - Three parallel tasks over received snapshots.
@@ -572,9 +572,9 @@ A custom **immediate-mode cockpit** (ui toolkit: `cockpit`, `dispatch`, `render`
 - **`disengage`** — disarm. Resets integrators, stops the mixer, holding neutral.
 - **`gndSafety{on}`** — engage ground-safety mode (interlocks armed flight; arm requires `gndSafety==false`).
 - **`positionHold{on}`** — freeze the position/heading setpoints; pilot input no longer ramps them. Leashed translation becomes zero-velocity hold.
-- **`fuelPump{on}`** — toggle fuel relay (the arm signal; §4). No fuel flowing ⇒ FCS disarmed.
-- **`clearDamped`** — reset the oscillation detector (clears auto-degraded axis authority; §11.6).
-- **`flightMode{id}`** — select control scheme (e.g., `NORMAL` vs planned `AEROBATIC`; deferred schemes per §1).
+- **`fuelPump{on}`** — mirrors the fuel-pump toggle state for the cockpit display. The physical no-fuel-disarm interlock (§4 / §11) is a hardware mechanism, not enforced by this command handler.
+- **`clearDamped`** — reset the oscillation detector (clears auto-degraded axis authority; §11, item 6).
+- **`flightMode{id}`** — select control scheme (e.g., `NORMAL` vs planned `AEROBATIC`; deferred schemes per §1). Currently FCS-side only — no cockpit button sends this yet.
 
 ### Telemetry snapshot (FCS → UI)
 
@@ -584,7 +584,7 @@ A custom **immediate-mode cockpit** (ui toolkit: `cockpit`, `dispatch`, `render`
 - **Mode:** `mode` (from loop state), `flightMode` (pilot-selected scheme ID string)
 - **Measurements** (passthrough from sensors): `altitude`, `vSpeed`, `heading`, `yawRate`, `swayPos`, `surgePos`, `onGround` (bool)
 - **Instrumentation:** `loopHz` (achieved control loop rate)
-- **Fuel detail** (added by runtime wiring): `thrusterFuel[]` (per-lift-thruster duty, as a fraction 0–1 for UI fuel gauges)
+- **Fuel detail** (added by runtime wiring): `thrusterFuel[]` (per-lift-thruster fuel level, fraction of tank capacity remaining, for UI fuel gauges)
 
 ### Pilot input
 
