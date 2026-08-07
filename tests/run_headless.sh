@@ -9,7 +9,7 @@ if [ -d "$ROOT/tools" ]; then cp -r "$ROOT/tools" "$COMP/"; fi
 cp -r "$ROOT/tests" "$COMP/"
 cat > "$COMP/startup.lua" <<'LUA'
 package.path = "/?.lua;/?/init.lua;" .. package.path
-local suites = { "tests.test_hwconfig", "tests.test_smoke", "tests.test_pid", "tests.test_pwm", "tests.test_sigma_delta",
+local suites = { "tests.test_keymap", "tests.test_hwconfig", "tests.test_smoke", "tests.test_pid", "tests.test_pwm", "tests.test_sigma_delta",
                  "tests.test_mixer", "tests.test_sim", "tests.test_integration", "tests.test_angle", "tests.test_yaw_mixer",
                  "tests.test_sim_yaw", "tests.test_heading", "tests.test_surge_mixer", "tests.test_sim_horizontal", "tests.test_translate", "tests.test_leash", "tests.test_envelope", "tests.test_oscillation", "tests.test_backend", "tests.test_backend_dropin", "tests.test_probe", "tests.test_calibration", "tests.test_calibrate", "tests.test_tuning", "tests.test_profile", "tests.test_instrument", "tests.test_loop", "tests.test_hover_test", "tests.test_scheme_heave", "tests.test_level" }
 local t = require("tests.framework")
