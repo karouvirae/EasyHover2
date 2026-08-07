@@ -91,3 +91,27 @@ t.test("gen_manifest dirsOf derives the top-level directory repair scope", funct
   local dirs = gen.dirsOf({ "fcs/x.lua", "tools/y.lua", "startup.lua" })
   t.eq(table.concat(dirs, ","), "fcs,tools")
 end)
+
+_G.EH2_SUITE_NO_RUN = true
+local Suite = require("easyhover2_suite")
+
+t.test("suite checksum matches shared fnv1a", function()
+  t.eq(Suite.checksum("hello"), fnv1a("hello"))
+  t.eq(Suite.checksum(""), "811c9dc5")
+end)
+
+t.test("isProtected covers EH2 config + suite files", function()
+  t.eq(Suite.isProtected("/eh2_hw_config.tbl"), true)
+  t.eq(Suite.isProtected("/easyhover2_install.txt"), true)
+  t.eq(Suite.isProtected("/easyhover2_backup/x"), true)
+  t.eq(Suite.isProtected("/fcs/io/config.lua"), false)  -- code is not protected
+end)
+
+t.test("choosePlan truth table (carried from v1)", function()
+  t.eq(Suite.choosePlan({ anyInstall = false }), "install")
+  t.eq(Suite.choosePlan({ anyInstall = true, forceRepair = true }), "repair")
+  t.eq(Suite.choosePlan({ anyInstall = true, noRecord = true }), "repair")
+  t.eq(Suite.choosePlan({ anyInstall = true, sameVersion = true, mismatched = true }), "repair")
+  t.eq(Suite.choosePlan({ anyInstall = true, sameVersion = true, mismatched = false }), "current")
+  t.eq(Suite.choosePlan({ anyInstall = true, sameVersion = false }), "update")
+end)
