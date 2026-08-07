@@ -8,68 +8,79 @@ launchers + `fcs/io/config.lua` + suite tests
 ## 1. Purpose & scope
 
 A single tool — `easyhover2_suite.lua` — run **directly from GitHub** (`wget run …`) that
-installs, updates, and repairs EasyHover 2 on a fresh or existing CC:Tweaked computer, choosing a
-**role** (which app auto-runs on boot). It carries no payload: it asks GitHub (via a published
-`manifest.lua`) what the current release contains and fetches only what this computer needs. It
-presents a **proper graphical UI** with at-a-glance status, one-click actions, and diagnostics.
+installs, updates, and repairs EasyHover 2 on a fresh or existing CC:Tweaked computer. It **asks
+which role** the computer is when nothing is installed, installs exactly what **that role** needs
+(plus the shared debug tools), and makes it run on reboot. It carries no payload: it asks GitHub
+(via a published `manifest.lua`) what the release contains and fetches only what this computer
+needs. It presents a **proper graphical UI** with at-a-glance status, one-click actions, and
+diagnostics.
 
-This realises §16 of `docs/FCS_CORE_DESIGN.md` (with the UI brought forward to now, per the
-pilot's decision — §16 originally deferred it). It is a **retarget of the proven, tested
-EasyHover 1 Suite** (`../EasyHover/easyhover_suite.lua`): that engine already delivers every
-integrity property we need. We reuse it near-verbatim, retarget constants, add a manifest-driven
-config hook, ship the full tool set to every role, and add a custom UI.
+This realises §16 of `docs/FCS_CORE_DESIGN.md`, with the UI brought forward to now (the pilot's
+call — §16 deferred it). It is a **retarget of the proven, tested EasyHover 1 Suite**
+(`../EasyHover/easyhover_suite.lua`): that engine already delivers every integrity property. We
+reuse it near-verbatim, retarget constants, add a manifest-driven config hook, ship the full
+`tools/` set to every role, switch to a single-latest backup, and add a custom UI.
 
 **In scope:**
 - The Suite engine retargeted to EH2 (checksum-every-run, all-or-nothing staging, config-sacred,
   cache-bust, independent self-update).
-- Two roles, **`fcs`** and **`ui`**, that install an **identical full product** and differ only
-  in which app auto-runs at boot.
-- Shipping the **complete `tools/` debug set** to every role, each reachable by a short terminal
-  command (`calibrate`, `hovertest`, `probe`, …) after `Ctrl-T`.
+- Two roles, **`fcs`** and **`ui`**. Each installs **its own app + the full `tools/` debug set**;
+  the role determines which app auto-runs at boot.
+- The complete `tools/` debug set on **every** role, each reachable by a short terminal command
+  after `Ctrl-T`.
 - A **custom pure-CC graphical UI** for the Suite (single self-contained file).
 - A Lua manifest generator run headless in CraftOS-PC.
 - A standalone `fcs/io/config.lua` so config-extension is manifest-driven — **no change to
   `flight.lua`/`calibrate.lua` or the control stack**.
+- **Single-latest** config backup policy.
 - Ported unit + e2e test harness.
+- Removing the now-obsolete `tools/install_*.lua`.
 
-**Out of scope / deferred:** the **NAV** role (no `nav/` yet — a later manifest entry, no Suite
-change); config schema-versioning + migrator (§15 additive-only, `schema = 1`); shipping Basalt
-(Suite UI is custom; EH2 cockpit is custom too); **building** no-op-gated flight-runtime
-instrumentation (a separate product feature — see §8, noted for the plan, not built here).
+**Out of scope / deferred:**
+- The **UI-role application build-out** (monitor selection/mirroring, config & calibration as UI
+  menus, cockpit panels) — a substantial separate project, sequenced **after** the Suite. Captured
+  in §11 so nothing is lost. The Suite ships whatever the UI app is today and re-ships future
+  versions automatically, so it does **not** depend on that work.
+- The **NAV** role (no `nav/` yet — a later manifest entry, no Suite change).
+- Config schema-versioning + migrator (§15 additive-only, `schema = 1`).
+- Shipping Basalt (Suite UI is custom; EH2 cockpit is custom too).
+- **Building** no-op-gated flight-runtime instrumentation (a separate product feature — §8).
 
-## 2. Requirements (from brainstorming)
+## 2. Requirements
 
-The v1 suite already satisfies the four integrity requirements; verifying, not inventing:
+Integrity requirements the v1 engine already satisfies (verifying, not inventing):
 
-1. **Manifest-driven / no hardcoded lists** — the Suite hardcodes **zero** EH2 file lists; roles,
-   files, dirs, entry, `configModule`, config paths, `luaPath` all come from `manifest.lua`. A
-   future EH2 change needs only a regenerated manifest.
-2. **Suite version independent of EH2** — the Suite flags **itself** stale only when a new Suite
-   ships (`manifest.updater` = the Suite's own size+sum; `selfUpdateNotice`).
-3. **No missed update from a stale/missing log** — decision is **per-file checksum vs manifest**
-   every run; the version stamp is only a `--fast` opt-out; a missing/corrupt record falls back to
-   full verification + on-disk role detection.
-4. **Defeat GitHub CDN caching** — every fetch appends `?cb=<epoch>` + `no-cache` headers.
+1. **Manifest-driven / no hardcoded lists** — the Suite hardcodes **zero** EH2 file lists.
+2. **Suite version independent of EH2** — `manifest.updater` + `selfUpdateNotice`.
+3. **No missed update from a stale/missing log** — per-file checksum vs manifest every run;
+   version stamp is only a `--fast` opt-out; missing/corrupt record → full verify + role detect.
+4. **Defeat GitHub CDN caching** — `?cb=<epoch>` + `no-cache` headers on every fetch.
 
-Plus three pilot decisions in this session:
+Pilot decisions this session:
 
-5. **Full install on every role** — every role installs the identical complete product (all app
-   code + all debug tools); the role only chooses the boot app.
-6. **Debug tools as terminal commands** — after `Ctrl-T`, typing `calibrate` / `hovertest` /
-   `probe` / … starts the respective tool.
-7. **Proper Suite UI now** — custom pure-CC, fancy on Advanced computers, degrading to keyboard on
+5. **Per-role install, not a whole-repo dump** — ask for a role when nothing is installed; install
+   exactly that role's app closure **plus** the shared tools; update only the current role; on a
+   broken/unknown install, detect the role, repair, and set it correctly, or clean-reinstall a
+   chosen role if too broken.
+6. **All `tools/` on every role** — the full diagnostic tool set ships to both roles, each a short
+   terminal command (`calibrate`, `hovertest`, `probe`, …) usable after `Ctrl-T`.
+7. **Config is sacred, backup is single-latest** — configs are never fully deleted; on update they
+   are additively merged; a config is replaced with fresh **only if it will not parse at all**, and
+   even then it is backed up first. The backup folder holds **exactly one** backup — the latest —
+   replaced on each run that touches config.
+8. **Proper Suite UI now** — custom pure-CC, fancy on Advanced computers, degrading to keyboard on
    Basic.
 
 ## 3. Architecture & components
 
-Five deliverables:
+Five deliverables.
 
 ### 3.1 `easyhover2_suite.lua` (repo root) — engine + UI, single self-contained file
-Retarget of `easyhover_suite.lua`. Engine behaviour carried over unchanged: `Suite.checksum`
-(FNV-1a 32-bit, LF-normalised, split multiply); `fetchOnce`/`fetch` (cache-bust + retry);
-`Suite.integrity` / `Suite.choosePlan` / `Suite.detectRole` (bytes, not trust); all-or-nothing
-`<dst>.eh2new` staging; `PROTECTED` + `guard()` before every release write/delete;
-`clearRole`/`pruneRole`; timestamped backups; `selfUpdateNotice`; args
+Retarget of `easyhover_suite.lua`. Engine behaviour carried over: `Suite.checksum` (FNV-1a 32-bit,
+LF-normalised, split multiply); `fetchOnce`/`fetch` (cache-bust + retry); `Suite.integrity` /
+`Suite.choosePlan` / `Suite.detectRole` (bytes, not trust); all-or-nothing `<dst>.eh2new` staging;
+`PROTECTED` + `guard()` before every release write/delete; `clearRole`/`pruneRole`; timestamped-
+→ **single-latest** backups (§6); `selfUpdateNotice`; args
 `--check`/`--repair`/`--fast`/`--list`/`--help`/`<role>`.
 
 **Changed for EH2:**
@@ -80,86 +91,81 @@ Retarget of `easyhover_suite.lua`. Engine behaviour carried over unchanged: `Sui
 | `SOURCE_FILE` | `/easyhover2_suite_src.txt` |
 | `TOKEN_FILE` | `/easyhover2_suite_token.txt` (repo is public; token optional) |
 | `STATE_FILE` | `/easyhover2_install.txt` |
-| `BACKUP_ROOT` | `/easyhover2_backup` |
+| `BACKUP_ROOT` | `/easyhover2_backup` (single-latest — §6) |
 | `STAGE` | `.eh2new` |
 | `PROTECTED` | `^/eh2_.*%.tbl$`, `^/eh2_.*%.log$`, `^/easyhover2_backup`, `^/easyhover2_install%.txt$`, `^/easyhover2_suite_src%.txt$`, `^/easyhover2_suite_token%.txt$` |
 
-Plus: manifest-driven config hook (§6) and the embedded UI (§7).
+Plus: manifest-driven config hook (§6), `detectRole` adaptation (§4), embedded UI (§7).
 
 ### 3.2 `tools/gen_manifest.lua` — Lua generator, run headless in CraftOS-PC
 Replaces v1's `gen_manifest.js`. Emits `manifest.lua`. Shares the **exact** FNV-1a with the Suite
-(both use one `tools/fnv1a.lua`; the Suite also keeps an identical inline copy so it stays a single
-`wget run` file). Computes the **product closure** (§4), assigns it to both roles with per-role
-startup launchers, digests `version`, reads `updater` (the Suite's own size+sum). Modes: default
-(write), `--check` (in-sync assert), `--selftest` (reference checksums).
+(one `tools/fnv1a.lua`; the Suite keeps an identical inline copy to stay a single `wget run` file).
+Computes each role's closure (§4), digests `version`, reads `updater` (the Suite's own size+sum).
+Modes: default (write), `--check` (in-sync assert), `--selftest` (reference checksums).
 
 ### 3.3 Launchers (`launchers/`) — thin root programs
 Each sets `package.path = "/?.lua;/?/init.lua;"` and `require`s an entry:
-
-- `launchers/fcs.lua` → installed as `/startup.lua` on the **fcs** role → `require("tools.flight")`.
-- `launchers/ui.lua` → installed as `/startup.lua` on the **ui** role → `require("ui.main")`.
-- Shared command launchers, installed on **both** roles at the root:
-  `flight`, `cockpit`, `calibrate`, `hovertest`, `probe`, `probemodem`, `probebatch`
-  (each `require`s its `tools.*` / `ui.main`). Final command list confirmed in the plan (§11).
+- `launchers/fcs.lua` → `/startup.lua` on **fcs** → `require("tools.flight")`.
+- `launchers/ui.lua` → `/startup.lua` on **ui** → `require("ui.main")`.
+- App command per role: `launchers/flight.lua` → `flight` (fcs); `launchers/cockpit.lua` →
+  `cockpit` (ui).
+- Diagnostic commands on **both** roles: `launchers/{calibrate,hovertest,probe,probemodem,
+  probebatch}.lua` → `calibrate` / `hovertest` / `probe` / `probemodem` / `probebatch`.
 
 ### 3.4 `fcs/io/config.lua` — standalone config module (new)
-Provides the three-function `configModule` contract the Suite's config-extension expects, wrapping
-the **existing** `fcs/io/hwconfig.lua` and mirroring `calibrate.lua`'s save. **Used only by the
-Suite.** `flight.lua`/`calibrate.lua` are unchanged (§6).
+Implements the `configModule` contract the Suite's config-extension expects, wrapping the existing
+`fcs/io/hwconfig.lua` and mirroring `calibrate.lua`'s save. **Used only by the Suite.**
+`flight.lua`/`calibrate.lua` are unchanged (§6).
 
 ### 3.5 Tests (`tests/`)
-`tests/test_suite.lua` (pure-logic units + UI-layout units + FNV parity), `tests/suite_probe.lua`
-+ `tests/run_suite_e2e.sh` (real headless install/update/repair against a localhost mirror).
+`tests/test_suite.lua` (pure-logic + UI-layout units + FNV parity), `tests/suite_probe.lua` +
+`tests/run_suite_e2e.sh` (real headless install/update/repair against a localhost mirror).
 
-## 4. Role model — identical full install, role picks the boot app
+## 4. Role model — per-role app + all tools
 
-Both roles install the **same complete product**; the only per-role difference is which launcher
-becomes `/startup.lua`. Every role therefore carries both apps and all debug-tool commands, so on
-any EH2 computer you can `Ctrl-T` and type `calibrate`, `hovertest`, etc. (Flight tools on a UI PC
-simply error if run — no thruster/sensor peripherals — which is the accepted cost of "everything
-at hand.")
+Nothing installed → the Suite asks the role → installs **that role's closure** → sets its boot app.
+Each role's install is its **own app** plus the **shared diagnostic tools**. The role is not a
+whole-repo dump: FCS does not ship the cockpit; UI does not ship the FCS flight app. Both ship the
+diagnostic tools (which pull in the shared control/io stack), so the diagnostics run on either
+machine — flight-hardware tools simply error on a UI PC (no thruster/sensor peripherals), the
+accepted cost of "tools everywhere".
 
-### Product file set = dependency-closure of all entry points
-The shipped set is computed automatically as the transitive `require()` closure of **every**
-shipped entry point — the two apps plus every debug-tool command:
+### Membership = dependency-closure of the role's roots
+A role's file set is the transitive `require()` closure of its roots:
 
-1. Roots = `tools/flight.lua`, `ui/main.lua`, `tools/calibrate.lua`, `tools/hover_test.lua`,
-   `tools/probe.lua`, `tools/probe_modem.lua`, `tools/probe_batch.lua` (final list per §11), plus
-   the launcher files and `fcs/io/config.lua`.
-2. Scan each for `require("mod.name")` (pattern `require%s*%(?%s*["']([%w%._%-]+)["']`), map
-   `mod.name` → `mod/name.lua` (else `mod/name/init.lua`) via the package.path convention, resolve
-   against the repo root, recurse; union all roots.
-3. An unresolvable `require` (names a file not in the repo) is a **hard error** at generation time
-   — a real missing dependency, caught before release. CC built-ins are globals, never `require`d,
-   so there is nothing to filter.
+- **Common to both roles (diagnostic tools):** `calibrate`, `hovertest`, `probe`, `probemodem`,
+  `probebatch` (their tool files + launchers).
+- **`fcs` roots (adds):** `tools/flight.lua` (the flight app) + `flight` launcher + `fcs`
+  startup launcher.
+- **`ui` roots (adds):** `ui/main.lua` (the cockpit) + `cockpit` launcher + `ui` startup launcher.
+- Both roles also include `fcs/io/config.lua` (the declared `configModule`).
 
-Using the closure (rather than "walk a directory") is what makes shipping automatic and
-correct-by-construction, and it **excludes** non-product files (tests/, docs/, `backup/`,
-`.superpowers/`, and dev-only tools we don't list as roots — `install_*.lua`, `fix_yaw_sign.lua`)
-without a manual denylist. Closure derivation is a **pure function** (`roots, readFile → sorted
-files`), unit-tested off the filesystem.
+Closure derivation (pure, unit-tested): scan each root for `require("mod.name")` (pattern
+`require%s*%(?%s*["']([%w%._%-]+)["']`), map `mod.name` → `mod/name.lua` (else `mod/name/init.lua`)
+via the package.path convention, resolve against the repo root, recurse, union the roots. An
+unresolvable `require` is a **hard error** at generation time. Using the closure (not "walk a
+directory") makes membership automatic and correct-by-construction, and it **excludes** non-product
+files (`tests/`, `docs/`, `backup/`, `.superpowers/`, and dev-only tools not listed as roots —
+`install_*.lua`, `fix_yaw_sign.lua`).
 
-### The two roles
+### What each role ends up with
+- **`ui`-unique:** `ui/*` (cockpit/dispatch/render/widget/main), the `cockpit` command, the `ui`
+  startup launcher.
+- **`fcs`-unique:** `tools/flight.lua`, `fcs/runtime/flight.lua`, `fcs/input/*`, the `flight`
+  command, the `fcs` startup launcher.
+- **Shared (both):** the diagnostic tools and their closure — the control/io/comms/frame/angle
+  stack, `fcs/io/config.lua`.
 
-| | `fcs` — Flight computer | `ui` — Cockpit display |
-|---|---|---|
-| Boot app (`/startup.lua`) | `launchers/fcs.lua` → `tools.flight` | `launchers/ui.lua` → `ui.main` |
-| Shipped files | the full product closure | the full product closure (identical) |
-| Command set | all (flight + tools) | all (flight + tools) |
-| Owned dirs (repair scope) | derived from closure paths (`fcs`, `ui`, `tools`) | same |
-| Config | `/eh2_hw_config.tbl`, `configModule = "fcs.io.config"` | same (present; harmless if unused) |
-| `luaPath` | `/` | `/` |
+### `detectRole` adaptation
+The two roles share most files but each has unique files **and** a distinct installed
+`/startup.lua`. `detectRole`:
+1. **Primary:** match the on-disk `/startup.lua` size+sum against each role's startup-launcher
+   entry in the manifest — an unambiguous signal of the installed role.
+2. **Corroboration/fallback:** if `startup.lua` is absent or hand-edited, count each role's
+   **unique** files present (`ui/*` vs `fcs/input/*`+`tools/flight.lua`) and take the clear
+   winner; if neither is clearly present, prompt.
 
-Because both roles ship the identical closure, their `files[]` differ only in the `/startup.lua`
-entry's `src`+`sum`. Switching roles is a role-change: the shared root `startup.lua` is replaced by
-the new role's launcher; the rest is already correct, so no re-download churn beyond the launcher.
-
-**`detectRole` adaptation.** v1 detected the role from disjoint per-role file sets — which cannot
-work here, since both roles ship the same files. For EH2 the distinguishing artifact is the
-installed `/startup.lua`: `detectRole` identifies the role by matching the on-disk `startup.lua`'s
-size+sum against each role's launcher entry in the manifest (falling back to "product present but
-role unknown" → prompt, if it matches neither, e.g. a hand-edited startup). This is the one
-engine-logic change beyond constants; it is a pure function and unit-tested.
+Both branches are pure functions, unit-tested off the filesystem.
 
 ## 5. Manifest schema (`manifest.lua`)
 
@@ -174,128 +180,132 @@ Generated data table (parsed with `textutils.unserialise` in an empty env — in
   ["roles"] = {
     ["fcs"] = {
       ["title"]="Flight computer", ["blurb"]="…", ["status"]="released",
-      ["dirs"]={ "fcs","tools","ui" }, ["configs"]={ "/eh2_hw_config.tbl" },
+      ["dirs"]={ "fcs","tools" }, ["configs"]={ "/eh2_hw_config.tbl" },
       ["configModule"]="fcs.io.config", ["luaPath"]="/", ["entry"]="startup.lua",
       ["files"]={ { ["src"]="…", ["dst"]="…", ["size"]=<n>, ["sum"]="<fnv>" }, … },
     },
-    ["ui"] = { ["title"]="Cockpit display", …, ["configModule"]="fcs.io.config", … },
+    ["ui"] = { ["title"]="Cockpit display", …, ["dirs"]={ "ui","fcs","tools" }, … },
   },
 }
 ```
 
-`version` moves only when shipped bytes move; `schema` bumps only on an incompatible config layout
-change (not now).
+`dirs` (repair scope) are derived from the role's closure paths. `version` moves only when shipped
+bytes move; `schema` bumps only on an incompatible config layout change (not now).
 
-## 6. Config-extension, manifest-driven — no flight-code changes
+## 6. Config-extension & single-latest backup — no flight-code changes
 
 `flight.lua` and `calibrate.lua` both read `/eh2_hw_config.tbl` and
 `hwconfig.merge(saved, hwconfig.defaults())`; `calibrate.lua` also saves via tmp-write+move+
 `serialise`. **None of that changes.**
 
-The manifest declares a per-role `configModule`; the Suite `require`s it and calls the same
-three-function contract v1 used:
-
-- `Config.load(path) -> cfg, existed, err` — read + `unserialise` the **saved** table (never
-  throws).
+**Config-extension (manifest-driven).** The manifest declares a per-role `configModule`; the Suite
+`require`s it and calls the same three-function contract v1 used:
+- `Config.load(path) -> cfg, existed, err` — read + `unserialise` the saved table (never throws).
 - `Config.withDefaults(cfg) -> cfg` — `hwconfig.merge(cfg or {}, hwconfig.defaults())`.
 - `Config.save(path, cfg) -> ok, err` — tmp-write + move + `serialise` (mirrors `calibrate`).
 
-`Suite.extendConfig` (behaviour unchanged from v1): back up the config; `load`; if it parses,
-`save(withDefaults(cfg))` → **extended**; if unparseable (already backed up) → rewrite defaults →
-**quarantined**; absent → left for first run. `fcs/io/config.lua` is a **new standalone module**
-implementing that contract over the existing `hwconfig`; it is used only by the Suite and is
-shipped because it is the declared `configModule`. The control stack (PID/mixer/actuate/sensors)
-and the stable-hover code are untouched.
+`Suite.extendConfig` (behaviour from v1): back up the config; `load`; if it parses,
+`save(withDefaults(cfg))` → **extended** (additive: new defaults appear, set values kept); if
+unparseable (already backed up) → rewrite defaults → **quarantined**; absent → left for first run.
+`fcs/io/config.lua` is a **new standalone module** implementing that contract over the existing
+`hwconfig`; used only by the Suite; shipped as the declared `configModule`. The control stack and
+stable-hover code are untouched.
+
+**Single-latest backup.** Config is in `PROTECTED`, so it is never deleted or overwritten by a
+release write, in install / update / repair / role-switch alike. Before a config is touched, the
+Suite backs it up to `/easyhover2_backup/`, **replacing any previous backup** so the folder holds
+exactly one (the latest) — a change from v1's per-run timestamped folders, per §16. Repair
+(`clearRole`) clears only the role's owned code dirs; root-level configs are structurally out of
+reach and `guard()`-protected regardless.
 
 ## 7. Suite UI (custom pure-CC, single-file, graceful degrade)
 
 The Suite renders a graphical dashboard using only CC's own `term`/`window`/`paintutils` — no
-Basalt, so the Suite stays one self-contained `wget run` file with no bootstrap fetch. All UI code
-lives inside `easyhover2_suite.lua`.
+Basalt, so it stays one self-contained `wget run` file with no bootstrap fetch. All UI code lives
+inside `easyhover2_suite.lua`.
 
-**Capability detection & degrade.** On an **Advanced** computer (`term.isColour()`), draw the full
-graphical UI with mouse support. On a **Basic** computer (no colour / no mouse), fall back to the
-v1 keyboard flow (the tested role picker + text prompts + progress lines). The UI layer sits on
-top of the same engine functions; no engine behaviour depends on which front-end is active.
+**Degrade.** Advanced computer (`term.isColour()`) → full graphical UI + mouse. Basic computer →
+the v1 keyboard flow (tested role picker + text prompts + progress lines). Same engine underneath.
 
-**Dashboard (main screen).**
-- Title bar with a filled background; panels with borders and pseudo-rounded corners.
-- **Status panel:** current role · installed version → release version (colour-coded:
-  green = current, yellow = update available, red = repair needed) · schema · last-install time ·
-  source URL · Suite-self status (current / new Suite available).
-- **Integrity panel:** files OK / changed / missing (from `Suite.integrity`), with a summary bar.
-- **Actions:** Install/Update · Verify (re-checksum) · Repair · Switch role · Check (dry-run).
-  During work, a **progress bar** reflects fetch → stage → commit.
-- **Diagnostics / tools:** a "Launch tool ▸" affordance listing the shipped debug commands
-  (`calibrate`, `hovertest`, `probe`, …) so they can be started from the Suite, plus a log/diag
-  view when logs are present (ties to §8).
+**Dashboard.**
+- Title bar with filled background; bordered panels with pseudo-rounded corners.
+- **Status:** current role · installed → release version (green current / yellow update / red
+  repair) · schema · last-install time · source URL · Suite-self status.
+- **Integrity:** files OK / changed / missing (from `Suite.integrity`) with a summary bar.
+- **Actions:** Install/Update · Verify · Repair · Switch role · Check (dry-run); a **progress bar**
+  over fetch → stage → commit.
+- **Diagnostics / tools:** a "Launch tool ▸" list of the shipped diagnostic commands, plus a
+  log/diag view when logs are present (ties to §8).
 
 **Testability.** Layout/geometry are **pure functions** (panel rects, progress-bar fill, status
-colour from plan state, the existing `rolePickerLayout`), separated from drawing and IO, so
-`tests/test_suite.lua` asserts them at multiple terminal sizes without a screen. Drawing and the
-event loop are thin.
+colour from plan state, `rolePickerLayout`), separated from drawing/IO, asserted at multiple
+terminal sizes without a screen. Drawing + event loop are thin.
 
-**Honesty about "smooth."** CC is a character grid; on Advanced computers we get filled colour
-backgrounds, bordered panels, progress bars, and pseudo-rounded corners — visually clean, but not
-antialiased. Set expectations accordingly.
+**"Smooth" honestly.** CC is a character grid; on Advanced computers we get filled backgrounds,
+bordered panels, progress bars, and pseudo-rounded corners — clean, not antialiased.
 
 ## 8. Instrumentation / logging (noted for the plan — not built here)
 
-Reminder captured per the pilot: the full EasyHover 2 should have **flight-runtime instrumentation
-for logging, gated behind a switch that no-ops it in normal flight**. Today `fcs/bringup/
-instrument.lua` is a pure CSV/summary logger wired only into `hover_test.lua`, **not** the flight
-app. Wiring a no-op-gated logging facility into `tools/flight.lua` is a **separate product
-feature** (it would touch the just-stabilised flight loop and must be designed/tested on its own).
-This Suite:
-- **ships** whatever instrumentation modules exist (they enter the closure automatically), and
-- the **UI diagnostics view surfaces logs** when present.
-
-The plan records this as a distinct, later feature; it is not implemented as part of the Suite.
+Per the pilot: the full EH2 should have **flight-runtime instrumentation for logging, gated behind
+a switch that no-ops it in normal flight**. Today `fcs/bringup/instrument.lua` is a pure CSV/summary
+logger wired only into `hover_test.lua`, **not** the flight app. Wiring a no-op-gated logging
+facility into `tools/flight.lua` is a **separate product feature** (it touches the just-stabilised
+flight loop and must be designed/tested on its own). This Suite **ships** whatever instrumentation
+modules exist (they enter the closure automatically) and the **UI diagnostics view surfaces logs**
+when present. The plan records this as a distinct later feature; it is not implemented here.
 
 ## 9. FNV-1a parity & trust
 
-One FNV-1a implementation, used by both sides; parity enforced by (a) generator `--selftest`
+One FNV-1a implementation used by both sides; parity enforced by (a) generator `--selftest`
 reference checksums asserted in `tests/test_suite.lua`, and (b) every fetched file's `sum` verified
-against the manifest during install (a divergence fails the whole install, never slips through).
-Trust root is HTTPS to the pinned `raw.githubusercontent.com` URL (as for `wget run`); FNV-1a +
-size answer "did this change / arrive intact", not a signature. EasyHover2 is **public**, so
-`wget run` needs no token; `TOKEN_FILE` is a fallback for a future private mirror/fork.
+against the manifest during install. Trust root is HTTPS to the pinned `raw.githubusercontent.com`
+URL; FNV-1a + size answer "did this change / arrive intact", not a signature. EasyHover2 is
+**public**, so `wget run` needs no token; `TOKEN_FILE` is a fallback for a future private mirror.
 
 ## 10. Testing
 
 - **Unit** (`tests/test_suite.lua`, under `tests/run_headless.sh`): `choosePlan` truth table;
-  `integrity` (missing/corrupt/ok via injected `read`); `detectRole` (both roles ship the same
-  closure, so detection keys off the record and, when absent, the shared file set → role from the
-  installed startup launcher); `parseState` tolerance; `isProtected` for every EH2 pattern;
-  **closure derivation** (pure, injected `readFile`); **UI layout** purity (panel rects,
-  progress-bar fill, status-colour mapping, `rolePickerLayout`) at basic + advanced sizes; **FNV
-  parity** vs generator `--selftest`; `fcs/io/config.lua` load/withDefaults/save round-trip incl.
-  additive-merge and unparseable-quarantine.
+  `integrity` (missing/corrupt/ok via injected `read`); `detectRole` (startup-launcher match +
+  unique-file fallback); `parseState` tolerance; `isProtected` for every EH2 pattern; **closure
+  derivation** (pure, injected `readFile`) incl. per-role roots and the unresolvable-require error;
+  **UI layout** purity at basic + advanced sizes; **FNV parity** vs generator `--selftest`;
+  `fcs/io/config.lua` load/withDefaults/save round-trip incl. additive-merge and
+  unparseable-quarantine; **single-latest backup** (a second backup replaces the first).
 - **e2e** (`tests/run_suite_e2e.sh` + `tests/suite_probe.lua`): serve the repo on localhost, point
-  the Suite via `_src.txt`, run real phases — `install`, `current`, `configkeep` (a pilot value
-  survives an update), `repair` (corrupt a file → clean reinstall, config kept), `badconfig`
-  (unparseable config quarantined + backed up), `detect` (missing record → role detected),
-  `protect` (a manifest naming a protected path is refused by `guard`), `check` (dry run writes
-  nothing), plus a fresh install of the **other** role and a **role-switch** (fcs→ui replaces only
-  the launcher). Probe drives via `--script` (never overwriting its own `/startup.lua`).
-- **e2e server:** **python** `http.server` primary (verified: Python 3.14 + curl). The harness is
-  **server-agnostic with a fallback**: it probes for python and, if absent, falls back to another
-  static file server present on the machine, so the e2e runs without python too.
+  the Suite via `_src.txt`, run real phases — `install` (asks/sets role), `current`, `configkeep`
+  (a pilot value survives an update), `update` (a changed file re-fetched, config kept), `repair`
+  (corrupt a file → clean reinstall, config kept, single backup), `badconfig` (unparseable config
+  quarantined + backed up), `detect` (missing record → role detected from startup launcher),
+  `protect` (a manifest naming a protected path refused by `guard`), `check` (dry run writes
+  nothing), a fresh install of the **other** role, and a **role-switch** (fcs→ui). Probe drives via
+  `--script`.
+- **e2e server:** **python** `http.server` primary (verified: Python 3.14 + curl); harness is
+  **server-agnostic with a fallback** to another static server if python is absent.
 - **Generator sync guard:** `tools/gen_manifest.lua --check` asserts the committed manifest matches
-  the tree; wired into the suite test run so a forgotten regenerate fails CI.
+  the tree; wired into the suite test run.
 
-## 11. Open items / risks (for the plan)
+## 11. Deferred: UI-role application build-out (next project)
 
-1. **Exact shipped command list.** Proposed roots: `flight`, `cockpit`, `calibrate`, `hovertest`,
-   `probe`, `probemodem`, `probebatch`. Proposed **exclusions** (dev-only / superseded):
-   `install_hovertest.lua`, `install_probe.lua` (obsoleted by this Suite), `fix_yaw_sign.lua`
-   (one-off correction). Confirm at plan start; the closure roots ARE this list, so it fully
-   determines what ships.
-2. **`require` scanner completeness.** It matches literal `require("string")`. The plan asserts (a
-   grep) that no shipped entry uses a computed/non-literal require, so the closure is complete.
-3. **Single-file size.** Engine + embedded UI in one file grows `easyhover2_suite.lua`; acceptable
-   for `wget run`, and it is the `updater` the manifest tracks.
-4. **No-op-gated flight instrumentation** (§8) is a separate feature, flagged not built.
-5. **Legacy installers.** Once the Suite ships, `tools/install_*.lua` are dead; the plan may remove
-   them (separate small cleanup) so they are not mistaken for the supported path.
+Captured so it is not lost; **sequenced after** the Suite, as its own spec → plan. The Suite ships
+whatever the UI app is at each release, so this does not block or depend on the Suite. The UI role's
+cockpit application must eventually include:
+- **Monitor selection per UI panel** — assign each panel to a specific physical monitor, including
+  **mirroring the two overhead panels** and the **flight-path markers** across monitors.
+- **Config & calibration as UI menus** — the interactive binding menu and the full calibration
+  setup (the same processes shipped as the `tools/` `calibrate`/config commands) in a friendlier
+  on-screen menu form.
+- **The cockpit panels** discussed so far.
+
+## 12. Open items / risks (for the plan)
+
+1. **Shipped command list — confirmed:** `flight` (fcs), `cockpit` (ui), and `calibrate`,
+   `hovertest`, `probe`, `probemodem`, `probebatch` (both). Excluded (obsolete/one-off):
+   `install_hovertest.lua`, `install_probe.lua`, `fix_yaw_sign.lua`. The closure roots ARE this
+   list, so it fully determines what ships.
+2. **Remove `tools/install_*.lua` — confirmed** (obsoleted by the Suite). Part of this work.
+3. **`require` scanner completeness** — matches literal `require("string")`; the plan asserts (a
+   grep) that no shipped entry uses a computed require, so the closure is complete.
+4. **Single-file size** — engine + embedded UI in one file; acceptable for `wget run`; it is the
+   `updater` the manifest tracks.
+5. **No-op-gated flight instrumentation** (§8) — separate feature, flagged not built.
 ```
