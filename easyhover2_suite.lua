@@ -669,7 +669,7 @@ function Suite.main(args)
 
   -- ---- what is installed here
   local state = Suite.parseState(readFile(STATE_FILE))
-  local detected, detectedMatched, detectedTotal = Suite.detectRole(manifest)
+  local detected = Suite.detectRole(manifest)
 
   local role = wantRole or state.role or detected
   if role and not manifest.roles[role] then
@@ -699,8 +699,7 @@ function Suite.main(args)
     warn(("switching role: %s -> %s"):format(state.role, role))
   end
   if not state.role and detected then
-    dim(("no install record; detected %s from %d/%d files on disk")
-      :format(detected, detectedMatched, detectedTotal))
+    dim(("no install record; detected role '%s' from files on disk"):format(detected))
   end
   dim(("installed %s -> release %s"):format(state.version or "unknown", manifest.version))
 
