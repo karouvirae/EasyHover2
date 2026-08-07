@@ -131,6 +131,32 @@ local function fakeManifest()
   }}
 end
 
+t.test("isReleased is true only for a released spec", function()
+  t.eq(Suite.isReleased({ status = "released", files = {} }), true)
+  t.eq(Suite.isReleased({ status = "reserved" }), false)  -- a planned-but-unshipped role
+  t.eq(Suite.isReleased({ status = "planned" }), false)
+  t.eq(Suite.isReleased({}), false)                       -- no status at all
+  t.eq(Suite.isReleased(nil), false)                      -- no spec (unknown role)
+end)
+
+t.test("orphanLaunchers = suite launchers the role does not ship, never arbitrary root files", function()
+  local m = { roles = {
+    fcs = { files = {
+      { dst = "startup.lua" }, { dst = "flight" }, { dst = "probe" }, { dst = "tools/flight.lua" },
+    } },
+    ui = { files = {
+      { dst = "startup.lua" }, { dst = "cockpit" }, { dst = "probe" }, { dst = "ui/main.lua" },
+    } },
+  } }
+  -- switching TO ui: fcs's /flight is the orphan; /cockpit (ui ships it), /probe (both),
+  -- and /startup.lua (both) all stay. Nested modules (tools/, ui/) are never candidates.
+  t.eq(table.concat(Suite.orphanLaunchers(m.roles.ui, m), ","), "/flight")
+  -- switching TO fcs: ui's /cockpit is the orphan
+  t.eq(table.concat(Suite.orphanLaunchers(m.roles.fcs, m), ","), "/cockpit")
+  -- no manifest -> nothing to sweep (the in-dir walk stays the whole story)
+  t.eq(#Suite.orphanLaunchers(m.roles.fcs, nil), 0)
+end)
+
 t.test("detectRole keys on the installed startup launcher", function()
   local m = fakeManifest()
   local disk = { ["/startup.lua"] = "ui" }  -- matches ui's startup sum

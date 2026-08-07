@@ -423,17 +423,64 @@ function Suite.choosePlan(s)
   return "update"
 end
 
---- Delete files under the role's own directories that the release no longer ships.
+--- The root-level suite launchers this role does NOT ship -- the orphan set a switch must prune.
+---
+--- Root-level files (a `dst` with no "/", e.g. `flight`, `cockpit`, `probe`) live outside every
+--- directory Suite.pruneRole walks, so on a role switch the OLD role's launchers would survive
+--- while their in-dir dependencies (e.g. /tools/flight.lua) are pruned -- running the orphan
+--- /flight then throws "module not found".
+---
+--- SAFE UNIVERSE = every role's root-level `dst` in the manifest (the known set of suite-shipped
+--- launchers). Subtracting THIS role's own dst leaves only launchers some role ships but this one
+--- does not; an arbitrary root file the operator owns is never in the universe, so never a
+--- candidate. `startup.lua` is shipped by every role, so it is in the keep set and never returned.
+---
+--- Pure: fed the role spec and the manifest, returns sorted "/name" paths, no filesystem access,
+--- so the decision is unit-testable without an install.
+function Suite.orphanLaunchers(spec, manifest)
+  local keep = {}
+  for _, entry in ipairs(spec.files or {}) do keep["/" .. entry.dst] = true end
+
+  local out, seen = {}, {}
+  if manifest and type(manifest.roles) == "table" then
+    for _, r in pairs(manifest.roles) do
+      for _, entry in ipairs(r.files or {}) do
+        if not entry.dst:find("/") then          -- root-level launcher, not a module in a dir
+          local path = "/" .. entry.dst
+          if not keep[path] and not seen[path] then
+            seen[path] = true
+            out[#out + 1] = path
+          end
+        end
+      end
+    end
+  end
+  table.sort(out)
+  return out
+end
+
+--- Delete files the release no longer ships: modules under the role's own directories, and
+--- root-level launchers the old role shipped but the new one does not.
 ---
 --- An update rewrites every file it knows about, but a module the new release DROPPED would
 --- otherwise sit there for ever -- invisible to the integrity check, which only looks for the
 --- files the manifest lists. Run AFTER the new files are committed, never before: clearing up
 --- front would turn a failed download into a destroyed install.
-function Suite.pruneRole(spec, dryRun)
+---
+--- `manifest` is needed only for the root-launcher sweep (Suite.orphanLaunchers): the in-dir
+--- walk is self-contained in the spec. guard() is asserted before EVERY delete, so a protected
+--- path (a config) can never be reached even if one somehow appeared in a candidate list.
+function Suite.pruneRole(spec, dryRun, manifest)
   local keep = {}
   for _, entry in ipairs(spec.files) do keep["/" .. entry.dst] = true end
 
   local removed = {}
+  local function drop(path)
+    guard(path, "delete")
+    if not dryRun then fs.delete(path) end
+    removed[#removed + 1] = path
+  end
+
   local function walk(dir)
     if not fs.exists(dir) or not fs.isDir(dir) then return end
     for _, name in ipairs(fs.list(dir)) do
@@ -442,13 +489,22 @@ function Suite.pruneRole(spec, dryRun)
       if fs.isDir(path) then
         walk(path)
       elseif not keep[path] and not Suite.isProtected(path) and not path:find("%" .. STAGE .. "$") then
-        guard(path, "delete")
-        if not dryRun then fs.delete(path) end
-        removed[#removed + 1] = path
+        drop(path)
       end
     end
   end
   for _, dir in ipairs(spec.dirs or {}) do walk("/" .. dir) end
+
+  -- Sweep the old role's orphan root-level launchers (only ones some role ships; never an
+  -- arbitrary root file). isProtected is belt-and-suspenders: the candidate set is drawn from
+  -- manifest launchers, which are never configs, so it can only ever be false here.
+  for _, path in ipairs(Suite.orphanLaunchers(spec, manifest)) do
+    if fs.exists(path) and not fs.isDir(path)
+       and not Suite.isProtected(path) and not path:find("%" .. STAGE .. "$") then
+      drop(path)
+    end
+  end
+
   return removed
 end
 
@@ -538,7 +594,7 @@ function Suite.performPlan(base, manifest, spec, role, plan, fresh)
   end
 
   -- ---- drop anything this release no longer ships (after the new files are safely in place)
-  local pruned = Suite.pruneRole(spec, false)
+  local pruned = Suite.pruneRole(spec, false, manifest)
   for _, path in ipairs(pruned) do dim("removed " .. path .. " (no longer shipped)") end
 
   -- ---- record what is now installed
@@ -1135,7 +1191,14 @@ function Suite.runUI(ctx)
       elseif ui.mode == "tools" and key == nil then
         ui.mode = "dashboard" -- click away cancels
       elseif key == "go" then
-        runPlan(ctx.plan)
+        -- Safe no-op when already current: nothing to install/update/repair, so do not touch
+        -- the engine. (Suite.actionSpec already folds the Go button away when current, so this
+        -- only fires if a click somehow lands on it.)
+        if ctx.plan == "current" then
+          pushLog("already current: " .. ctx.manifest.version, colours.lime)
+        else
+          runPlan(ctx.plan)
+        end
       elseif key == "verify" then
         recompute()
         pushLog("verified: " .. ctx.plan, colours.white)
@@ -1144,9 +1207,17 @@ function Suite.runUI(ctx)
       elseif key == "switch" then
         local newRole = Suite.askForRole(ctx.manifest, ctx.order)
         if newRole and newRole ~= ctx.role then
-          ctx.role, ctx.spec = newRole, ctx.manifest.roles[newRole]
-          recompute()
-          pushLog("switched to role " .. newRole, colours.yellow)
+          local newSpec = ctx.manifest.roles[newRole]
+          -- Same reserved-role guard the keyboard flow applies: a reserved/fileless role must
+          -- not become the active spec, or recompute() -> Suite.integrity(spec) crashes on
+          -- #spec.files. Stay on the current role and report why.
+          if not Suite.isReleased(newSpec) then
+            pushLog(("role %s is reserved -- ships no files yet"):format(newRole), colours.orange)
+          else
+            ctx.role, ctx.spec = newRole, newSpec
+            recompute()
+            pushLog("switched to role " .. newRole, colours.yellow)
+          end
         end
       elseif key == "tools" then
         ui.mode = "tools"
@@ -1161,6 +1232,17 @@ function Suite.runUI(ctx)
 end
 
 -- ---------------------------------------------------------------- main
+
+--- Is this role installable, or a reserved-but-unshipped design placeholder?
+---
+--- Shared by the keyboard flow's reserved-role guard and the dashboard's Switch handler so both
+--- refuse a reserved role identically. A reserved/fileless spec would otherwise crash
+--- Suite.integrity (#spec.files / ipairs(spec.files)) the moment one exists -- unreachable with
+--- today's two released roles, but the guard is what keeps a planned future role (e.g. NAV) safe.
+--- Pure: reads only spec.status.
+function Suite.isReleased(spec)
+  return type(spec) == "table" and spec.status == "released"
+end
 
 function Suite.main(args)
   args = args or {}
@@ -1273,7 +1355,7 @@ function Suite.main(args)
 
   local spec = manifest.roles[role]
 
-  if spec.status ~= "released" then
+  if not Suite.isReleased(spec) then
     warn(("The '%s' role (%s) is reserved in the design but ships no files yet.")
       :format(role, spec.title or role))
     dim("Nothing was installed. Re-run the Suite once it is released.")
@@ -1367,24 +1449,34 @@ function Suite.main(args)
     return true
   end
 
-  if plan == "current" then
-    -- Still worth checking whether the Suite itself is stale.
-    Suite.selfUpdateNotice(base, manifest)
-    colour(colours.white)
-    return true
-  end
-
   -- ---- advanced (colour) terminals get the graphical dashboard; everything else -- basic
   -- computers, and --check/--list, which already returned above -- keeps the v1 text flow.
   -- Both paths call Suite.performPlan, the same engine, so neither can drift from the other.
+  --
+  -- "current" is deliberately NOT an early return here for advanced terminals: an up-to-date
+  -- computer still opens the dashboard so its Switch / Launch-tool / Quit affordances stay
+  -- reachable in the common steady state. Its "Go" button is folded away (Suite.actionSpec) and
+  -- guarded to a no-op in runUI, so no install runs. Suite.performPlan is what normally fires the
+  -- self-staleness check at its end; a current dashboard never calls it, so run that check here
+  -- first -- ONLY when current, so an update/install/repair still gets its single check inside
+  -- performPlan and it is never run twice.
   local advanced = term.isColour and term.isColour()
   if advanced and not checkOnly and not listOnly then
+    if plan == "current" then Suite.selfUpdateNotice(base, manifest) end
     return Suite.runUI({
       base = base, manifest = manifest, order = order,
       role = role, spec = spec, state = state,
       plan = plan, report = report, fresh = fresh,
       switching = switching, schemaBump = schemaBump, fastPath = fastPath,
     })
+  end
+
+  -- Non-advanced (basic terminal): a current install has nothing to do but check whether the
+  -- Suite itself is stale, then it is done. Byte-for-byte the pre-existing behaviour.
+  if plan == "current" then
+    Suite.selfUpdateNotice(base, manifest)
+    colour(colours.white)
+    return true
   end
 
   return Suite.performPlan(base, manifest, spec, role, plan, fresh)

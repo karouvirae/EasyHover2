@@ -553,8 +553,8 @@
   },
   ["schema"] = 1,
   ["updater"] = {
-    ["size"] = 59541,
-    ["sum"] = "044ca232",
+    ["size"] = 64371,
+    ["sum"] = "a42d04be",
   },
   ["version"] = "371a13bb",
 }

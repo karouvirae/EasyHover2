@@ -339,6 +339,9 @@ elseif phase == "switch" then
   check(stateField("role") == "fcs", "test setup: fcs installed first",
     tostring(stateField("role")))
   check(fs.exists("/tools/flight.lua"), "test setup: fcs entry point present")
+  -- fcs ships a root-level /flight launcher; ui does not. Assert it is here BEFORE the switch so
+  -- the "gone after" check below passes for the right reason (it was removed, not never present).
+  check(fs.exists("/flight"), "test setup: fcs root launcher /flight present before switch")
 
   runSuite("ui")
 
@@ -350,13 +353,21 @@ elseif phase == "switch" then
   check(launcher:find('require%("ui%.main"%)') ~= nil,
     "the launcher now starts the new role, not the old one", launcher)
 
-  -- pruneRole runs after every commit and is scoped to the NEW role's directories (fcs, tools,
-  -- ui for ui): a file that lived inside one of those dirs under the old role but is not part
-  -- of the new role's manifest is dropped once the switch completes.
+  -- pruneRole runs after every commit: a file that lived inside one of the NEW role's directories
+  -- (fcs, tools, ui) under the old role but is not part of the new role's manifest is dropped once
+  -- the switch completes. Root-level launchers are swept the same way (see the /flight check below).
   check(not fs.exists("/tools/flight.lua"), "the old role's entry point was pruned")
   check(not fs.exists("/fcs/input/pilot.lua"), "the old role's fcs-only files were pruned")
   check(not fs.exists("/fcs/runtime/flight.lua"), "the old role's runtime files were pruned")
   check(#noStagingLeftBehind() == 0, "no .eh2new staging files left behind")
+
+  -- Root-level launchers are pruned on a switch too, not just in-dir modules: the OLD role's
+  -- orphan /flight (whose /tools/flight.lua dependency is now gone) must be removed, or running
+  -- it throws "module not found". A launcher the NEW role ships (/cockpit) and a launcher both
+  -- roles ship (/probe) must survive -- pruning only ever touches suite launchers this role drops.
+  check(not fs.exists("/flight"), "the old role's orphan ROOT launcher /flight was pruned")
+  check(fs.exists("/cockpit"), "a root launcher the new role ships (/cockpit) survived the switch")
+  check(fs.exists("/probe"), "a root launcher both roles ship (/probe) survived the switch")
 
   -- Idempotent afterwards, same as any other role.
   local versionBefore = stateField("version")
