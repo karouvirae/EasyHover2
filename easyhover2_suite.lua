@@ -295,7 +295,6 @@ end
 
 -- ---------------------------------------------------------------- backups
 
-local backupDir = nil
 local backedUp = {}
 
 local function timestamp()
@@ -304,23 +303,16 @@ local function timestamp()
   return tostring(os.epoch("utc"))
 end
 
-local function ensureBackupDir(version)
-  if backupDir then return backupDir end
-  backupDir = ("%s/%s_%s"):format(BACKUP_ROOT, timestamp(), tostring(version or "manual"))
-  fs.makeDir(backupDir)
-  return backupDir
-end
-
---- Copy a file into this run's backup folder. Copy, never move: the original stays exactly
---- where it is so a failed run costs nothing.
-local function backup(path, version)
+-- Single-latest backup: the backup folder holds exactly one copy. Each call clears the folder
+-- first, then writes the current file's bytes. Copy-never-move, so a failed run costs nothing.
+function Suite.backupConfig(path, version)
   if not fs.exists(path) or fs.isDir(path) then return nil end
-  local dir = ensureBackupDir(version)
+  if fs.exists(BACKUP_ROOT) then fs.delete(BACKUP_ROOT) end
+  fs.makeDir(BACKUP_ROOT)
   local name = path:gsub("^/", ""):gsub("/", "_")
-  local target = ("%s/%s"):format(dir, name)
-  local body = readFile(path)
-  if body == nil then return nil end
-  writeRaw(target, body)
+  local target = ("%s/%s"):format(BACKUP_ROOT, name)
+  local f = fs.open(path, "r"); local body = f.readAll(); f.close()
+  local w = fs.open(target, "w"); w.write(body or ""); w.close()
   backedUp[#backedUp + 1] = target
   return target
 end
@@ -336,22 +328,25 @@ end
 ---
 --- Returns one of: "extended" | "fresh" | "absent" | "quarantined" | "skipped: <why>"
 function Suite.extendConfig(spec, path, version)
+  if not spec.configModule then return "skipped: no config module" end
   if not spec.luaPath or spec.luaPath == "" then return "skipped: no lua path" end
   if not fs.exists(path) then return "absent" end
 
-  backup(path, version)
+  Suite.backupConfig(path, version)
 
   local ok, result = pcall(function()
     package.path = spec.luaPath .. "/?.lua;" .. spec.luaPath .. "/?/init.lua;" .. package.path
-    -- drop any cached copies so the freshly installed modules are the ones used
-    package.loaded["lib.config"] = nil
-    package.loaded["lib.util"] = nil
-    local Config = require("lib.config")
+    -- drop any cached copy so the freshly installed module is the one used
+    package.loaded[spec.configModule] = nil
+    local Config = require(spec.configModule)
 
     local cfg, existed, err = Config.load(path)
     if err then return "corrupt" end
     if not existed then return "absent" end
 
+    -- EH2's standalone config module returns the saved table pre-merge, so the merge
+    -- over fresh defaults is explicit here (v1's lib.config merged inside load()).
+    cfg = Config.withDefaults(cfg)
     local saved, saveErr = Config.save(path, cfg)
     if not saved then error(tostring(saveErr), 0) end
     return "extended"
@@ -363,7 +358,7 @@ function Suite.extendConfig(spec, path, version)
     -- The one case where a config is replaced: it does not parse, so there is nothing to
     -- preserve. It is already backed up above, and the operator is told.
     local ok2 = pcall(function()
-      local Config = require("lib.config")
+      local Config = require(spec.configModule)
       local fresh = Config.withDefaults({})
       local saved, saveErr = Config.save(path, fresh)
       if not saved then error(tostring(saveErr), 0) end
@@ -790,7 +785,7 @@ function Suite.main(args)
   -- ---- back up configs BEFORE touching anything
   for _, cfgPath in ipairs(spec.configs or {}) do
     if fs.exists(cfgPath) then
-      local target = backup(cfgPath, manifest.version)
+      local target = Suite.backupConfig(cfgPath, manifest.version)
       if target then dim("backed up " .. cfgPath) end
     end
   end
@@ -876,7 +871,7 @@ function Suite.main(args)
 
   print("")
   if #backedUp > 0 then
-    warn(("%d file(s) backed up in %s"):format(#backedUp, backupDir))
+    warn(("%d file(s) backed up in %s"):format(#backedUp, BACKUP_ROOT))
   end
   good(("Now at %s as role '%s'."):format(manifest.version, role))
   if spec.entry ~= "" then

@@ -148,3 +148,32 @@ t.test("detectRole falls back to unique files when startup is missing", function
   local role = Suite.detectRole(m, exists, read)
   t.eq(role, "fcs")
 end)
+
+t.test("backup keeps exactly one (latest) copy", function()
+  local root = "/easyhover2_backup"
+  if fs.exists(root) then fs.delete(root) end
+  local src = "/eh2_hw_config.tbl"
+  local f = fs.open(src, "w"); f.write("v1"); f.close()
+  Suite.backupConfig(src, "verA")     -- new API: single-latest
+  f = fs.open(src, "w"); f.write("v2"); f.close()
+  Suite.backupConfig(src, "verB")
+  -- exactly one backup file remains, containing the latest pre-backup content ("v2")
+  local names = fs.list(root)
+  t.eq(#names, 1)
+  local bf = fs.open(root .. "/" .. names[1], "r"); local body = bf.readAll(); bf.close()
+  t.eq(body, "v2")
+  fs.delete(src); fs.delete(root)
+end)
+
+t.test("extendConfig uses the manifest's configModule (additive)", function()
+  local path = "/eh2_hw_config.tbl"
+  local Config = require("fcs.io.config")
+  Config.save(path, { bindings = { signPitch = -1 } })   -- a pilot value, missing new keys
+  local spec = { configModule = "fcs.io.config", luaPath = "/" }
+  local result = Suite.extendConfig(spec, path, "verX")
+  t.eq(result, "extended")
+  local cfg = Config.load(path)
+  t.eq(cfg.bindings.signPitch, -1)      -- kept
+  t.eq(cfg.bindings.signRoll, 1)        -- filled from defaults
+  fs.delete(path)
+end)
