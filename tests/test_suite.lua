@@ -177,3 +177,38 @@ t.test("extendConfig uses the manifest's configModule (additive)", function()
   t.eq(cfg.bindings.signRoll, 1)        -- filled from defaults
   fs.delete(path)
 end)
+
+t.test("uiPanels fit within bounds and don't overlap", function()
+  local function overlaps(a, b)
+    return a.x <= b.x + b.w - 1 and b.x <= a.x + a.w - 1
+       and a.y <= b.y + b.h - 1 and b.y <= a.y + a.h - 1
+  end
+  for _, sz in ipairs({ {51,19}, {39,13} }) do
+    local p = Suite.uiPanels(sz[1], sz[2])
+    for _, r in pairs(p) do
+      t.eq(r.x >= 1 and r.y >= 1 and r.x + r.w - 1 <= sz[1] and r.y + r.h - 1 <= sz[2], true)
+    end
+    -- self-check: no two panels overlap
+    local names, keys = {}, {}
+    for name in pairs(p) do keys[#keys + 1] = name end
+    for i = 1, #keys do
+      for j = i + 1, #keys do
+        t.eq(overlaps(p[keys[i]], p[keys[j]]), false)
+      end
+    end
+  end
+end)
+
+t.test("progressFill is proportional and clamped", function()
+  t.eq(Suite.progressFill(0, 0, 10), 0)
+  t.eq(Suite.progressFill(5, 10, 10), 5)
+  t.eq(Suite.progressFill(10, 10, 10), 10)
+  t.eq(Suite.progressFill(99, 10, 10), 10)
+end)
+
+t.test("statusColour maps plan to colour", function()
+  t.eq(Suite.statusColour("current"), colours.lime)
+  t.eq(Suite.statusColour("update"), colours.yellow)
+  t.eq(Suite.statusColour("repair"), colours.orange)
+  t.eq(Suite.statusColour("install"), colours.cyan)
+end)

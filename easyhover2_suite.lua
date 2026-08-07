@@ -452,6 +452,58 @@ function Suite.pruneRole(spec, dryRun)
   return removed
 end
 
+-- ---------------------------------------------------------------------- UI
+
+--- Where do the main status screen's panels go on THIS terminal?
+---
+--- Pure, so tests/test_suite.lua can check it against every supported terminal size instead
+--- of us discovering on a turtle's 39x13 screen that a block ran off the bottom.
+---
+--- Five blocks stacked top to bottom: a title bar, a status block (role/plan), an integrity
+--- block (progress bar + counts), an actions row (the prompt line, pinned to the bottom),
+--- and a diagnostics block (scrolling log) that soaks up whatever rows are left between them.
+---
+--- width/height are the terminal's columns/rows. Returns rects {x,y,w,h}, all within
+--- [1,width] x [1,height] and non-overlapping.
+function Suite.uiPanels(width, height)
+  local w = math.max(1, width or 51)
+  local h = math.max(1, height or 19)
+
+  local title = { x = 1, y = 1, w = w, h = 1 }
+  local actions = { x = 1, y = h, w = w, h = 1 }
+
+  local bodyTop = title.y + title.h
+  local bodyH = math.max(1, actions.y - bodyTop)
+
+  local statusH = math.min(bodyH, math.max(1, math.floor(bodyH * 0.25 + 0.5)))
+  local integrityH = math.min(bodyH - statusH, math.max(1, math.floor(bodyH * 0.25 + 0.5)))
+  local diagH = math.max(1, bodyH - statusH - integrityH)
+
+  local status = { x = 1, y = bodyTop, w = w, h = statusH }
+  local integrity = { x = 1, y = bodyTop + statusH, w = w, h = integrityH }
+  local diag = { x = 1, y = bodyTop + statusH + integrityH, w = w, h = diagH }
+
+  return { title = title, status = status, integrity = integrity, actions = actions, diag = diag }
+end
+
+--- How many cells of a `barWidth`-wide progress bar should be filled for done/total?
+---
+--- Pure and rounded to the nearest cell rather than floored, so a bar that is e.g. 9/10 of the
+--- way there reads as "almost full" instead of visibly one cell short.
+function Suite.progressFill(done, total, barWidth)
+  if not total or total <= 0 then return 0 end
+  return math.min(barWidth, math.floor(done / total * barWidth + 0.5))
+end
+
+--- Which colour signals a plan on the status screen?
+function Suite.statusColour(plan)
+  if plan == "current" then return colours.lime end
+  if plan == "update" then return colours.yellow end
+  if plan == "repair" then return colours.orange end
+  if plan == "install" then return colours.cyan end
+  return colours.white
+end
+
 -- ---------------------------------------------------------------- role picker
 
 --- How should the role list be laid out on THIS terminal?
