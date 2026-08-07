@@ -12,3 +12,6 @@ desktop.ini
 
 # SDD scratch (ledger, briefs, review packages)
 .superpowers/
+
+# tools/run_gen.sh's scratch CraftOS-PC data dir (regenerated every run)
+tests/.craftos/

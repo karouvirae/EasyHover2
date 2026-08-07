@@ -70,3 +70,24 @@ t.test("closure errors on unresolvable require", function()
   t.eq(out, nil)
   t.eq(err:find("ghost") ~= nil, true)
 end)
+
+-- tools/gen_manifest.lua exposes its pure helpers (deterministic serialiser, dirs derivation)
+-- on a table when _G.EH2_GEN_TEST is set, so they can be unit-tested without touching fs.
+_G.EH2_GEN_TEST = true
+local gen = require("tools.gen_manifest")
+_G.EH2_GEN_TEST = nil
+
+t.test("gen_manifest luaValue serialises map keys in sorted order", function()
+  t.eq(gen.luaValue({ b = 2, a = 1 }, 0), "{\n  [\"a\"] = 1,\n  [\"b\"] = 2,\n}")
+end)
+
+t.test("gen_manifest luaValue keeps array order and quotes/escapes strings", function()
+  t.eq(gen.luaValue({ "x", "y" }, 0), "{\n  \"x\",\n  \"y\",\n}")
+  t.eq(gen.luaValue('a"b\\c', 0), '"a\\"b\\\\c"')
+  t.eq(gen.luaValue({}, 0), "{}")
+end)
+
+t.test("gen_manifest dirsOf derives the top-level directory repair scope", function()
+  local dirs = gen.dirsOf({ "fcs/x.lua", "tools/y.lua", "startup.lua" })
+  t.eq(table.concat(dirs, ","), "fcs,tools")
+end)
