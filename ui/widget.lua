@@ -12,14 +12,17 @@ end
 
 function M.field.format(label, value, width)
   label, value = tostring(label), tostring(value)
-  local pad = width - #label - #value
-  if pad < 1 then
-    -- truncate value from the left so the label stays readable
-    local keep = math.max(0, width - #label - 1)
-    value = value:sub(-keep)
-    pad = width - #label - #value
-    if pad < 0 then label = label:sub(1, width - #value); pad = 0 end
+  if #label >= width then
+    -- Label alone fills or exceeds the field: no room for a value.
+    return label:sub(1, width)
   end
+  local avail = width - #label - 1   -- chars available for the value (>= 0), reserving >=1 gap
+  if avail <= 0 then
+    value = ""
+  elseif #value > avail then
+    value = value:sub(-avail)        -- keep the rightmost `avail` chars (avail >= 1 here)
+  end
+  local pad = width - #label - #value
   return label .. string.rep(" ", pad) .. value
 end
 
