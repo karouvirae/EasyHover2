@@ -134,4 +134,4 @@ local function run()
   if not okp then print("(pastebin unavailable -- grab " .. LOG_PATH .. " manually)") end
 end
 
-return { run = run }
+return { run = run, buildLoop = buildLoop }
