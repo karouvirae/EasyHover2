@@ -1,6 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+
+# Manifest sync guard: fail fast if manifest.lua doesn't match what tools/gen_manifest.lua would
+# generate from the current tree, so a stale, hand-edited, or forgotten-regen manifest never
+# rides along as "passing". Uses the SAME generator code path as `tools/run_gen.sh` (no write).
+echo "== manifest sync check =="
+if ! bash "$ROOT/tools/run_gen.sh" --check; then
+  echo "manifest.lua is OUT OF SYNC -- run: bash tools/run_gen.sh"
+  exit 1
+fi
+echo ""
+
 DATA="$(mktemp -d)"
 COMP="$DATA/computer/0"
 mkdir -p "$COMP"

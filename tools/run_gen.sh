@@ -34,7 +34,15 @@ LUA
 timeout 60 "$CRAFTOS" --headless -d "$DATA" >/dev/null 2>&1 || true
 [ -f "$C0/manifest.lua" ] && cp "$C0/manifest.lua" "$ROOT/manifest.lua"
 if [ -f "$C0/gen_result.txt" ]; then
-  cat "$C0/gen_result.txt"; echo ""
+  RESULT="$(cat "$C0/gen_result.txt")"
+  echo "$RESULT"
+  # Non-zero on a real failure so callers (run_headless.sh, CI) can gate on this script's exit
+  # code, not just parse its stdout: "OUT OF SYNC" (--check mismatch) or "ERROR ..." (any mode).
+  case "$RESULT" in
+    "OUT OF SYNC"*|"ERROR"*) exit 1 ;;
+    *) exit 0 ;;
+  esac
 else
   echo "NO RESULT (harness did not run)"
+  exit 1
 fi
