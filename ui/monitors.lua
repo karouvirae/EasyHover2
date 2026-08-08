@@ -1,6 +1,8 @@
 -- ui/monitors.lua
 -- Pure monitor-assignment resolution + touch routing, plus a thin per-monitor
 -- render sink. Lua 5.1 / CC:Tweaked.
+local toolkit = require("ui.toolkit")
+
 local M = {}
 
 -- ===== Pure (unit-tested) =====
@@ -39,7 +41,7 @@ function M.render(wrappedMon, panel, ctx)
   wrappedMon.setTextScale(0.5)
   local w, h = wrappedMon.getSize()
   local drawlist = panel.render(ctx, w, h)
-  require("ui.toolkit").paint(wrappedMon, drawlist)
+  toolkit.paint(wrappedMon, drawlist)
   local hits = {}
   for _, item in ipairs(drawlist) do
     if item.kind == "button" then
