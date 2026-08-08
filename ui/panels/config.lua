@@ -19,8 +19,8 @@ local LABEL = {
   calFuel      = "CAL FUEL",
   pulseUp      = "PULSE +50",
   pulseDn      = "PULSE -50",
-  intervalUp   = "INT +100",
-  intervalDn   = "INT -100",
+  intervalUp   = "INT +15s",
+  intervalDn   = "INT -15s",
   toggleInvert = "INVERT",
   toggleKick   = "KICK",
   fcsCal       = "FCS CAL (soon)",
@@ -133,10 +133,19 @@ local function labelFor(b, cfg, assign)
   return LABEL[id] or id
 end
 
+-- Feed interval reads in minutes+seconds (it is minutes-scale on this build); pulse stays ms.
+local function fmtInterval(ms)
+  if type(ms) ~= "number" then return "?" end
+  local totalSec = math.floor(ms / 1000 + 0.5)
+  local m = math.floor(totalSec / 60)
+  local s = totalSec % 60
+  return string.format("%dm%02ds", m, s)
+end
+
 local function timingLine(cfg, width)
   local e = cfg.engine or {}
-  local s = string.format("P %sms  I %sms  inv %s  kick %s",
-    tostring(e.pulseMs or "?"), tostring(e.intervalMs or "?"),
+  local s = string.format("P %sms  I %s  inv %s  kick %s",
+    tostring(e.pulseMs or "?"), fmtInterval(e.intervalMs),
     (e.invert and "on" or "off"), (e.kickstart and "on" or "off"))
   return s:sub(1, math.max(0, width))
 end
@@ -187,9 +196,9 @@ function M.action(id, ctx)
   elseif id == "pulseDn" then
     return { kind = "config", op = "stepEngine", field = "pulseMs", delta = -50 }
   elseif id == "intervalUp" then
-    return { kind = "config", op = "stepEngine", field = "intervalMs", delta = 100 }
+    return { kind = "config", op = "stepEngine", field = "intervalMs", delta = 15000 }
   elseif id == "intervalDn" then
-    return { kind = "config", op = "stepEngine", field = "intervalMs", delta = -100 }
+    return { kind = "config", op = "stepEngine", field = "intervalMs", delta = -15000 }
   elseif id == "toggleInvert" then
     return { kind = "config", op = "toggle", field = "invert" }
   elseif id == "toggleKick" then

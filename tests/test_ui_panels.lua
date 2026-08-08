@@ -142,6 +142,32 @@ t.test("config bind buttons show the bound device name + timing line reflects co
   t.eq(sawTiming, true)                                     -- current pulseMs shown
 end)
 
+t.test("interval steps by 15s and is labelled INT +/-15s (minutes+seconds, not ms)", function()
+  local up = cfgp.action("intervalUp", CCTX)
+  local dn = cfgp.action("intervalDn", CCTX)
+  t.eq(up.op, "stepEngine"); t.eq(up.field, "intervalMs"); t.eq(up.delta, 15000)
+  t.eq(dn.op, "stepEngine"); t.eq(dn.field, "intervalMs"); t.eq(dn.delta, -15000)
+  local dl = cfgp.render(CCTX)
+  local upLabel, dnLabel
+  for _, item in ipairs(dl) do
+    if item.kind == "button" and item.id == "intervalUp" then upLabel = item.label end
+    if item.kind == "button" and item.id == "intervalDn" then dnLabel = item.label end
+  end
+  t.eq(upLabel, "INT +15s")
+  t.eq(dnLabel, "INT -15s")
+end)
+
+t.test("timing line shows the feed interval as minutes+seconds", function()
+  local Config = require("ui.config")
+  local cfg = Config.withDefaults({ engine = { pulseMs = 250, intervalMs = 330000 } })
+  local dl = cfgp.render({ config = cfg, monitors = {} }, 51, 19)
+  local sawInterval = false
+  for _, item in ipairs(dl) do
+    if item.kind == "text" and type(item.s) == "string" and item.s:find("5m30s") then sawInterval = true end
+  end
+  t.eq(sawInterval, true)
+end)
+
 t.test("config fits: all buttons present + within bounds with 7 monitors", function()
   local mons = {}; for i = 1, 7 do mons[i] = "m" .. i end
   local W, H = 51, 19

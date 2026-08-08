@@ -13,7 +13,10 @@ function M.defaults()
       pump = { name = nil, kind = "inventory", empty = 0, full = 0 },
       tank = { name = nil, kind = "inventory", empty = 0, full = 0 },
     },
-    engine = { pulseMs = 250, intervalMs = 1500, invert = false, kickstart = true, masterDefault = false },
+    -- intervalMs = gap between feeds. Must be shorter than the engine's burn time; one blaze
+    -- cake in a superheated engine lasts ~5m30s on this server, so feed one every 5m30s.
+    -- Adjusted in the UI in +/-15s steps; pulseMs (funnel-open time) stays in ms.
+    engine = { pulseMs = 250, intervalMs = 330000, invert = false, kickstart = true, masterDefault = false },
   }
 end
 

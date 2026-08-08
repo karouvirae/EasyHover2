@@ -6,7 +6,7 @@ t.test("defaults has the full schema", function()
   local d = Config.defaults()
   t.eq(type(d.assign), "table")
   t.eq(d.engine.pulseMs, 250)
-  t.eq(d.engine.intervalMs, 1500)
+  t.eq(d.engine.intervalMs, 330000)   -- 5m30s: one blaze-cake burn on this server
   t.eq(d.engine.invert, false)
   t.eq(d.fuel.pump.kind, "inventory")
 end)
@@ -14,7 +14,7 @@ end)
 t.test("withDefaults keeps saved values and fills new ones", function()
   local merged = Config.withDefaults({ engine = { pulseMs = 300 }, assign = { ["monitor_1"] = "engine" } })
   t.eq(merged.engine.pulseMs, 300)          -- kept
-  t.eq(merged.engine.intervalMs, 1500)      -- filled from defaults
+  t.eq(merged.engine.intervalMs, 330000)    -- filled from defaults (5m30s)
   t.eq(merged.assign["monitor_1"], "engine")-- kept
   t.eq(merged.relay.name, nil)              -- default
 end)

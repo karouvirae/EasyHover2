@@ -332,7 +332,10 @@ local function applyConfigOp(effect)
     config.assign[effect.monitor] = nextAssign(config.assign[effect.monitor])
   elseif op == "stepEngine" then
     local v = (config.engine[effect.field] or 0) + effect.delta
-    if v < 0 then v = 0 end
+    -- Never let the feed interval reach 0 (that would hold the funnel open = continuous drain);
+    -- floor it at one 15s step. pulseMs just stays non-negative.
+    local floor = (effect.field == "intervalMs") and 15000 or 0
+    if v < floor then v = floor end
     config.engine[effect.field] = v
     engine:applyConfig(config.engine)
   elseif op == "toggle" then
