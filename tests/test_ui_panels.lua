@@ -48,3 +48,29 @@ t.test("fcs render places buttons within bounds at a smaller size", function()
   end
   t.eq(n >= 5, true)   -- all five controls present and in-bounds
 end)
+
+local eng = require("ui.panels.engine")
+
+local ECTX = { pumpFrac = 0.5, tankFrac = 0.8, engine = { master = false, feeding = false, pulses = 0 }, relayBound = true }
+
+t.test("engine identity + gauges + controls", function()
+  t.eq(eng.id, "engine")
+  local lay = eng.layout(51, 19)
+  local ids = {}; for _, b in ipairs(lay.buttons) do ids[b.id] = true end
+  t.eq(ids.engineOn, true); t.eq(ids.engineOff, true); t.eq(ids.prime, true)
+end)
+
+t.test("render shows PUMP and TANK gauges with fractions", function()
+  local dl = eng.render(ECTX)
+  local gauges = {}; for _, item in ipairs(dl) do if item.kind == "gauge" then gauges[item.label] = item.frac end end
+  t.eq(gauges.PUMP, 0.5); t.eq(gauges.TANK, 0.8)
+end)
+
+t.test("engine actions when relay bound; nil + disabled when not", function()
+  t.eq(eng.action("engineOn", ECTX).op, "on")
+  t.eq(eng.action("prime", ECTX).op, "prime")
+  local nb = { pumpFrac = 0, tankFrac = 0, engine = { master = false }, relayBound = false }
+  t.eq(eng.action("engineOn", nb), nil)
+  local st = {}; for _, item in ipairs(eng.render(nb)) do if item.kind=="button" then st[item.id]=item.state end end
+  t.eq(st.engineOn, "disabled")
+end)
