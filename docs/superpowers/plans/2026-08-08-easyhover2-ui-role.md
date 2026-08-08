@@ -606,7 +606,7 @@ git commit -m "feat(ui): Config panel (device binding, engine auto-detect/timing
 - Produces (pure):
   - `Monitors.resolve(assign, present) -> { assigned={[name]=panelId}, unassigned={<name>...} }` where `present` is the list of monitor names currently attached. Names in `assign` but not present are dropped; present names not in `assign` go to `unassigned`. Mirroring is inherent: several names may map to the same panelId.
   - `Monitors.route(assign, name) -> panelId|nil` — the panel a touch on `name` belongs to.
-- Produces (SINK — not unit-tested): `Monitors.render(wrappedMon, panel, ctx)` — `wrappedMon.setTextScale(0.5)`, `local w,h = wrappedMon.getSize()`, `toolkit.paint(wrappedMon, panel.render(ctx, w, h))`. For touch, cache `panel.layout(w,h).buttons` per monitor (same `w,h`) as the hit table so draw and hit agree.
+- Produces (SINK — not unit-tested): `Monitors.render(wrappedMon, panel, ctx)` — `wrappedMon.setTextScale(0.5)`, `local w,h = wrappedMon.getSize()`, `local drawlist = panel.render(ctx, w, h)`, `toolkit.paint(wrappedMon, drawlist)`, and **return/cache the drawlist's own button items (the entries with `kind=="button"`, each carrying `id`+`rect`) as that monitor's hit table.** Hit-testing scans those cached button items — NOT a separate `panel.layout(...)` call — so draw and hit are identical by construction and it doesn't matter that `config.layout` needs extra ctx (Config's `render` supplies it internally). `Monitors.route` still maps a monitor name → panelId; the per-monitor button hit table is kept alongside.
 
 - [ ] **Step 1: Write the failing tests** (`tests/test_ui_monitors.lua`):
 
