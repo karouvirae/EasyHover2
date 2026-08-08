@@ -4,10 +4,10 @@
      is UNPOWERED, so holding the redstone HIGH blocks it and dropping the signal briefly lets
      exactly one item through. That inverts everything you would expect:
 
-       master OFF -> funnel held blocked, continuously. Nothing feeds the engine, the vehicle
-                     is off. This is also the state at boot, and the state we fall back to on
-                     any error -- an engine that will not start is a much better failure than a
-                     funnel that empties the whole vault into it.
+       master OFF -> signal held HIGH, continuously. Funnel blocked, nothing feeds the engine,
+                     the vehicle is off. This is also the state at boot, and the state we fall
+                     back to on any error -- an engine that will not start is a much better
+                     failure than a funnel that empties the whole vault into it.
        master ON  -> one interrupt pulse immediately (the kickstart), then an interrupt every
                      `intervalMs` to feed one more item and keep it running.
 
@@ -15,16 +15,19 @@
      for one item to pass and short enough that a second cannot follow, and `intervalMs` must
      be shorter than the engine's burn time.
 
-     `writer(on)` is the ONLY impure edge: it performs the actual relay write. By default the
-     writer is told `on = feeding` (true = let an item through). `invert` flips that polarity
-     for a build wired the other way round -- everything else below is written in terms of
-     "blocked" and "feeding" rather than high and low, so the inversion lives in exactly one
-     place: `_write`.
+     The state machine reasons entirely in the logical `feeding` boolean (true = an item is
+     being let through right now). `writer(signal)` is the ONLY impure edge, and it is a dumb
+     passthrough -- it applies NO inversion of its own. `_write` is the single place that turns
+     logical `feeding` into the physical `signal`: `signal = not feeding` by default (blocked =
+     HIGH), then `invert` flips it once more for a build wired the other way round. Everything
+     else is written in terms of "blocked" and "feeding" rather than high and low, so the
+     inversion lives in exactly one place.
 
-     Ported from EasyHover 1's flight/lib/io/engine.lua. Retargeted for the UI PC: the physical
-     write is an injected `writer(on)` closure instead of a direct peripheral call, and there is
-     no log/state/available() -- those belonged to the flight-side peripheral registry. `now` is
-     always passed in; this module never calls os.epoch itself.
+     Ported from EasyHover 1's flight/lib/io/engine.lua, matching its `_write` formula exactly.
+     Retargeted for the UI PC: the physical write is an injected `writer(signal)` closure instead
+     of a direct peripheral call, and there is no log/state/available() -- those belonged to the
+     flight-side peripheral registry. `now` is always passed in; this module never calls
+     os.epoch itself.
 ]]
 
 local Engine = {}
@@ -44,17 +47,18 @@ function Engine.new(cfg, writer)
   return self
 end
 
---- Write the physical output. `feeding` true means "let an item through".
--- The single place the inversion is applied.
+--- Write the physical output. `feeding` true means "let an item through" (the logical state).
+-- The single place the inversion is applied; `writer` receives the physical signal and applies
+-- no inversion of its own. Write-on-change is on the physical signal, not the logical one.
 function Engine:_write(feeding)
-  if self.lastWritten == feeding then return true end
-
-  local signal = feeding                -- writer sees "let it through", by default
+  local signal = not feeding            -- blocked = signal HIGH, by default
   if self.cfg.invert then signal = not signal end
 
-  self.writer(signal)
-  self.lastWritten = feeding
   self.feeding = feeding
+  if self.lastWritten == signal then return true end
+
+  self.writer(signal)
+  self.lastWritten = signal
   return true
 end
 
