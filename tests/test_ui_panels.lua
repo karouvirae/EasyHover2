@@ -74,3 +74,25 @@ t.test("engine actions when relay bound; nil + disabled when not", function()
   local st = {}; for _, item in ipairs(eng.render(nb)) do if item.kind=="button" then st[item.id]=item.state end end
   t.eq(st.engineOn, "disabled")
 end)
+
+local cfgp = require("ui.panels.config")
+
+local CCTX = { config = require("ui.config").defaults(), monitors = { "monitor_0", "monitor_1" }, detected = nil }
+
+t.test("config identity + a control per monitor + fcs-cal disabled", function()
+  t.eq(cfgp.id, "config")
+  local dl = cfgp.render(CCTX)
+  local ids = {}; for _, item in ipairs(dl) do if item.kind == "button" then ids[item.id] = item.state end end
+  t.eq(ids["assign:monitor_0"] ~= nil, true)
+  t.eq(ids["assign:monitor_1"] ~= nil, true)
+  t.eq(ids["fcsCal"], "disabled")
+end)
+
+t.test("assign cycle + engine step + scan intents", function()
+  t.eq(cfgp.action("assign:monitor_0", CCTX).op, "cycleAssign")
+  t.eq(cfgp.action("assign:monitor_0", CCTX).monitor, "monitor_0")
+  local st = cfgp.action("pulseUp", CCTX)
+  t.eq(st.op, "stepEngine"); t.eq(st.field, "pulseMs"); t.eq(st.delta > 0, true)
+  t.eq(cfgp.action("scan", CCTX).op, "scan")
+  t.eq(cfgp.action("fcsCal", CCTX), nil)   -- disabled
+end)
