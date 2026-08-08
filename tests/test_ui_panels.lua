@@ -35,3 +35,16 @@ t.test("render reflects reported engage/damped state", function()
   local st2 = {}; for _, item in ipairs(fcs.render(damped)) do if item.kind=="button" then st2[item.id]=item.state end end
   t.eq(st2.clearDamped, "active")
 end)
+
+t.test("fcs render places buttons within bounds at a smaller size", function()
+  local dl = fcs.render(SNAP, 39, 13)
+  local n = 0
+  for _, item in ipairs(dl) do
+    if item.kind == "button" then
+      n = n + 1
+      local r = item.rect
+      t.eq(r.x >= 1 and r.y >= 1 and r.x + r.w - 1 <= 39 and r.y + r.h - 1 <= 13, true)
+    end
+  end
+  t.eq(n >= 5, true)   -- all five controls present and in-bounds
+end)

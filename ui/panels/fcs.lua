@@ -30,7 +30,15 @@ function M.layout(w, h)
   h = h or DEFAULT_H
 
   local btnX, btnY = 2, 2
-  local btnW, btnH, gap = 14, 2, 1
+  local btnW, gap = 14, 1
+
+  -- Button height adapts to h so all 5 controls + gaps always fit within the
+  -- interior rows (2 .. h-1, leaving the frame's top/bottom border rows free).
+  local rows = #BUTTON_ORDER
+  local avail = h - 2
+  if avail < rows then avail = rows end
+  local btnH = math.floor((avail - (rows - 1) * gap) / rows)
+  if btnH < 1 then btnH = 1 end
 
   local buttons = {}
   local y = btnY
@@ -84,14 +92,16 @@ local function fieldValues(ctx)
   }
 end
 
-function M.render(ctx)
+function M.render(ctx, w, h)
   ctx = ctx or {}
-  local lay = M.layout(DEFAULT_W, DEFAULT_H)
+  w = w or DEFAULT_W
+  h = h or DEFAULT_H
+  local lay = M.layout(w, h)
   local states = buttonStates(ctx)
   local values = fieldValues(ctx)
 
   local dl = {}
-  dl[#dl + 1] = toolkit.frame(1, 1, DEFAULT_W, DEFAULT_H, M.title)
+  dl[#dl + 1] = toolkit.frame(1, 1, w, h, M.title)
 
   for _, b in ipairs(lay.buttons) do
     dl[#dl + 1] = toolkit.button(b.id, b.rect.x, b.rect.y, b.rect.w, b.rect.h, b.label, states[b.id])
