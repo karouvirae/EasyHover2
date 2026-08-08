@@ -52,21 +52,23 @@ end
 
 -- ===== Paint sink (NOT unit-tested; issues mon.* draw calls only) =====
 
--- on/active -> green, off -> red, idle -> gray fill; disabled has no fill
--- (stays background-colored) and is marked by darkGray (colors.gray) text instead.
+-- Every state fills a box so it always reads as a button. on/active -> green,
+-- off -> red, idle -> gray (available), disabled -> gray box with DIM text so it's
+-- clearly a button that just isn't actionable right now.
 local BUTTON_BG = {
   on = colors.green,
   active = colors.green,
   off = colors.red,
   idle = colors.gray,
+  disabled = colors.gray,
 }
 
 local function drawButton(mon, item)
   local r = item.rect
-  local bg = BUTTON_BG[item.state] or colors.black
+  local bg = BUTTON_BG[item.state] or colors.gray
   mon.setBackgroundColor(bg)
   if item.state == "disabled" then
-    mon.setTextColor(colors.gray)
+    mon.setTextColor(colors.lightGray)   -- dim, but on a real box
   else
     mon.setTextColor(colors.white)
   end
@@ -75,6 +77,7 @@ local function drawButton(mon, item)
     mon.write(string.rep(" ", r.w))
   end
   local label = tostring(item.label or "")
+  if #label > r.w then label = label:sub(1, r.w) end   -- never spill past the box
   local lx = r.x + math.floor((r.w - #label) / 2)
   local ly = r.y + math.floor((r.h - 1) / 2)
   mon.setCursorPos(lx, ly)
@@ -110,18 +113,23 @@ end
 
 local function drawGauge(mon, item)
   local r = item.rect
-  local filled = M.gaugeFill(item.frac, r.w)
+  local frac = item.frac
+  if type(frac) ~= "number" then frac = 0 end
+  if frac < 0 then frac = 0 elseif frac > 1 then frac = 1 end
+  local filled = M.gaugeFill(frac, r.w)
   mon.setCursorPos(r.x, r.y)
   mon.setBackgroundColor(colors.green)
   mon.write(string.rep(" ", filled))
   mon.setBackgroundColor(colors.gray)
   mon.write(string.rep(" ", r.w - filled))
-  if item.label and item.label ~= "" then
-    mon.setBackgroundColor(colors.black)
-    mon.setTextColor(colors.white)
-    mon.setCursorPos(r.x, r.y + 1)
-    mon.write(tostring(item.label))
-  end
+  -- Label + numeric percent on the row below the bar.
+  mon.setBackgroundColor(colors.black)
+  mon.setTextColor(colors.white)
+  mon.setCursorPos(r.x, r.y + 1)
+  local pct = math.floor(frac * 100 + 0.5)
+  local text = tostring(item.label or "") .. " " .. pct .. "%"
+  if #text > r.w then text = text:sub(1, r.w) end
+  mon.write(text)
 end
 
 local function drawText(mon, item)

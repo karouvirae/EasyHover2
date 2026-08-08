@@ -75,6 +75,23 @@ t.test("engine actions when relay bound; nil + disabled when not", function()
   t.eq(st.engineOn, "disabled")
 end)
 
+t.test("engine gauges + buttons stay on-screen on a narrow (portrait) monitor", function()
+  local W = 18
+  local dl = eng.render(ECTX, W, 30)
+  local gauges, btns = {}, 0
+  for _, item in ipairs(dl) do
+    if item.kind == "gauge" then
+      gauges[item.label] = true
+      t.eq(item.rect.x >= 1 and item.rect.x + item.rect.w - 1 <= W, true)  -- within width
+    elseif item.kind == "button" then
+      btns = btns + 1
+      t.eq(item.rect.x + item.rect.w - 1 <= W, true)
+    end
+  end
+  t.eq(gauges.PUMP, true); t.eq(gauges.TANK, true)   -- both gauges present + on-screen
+  t.eq(btns, 3)
+end)
+
 local cfgp = require("ui.panels.config")
 
 local CCTX = { config = require("ui.config").defaults(), monitors = { "monitor_0", "monitor_1" }, detected = nil }

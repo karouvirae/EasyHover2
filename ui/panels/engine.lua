@@ -25,45 +25,47 @@ function M.layout(w, h)
   w = w or DEFAULT_W
   h = h or DEFAULT_H
 
-  local btnX, btnY = 2, 2
-  local btnW, gap = 14, 1
+  local x = 2
+  local iw = math.max(1, w - 2)   -- full interior width (inside the frame borders)
 
-  -- Button height adapts to h so all 3 controls + gaps always fit within the
-  -- interior rows (2 .. h-1, leaving the frame's top/bottom border rows free).
-  local rows = #BUTTON_ORDER
-  local avail = h - 2
-  if avail < rows then avail = rows end
-  local btnH = math.floor((avail - (rows - 1) * gap) / rows)
+  -- SINGLE responsive column so nothing falls off a narrow (portrait) monitor:
+  -- two gauges (each a bar row + a label/percent row) at the top, the three
+  -- control buttons in the middle at full width, the status fields at the bottom.
+  local pumpY = 2
+  local tankY = 4
+  local btnTop = 6
+
+  local rows = #BUTTON_ORDER      -- 3
+  -- Reserve up to 6 rows for the status block, but never starve the buttons of
+  -- at least one row each.
+  local statusWant = 6
+  local statusTop = h - statusWant
+  if statusTop < btnTop + rows then statusTop = btnTop + rows end
+  local btnAreaH = statusTop - btnTop
+  local btnH = math.floor(btnAreaH / rows)
   if btnH < 1 then btnH = 1 end
 
   local buttons = {}
-  local y = btnY
+  local y = btnTop
   for _, id in ipairs(BUTTON_ORDER) do
     buttons[#buttons + 1] = {
       id = id,
-      rect = { x = btnX, y = y, w = btnW, h = btnH },
+      rect = { x = x, y = y, w = iw, h = btnH },
       label = BUTTON_LABEL[id],
     }
-    y = y + btnH + gap
+    y = y + btnH
   end
 
-  local rightX = btnX + btnW + 2
-  local rightW = math.max(1, w - rightX - 1)
-
-  -- Gauges each take 2 screen rows (bar + label row painted by toolkit), stacked
-  -- at the top of the right column; the status text fields fill the rest.
-  local pumpY = 2
-  local tankY = pumpY + 2
-  local statusY = tankY + 2
-  if statusY > h - 1 then statusY = math.max(pumpY, h - 1) end
-  local statusH = math.max(1, h - statusY - 1)
+  local statusY = y
+  if statusY > h - 1 then statusY = math.max(btnTop, h - 1) end
+  local statusH = math.max(1, (h - 1) - statusY + 1)
 
   return {
     buttons = buttons,
     regions = {
-      pump = { x = rightX, y = pumpY, w = rightW, h = 1 },
-      tank = { x = rightX, y = tankY, w = rightW, h = 1 },
-      status = { x = rightX, y = statusY, w = rightW, h = statusH },
+      pump = { x = x, y = pumpY, w = iw, h = 1 },
+      tank = { x = x, y = tankY, w = iw, h = 1 },
+      status = { x = x, y = statusY, w = iw, h = statusH },
     },
   }
 end
