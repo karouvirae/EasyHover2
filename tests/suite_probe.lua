@@ -313,7 +313,7 @@ elseif phase == "ui" then
   check(stateField("version") == manifestVersion(), "install record matches the release")
   check(fs.exists("/startup.lua"), "launcher installed as /startup.lua")
   check(fs.exists("/ui/main.lua"), "role files installed")
-  check(fs.exists("/ui/cockpit.lua"), "nested ui files installed")
+  check(fs.exists("/ui/panels/engine.lua"), "nested ui files installed")
   check(fs.exists("/cockpit"), "the cockpit launcher tool was installed")
   local launcher = read("/startup.lua") or ""
   check(launcher:find('require%("ui%.main"%)') ~= nil,
