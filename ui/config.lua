@@ -1,0 +1,67 @@
+-- UI-role config module for the EasyHover 2 UI Suite.
+-- Persists /eh2_ui_config.tbl. Mirrors fcs/io/config.lua's structure
+-- (load returns the saved table pre-merge; withDefaults deep-merges;
+-- save is atomic tmp-write + fs.move).
+local M = {}
+
+-- The full default UI config.
+function M.defaults()
+  return {
+    assign = {},                       -- [monitorName]=panelId ("engine"|"fcs"|"config")
+    relay  = { name = nil, side = nil },
+    fuel   = {
+      pump = { name = nil, kind = "inventory", empty = 0, full = 0 },
+      tank = { name = nil, kind = "inventory", empty = 0, full = 0 },
+    },
+    engine = { pulseMs = 250, intervalMs = 1500, invert = false, kickstart = true, masterDefault = false },
+  }
+end
+
+-- Deep-merge: maps recurse, everything else = saved-if-present-else-default.
+local function merge(saved, defaults)
+  local out = {}
+  for k, v in pairs(defaults) do
+    local sv = saved[k]
+    if type(v) == "table" and type(sv) == "table" then
+      out[k] = merge(sv, v)
+    elseif sv ~= nil then
+      out[k] = sv
+    else
+      out[k] = v
+    end
+  end
+  for k, v in pairs(saved) do
+    if out[k] == nil then out[k] = v end
+  end
+  return out
+end
+
+-- Additive: saved values over fresh defaults (deep-merged).
+function M.withDefaults(cfg)
+  return merge(cfg or {}, M.defaults())
+end
+
+-- Read + unserialise the SAVED table (pre-merge). Never throws.
+-- Returns cfg|nil, existed, err. existed=true with err set means present-but-unparseable.
+function M.load(path)
+  if not fs.exists(path) or fs.isDir(path) then return nil, false, nil end
+  local f = fs.open(path, "r")
+  if not f then return nil, true, "could not open" end
+  local raw = f.readAll(); f.close()
+  local cfg = textutils.unserialise(raw or "")
+  if type(cfg) ~= "table" then return nil, true, "not a table" end
+  return cfg, true, nil
+end
+
+-- Atomic write: tmp + move.
+function M.save(path, cfg)
+  local tmp = path .. ".tmp"
+  local f = fs.open(tmp, "w")
+  if not f then return false, "could not open tmp" end
+  f.write(textutils.serialise(cfg)); f.close()
+  if fs.exists(path) then fs.delete(path) end
+  fs.move(tmp, path)
+  return true, nil
+end
+
+return M
