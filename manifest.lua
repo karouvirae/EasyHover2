@@ -541,9 +541,9 @@
         },
         {
           ["dst"] = "ui/main.lua",
-          ["size"] = 14343,
+          ["size"] = 14371,
           ["src"] = "ui/main.lua",
-          ["sum"] = "df2c1dc5",
+          ["sum"] = "0f540e2d",
         },
         {
           ["dst"] = "ui/monitors.lua",
@@ -586,5 +586,5 @@
     ["size"] = 64371,
     ["sum"] = "a42d04be",
   },
-  ["version"] = "dc8ddd62",
+  ["version"] = "d119f6e9",
 }

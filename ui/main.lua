@@ -288,7 +288,8 @@ local function doBind(role)
   end
   if #candidates == 0 then return end
 
-  local current = (role == "relay") and config.relay.name or config.fuel[role].name
+  local current
+  if role == "relay" then current = config.relay.name else current = config.fuel[role].name end
   local idx = 0
   for i, n in ipairs(candidates) do
     if n == current then idx = i break end
