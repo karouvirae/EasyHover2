@@ -64,9 +64,15 @@ rebindRelay()
 
 -- `signal` is the PHYSICAL relay level already computed by ui/engine.lua.
 -- No `not`/inversion here -- this closure only ever forwards what it's given.
+-- pcall-wrapped (matching EH1's engine.lua) so a disconnected/broken relay
+-- throws here, not up through engine:tick into the shared parallel.waitForAny
+-- -- an uncaught error there would kill render/touch/comms along with it.
+-- engine:_write dedups on the physical signal via lastWritten, which this
+-- function never touches on failure, so a failed write is retried next tick.
 local function writer(signal)
-  if relay then relay.setOutput(config.relay.side, signal) end
-  return true
+  if not relay then return false end
+  local ok = pcall(relay.setOutput, config.relay.side, signal)
+  return ok
 end
 
 local engine = Engine.new(config.engine, writer)
