@@ -18,6 +18,7 @@
 - UI config persists at `/eh2_ui_config.tbl` — already Suite-protected by the `^/eh2_.*%.tbl$` pattern; additive-merge on load (saved values over defaults), never clobbered mid-write.
 - **Reference source of truth for the ports:** `../EasyHover/flight/lib/io/engine.lua` and `../EasyHover/flight/lib/io/fuel.lua` — read them; do not guess their behaviour.
 - All new Lua must pass `bash tests/run_headless.sh`.
+- **Test-file convention (IMPORTANT):** `tests/framework.lua` exposes `test`/`eq`/`near`/`truthy`/`run` — there is **no `report()`**. Test files ONLY register cases with `t.test(...)`; the `run_headless.sh` runner `require`s every suite and calls `framework.run()` **once**. Any `t.report()` or `t.run()` at the end of a test snippet below is an error — **OMIT it** (the snippets show it only for readability). A `t.report()` in a required test file crashes the whole run with a nil call.
 - After implementation, regenerate `manifest.lua` (`bash tools/run_gen.sh`); the `cockpit` launcher stays the UI entry.
 
 ## File structure
@@ -218,9 +219,9 @@ git commit -m "feat(ui): toolkit geometry + draw-model builders + paint sink"
 
 **Interfaces:**
 - Produces:
-  - `Engine.new(cfg, writer) -> engine` where `cfg = { pulseMs, intervalMs, invert, kickstart, masterDefault }` and `writer(on:boolean) -> boolean` performs the physical relay write (the ONLY impure edge; in tests it's a fake).
+  - `Engine.new(cfg, writer) -> engine` where `cfg = { pulseMs, intervalMs, invert, kickstart, masterDefault }` and `writer(signal:boolean) -> boolean` performs the physical relay write — `signal` is the **physical relay level** (`true` = redstone HIGH). The writer is a DUMB passthrough (`setOutput(side, signal)`); it applies NO inversion of its own. It is the ONLY impure edge; in tests it's a fake capturing `signal`.
   - `engine:setMaster(on, now) -> master(bool)`, `engine:toggleMaster(now)`, `engine:tick(now)`, `engine:feedNow(now) -> ok, err`, `engine:blockNow()`, `engine:status(now) -> {master,feeding,pulses,nextFeedInMs,pulseMs,intervalMs}`, `engine:applyConfig(cfg)`.
-- Semantics (from EH1, retargeted): the writer receives **`on = feeding`** (true = let an item through). Inversion is applied inside `_write`: `signal = not feeding`, flipped again if `cfg.invert`. `_write` is write-on-change (skip if unchanged) and records `feeding`. Boots to `cfg.masterDefault` (default off = blocked). Master ON with `kickstart` → immediate feed pulse (`_startPulse`) then a feed every `intervalMs`; `pulseMs` is how long each feed lasts. Master OFF → hold blocked; `tick` re-asserts blocked every cycle. `feedNow` forces a pulse (errors if master off). `blockNow` forces the write and clears pending pulses.
+- Semantics (EH1-faithful — THE INVERSION LIVES IN EXACTLY ONE PLACE, `_write`): the state machine reasons in terms of a logical `feeding` boolean (true = let an item through). `_write(feeding)` computes the **physical signal** as EH1 does — `signal = not feeding` (the funnel passes only while UNPOWERED, so *blocked* = redstone HIGH = `true`), then `if cfg.invert then signal = not signal` (for a build wired the other way) — and calls `writer(signal)`. So with `invert=false`: **blocked → writer(true)** (HIGH, held while master off and at boot — this is the safe default that keeps the vault from draining), **feeding → writer(false)** (a brief LOW pulse lets one item through). `_write` is write-on-change (skip if the physical signal is unchanged) and records the last physical signal. Boots to `cfg.masterDefault` (default off = blocked → writer(true)). Master ON with `kickstart` → immediate feed pulse (`_startPulse`) then a feed every `intervalMs`; `pulseMs` is how long each feed lasts. Master OFF → hold blocked; `tick` re-asserts blocked every cycle. `feedNow` forces a pulse (errors if master off). `blockNow` forces the write and clears pending pulses. **`status().feeding` is the LOGICAL feeding boolean, not the physical signal.**
 
 - [ ] **Step 1: Write the failing tests** (`tests/test_ui_engine.lua`) — drive a fake writer that records `(feeding)` calls:
 
@@ -229,55 +230,58 @@ package.path = "/?.lua;/?/init.lua;" .. package.path
 local t = require("tests.framework")
 local Engine = require("ui.engine")
 
+-- The fake writer captures the PHYSICAL relay signal (true = redstone HIGH).
+-- Blocked = HIGH by default (funnel passes only while UNPOWERED); feeding pulse = LOW.
 local function fakeWriter()
   local w = { calls = {}, last = nil }
-  w.fn = function(on) w.calls[#w.calls + 1] = on; w.last = on; return true end
+  w.fn = function(signal) w.calls[#w.calls + 1] = signal; w.last = signal; return true end
   return w
 end
 local CFG = { pulseMs = 250, intervalMs = 1500, invert = false, kickstart = true, masterDefault = false }
 
-t.test("boots blocked (feeding=false) and stays blocked on tick", function()
+t.test("boots blocked -> physical HIGH, logical feeding=false", function()
   local w = fakeWriter()
   local e = Engine.new(CFG, w.fn)
   e:tick(0)
-  t.eq(w.last, false)                 -- blocked = not feeding
+  t.eq(w.last, true)                       -- blocked = HIGH
   t.eq(e:status(0).master, false)
+  t.eq(e:status(0).feeding, false)
 end)
 
-t.test("master ON kickstarts a feed pulse then blocks after pulseMs", function()
+t.test("master ON kickstarts a feed pulse (LOW) then blocks (HIGH) after pulseMs", function()
   local w = fakeWriter()
   local e = Engine.new(CFG, w.fn)
   e:setMaster(true, 0)
-  t.eq(w.last, true)                  -- kickstart feed
-  e:tick(100); t.eq(w.last, true)     -- still within pulseMs
-  e:tick(250); t.eq(w.last, false)    -- pulse ended -> blocked
+  t.eq(w.last, false)                      -- feeding pulse = LOW
+  t.eq(e:status(0).feeding, true)
+  e:tick(100); t.eq(w.last, false)         -- still within pulseMs
+  e:tick(250); t.eq(w.last, true)          -- pulse ended -> blocked (HIGH)
 end)
 
-t.test("feeds again after intervalMs", function()
+t.test("feeds again (LOW) after intervalMs", function()
   local w = fakeWriter()
   local e = Engine.new(CFG, w.fn)
   e:setMaster(true, 0)
-  e:tick(250)                         -- pulse ends at 250, next feed at 250+1500
-  e:tick(1000); t.eq(w.last, false)   -- still waiting
-  e:tick(1750); t.eq(w.last, true)    -- interval elapsed -> feed
+  e:tick(250)                              -- pulse ends at 250, next feed at 250+1500
+  e:tick(1000); t.eq(w.last, true)         -- still blocked (HIGH), waiting
+  e:tick(1750); t.eq(w.last, false)        -- interval elapsed -> feed (LOW)
 end)
 
 t.test("invert flips the physical polarity only", function()
   local w = fakeWriter()
   local e = Engine.new({ pulseMs = 250, intervalMs = 1500, invert = true, kickstart = true, masterDefault = false }, w.fn)
   e:tick(0)
-  t.eq(w.last, true)                  -- blocked, but inverted -> physical true
+  t.eq(w.last, false)                      -- blocked, inverted -> physical LOW
+  t.eq(e:status(0).feeding, false)         -- logical feeding unchanged by invert
 end)
 
-t.test("feedNow errors when master off, pulses when on", function()
+t.test("feedNow errors when master off, pulses (LOW) when on", function()
   local w = fakeWriter()
   local e = Engine.new(CFG, w.fn)
   local ok = e:feedNow(0); t.eq(ok, false)
   e:setMaster(true, 0)
-  local ok2 = e:feedNow(500); t.eq(ok2, true); t.eq(w.last, true)
+  local ok2 = e:feedNow(500); t.eq(ok2, true); t.eq(w.last, false)   -- feeding = LOW
 end)
-
-t.report()
 ```
 
 - [ ] **Step 2: Run to verify it fails.** Expected: FAIL (`module 'ui.engine' not found`).
@@ -408,7 +412,7 @@ git commit -m "feat(ui): pure peripheral-binding proposal (relay + fuel auto-det
 
 ## Phase 2 — Panels (pure layout / render / action)
 
-> Each panel exposes `Panel.id` (string), `Panel.title` (string), `Panel.layout(w,h) -> { buttons={<toolkit.button-arg tuples or {id,rect,label}>...}, regions={...} }`, `Panel.render(ctx) -> drawlist` (a list of toolkit draw-model items, buttons carrying their current `state`), and `Panel.action(id, ctx) -> effect|nil`. Panels are pure — no peripheral access. `ctx` is supplied by `ui/main.lua`.
+> Each panel exposes `Panel.id` (string), `Panel.title` (string), `Panel.layout(w,h) -> { buttons={{id,rect,label}...}, regions={...} }` (pure, SIZE-AWARE — all rects computed from `w,h`), `Panel.render(ctx, w, h) -> drawlist` (a list of toolkit draw-model items; it calls `layout(w,h)` internally so the drawn buttons carry the SAME size-correct rects, filled with their current `state`/values from `ctx`), and `Panel.action(id, ctx) -> effect|nil`. **`w,h` are OPTIONAL on `render` and default to `51,19`** (so `render(ctx)` still works in unit tests); `ui/main.lua`/`ui/monitors.lua` pass the real monitor size. Hit-testing (Task 9) uses `layout(w,h).buttons` rects with the SAME `w,h` render was given, so draw and hit always agree. Panels are pure — no peripheral access. `ctx` is supplied by `ui/main.lua`. **Consequence for Task 6/7/8: `render` must derive every rect from `layout(w,h)`, never a hardcoded canvas.**
 
 ### Task 6: `ui/panels/fcs.lua`
 
@@ -602,7 +606,7 @@ git commit -m "feat(ui): Config panel (device binding, engine auto-detect/timing
 - Produces (pure):
   - `Monitors.resolve(assign, present) -> { assigned={[name]=panelId}, unassigned={<name>...} }` where `present` is the list of monitor names currently attached. Names in `assign` but not present are dropped; present names not in `assign` go to `unassigned`. Mirroring is inherent: several names may map to the same panelId.
   - `Monitors.route(assign, name) -> panelId|nil` — the panel a touch on `name` belongs to.
-- Produces (SINK — not unit-tested): `Monitors.render(wrappedMon, panel, ctx)` — `wrappedMon.setTextScale(0.5)`, gets size, `panel.layout(w,h)`, `panel.render(ctx)`, `toolkit.paint(wrappedMon, drawlist)`.
+- Produces (SINK — not unit-tested): `Monitors.render(wrappedMon, panel, ctx)` — `wrappedMon.setTextScale(0.5)`, `local w,h = wrappedMon.getSize()`, `toolkit.paint(wrappedMon, panel.render(ctx, w, h))`. For touch, cache `panel.layout(w,h).buttons` per monitor (same `w,h`) as the hit table so draw and hit agree.
 
 - [ ] **Step 1: Write the failing tests** (`tests/test_ui_monitors.lua`):
 
