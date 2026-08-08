@@ -96,3 +96,14 @@ t.test("assign cycle + engine step + scan intents", function()
   t.eq(cfgp.action("scan", CCTX).op, "scan")
   t.eq(cfgp.action("fcsCal", CCTX), nil)   -- disabled
 end)
+
+t.test("config relay-side picker: button present + labelled, action cycles side", function()
+  local dl = cfgp.render(CCTX)
+  local found, label = false, nil
+  for _, item in ipairs(dl) do
+    if item.kind == "button" and item.id == "relaySide" then found = true; label = item.label end
+  end
+  t.eq(found, true)
+  t.eq(label, "RELAY SIDE: back")                 -- default side
+  t.eq(cfgp.action("relaySide", CCTX).op, "cycleRelaySide")
+end)

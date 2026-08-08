@@ -55,6 +55,7 @@ function M.layout(w, h, monitors)
   for _, id in ipairs(BIND_BUTTONS) do
     rows[#rows + 1] = { kind = "button", id = id, label = BIND_LABEL[id] }
   end
+  rows[#rows + 1] = { kind = "button", id = "relaySide" }
   rows[#rows + 1] = { kind = "header", text = "ENGINE/UI AUTO-DETECT" }
   for _, id in ipairs(AUTO_BUTTONS) do
     rows[#rows + 1] = { kind = "button", id = id, label = AUTO_LABEL[id] }
@@ -117,6 +118,8 @@ function M.render(ctx, w, h)
     local label = b.label
     if b.monitorName then
       label = assign[b.monitorName] or "--"
+    elseif b.id == "relaySide" then
+      label = "RELAY SIDE: " .. ((cfg.relay and cfg.relay.side) or "back")
     end
     local state = buttonState(b.id, b.monitorName, cfg)
     dl[#dl + 1] = toolkit.button(b.id, b.rect.x, b.rect.y, b.rect.w, b.rect.h, label, state)
@@ -154,6 +157,8 @@ function M.action(id, ctx)
     return { kind = "config", op = "bind", role = "pump" }
   elseif id == "bindTank" then
     return { kind = "config", op = "bind", role = "tank" }
+  elseif id == "relaySide" then
+    return { kind = "config", op = "cycleRelaySide" }
   end
   return nil
 end

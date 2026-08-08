@@ -316,6 +316,14 @@ local function doCalFuel()
   end
 end
 
+local RELAY_SIDES = { "back", "front", "left", "right", "top", "bottom" }
+local function nextSide(cur)
+  for i, s in ipairs(RELAY_SIDES) do
+    if s == cur then return RELAY_SIDES[(i % #RELAY_SIDES) + 1] end
+  end
+  return RELAY_SIDES[1]
+end
+
 local function applyConfigOp(effect)
   local op = effect.op
   if op == "cycleAssign" then
@@ -334,6 +342,12 @@ local function applyConfigOp(effect)
     doBind(effect.role)
   elseif op == "calFuel" then
     doCalFuel()
+  elseif op == "cycleRelaySide" then
+    -- Change the side the engine drives, then re-assert blocked on the new side
+    -- (same drain-safety as (re)binding: force a HIGH write so the funnel stays closed).
+    config.relay.side = nextSide(config.relay.side)
+    rebindRelay()
+    engine:blockNow()
   end
 
   Config.save(CONFIG_PATH, config)
