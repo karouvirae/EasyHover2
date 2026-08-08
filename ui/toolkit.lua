@@ -52,20 +52,21 @@ end
 
 -- ===== Paint sink (NOT unit-tested; issues mon.* draw calls only) =====
 
-local BUTTON_COLOR = {
+-- on/active -> green, off -> red, idle -> gray fill; disabled has no fill
+-- (stays background-colored) and is marked by darkGray (colors.gray) text instead.
+local BUTTON_BG = {
   on = colors.green,
   active = colors.green,
   off = colors.red,
   idle = colors.gray,
-  disabled = colors.gray,
 }
 
 local function drawButton(mon, item)
   local r = item.rect
-  local bg = BUTTON_COLOR[item.state] or colors.gray
+  local bg = BUTTON_BG[item.state] or colors.black
   mon.setBackgroundColor(bg)
   if item.state == "disabled" then
-    mon.setTextColor(colors.lightGray)
+    mon.setTextColor(colors.gray)
   else
     mon.setTextColor(colors.white)
   end
