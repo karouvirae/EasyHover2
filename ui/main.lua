@@ -208,9 +208,10 @@ end
 
 local redrawPending = false
 local function markDirty()
-  if redrawPending then return end
+  -- Just flag it; renderLoop repaints on its own rate-limited timer. Painting a
+  -- monitor is a shared-main-thread (world) call, and telemetry lands ~15x/s --
+  -- repainting that fast starves the FCS's thruster writes on the shared network.
   redrawPending = true
-  os.queueEvent("eh2_redraw")
 end
 
 -- ===== Config-edit intents (pure decisions applied here; each edit -> Config.save) =====
@@ -449,10 +450,22 @@ local function termInputLoop()
 end
 
 local function renderLoop()
+  -- Repaint at most ~5 Hz, on a timer, decoupled from telemetry arrival. Monitor
+  -- paints are heavy shared-main-thread (world) calls; doing them every telemetry
+  -- message (~15/s) throttled the whole wired network and dropped the FCS control
+  -- loop below what a T/W~3 craft needs to hold attitude and climb. 5 Hz is plenty
+  -- for gauges/status and leaves the main-thread budget for the flight computer.
+  local PERIOD = 0.2
+  local timer = os.startTimer(PERIOD)
   while true do
-    os.pullEvent("eh2_redraw")
-    redrawPending = false
-    redrawAll(os.epoch("utc"))
+    local _, id = os.pullEvent("timer")
+    if id == timer then
+      if redrawPending then
+        redrawPending = false
+        redrawAll(os.epoch("utc"))
+      end
+      timer = os.startTimer(PERIOD)
+    end
   end
 end
 
