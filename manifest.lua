@@ -529,9 +529,9 @@
         },
         {
           ["dst"] = "ui/engine.lua",
-          ["size"] = 5665,
+          ["size"] = 5689,
           ["src"] = "ui/engine.lua",
-          ["sum"] = "2611d912",
+          ["sum"] = "cb45d20f",
         },
         {
           ["dst"] = "ui/fuel.lua",
@@ -541,9 +541,9 @@
         },
         {
           ["dst"] = "ui/main.lua",
-          ["size"] = 13756,
+          ["size"] = 13800,
           ["src"] = "ui/main.lua",
-          ["sum"] = "64cfa016",
+          ["sum"] = "fe99385a",
         },
         {
           ["dst"] = "ui/monitors.lua",
@@ -586,5 +586,5 @@
     ["size"] = 64371,
     ["sum"] = "a42d04be",
   },
-  ["version"] = "a76c91bd",
+  ["version"] = "090121ae",
 }

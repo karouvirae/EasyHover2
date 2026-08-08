@@ -259,6 +259,7 @@ local function doScan()
     config.relay.name = proposal.relay
     if not config.relay.side then config.relay.side = "back" end
     rebindRelay()
+    engine:blockNow()
   end
   if proposal.fuel.pump then
     config.fuel.pump.name = proposal.fuel.pump
@@ -298,6 +299,7 @@ local function doBind(role)
     config.relay.name = picked
     if not config.relay.side then config.relay.side = "back" end
     rebindRelay()
+    engine:blockNow()
   else
     config.fuel[role].name = picked
     config.fuel[role].kind = kindOfName(descriptors, picked)

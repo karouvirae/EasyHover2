@@ -57,9 +57,9 @@ function Engine:_write(feeding)
   self.feeding = feeding
   if self.lastWritten == signal then return true end
 
-  self.writer(signal)
-  self.lastWritten = signal
-  return true
+  local ok = self.writer(signal)
+  if ok then self.lastWritten = signal end
+  return ok
 end
 
 --- Turn the vehicle on or off. Returns the new master state.

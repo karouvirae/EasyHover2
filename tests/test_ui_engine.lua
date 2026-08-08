@@ -43,3 +43,16 @@ t.test("feedNow errors when master off, pulses (LOW) when on", function()
   e:setMaster(true, 0)
   local ok2 = e:feedNow(500); t.eq(ok2, true); t.eq(w.last, false)
 end)
+
+t.test("a failed write is retried on the next call (lastWritten only set on success)", function()
+  local calls, ret = 0, false
+  local function w(signal) calls = calls + 1; return ret end
+  local e = Engine.new(CFG, w)     -- CFG = masterDefault false -> boots blocked
+  e:tick(0)                        -- write attempt #1: signal=true, writer returns false
+  t.eq(calls, 1)
+  ret = true
+  e:tick(1)                        -- must attempt again (not deduped), now succeeds
+  t.eq(calls, 2)
+  e:tick(2)                        -- now lastWritten==true -> deduped, no new call
+  t.eq(calls, 2)
+end)
