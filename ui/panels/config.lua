@@ -9,81 +9,100 @@ local M = {}
 M.id = "config"
 M.title = "CONFIG"
 
--- Default canvas used internally by render() (which doesn't receive w,h).
+-- Default canvas used internally by render() (which may be called without w,h).
 local DEFAULT_W, DEFAULT_H = 51, 19
 
-local BIND_BUTTONS = { "bindRelay", "bindPump", "bindTank" }
-local BIND_LABEL = {
-  bindRelay = "BIND RELAY",
-  bindPump  = "BIND PUMP",
-  bindTank  = "BIND TANK",
-}
-
-local AUTO_BUTTONS = {
-  "scan", "calFuel", "pulseUp", "pulseDn", "intervalUp", "intervalDn", "toggleInvert", "toggleKick",
-}
-local AUTO_LABEL = {
+-- Static labels for the fixed (non-dynamic) buttons. Dynamic labels (monitor
+-- assigns, bind-with-name, relay side) are built in labelFor() from ctx.config.
+local LABEL = {
   scan         = "SCAN",
   calFuel      = "CAL FUEL",
   pulseUp      = "PULSE +50",
   pulseDn      = "PULSE -50",
-  intervalUp   = "INTERVAL +100",
-  intervalDn   = "INTERVAL -100",
-  toggleInvert = "TOGGLE INVERT",
-  toggleKick   = "TOGGLE KICK",
+  intervalUp   = "INT +100",
+  intervalDn   = "INT -100",
+  toggleInvert = "INVERT",
+  toggleKick   = "KICK",
+  fcsCal       = "FCS CAL (soon)",
 }
 
--- ===== layout(w,h,monitors) -> { buttons = {...}, headers = {...}, regions = {} } =====
--- monitors is an optional list of monitor names; per-monitor "assign:<name>" buttons are
--- built here (rects only -- the current-panel label is filled in by render(), which is the
--- only place ctx.config is consulted).
+-- ===== layout(w,h,monitors) -> { buttons={...}, headers={...}, infos={...} } =====
+-- Rows are compact (1 screen row each) and several controls share a row so the
+-- whole panel fits a real monitor without cropping. Name-bearing buttons
+-- (bind relay/pump/tank, relay side) get a full-width row; the dense controls
+-- (monitor assigns, scan/cal, pulse +/-, interval +/-, toggles) pair up.
 
 function M.layout(w, h, monitors)
   w = w or DEFAULT_W
   h = h or DEFAULT_H
   monitors = monitors or {}
 
-  local btnX = 2
-  local btnW = math.max(1, w - btnX - 1)
+  local x0 = 2
+  local iw = math.max(1, w - 2)
 
-  -- Ordered list of rows: headers (plain text) interleaved with buttons.
+  -- Build an ordered list of rows. Each row is one of:
+  --   { header = <text> }               plain section header
+  --   { info   = <kind> }               dynamic status text (rendered from ctx)
+  --   { cells  = { {id=,monitorName=}, ... } }   1..N buttons sharing the row
   local rows = {}
-  rows[#rows + 1] = { kind = "header", text = "DEVICE BINDING" }
-  for _, name in ipairs(monitors) do
-    rows[#rows + 1] = { kind = "button", id = "assign:" .. name, monitorName = name }
-  end
-  for _, id in ipairs(BIND_BUTTONS) do
-    rows[#rows + 1] = { kind = "button", id = id, label = BIND_LABEL[id] }
-  end
-  rows[#rows + 1] = { kind = "button", id = "relaySide" }
-  rows[#rows + 1] = { kind = "header", text = "ENGINE/UI AUTO-DETECT" }
-  for _, id in ipairs(AUTO_BUTTONS) do
-    rows[#rows + 1] = { kind = "button", id = id, label = AUTO_LABEL[id] }
-  end
-  rows[#rows + 1] = { kind = "header", text = "FCS CALIBRATION" }
-  rows[#rows + 1] = { kind = "button", id = "fcsCal", label = "FCS CAL (coming next)" }
+  rows[#rows + 1] = { header = "DEVICE BINDING" }
 
-  -- Row height adapts to h so the whole stack always fits within the interior
-  -- rows (2 .. h-1, leaving the frame's top/bottom border rows free).
+  -- monitor assigns, two per row (short labels)
+  local pair = {}
+  for _, name in ipairs(monitors) do
+    pair[#pair + 1] = { id = "assign:" .. name, monitorName = name }
+    if #pair == 2 then rows[#rows + 1] = { cells = pair }; pair = {} end
+  end
+  if #pair > 0 then rows[#rows + 1] = { cells = pair } end
+
+  rows[#rows + 1] = { cells = { { id = "bindRelay" } } }
+  rows[#rows + 1] = { cells = { { id = "bindPump" } } }
+  rows[#rows + 1] = { cells = { { id = "bindTank" } } }
+  rows[#rows + 1] = { cells = { { id = "relaySide" } } }
+
+  rows[#rows + 1] = { header = "ENGINE/UI AUTO-DETECT" }
+  rows[#rows + 1] = { info = "timing" }
+  rows[#rows + 1] = { cells = { { id = "scan" }, { id = "calFuel" } } }
+  rows[#rows + 1] = { cells = { { id = "pulseDn" }, { id = "pulseUp" } } }
+  rows[#rows + 1] = { cells = { { id = "intervalDn" }, { id = "intervalUp" } } }
+  rows[#rows + 1] = { cells = { { id = "toggleInvert" }, { id = "toggleKick" } } }
+
+  rows[#rows + 1] = { header = "FCS CALIBRATION" }
+  rows[#rows + 1] = { cells = { { id = "fcsCal" } } }
+
+  -- Row height: 1 by default (compact). If the monitor is tall, grow rows to
+  -- fill; if short, stays 1 (extreme-small monitors can still clip the tail --
+  -- a known limitation, deferred).
   local n = #rows
   local avail = h - 2
   if avail < n then avail = n end
   local rowH = math.floor(avail / n)
   if rowH < 1 then rowH = 1 end
 
-  local buttons, headers = {}, {}
+  local out = { buttons = {}, headers = {}, infos = {} }
   local y = 2
   for _, r in ipairs(rows) do
-    local rect = { x = btnX, y = y, w = btnW, h = rowH }
-    if r.kind == "header" then
-      headers[#headers + 1] = { text = r.text, rect = rect }
+    if r.header then
+      out.headers[#out.headers + 1] = { text = r.header, x = x0, y = y }
+    elseif r.info then
+      out.infos[#out.infos + 1] = { kind = r.info, x = x0, y = y, w = iw }
     else
-      buttons[#buttons + 1] = { id = r.id, rect = rect, label = r.label, monitorName = r.monitorName }
+      local k = #r.cells
+      local cellW = math.max(1, math.floor(iw / k))
+      for i, c in ipairs(r.cells) do
+        local bx = x0 + (i - 1) * cellW
+        -- last cell absorbs any remainder; earlier cells leave a 1-col gutter
+        local bw = (i == k) and (iw - (i - 1) * cellW) or (cellW - 1)
+        out.buttons[#out.buttons + 1] = {
+          id = c.id,
+          monitorName = c.monitorName,
+          rect = { x = bx, y = y, w = math.max(1, bw), h = rowH },
+        }
+      end
     end
     y = y + rowH
   end
-
-  return { buttons = buttons, headers = headers, regions = {} }
+  return out
 end
 
 -- ===== render(ctx, w, h) -> drawlist =====
@@ -99,6 +118,29 @@ local function buttonState(id, monitorName, cfg)
   return "idle"
 end
 
+local function shortName(n)
+  if type(n) == "string" and n ~= "" then return n end
+  return "--"
+end
+
+local function labelFor(b, cfg, assign)
+  local id = b.id
+  if b.monitorName then return assign[b.monitorName] or "--" end
+  if id == "relaySide" then return "RELAY SIDE: " .. ((cfg.relay and cfg.relay.side) or "back") end
+  if id == "bindRelay" then return "RELAY: " .. shortName(cfg.relay and cfg.relay.name) end
+  if id == "bindPump" then return "PUMP: " .. shortName(cfg.fuel and cfg.fuel.pump and cfg.fuel.pump.name) end
+  if id == "bindTank" then return "TANK: " .. shortName(cfg.fuel and cfg.fuel.tank and cfg.fuel.tank.name) end
+  return LABEL[id] or id
+end
+
+local function timingLine(cfg, width)
+  local e = cfg.engine or {}
+  local s = string.format("P %sms  I %sms  inv %s  kick %s",
+    tostring(e.pulseMs or "?"), tostring(e.intervalMs or "?"),
+    (e.invert and "on" or "off"), (e.kickstart and "on" or "off"))
+  return s:sub(1, math.max(0, width))
+end
+
 function M.render(ctx, w, h)
   ctx = ctx or {}
   w = w or DEFAULT_W
@@ -111,16 +153,17 @@ function M.render(ctx, w, h)
   dl[#dl + 1] = toolkit.frame(1, 1, w, h, M.title)
 
   for _, hd in ipairs(lay.headers) do
-    dl[#dl + 1] = toolkit.text(hd.rect.x, hd.rect.y, hd.text)
+    dl[#dl + 1] = toolkit.text(hd.x, hd.y, hd.text)
+  end
+
+  for _, inf in ipairs(lay.infos) do
+    if inf.kind == "timing" then
+      dl[#dl + 1] = toolkit.text(inf.x, inf.y, timingLine(cfg, inf.w))
+    end
   end
 
   for _, b in ipairs(lay.buttons) do
-    local label = b.label
-    if b.monitorName then
-      label = assign[b.monitorName] or "--"
-    elseif b.id == "relaySide" then
-      label = "RELAY SIDE: " .. ((cfg.relay and cfg.relay.side) or "back")
-    end
+    local label = labelFor(b, cfg, assign)
     local state = buttonState(b.id, b.monitorName, cfg)
     dl[#dl + 1] = toolkit.button(b.id, b.rect.x, b.rect.y, b.rect.w, b.rect.h, label, state)
   end

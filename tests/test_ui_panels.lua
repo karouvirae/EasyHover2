@@ -124,3 +124,39 @@ t.test("config relay-side picker: button present + labelled, action cycles side"
   t.eq(label, "RELAY SIDE: back")                 -- default side
   t.eq(cfgp.action("relaySide", CCTX).op, "cycleRelaySide")
 end)
+
+t.test("config bind buttons show the bound device name + timing line reflects config", function()
+  local Config = require("ui.config")
+  local cfg = Config.withDefaults({
+    relay = { name = "redstone_relay_2", side = "back" },
+    engine = { pulseMs = 250, intervalMs = 1500 },
+  })
+  local dl = cfgp.render({ config = cfg, monitors = {} }, 51, 19)
+  local relayLabel, sawTiming = nil, false
+  for _, item in ipairs(dl) do
+    if item.kind == "button" and item.id == "bindRelay" then relayLabel = item.label end
+    if item.kind == "text" and type(item.s) == "string" and item.s:find("250") then sawTiming = true end
+  end
+  t.eq(relayLabel ~= nil, true)
+  t.eq(relayLabel:find("redstone_relay_2") ~= nil, true)   -- shows the bound device
+  t.eq(sawTiming, true)                                     -- current pulseMs shown
+end)
+
+t.test("config fits: all buttons present + within bounds with 7 monitors", function()
+  local mons = {}; for i = 1, 7 do mons[i] = "m" .. i end
+  local W, H = 51, 19
+  local dl = cfgp.render({ config = require("ui.config").defaults(), monitors = mons }, W, H)
+  local ids = {}
+  for _, item in ipairs(dl) do
+    if item.kind == "button" then
+      ids[item.id] = true
+      t.eq(item.rect.y >= 1 and item.rect.y + item.rect.h - 1 <= H, true)   -- not cropped vertically
+      t.eq(item.rect.x + item.rect.w - 1 <= W, true)                        -- within width
+    end
+  end
+  for i = 1, 7 do t.eq(ids["assign:m" .. i], true) end
+  for _, id in ipairs({ "bindRelay", "bindPump", "bindTank", "relaySide", "scan", "calFuel",
+                        "pulseUp", "pulseDn", "intervalUp", "intervalDn", "toggleInvert", "toggleKick", "fcsCal" }) do
+    t.eq(ids[id], true)
+  end
+end)
