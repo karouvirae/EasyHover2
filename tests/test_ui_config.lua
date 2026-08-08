@@ -44,5 +44,3 @@ t.test("load of unparseable is present-with-error", function()
   t.eq(existed, true); t.eq(type(err), "string")
   fs.delete(path)
 end)
-
-t.report()
