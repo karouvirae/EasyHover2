@@ -98,24 +98,48 @@ local function logFinish()
   pcall(function() shell.run("pastebin", "put", LOG_PATH) end)
 end
 
-local function fuelInto(snap)
-  -- Defensive fuel readback: methods may be absent -> nil (non-blocking).
-  snap.thrusterFuel = {}
+-- ---- Fuel readback: DECOUPLED from the control loop ----
+-- getFuelAmountMb/getFuelCapacityMb are ~50ms mainThread calls. Polling all 4 lift thrusters
+-- INLINE every control cycle cost ~390ms/cycle and collapsed the flight loop to ~2Hz (measured:
+-- 122 cycles / 55s, ~452ms/cycle even with ZERO thruster writes), while the identical control
+-- stack holds ~16.7Hz in tools/hover_test.lua -- which never polls fuel. So fuel now polls in its
+-- own 1Hz task, capacity is constant and cached (read once), the reads run concurrently, and the
+-- control loop only copies the latest snapshot (fuelState) -- no peripheral calls on the hot path.
+local fuelState = { thrusterFuel = {}, fuelMain = nil }
+local fuelPeriph, fuelCap = {}, {}
+local function pollFuel()
+  local tf, reads = {}, {}
   for i, id in ipairs(frame.LIFT) do
-    local name = config.thrusters and config.thrusters[id]
-    local p = name and shim.wrap(name)
-    if p and p.getFuelAmountMb and p.getFuelCapacityMb then
-      local ok1, amt = pcall(p.getFuelAmountMb)
-      local ok2, cap = pcall(p.getFuelCapacityMb)
-      snap.thrusterFuel[i] = (ok1 and ok2 and cap and cap > 0) and (amt / cap) or nil
+    if fuelPeriph[i] == nil then
+      local name = config.thrusters and config.thrusters[id]
+      fuelPeriph[i] = (name and shim.wrap(name)) or false
     end
+    local p = fuelPeriph[i]
+    if p and p.getFuelAmountMb and p.getFuelCapacityMb then
+      reads[#reads + 1] = function()
+        if fuelCap[i] == nil then
+          local okc, cap = pcall(p.getFuelCapacityMb)
+          fuelCap[i] = (okc and cap) or false   -- capacity is constant: read once
+        end
+        local oka, amt = pcall(p.getFuelAmountMb)
+        local cap = fuelCap[i]
+        if oka and amt and cap and cap > 0 then tf[i] = amt / cap end
+      end
+    end
+  end
+  if #reads > 0 then
+    if parallel and parallel.waitForAll then parallel.waitForAll(table.unpack(reads))
+    else for _, fn in ipairs(reads) do fn() end end
   end
   -- Aggregate: no separate main-tank peripheral exists (fuel is per-thruster),
   -- so the main FUEL gauge shows the mean of the available fractions.
   local sum, count = 0, 0
-  for _, f in pairs(snap.thrusterFuel) do sum = sum + f; count = count + 1 end
-  snap.fuelMain = (count > 0) and (sum / count) or nil
-  return snap
+  for _, f in pairs(tf) do sum = sum + f; count = count + 1 end
+  fuelState.thrusterFuel = tf
+  fuelState.fuelMain = (count > 0) and (sum / count) or nil
+end
+local function fuelTask()
+  while true do pollFuel(); sleep(1.0) end
 end
 
 -- ---- Tasks ----
@@ -130,7 +154,10 @@ local function controlTask()
     if ev[1] == "timer" and ev[2] == timer then
       local now = os.epoch("utc"); local dt = (now - lastT) / 1000; lastT = now
       local meas = backend:sensors()
-      shared.snap = fuelInto(flight:step(dt, heldRef.held, meas))
+      local snap = flight:step(dt, heldRef.held, meas)
+      snap.thrusterFuel = fuelState.thrusterFuel   -- cheap copy; fuelTask does the peripheral reads
+      snap.fuelMain = fuelState.fuelMain
+      shared.snap = snap
       logCycle(dt, meas)
       timer = os.startTimer(0)
     end
@@ -175,9 +202,9 @@ end
 if LOGGING then
   print("EH2 FCS -- FLIGHT LOGGING ON. Fly the repro, then Ctrl-T to stop (log auto-saves + pastebins).")
   logStart()
-  local ok, err = pcall(parallel.waitForAny, controlTask, inputTask, telemetryTask, commandTask, healthTask)
+  local ok, err = pcall(parallel.waitForAny, controlTask, inputTask, telemetryTask, commandTask, healthTask, fuelTask)
   logFinish()
   if not ok then print("FCS EXIT: " .. tostring(err)) end
 else
-  parallel.waitForAny(controlTask, inputTask, telemetryTask, commandTask, healthTask)
+  parallel.waitForAny(controlTask, inputTask, telemetryTask, commandTask, healthTask, fuelTask)
 end
