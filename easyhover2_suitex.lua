@@ -217,7 +217,9 @@ local function applyTheme(ctx)
   ui.pickerLabels[1]:setForeground(pal.dim); ui.pickerLabels[2]:setForeground(pal.dim)
   ui.advancedLabel:setForeground(pal.dim)
   refreshStatus(ctx)
-  setButtonsEnabled(ctx, ctx.checkDone)
+  -- Repaint the palette even mid-op, but don't let a theme toggle re-enable the action buttons
+  -- while an engine op is in flight -- see ctx.opInFlight in runEngineOp.
+  setButtonsEnabled(ctx, ctx.checkDone and not ctx.opInFlight)
 end
 
 local function refreshToolsDropdown(ctx)
@@ -285,13 +287,24 @@ end
 --- Basalt's event loop between HTTP round-trips instead of freezing the screen for the whole
 --- operation. Suite.sink is set for the duration so every say()/warn()/good()/bad() line lands
 --- in the log panel; cleared afterwards, then the check re-arms so findings reflect the new state.
+---
+--- ctx.opInFlight guards against a theme toggle re-enabling the action buttons while this
+--- coroutine is still yielding across multi-second HTTP round-trips (setButtonsEnabled(ctx,false)
+--- alone is not enough: it only sets the CURRENT paint, but applyTheme() -- called from the
+--- Theme button's onClick, which can fire at any point while this coroutine is suspended --
+--- would otherwise recompute enabled-state from ctx.checkDone, which is still true from the
+--- prior completed check). Set true before the op starts; cleared in the coroutine's tail on
+--- BOTH the success and failure path, since that line always runs after the pcall regardless of
+--- outcome.
 local function runEngineOp(ctx, fn)
+  ctx.opInFlight = true
   setButtonsEnabled(ctx, false)
   ctx.ui.log:clear()
   ctx.basalt.schedule(function()
     ctx.Suite.sink = function(text, c) logLine(ctx, text, c) end
     local ok, err = pcall(fn)
     ctx.Suite.sink = nil
+    ctx.opInFlight = false
     if not ok then
       logLine(ctx, "action failed: " .. tostring(err), ctx.pal.error)
     end
@@ -372,15 +385,21 @@ local function buildUI(ctx)
   ui.advancedLabel = advTab:addLabel({ x = 2, y = 2, text = "Advanced tools -- coming soon.", foreground = pal.dim })
 
   ui.buttons.go:onClick(function()
-    if not ctx.spec or ctx.plan == "current" then return end
+    -- Defense in depth: setButtonsEnabled()/ctx.opInFlight already keep this disabled during an
+    -- op, but a stray click that lands before a repaint catches up must still be a no-op rather
+    -- than launching a second concurrent performPlan.
+    if ctx.opInFlight or not ctx.spec or ctx.plan == "current" then return end
     runEngineOp(ctx, function()
       return ctx.Suite.performPlan(ctx.Suite.base, ctx.manifest, ctx.spec, ctx.role, ctx.plan,
         ctx.report and ctx.report.present == 0)
     end)
   end)
-  ui.buttons.verify:onClick(function() startCheck(ctx) end)
+  ui.buttons.verify:onClick(function()
+    if ctx.opInFlight then return end
+    startCheck(ctx)
+  end)
   ui.buttons.repair:onClick(function()
-    if not ctx.spec then return end
+    if ctx.opInFlight or not ctx.spec then return end
     runEngineOp(ctx, function()
       return ctx.Suite.performPlan(ctx.Suite.base, ctx.manifest, ctx.spec, ctx.role, "repair",
         ctx.report and ctx.report.present == 0)
@@ -524,7 +543,7 @@ function SuiteX.run()
     mode = "dark", pal = SuiteX.theme.get("dark"),
     Suite = Suite, basalt = basalt, manifest = manifest, order = buildOrder(manifest),
     role = role, spec = spec, state = state,
-    plan = nil, report = nil, diffLabel = nil, checkDone = false,
+    plan = nil, report = nil, diffLabel = nil, checkDone = false, opInFlight = false,
   }
 
   buildUI(ctx)
