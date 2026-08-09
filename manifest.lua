@@ -541,9 +541,9 @@
         },
         {
           ["dst"] = "ui/main.lua",
-          ["size"] = 15382,
+          ["size"] = 16916,
           ["src"] = "ui/main.lua",
-          ["sum"] = "425ba6af",
+          ["sum"] = "a4bfe454",
         },
         {
           ["dst"] = "ui/monitors.lua",
@@ -559,9 +559,9 @@
         },
         {
           ["dst"] = "ui/panels/engine.lua",
-          ["size"] = 4487,
+          ["size"] = 4648,
           ["src"] = "ui/panels/engine.lua",
-          ["sum"] = "cff87a84",
+          ["sum"] = "dc8293b9",
         },
         {
           ["dst"] = "ui/panels/fcs.lua",
@@ -586,5 +586,5 @@
     ["size"] = 64371,
     ["sum"] = "a42d04be",
   },
-  ["version"] = "071991f9",
+  ["version"] = "f846e4dd",
 }

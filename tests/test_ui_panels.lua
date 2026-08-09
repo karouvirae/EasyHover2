@@ -75,6 +75,21 @@ t.test("engine actions when relay bound; nil + disabled when not", function()
   t.eq(st.engineOn, "disabled")
 end)
 
+t.test("engine NEXT feed shows an m:ss countdown, not raw ms", function()
+  local ctx = { pumpFrac = 0, tankFrac = 0, relayBound = true,
+                engine = { master = true, feeding = false, pulses = 3, nextFeedInMs = 330000 } }
+  local dl = eng.render(ctx, 51, 19)
+  local sawCountdown, sawMs = false, false
+  for _, item in ipairs(dl) do
+    if item.kind == "text" and type(item.s) == "string" then
+      if item.s:find("5:30") then sawCountdown = true end
+      if item.s:find("330000ms") then sawMs = true end
+    end
+  end
+  t.eq(sawCountdown, true)
+  t.eq(sawMs, false)
+end)
+
 t.test("engine gauges + buttons stay on-screen on a narrow (portrait) monitor", function()
   local W = 18
   local dl = eng.render(ECTX, W, 30)

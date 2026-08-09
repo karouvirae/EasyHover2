@@ -84,9 +84,11 @@ local function buttonStates(ctx)
   }
 end
 
-local function fmtMs(n)
-  if type(n) ~= "number" then return "--" end
-  return tostring(math.floor(n)) .. "ms"
+-- The feed countdown is minutes-scale (interval ~5m30s), so show m:ss, not raw ms.
+local function fmtCountdown(ms)
+  if type(ms) ~= "number" then return "--" end
+  local s = math.floor(ms / 1000 + 0.5)
+  return string.format("%d:%02d", math.floor(s / 60), s % 60)
 end
 
 local function statusLines(ctx, width)
@@ -94,7 +96,7 @@ local function statusLines(ctx, width)
   local lines = {}
   lines[#lines + 1] = toolkit.fieldRow("MASTER", eng.master and "ON" or "OFF", width)
   lines[#lines + 1] = toolkit.fieldRow("FEED", eng.feeding and "FEEDING" or "idle", width)
-  lines[#lines + 1] = toolkit.fieldRow("NEXT", fmtMs(eng.nextFeedInMs), width)
+  lines[#lines + 1] = toolkit.fieldRow("NEXT", fmtCountdown(eng.nextFeedInMs), width)
   lines[#lines + 1] = toolkit.fieldRow("PULSES", tostring(eng.pulses or 0), width)
   if ctx.relayBound then
     lines[#lines + 1] = toolkit.fieldRow("RELAY", "bound", width)

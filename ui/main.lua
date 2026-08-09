@@ -206,12 +206,15 @@ local function redrawAll(now)
   renderTerm(now)
 end
 
-local redrawPending = false
+-- Config/detect edits aren't captured by the render gate's live-state quantization,
+-- so bump a revision the gate watches (renderSig includes uiRev). Live telemetry /
+-- engine / fuel changes are picked up by renderSig() directly and must NOT force a
+-- repaint here: marking dirty on every engine tick / every telemetry message is
+-- exactly what kept the screen repainting at a flat 5 Hz and starved the FCS
+-- command/telemetry round-trip, making the FCS panel feel dead.
+local uiRev = 0
 local function markDirty()
-  -- Just flag it; renderLoop repaints on its own rate-limited timer. Painting a
-  -- monitor is a shared-main-thread (world) call, and telemetry lands ~15x/s --
-  -- repainting that fast starves the FCS's thruster writes on the shared network.
-  redrawPending = true
+  uiRev = uiRev + 1
 end
 
 -- ===== Config-edit intents (pure decisions applied here; each edit -> Config.save) =====
@@ -387,14 +390,14 @@ local function netLoop()
       local a = ackLink:onMessage(ch, msg); if a and a.k == "ack" then sender:ack(a.id) end
       local h = hbLink:onMessage(ch, msg);  if h and h.k == "hb" then hbRx:mark(os.epoch("utc") / 1000) end
     end
-    markDirty()
+    -- No markDirty: the render gate reads live telemetry via renderSig() and repaints
+    -- only when a display value actually changed.
   end
 end
 
 local function engineTickLoop()
   while true do
     engine:tick(os.epoch("utc"))
-    markDirty()
     sleep(0.1)
   end
 end
@@ -403,7 +406,6 @@ local function fuelPollLoop()
   while true do
     state.pumpFrac = Fuel.read(fuelReaders.pump, config.fuel.pump.kind, config.fuel.pump)
     state.tankFrac = Fuel.read(fuelReaders.tank, config.fuel.tank.kind, config.fuel.tank)
-    markDirty()
     sleep(0.5)
   end
 end
@@ -452,20 +454,48 @@ local function termInputLoop()
   end
 end
 
+-- A compact, display-QUANTIZED signature of everything on screen. The render gate
+-- repaints only when THIS string changes, so a still craft with the engine off
+-- produces zero repaints and the shared main-thread stays free for the FCS
+-- command/telemetry round-trip. Live values are rounded to what the display can
+-- actually show (altitude 0.1 m, vSpeed, heading, loop Hz, feed countdown to the
+-- second, fuel percent); config/detect edits ride the uiRev counter (markDirty).
+local function qn(x, mul)
+  if type(x) ~= "number" then return "-" end
+  return tostring(math.floor(x * mul + 0.5))
+end
+
+local function renderSig(now)
+  local t = snapshot()
+  local e = engine:status(now)
+  return table.concat({
+    tostring(t.engaged), tostring(t.gndSafety), tostring(t.positionHold),
+    tostring(t.mode), tostring(t.linkUp),
+    qn(t.altitude, 10), qn(t.vSpeed, 100), qn(t.heading, 1), qn(t.loopHz, 1),
+    tostring(e.master), tostring(e.feeding), tostring(e.pulses),
+    e.nextFeedInMs and tostring(math.floor(e.nextFeedInMs / 1000)) or "-",
+    qn(state.pumpFrac, 100), qn(state.tankFrac, 100),
+    tostring(uiRev),
+  }, "|")
+end
+
 local function renderLoop()
-  -- Repaint at most ~5 Hz, on a timer, decoupled from telemetry arrival. Monitor
-  -- paints are heavy shared-main-thread (world) calls; doing them every telemetry
-  -- message (~15/s) throttled the whole wired network and dropped the FCS control
-  -- loop below what a T/W~3 craft needs to hold attitude and climb. 5 Hz is plenty
-  -- for gauges/status and leaves the main-thread budget for the flight computer.
+  -- Clock-paced (~5 Hz poll) + dirty-gated: repaint ONLY when renderSig() changes.
+  -- Polling the signature is pure-Lua cheap (no world calls); the expensive monitor
+  -- paints happen only on a real, visible change. Decoupling paint from telemetry /
+  -- engine-tick arrival is what stops monitor paints from throttling the FCS loop
+  -- and stalling the reported-state round-trip the FCS panel depends on.
   local PERIOD = 0.2
   local timer = os.startTimer(PERIOD)
+  local lastSig = renderSig(os.epoch("utc"))
   while true do
     local _, id = os.pullEvent("timer")
     if id == timer then
-      if redrawPending then
-        redrawPending = false
-        redrawAll(os.epoch("utc"))
+      local now = os.epoch("utc")
+      local sig = renderSig(now)
+      if sig ~= lastSig then
+        lastSig = sig
+        redrawAll(now)
       end
       timer = os.startTimer(PERIOD)
     end
