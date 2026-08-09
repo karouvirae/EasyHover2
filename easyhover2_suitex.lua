@@ -8,7 +8,7 @@ local SuiteX = {}
 SuiteX.theme = { palettes = {
   dark = { bg=colours.black, panel=colours.grey, text=colours.white, dim=colours.lightGrey,
     border=colours.lightGrey, accent=colours.cyan, ok=colours.lime, update=colours.yellow,
-    repair=colours.orange, error=colours.red, install=colours.cyan, btn=colours.grey,
+    repair=colours.orange, error=colours.red, install=colours.lightBlue, btn=colours.grey,
     btnText=colours.white, btnActive=colours.lime, btnDisabled=colours.grey },
   light = { bg=colours.white, panel=colours.lightGrey, text=colours.black, dim=colours.grey,
     border=colours.grey, accent=colours.blue, ok=colours.green, update=colours.orange,
@@ -16,9 +16,15 @@ SuiteX.theme = { palettes = {
     btnText=colours.black, btnActive=colours.green, btnDisabled=colours.lightGrey },
 } }
 function SuiteX.theme.get(mode) return SuiteX.theme.palettes[mode] or SuiteX.theme.palettes.dark end
-function SuiteX.theme.roleColour(pal, plan)
-  if plan == "current" then return pal.ok elseif plan == "update" then return pal.update
-  elseif plan == "repair" then return pal.repair elseif plan == "install" then return pal.install
+
+--- Maps a status "state key" to a palette colour. The four states the operator cares about --
+--- not installed (blue), up to date (green), an available update (yellow), corrupt/broken (red)
+--- -- plus a neutral default for the transient "checking" phase.
+function SuiteX.theme.stateColour(pal, key)
+  if key == "notInstalled" then return pal.install
+  elseif key == "upToDate" then return pal.ok
+  elseif key == "outdated" then return pal.update
+  elseif key == "corrupt" then return pal.error
   else return pal.text end
 end
 
@@ -27,19 +33,74 @@ function SuiteX.buttonStates(plan)
     verify = "active", repair = "active", switch = "active", tools = "active", quit = "active" }
 end
 
+--- The primary-button label for a plan: fresh Install, Update, or Repair; a neutral "Go" while
+--- the plan is still unknown (mid-check) or the install is already current.
+function SuiteX.goLabel(plan)
+  if plan == "install" then return "Install"
+  elseif plan == "update" then return "Update"
+  elseif plan == "repair" then return "Repair"
+  else return "Go" end
+end
+
+--- Collapses (resolved role, computed plan, any-files-on-disk) into one status state:
+---   none     -- clean machine, nothing installed
+---   fix      -- files present but no role could be identified (needs manual attention)
+---   checking -- role known, integrity check still running (plan not computed yet)
+---   install/update/repair/current -- the computed plan once the check finishes
+function SuiteX.overallState(role, plan, hasFiles)
+  if not role then return hasFiles and "fix" or "none" end
+  if not plan then return "checking" end
+  return plan
+end
+
+--- The Role: line's text for each state. A known role is upper-cased (FCS/UI/NAV); a broken
+--- install shows the role with a trailing "?"; an unidentifiable-but-present install shows FIX!.
+function SuiteX.roleText(state, role)
+  if state == "none" then return "Not installed!" end
+  if state == "fix" then return "FIX!" end
+  local up = (role and role:upper()) or "?"
+  if state == "repair" then return up .. "?" end
+  return up
+end
+
+--- Colour key for the Role + version lines (they share one state colour).
+function SuiteX.stateKey(state)
+  if state == "none" or state == "install" then return "notInstalled"
+  elseif state == "current" then return "upToDate"
+  elseif state == "update" then return "outdated"
+  elseif state == "repair" or state == "fix" then return "corrupt"
+  else return "normal" end
+end
+
+--- Colour key for the Files line: only an available update (yellow) or a corrupt/broken install
+--- (red) tints it; an all-OK or fresh-install listing stays neutral.
+function SuiteX.filesKey(state)
+  if state == "update" then return "outdated"
+  elseif state == "repair" or state == "fix" then return "corrupt"
+  else return "normal" end
+end
+
+--- Builds the dashboard's status lines (each {text, key}) plus the button states and the primary
+--- action label. `ctx` = { role, state={version}, manifest={version}, plan, report, diffLabel, hasFiles }.
 function SuiteX.planView(ctx)
-  local r = ctx.report or { missing={}, corrupt={}, total=0, present=0 }
-  local diff = #(r.corrupt or {})
-  local ok = math.max(0, (r.total or 0) - #(r.missing or {}) - diff)
+  local state = SuiteX.overallState(ctx.role, ctx.plan, ctx.hasFiles)
+  local key = SuiteX.stateKey(state)
+  local iv = (ctx.state and ctx.state.version) or "none"
+  local lv = (ctx.manifest and ctx.manifest.version) or "?"
+  local r = ctx.report or { missing = {}, corrupt = {}, total = 0, present = 0 }
+  local corrupt = #(r.corrupt or {})
+  local ok = math.max(0, (r.total or 0) - #(r.missing or {}) - corrupt)
   return {
+    state = state,
     lines = {
-      { label="role", value = ctx.role or "?" },
-      { label="installed", value = (ctx.state and ctx.state.version) or "none" },
-      { label="release", value = (ctx.manifest and ctx.manifest.version) or "?" },
-      { label="plan", value = ctx.plan or "?", role = ctx.plan },
-      { label="files", value = ("%d ok / %d missing / %d %s"):format(ok, #(r.missing or {}), diff, ctx.diffLabel or "outdated") },
+      { text = "Role: " .. SuiteX.roleText(state, ctx.role), key = key },
+      { text = "Installed version: " .. iv, key = key },
+      { text = "Live version:      " .. lv, key = key },
+      { text = ("Files: %d ok / %d missing / %d %s"):format(ok, #(r.missing or {}), corrupt, ctx.diffLabel or "outdated"),
+        key = SuiteX.filesKey(state) },
     },
     buttons = SuiteX.buttonStates(ctx.plan),
+    goLabel = SuiteX.goLabel(ctx.plan),
   }
 end
 
@@ -144,12 +205,6 @@ local function buildOrder(manifest)
   return order
 end
 
-local function goLabel(plan)
-  if plan == "install" then return "Install" end
-  if plan == "repair" then return "Repair" end
-  return "Update"
-end
-
 local function logLine(ctx, text, colour)
   ctx.ui.log:addItem({ text = tostring(text), fg = colour or ctx.pal.text })
   ctx.ui.log:scrollToBottom()
@@ -183,16 +238,35 @@ end
 local function refreshStatus(ctx)
   local view = SuiteX.planView({
     role = ctx.role, state = ctx.state, manifest = ctx.manifest,
-    plan = ctx.plan, report = ctx.report, diffLabel = ctx.diffLabel,
+    plan = ctx.plan, report = ctx.report, diffLabel = ctx.diffLabel, hasFiles = ctx.hasFiles,
   })
   for i, line in ipairs(view.lines) do
     local lbl = ctx.ui.statusLabels[i]
     if lbl then
-      lbl:setText((line.label or "") .. ": " .. tostring(line.value))
-      lbl:setForeground(SuiteX.theme.roleColour(ctx.pal, line.role))
+      lbl:setText(line.text)
+      lbl:setForeground(SuiteX.theme.stateColour(ctx.pal, line.key))
     end
   end
-  ctx.ui.buttons.go:setText(ctx.plan and goLabel(ctx.plan) or "Go")
+  ctx.ui.buttons.go:setText(view.goLabel)
+end
+
+--- Repaints the two tab buttons: the active one gets the accent, the other the neutral button
+--- colour. (SuiteX draws its own flush-right tab buttons -- Basalt's TabControl only left-anchors
+--- its header tabs, with no right-align option.)
+local function paintTabButtons(ctx)
+  local pal, ui = ctx.pal, ctx.ui
+  ui.tabMain:setBackground(ctx.tab == "main" and pal.accent or pal.btn)
+  ui.tabMain:setForeground(ctx.tab == "main" and pal.bg or pal.btnText)
+  ui.tabAdv:setBackground(ctx.tab == "advanced" and pal.accent or pal.btn)
+  ui.tabAdv:setForeground(ctx.tab == "advanced" and pal.bg or pal.btnText)
+end
+
+--- Switches the visible content frame and repaints the tab buttons.
+local function showTab(ctx, which)
+  ctx.tab = which
+  ctx.ui.frameMain:setVisible(which == "main")
+  ctx.ui.frameAdv:setVisible(which == "advanced")
+  paintTabButtons(ctx)
 end
 
 --- Re-applies the current palette to every already-built element. Called on boot and on every
@@ -202,20 +276,19 @@ local function applyTheme(ctx)
   ui.main:setBackground(pal.bg)
   for _, lbl in ipairs(ui.logoLabels) do lbl:setForeground(pal.accent) end
   ui.themeButton:setBackground(pal.btn); ui.themeButton:setForeground(pal.btnText)
+  ui.themeButton:setText((ctx.mode == "dark") and "Dark" or "Light")
   ui.subtitle:setForeground(pal.dim)
-  ui.tabs:setBackground(pal.panel)
-  ui.tabs:setForeground(pal.text)
-  ui.tabs:setHeaderBackground(pal.panel)
-  ui.tabs:setActiveTabBackground(pal.accent)
-  ui.tabs:setActiveTabTextColor(pal.bg)
-  ui.progress:setBackground(pal.panel)
+  ui.frameMain:setBackground(pal.panel)
+  ui.frameAdv:setBackground(pal.panel)
+  ui.progress:setBackground(pal.bg)
   ui.progress:setForeground(pal.text)
   ui.progress:setProgressColor(pal.accent)
-  ui.log:setBackground(pal.panel); ui.log:setForeground(pal.text)
-  ui.roleDropdown:setBackground(pal.btn); ui.roleDropdown:setForeground(pal.btnText)
-  ui.toolDropdown:setBackground(pal.btn); ui.toolDropdown:setForeground(pal.btnText)
+  ui.log:setBackground(pal.bg); ui.log:setForeground(pal.text)
+  ui.roleDropdown:setBackground(pal.bg); ui.roleDropdown:setForeground(pal.text)
+  ui.toolDropdown:setBackground(pal.bg); ui.toolDropdown:setForeground(pal.text)
   ui.pickerLabels[1]:setForeground(pal.dim); ui.pickerLabels[2]:setForeground(pal.dim)
   ui.advancedLabel:setForeground(pal.dim)
+  paintTabButtons(ctx)
   refreshStatus(ctx)
   -- Repaint the palette even mid-op, but don't let a theme toggle re-enable the action buttons
   -- while an engine op is in flight -- see ctx.opInFlight in runEngineOp.
@@ -257,8 +330,33 @@ local function finishCheck(ctx)
   setButtonsEnabled(ctx, ctx.checkDone and not ctx.opInFlight)
 end
 
---- (Re)arms the incremental checkDriver. The Basalt Timer added in buildUI() steps it a few
---- files per tick; this just resets state and greys the buttons out until it completes.
+--- Drives the incremental check to completion on a Basalt-scheduled coroutine, so the menu stays
+--- live the whole time. Each pass steps a batch of files, updates the progress bar, and yields
+--- (sleep). A newer check -- from a role switch or a re-verify -- replaces ctx.check, and the
+--- `ctx.check == myCheck` guard makes any older coroutine exit rather than double-step.
+---
+--- This replaces an earlier Basalt Timer element: a frame-added Timer's event delivery was never
+--- actually exercised (the Task 9 headless check only CONSTRUCTED it), and in-game the periodic
+--- step never fired -- the check sat at 0% and the buttons never enabled. basalt.schedule is the
+--- same coroutine mechanism the engine ops already use, and it self-pumps via its own sleep timer.
+local function driveCheck(ctx, myCheck)
+  ctx.basalt.schedule(function()
+    while ctx.check == myCheck and not ctx.checkDone do
+      local done = myCheck.step(16)
+      local i, total = myCheck.progress()
+      ctx.ui.progress:setProgress(total > 0 and math.floor(i / total * 100 + 0.5) or 100)
+      if done then
+        ctx.checkDone = true
+        finishCheck(ctx)
+        return
+      end
+      sleep(0.05)
+    end
+  end)
+end
+
+--- (Re)arms the incremental checkDriver and kicks off the coroutine that drives it, greying the
+--- buttons out until it completes.
 local function startCheck(ctx)
   ctx.checkDone = false
   if not ctx.spec then
@@ -270,6 +368,7 @@ local function startCheck(ctx)
   ctx.check = SuiteX.checkDriver(ctx.spec.files, function(e) return ctx.Suite.checkFile(e, ctx.Suite.readFile) end)
   ctx.ui.progress:setProgress(0)
   setButtonsEnabled(ctx, false)
+  driveCheck(ctx, ctx.check)
 end
 
 local function activateRole(ctx, roleName)
@@ -317,6 +416,7 @@ local function runEngineOp(ctx, fn)
       logLine(ctx, "action failed: " .. tostring(err), ctx.pal.error)
     end
     ctx.state = ctx.Suite.parseState(ctx.Suite.readFile(ctx.Suite.STATE_FILE))
+    ctx.hasFiles = fs.exists("/startup.lua")
     startCheck(ctx)
   end)
 end
@@ -333,64 +433,77 @@ local function buildUI(ctx)
   ui.main = main
   main:setBackground(pal.bg)
 
+  -- Logo -- autoSize=true (the default) so each equal-width row renders on ONE line. With
+  -- autoSize=false and no explicit width, Basalt wraps the row at a tiny default width, so the
+  -- rows overlap into the "glitch" the earlier build showed.
   local logoW, logoH = SuiteX.logoSize()
   for i, row in ipairs(SuiteX.logo) do
-    ui.logoLabels[i] = main:addLabel({ x = 2, y = i, text = row, foreground = pal.accent, autoSize = false })
+    ui.logoLabels[i] = main:addLabel({ x = 2, y = i, text = row, foreground = pal.accent })
   end
 
-  local themeRow = logoH + 1
-  ui.themeButton = main:addButton({ x = 2, y = themeRow, width = 9, height = 1, text = "Theme",
-    background = pal.btn, foreground = pal.btnText })
+  -- Header row: Theme button (labelled with the CURRENT mode) + release version on the left; the
+  -- Main / Advanced tab buttons flush-right (SuiteX draws its own tabs -- see paintTabButtons).
+  local headerRow = logoH + 1
+  ui.themeButton = main:addButton({ x = 2, y = headerRow, width = 7, height = 1,
+    text = (ctx.mode == "dark") and "Dark" or "Light", background = pal.btn, foreground = pal.btnText })
   ui.themeButton:onClick(function()
     ctx.mode = (ctx.mode == "dark") and "light" or "dark"
     ctx.pal = SuiteX.theme.get(ctx.mode)
     applyTheme(ctx)
   end)
-  ui.subtitle = main:addLabel({ x = 13, y = themeRow, text = "release " .. tostring(ctx.manifest.version or "?"),
-    foreground = pal.dim })
+  ui.subtitle = main:addLabel({ x = 10, y = headerRow,
+    text = "release " .. tostring(ctx.manifest.version or "?"), foreground = pal.dim })
 
-  local tabY = themeRow + 2
-  local tabH = math.max(6, H - tabY + 1)
-  ui.tabs = main:addTabControl({ x = 1, y = tabY, width = W, height = tabH,
-    background = pal.panel, foreground = pal.text, headerBackground = pal.panel,
-    activeTabBackground = pal.accent, activeTabTextColor = pal.bg })
+  local advW, mainW = 10, 6
+  local advX = W - advW
+  local mainX = advX - mainW - 1
+  ui.tabMain = main:addButton({ x = mainX, y = headerRow, width = mainW, height = 1, text = "Main" })
+  ui.tabAdv = main:addButton({ x = advX, y = headerRow, width = advW, height = 1, text = "Advanced" })
+  ui.tabMain:onClick(function() showTab(ctx, "main") end)
+  ui.tabAdv:onClick(function() showTab(ctx, "advanced") end)
 
-  local mainTab = ui.tabs:newTab("Main")
-  local advTab = ui.tabs:newTab("Advanced")
+  -- Two content frames stacked in the same place; only one is visible at a time (the tab). Full
+  -- width below the header, panel-coloured like the old tab body.
+  local contentY = headerRow + 1
+  local frameH = math.max(6, H - contentY + 1)
+  ui.frameMain = main:addFrame({ x = 1, y = contentY, width = W, height = frameH, background = pal.panel })
+  ui.frameAdv = main:addFrame({ x = 1, y = contentY, width = W, height = frameH, background = pal.panel })
 
-  local contentW = math.max(10, W - 3)
-  for i = 1, 5 do
-    ui.statusLabels[i] = mainTab:addLabel({ x = 2, y = i, text = "", foreground = pal.text,
+  local fm = ui.frameMain
+  local contentW = math.max(10, W - 2)
+
+  -- Status: Role / Installed version / Live version / Files (4 lines).
+  for i = 1, 4 do
+    ui.statusLabels[i] = fm:addLabel({ x = 2, y = i, text = "", foreground = pal.text,
       autoSize = false, width = contentW })
   end
 
-  local rowProgress = 6
-  ui.progress = mainTab:addProgressBar({ x = 2, y = rowProgress, width = contentW, height = 1,
-    foreground = pal.text, background = pal.panel, progressColor = pal.accent, showPercentage = true })
+  local rowProgress = 5
+  ui.progress = fm:addProgressBar({ x = 2, y = rowProgress, width = contentW, height = 1,
+    foreground = pal.text, background = pal.bg, progressColor = pal.accent, showPercentage = true })
 
   local rowPickers = rowProgress + 1
-  ui.pickerLabels[1] = mainTab:addLabel({ x = 2, y = rowPickers, text = "Role:", foreground = pal.dim })
-  ui.roleDropdown = mainTab:addDropDown({ x = 8, y = rowPickers, width = 14, height = 1,
-    selectedText = ctx.role or "(choose)", background = pal.btn, foreground = pal.btnText })
-  ui.pickerLabels[2] = mainTab:addLabel({ x = 24, y = rowPickers, text = "Tool:", foreground = pal.dim })
-  ui.toolDropdown = mainTab:addDropDown({ x = 30, y = rowPickers, width = math.max(8, W - 32), height = 1,
-    selectedText = "(none)", background = pal.btn, foreground = pal.btnText })
+  ui.pickerLabels[1] = fm:addLabel({ x = 2, y = rowPickers, text = "Role:", foreground = pal.dim })
+  ui.roleDropdown = fm:addDropDown({ x = 8, y = rowPickers, width = 14, height = 1,
+    selectedText = ctx.role or "(choose)", background = pal.bg, foreground = pal.text })
+  ui.pickerLabels[2] = fm:addLabel({ x = 24, y = rowPickers, text = "Tool:", foreground = pal.dim })
+  ui.toolDropdown = fm:addDropDown({ x = 30, y = rowPickers, width = math.max(8, W - 32), height = 1,
+    selectedText = "(none)", background = pal.bg, foreground = pal.text })
 
-  local contentRows = tabH - 1 -- 1 row goes to the tab header
-  local rowButtons = contentRows
+  local rowButtons = frameH
   local rowLog = rowPickers + 1
   local logH = math.max(2, rowButtons - rowLog - 1)
-  ui.log = mainTab:addList({ x = 2, y = rowLog, width = contentW, height = logH,
-    selectable = false, emptyText = "", background = pal.panel, foreground = pal.text })
+  ui.log = fm:addList({ x = 2, y = rowLog, width = contentW, height = logH,
+    selectable = false, emptyText = "", background = pal.bg, foreground = pal.text })
 
   local bw = math.max(6, math.floor((W - 2) / #BTN_KEYS) - 1)
   local bx = 2
   for _, key in ipairs(BTN_KEYS) do
-    ui.buttons[key] = mainTab:addButton({ x = bx, y = rowButtons, width = bw, height = 1, text = BTN_LABELS[key] })
+    ui.buttons[key] = fm:addButton({ x = bx, y = rowButtons, width = bw, height = 1, text = BTN_LABELS[key] })
     bx = bx + bw + 1
   end
 
-  ui.advancedLabel = advTab:addLabel({ x = 2, y = 2, text = "Advanced tools -- coming soon.", foreground = pal.dim })
+  ui.advancedLabel = ui.frameAdv:addLabel({ x = 2, y = 2, text = "Advanced tools -- coming soon.", foreground = pal.dim })
 
   ui.buttons.go:onClick(function()
     -- Defense in depth: setButtonsEnabled()/ctx.opInFlight already keep this disabled during an
@@ -426,23 +539,11 @@ local function buildUI(ctx)
   ui.roleDropdown:setItems(roleItems)
   refreshToolsDropdown(ctx)
 
-  local timer = main:addTimer()
-  timer:setInterval(0.2)
-  timer:setAmount(-1)
-  timer:setAction(function()
-    if not ctx.check or ctx.checkDone then return end
-    local done = ctx.check.step(8)
-    local i, total = ctx.check.progress()
-    ui.progress:setProgress(total > 0 and math.floor(i / total * 100 + 0.5) or 100)
-    if done then
-      ctx.checkDone = true
-      finishCheck(ctx)
-    end
-  end)
-  timer:start()
-
-  refreshStatus(ctx)
-  setButtonsEnabled(ctx, false)
+  -- Main tab visible first; applyTheme paints everything (incl. status + buttons) for the boot
+  -- palette; then arm the check if a role is already resolved. The check runs on a scheduled
+  -- coroutine (driveCheck), not a Basalt Timer.
+  showTab(ctx, "main")
+  applyTheme(ctx)
   if ctx.spec then startCheck(ctx) end
 end
 
@@ -546,11 +647,14 @@ function SuiteX.run()
   else
     role = nil
   end
+  -- Distinguishes "Not installed!" (clean machine) from "FIX!" (files present but no role could
+  -- be resolved) when role is nil. /startup.lua is present after any role install.
+  local hasFiles = fs.exists("/startup.lua")
 
   local ctx = {
     mode = "dark", pal = SuiteX.theme.get("dark"),
     Suite = Suite, basalt = basalt, manifest = manifest, order = buildOrder(manifest),
-    role = role, spec = spec, state = state,
+    role = role, spec = spec, state = state, hasFiles = hasFiles, tab = "main",
     plan = nil, report = nil, diffLabel = nil, checkDone = false, opInFlight = false,
   }
 
