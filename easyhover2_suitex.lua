@@ -65,6 +65,14 @@ function SuiteX.checkDriver(files, checkOne)
   return self
 end
 
+SuiteX.logo = {
+  "  ___ _  _ ___    ___ ",
+  " | __| || |_  )  |__ \\",
+  " | _|| __ |/ /     /_/",
+  " |___|_||_/___|   (o) ",
+}
+function SuiteX.logoSize() return #SuiteX.logo[1], #SuiteX.logo end
+
 function SuiteX.run()
   -- (assembled in Task 9)
 end

@@ -50,3 +50,11 @@ t.test("checkDriver steps to completion and reports like a one-shot check", func
   local r = drv.result()
   t.eq(#r.corrupt, 1); t.eq(#r.missing, 1); t.eq(r.present, 3); t.eq(r.total, 4); t.eq(r.ok, false)
 end)
+
+t.test("logo is a rectangular ASCII block", function()
+  t.truthy(#SuiteX.logo >= 1, "has rows")
+  local w = #SuiteX.logo[1]
+  for _, row in ipairs(SuiteX.logo) do t.eq(#row, w, "rows equal width") end
+  local lw, lh = SuiteX.logoSize(); t.eq(lw, w); t.eq(lh, #SuiteX.logo)
+  t.truthy(w <= 49, "fits a 51-wide terminal with margin")
+end)
