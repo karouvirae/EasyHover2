@@ -80,12 +80,20 @@ local PROTECTED = {
 
 local Suite = {}
 
+--- Output sink. When set to a function(text, colour), say() routes output to it.
+--- When nil (the default), say() prints normally (classic behavior).
+Suite.sink = nil
+
 -- ---------------------------------------------------------------- output
 
 local function colour(c)
   if term.isColour and term.isColour() then term.setTextColour(c) end
 end
-local function say(text, c) colour(c or colours.white); print(text) end
+local function say(text, c)
+  if Suite.sink then Suite.sink(text, c); return end
+  colour(c or colours.white); print(text)
+end
+Suite.emit = say
 local function warn(text) say(text, colours.yellow) end
 local function bad(text) say(text, colours.red) end
 local function good(text) say(text, colours.lime) end
@@ -1544,6 +1552,18 @@ function Suite.selfUpdateNotice(base, manifest)
     fs.move(stagePath, selfPath)
     good("Suite updated. The next run uses the new one.")
   end
+end
+
+-- Engine surface: exposed so SuiteX front-ends can reuse the Suite's installation engine.
+Suite.fetch = fetch
+Suite.readFile = readFile
+Suite.STATE_FILE = STATE_FILE
+Suite.base = DEFAULT_BASE
+function Suite.checkFile(entry, read)
+  local body = read(entry.dst)
+  if body == nil then return "missing" end
+  if #body ~= entry.size or Suite.checksum(body) ~= entry.sum then return "corrupt" end
+  return "ok"
 end
 
 -- Exposed so tests can exercise the pure logic without running an install.

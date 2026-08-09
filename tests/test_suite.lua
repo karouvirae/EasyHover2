@@ -355,3 +355,29 @@ t.test("hit-test dispatch: clicking a diagTools row against uiPanels' diag rect 
   local secondRow = rows[2]
   t.eq(Suite.hitTestButtons(rows, secondRow.x, secondRow.y), names[2])
 end)
+
+-- ---------------------------------------------------------------- Task 1: engine surface
+
+t.test("say routes through Suite.sink when set, else prints (classic behavior)", function()
+  t.eq(Suite.sink, nil, "sink defaults to nil so classic output is unchanged")
+  local seen = {}
+  Suite.sink = function(text, c) seen[#seen+1] = text end
+  Suite.emit("hello", colours.lime)          -- Suite.emit = the shared say() exposed for the test
+  Suite.sink = nil
+  t.eq(seen[1], "hello", "sink received the line")
+end)
+
+t.test("engine helpers are exposed for SuiteX reuse", function()
+  t.eq(type(Suite.fetch), "function")
+  t.eq(type(Suite.readFile), "function")
+  t.eq(type(Suite.checkFile), "function")
+  t.eq(type(Suite.STATE_FILE), "string")
+  t.eq(type(Suite.base), "string")
+end)
+
+t.test("checkFile classifies a file against its manifest entry", function()
+  local entry = { dst = "x", size = 3, sum = Suite.checksum("abc") }
+  t.eq(Suite.checkFile(entry, function() return "abc" end), "ok")
+  t.eq(Suite.checkFile(entry, function() return nil end), "missing")
+  t.eq(Suite.checkFile(entry, function() return "abX" end), "corrupt")
+end)
