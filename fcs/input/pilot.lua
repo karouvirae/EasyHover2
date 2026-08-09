@@ -53,15 +53,19 @@ function Pilot:update(dt, held, meas)
     sp.altitude = a
   end
 
-  -- Sway / surge: leashed position setpoints. Held => ramp toward maxLead in
-  -- that direction at cruiseSpeed; released => hold current setpoint.
+  -- Sway / surge: leashed position setpoints. Held => ramp toward the lead cap in that direction at
+  -- the axis cruise speed; released => hold current setpoint. Surge (fore/aft, the main engine) and
+  -- sway (lateral) have SEPARATE speed/lead so forward can be much faster than sideways; both fall
+  -- back to the shared cruiseSpeed/maxLead when the split params are absent (keeps old configs valid).
+  local swaySpeed, swayLead = c.swaySpeed or c.cruiseSpeed, c.swayLead or c.maxLead
   local swd = dirOf(held, "swayLeft", "swayRight")
-  local starget = (swd ~= 0) and (meas.swayPos + c.maxLead * swd) or sp.swayPos
-  sp.swayPos = leash.step(sp.swayPos, starget, meas.swayPos, dt, c.cruiseSpeed, c.maxLead)
+  local starget = (swd ~= 0) and (meas.swayPos + swayLead * swd) or sp.swayPos
+  sp.swayPos = leash.step(sp.swayPos, starget, meas.swayPos, dt, swaySpeed, swayLead)
 
+  local surgeSpeed, surgeLead = c.surgeSpeed or c.cruiseSpeed, c.surgeLead or c.maxLead
   local sud = dirOf(held, "surgeBack", "surgeFwd")
-  local utarget = (sud ~= 0) and (meas.surgePos + c.maxLead * sud) or sp.surgePos
-  sp.surgePos = leash.step(sp.surgePos, utarget, meas.surgePos, dt, c.cruiseSpeed, c.maxLead)
+  local utarget = (sud ~= 0) and (meas.surgePos + surgeLead * sud) or sp.surgePos
+  sp.surgePos = leash.step(sp.surgePos, utarget, meas.surgePos, dt, surgeSpeed, surgeLead)
 
   return sp
 end

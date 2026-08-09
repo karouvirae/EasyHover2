@@ -121,9 +121,9 @@
         },
         {
           ["dst"] = "fcs/input/config.lua",
-          ["size"] = 718,
+          ["size"] = 998,
           ["src"] = "fcs/input/config.lua",
-          ["sum"] = "ae261032",
+          ["sum"] = "ee53ef38",
         },
         {
           ["dst"] = "fcs/input/keymap.lua",
@@ -133,9 +133,9 @@
         },
         {
           ["dst"] = "fcs/input/pilot.lua",
-          ["size"] = 2514,
+          ["size"] = 2934,
           ["src"] = "fcs/input/pilot.lua",
-          ["sum"] = "84ef8527",
+          ["sum"] = "81125572",
         },
         {
           ["dst"] = "fcs/io/backend.lua",
@@ -205,9 +205,9 @@
         },
         {
           ["dst"] = "fcs/tuning.lua",
-          ["size"] = 5065,
+          ["size"] = 5190,
           ["src"] = "fcs/tuning.lua",
-          ["sum"] = "570a3499",
+          ["sum"] = "cddba82b",
         },
         {
           ["dst"] = "fcslog",
@@ -457,9 +457,9 @@
         },
         {
           ["dst"] = "fcs/tuning.lua",
-          ["size"] = 5065,
+          ["size"] = 5190,
           ["src"] = "fcs/tuning.lua",
-          ["sum"] = "570a3499",
+          ["sum"] = "cddba82b",
         },
         {
           ["dst"] = "hovertest",
@@ -592,5 +592,5 @@
     ["size"] = 64371,
     ["sum"] = "a42d04be",
   },
-  ["version"] = "ce549d40",
+  ["version"] = "e5dc4bae",
 }

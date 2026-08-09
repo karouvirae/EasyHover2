@@ -49,13 +49,13 @@ return {
     alt   = { kp = 0.02, ki = 0.01, kd = 0.15, tauD = 0.35, iMax = 0.3, iMin = -0.3 },  -- ki/kd backed off; tauD up filters coarse vSpeed
     pitch = { kp = 0.10, ki = 0, kd = 0.22, tauD = 0.2 },   -- SOFTENED (was 0.15/0.33); the firm-up grew the oscillation
     roll  = { kp = 0.10, ki = 0, kd = 0.22, tauD = 0.2 },
-    yaw   = { kp = 0.35, ki = 0, kd = 0.7 },
+    yaw   = { kp = 0.65, ki = 0, kd = 0.9 },   -- kp up (faster yaw; peaked only 0.17 of 0.5 cap) + kd up (damp overshoot) so a TIGHTER leadCapHeading still yaws fast
     sway  = { kp = 0.2, ki = 0, kd = 0.25 },
     surge = { kp = 0.15, ki = 0, kd = 0.25 },
     heaveMin = 0.05, heaveMax = 0.85,  -- floor MUST stay below true hover (~0.3) or it blocks the vSpeed brake
   },
   pwmPeriod = 0.3,
-  caps = { pitch = 0.2, roll = 0.2, yaw = 0.5, sway = 0.7, surge = 0.7 },  -- attitude/steering only; heave unclamped here (banded in the scheme). sway/surge 0.5->0.7: flight #12 sway saturated the 0.5 cap (too slow lateral)
+  caps = { pitch = 0.2, roll = 0.2, yaw = 0.6, sway = 0.9, surge = 1.0 },  -- attitude/steering only; heave unclamped here (banded in the scheme). sway 0.9 / surge 1.0 (full MAIN authority forward); yaw 0.6 to use the higher kp
   osc = { window = 1.0, minChanges = 6 },
   dtMax = 0.5,
   attLimit = 0.6,   -- rad; runner aborts to landing if |pitch| or |roll| exceeds this

@@ -2,11 +2,15 @@
 -- Pilot input tunables. All rates per-SECOND; distances in blocks.
 return {
   default = {
-    headingRate    = 1.2,   -- rad/s heading slew while yaw held
-    leadCapHeading = 0.80,  -- max heading lead ahead of current (rad, ~46 deg). 0.35 was too slow (yaw peaked 0.12 of a 0.5 cap); still bounded so release stops promptly
-    climbRate      = 3.5,   -- blocks/s altitude slew while lift held  (2.0 still too slow; heave had headroom to 0.85)
-    leadCapVert    = 7.0,   -- max altitude lead above/below current (blocks)
-    cruiseSpeed    = 4.0,   -- blocks/s translation setpoint ramp  (2.5 still too slow)
-    maxLead        = 9.0,   -- max horizontal lead (blocks) => caps speed
+    headingRate    = 1.6,   -- rad/s heading slew while yaw held
+    leadCapHeading = 0.50,  -- max heading lead ahead of current (rad, ~29 deg). TIGHTER than 0.80 to
+                            -- cut overshoot; yaw stays fast via the higher yaw kp (see fcs/tuning.lua)
+    climbRate      = 4.5,   -- blocks/s altitude slew while lift held  (was 3.5: a touch more)
+    leadCapVert    = 8.0,   -- max altitude lead above/below current (blocks)
+    -- Fore/aft (main engine) and lateral get SEPARATE speed + lead so forward can be MUCH faster:
+    surgeSpeed     = 10.0,  -- blocks/s fore/aft ramp  (WAY more forward speed; main engine)
+    surgeLead      = 20.0,  -- max fore/aft lead (blocks) => the cruise-speed cap
+    swaySpeed      = 5.0,   -- blocks/s lateral ramp  (more than before, but subordinate to forward)
+    swayLead       = 10.0,  -- max lateral lead (blocks)
   },
 }
