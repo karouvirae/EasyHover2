@@ -23,6 +23,17 @@ t.test("yaw held ramps heading by headingRate*dt, wrapped", function()
   t.near(sp.heading, 0.0, 1e-9, "back to 0")
 end)
 
+t.test("yaw held is leashed to leadCapHeading ahead of current heading", function()
+  local p = Pilot.new({ headingRate = 1.0, leadCapHeading = 0.35,
+    climbRate = 0.5, leadCapVert = 2.0, cruiseSpeed = 1.0, maxLead = 3.0 }); p:reset(meas())
+  -- would ramp +3 rad, but must clamp to meas.heading(0) + leadCapHeading(0.35)
+  local sp = p:update(3.0, {yawRight=true}, meas{heading=0})
+  t.near(sp.heading, 0.35, 1e-9, "clamped to +leadCapHeading")
+  -- as the craft yaws to catch up, the setpoint may lead again but stays within the cap
+  sp = p:update(3.0, {yawRight=true}, meas{heading=0.30})
+  t.near(sp.heading, 0.65, 1e-9, "leads current(0.30) by at most the cap")
+end)
+
 t.test("lift held ramps altitude, leashed to meas.alt +/- leadCapVert", function()
   local p = Pilot.new(CFG); p:reset(meas{altitude=10})
   -- climbRate 0.5 * dt 10 = +5 requested, but leashed to alt(10)+leadCapVert(2)=12

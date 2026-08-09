@@ -121,9 +121,9 @@
         },
         {
           ["dst"] = "fcs/input/config.lua",
-          ["size"] = 460,
+          ["size"] = 626,
           ["src"] = "fcs/input/config.lua",
-          ["sum"] = "cf29da51",
+          ["sum"] = "42b74ffc",
         },
         {
           ["dst"] = "fcs/input/keymap.lua",
@@ -133,9 +133,9 @@
         },
         {
           ["dst"] = "fcs/input/pilot.lua",
-          ["size"] = 1911,
+          ["size"] = 2514,
           ["src"] = "fcs/input/pilot.lua",
-          ["sum"] = "d6bcc65e",
+          ["sum"] = "84ef8527",
         },
         {
           ["dst"] = "fcs/io/backend.lua",
@@ -592,5 +592,5 @@
     ["size"] = 64371,
     ["sum"] = "a42d04be",
   },
-  ["version"] = "70174ac1",
+  ["version"] = "9163376d",
 }

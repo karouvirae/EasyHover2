@@ -29,9 +29,20 @@ function Pilot:update(dt, held, meas)
   if self.hold then return self.sp end
   local c, sp = self.cfg, self.sp
 
-  -- Yaw: slew heading setpoint, angle-wrapped.
+  -- Yaw: slew heading setpoint, angle-wrapped, leashed to lead the CURRENT heading by at most
+  -- leadCapHeading. Without the leash a long yaw hold runs the setpoint far ahead; the craft chases
+  -- that lead, builds yaw momentum, and keeps turning for seconds after release then overshoots.
+  -- Mirrors the altitude (leadCapVert) and position (maxLead) leashes.
   local yd = dirOf(held, "yawLeft", "yawRight")
-  if yd ~= 0 then sp.heading = angle.wrap(sp.heading + c.headingRate * dt * yd) end
+  if yd ~= 0 then
+    sp.heading = angle.wrap(sp.heading + c.headingRate * dt * yd)
+    local cap = c.leadCapHeading
+    if cap then
+      local err = angle.wrap(sp.heading - (meas.heading or 0))
+      if err > cap then sp.heading = angle.wrap((meas.heading or 0) + cap)
+      elseif err < -cap then sp.heading = angle.wrap((meas.heading or 0) - cap) end
+    end
+  end
 
   -- Lift: slew altitude, leashed to current altitude +/- leadCapVert.
   local ld = dirOf(held, "down", "up")
