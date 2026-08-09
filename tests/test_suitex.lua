@@ -58,3 +58,12 @@ t.test("logo is a rectangular ASCII block", function()
   local lw, lh = SuiteX.logoSize(); t.eq(lw, w); t.eq(lh, #SuiteX.logo)
   t.truthy(w <= 49, "fits a 51-wide terminal with margin")
 end)
+
+t.test("basaltAction: use cached only on an exact size+sum match", function()
+  local sum = function(s) return #s == 3 and "GOOD" or "BAD" end
+  local want = { size = 3, sum = "GOOD" }
+  t.eq(SuiteX.basaltAction("abc", want, sum), "use")
+  t.eq(SuiteX.basaltAction(nil, want, sum), "fetch", "missing -> fetch")
+  t.eq(SuiteX.basaltAction("abcd", want, sum), "fetch", "size mismatch -> fetch")
+  t.eq(SuiteX.basaltAction("abX", { size=3, sum="GOOD" }, function() return "BAD" end), "fetch", "sum mismatch -> fetch")
+end)

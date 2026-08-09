@@ -73,6 +73,13 @@ SuiteX.logo = {
 }
 function SuiteX.logoSize() return #SuiteX.logo[1], #SuiteX.logo end
 
+function SuiteX.basaltAction(localBody, want, checksum)
+  if localBody ~= nil and want and #localBody == want.size and checksum(localBody) == want.sum then
+    return "use"
+  end
+  return "fetch"
+end
+
 function SuiteX.run()
   -- (assembled in Task 9)
 end
