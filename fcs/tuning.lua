@@ -49,7 +49,7 @@ return {
     alt   = { kp = 0.02, ki = 0.01, kd = 0.15, tauD = 0.35, iMax = 0.3, iMin = -0.3 },  -- ki/kd backed off; tauD up filters coarse vSpeed
     pitch = { kp = 0.10, ki = 0, kd = 0.22, tauD = 0.2 },   -- SOFTENED (was 0.15/0.33); the firm-up grew the oscillation
     roll  = { kp = 0.10, ki = 0, kd = 0.22, tauD = 0.2 },
-    yaw   = { kp = 0.65, ki = 0, kd = 0.9 },   -- kp up (faster yaw; peaked only 0.17 of 0.5 cap) + kd up (damp overshoot) so a TIGHTER leadCapHeading still yaws fast
+    yaw   = { kp = 0.95, ki = 0, kd = 1.0 },   -- kp up again (yaw dYaw peaked 0.33 of a 0.6 cap = headroom) + kd up to damp the faster yaw; pairs with a wider leadCapHeading in fcs/input/config.lua
     sway  = { kp = 0.2, ki = 0, kd = 0.25 },
     surge = { kp = 0.15, ki = 0, kd = 0.25 },
     heaveMin = 0.05, heaveMax = 0.85,  -- floor MUST stay below true hover (~0.3) or it blocks the vSpeed brake
