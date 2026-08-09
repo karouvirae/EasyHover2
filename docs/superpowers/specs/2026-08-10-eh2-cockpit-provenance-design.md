@@ -221,6 +221,34 @@ All four are boot-time / tooling; none adds a task while the FCS is engaged in f
 
 ---
 
+## Migration / back-compat (no existing config is lost)
+
+Existing installs already carry a populated `/eh2_hw_config.tbl` (real calibrated values —
+`signHeading`, `heightOffset`, device bindings, …) and `/eh2_ui_config.tbl`, and have **no** tuning
+file yet. Updating to the split-file model must preserve all of it with **zero recalibration**:
+
+- **Legacy read-through on "Own".** When the new split files are absent, the boot loader's **Own**
+  binding/sensor sources (and the FCS's own tools) derive them from the legacy `/eh2_hw_config.tbl`:
+  `thrusters/sensors/fuelRelay` → `eh2_devbind.tbl`, the `bindings` sub-table → `eh2_senscal.tbl`.
+  So the first post-update boot picks up the existing binding + calibration automatically.
+- **Runtime path unchanged.** The boot loader still assembles and writes `/eh2_hw_config.tbl` for
+  the flight app, so the flight runtime reads the same file at the same path as today — the split is
+  invisible to it.
+- **Tuning defaults ARE the checkpoint.** `eh2_tuning.tbl`'s defaults are the committed known-good
+  `fcs/tuning.lua` values, so an absent tuning file (every current install) yields byte-for-byte the
+  current flight behavior; "Load defaults" restores it any time.
+- **UI config untouched.** `/eh2_ui_config.tbl` is read/written by UI CAL exactly as today.
+- **Additive-merge everywhere.** Every config load is saved-over-fresh-defaults (`hwconfig.merge`),
+  so a partial or older-schema file still loads and only missing keys fall back to defaults —
+  updates never blank a config. Writes stay atomic (tmp-then-move).
+- **Non-destructive split.** Writing the new split files does not delete the legacy
+  `/eh2_hw_config.tbl`; it remains as the "Own"/legacy source until the split files supersede it.
+
+This is asserted by migration tests (§Testing): a legacy `hw_config` fixture → split files → assembled
+`hw_config` round-trips to the same values.
+
+---
+
 ## Reuse map (parity by construction)
 
 - **SENS CAL (Basalt)** ⟵ `fcs/io/calibration.lua` (`classifyGimbalAxis`, `classifyLateralPair`,
@@ -242,6 +270,8 @@ All four are boot-time / tooling; none adds a task while the FCS is engaged in f
 
 - **Pure, headless-tested (TDD):** the config file schemas + additive-merge + validation; the
   boot-loader's source-selection/assembly logic (given chosen files → assembled hw_config + tuning);
+  the migration round-trip (legacy `/eh2_hw_config.tbl` fixture → split devbind+senscal → reassembled
+  `hw_config` equals the original values — proves no calibration is lost on update);
   the FCS SYNC request/reply state machine (hello/req/cfg, started/stopped, timeout); DTC
   export/import file mapping; MDB slot assignment; **parity tests** asserting a Basalt-path config
   equals the bare-tool's for the same inputs; the panels' view-models/actions; the render dirty-gate
