@@ -1,18 +1,38 @@
 -- fcs/comms/command.lua
 local M = {}
 
+-- A per-boot session id. Command ids reset to 1 on every UI restart, and the FCS runs continuously
+-- remembering which ids it has handled -- so without a session tag a restarted UI's id 1 collided
+-- with the FCS's old handled set and the command was ACKed but silently never applied. Stamping a
+-- fresh sid per Sender namespaces the dedup so a reboot's ids can never be swallowed. os.epoch is
+-- monotonic-per-boot (reboots are milliseconds apart at minimum); the random suffix is belt-and-braces.
+function M.newSid()
+  local t = (os.epoch and os.epoch("utc")) or (os.time and os.time() * 1000) or 0
+  return tostring(t) .. "-" .. tostring(math.random(0, 1000000))
+end
+
 local Sender = {}; Sender.__index = Sender
 M.Sender = { new = function(cfg)
-  return setmetatable({ timeout = (cfg and cfg.timeout) or 1.0,
+  cfg = cfg or {}
+  return setmetatable({ timeout = cfg.timeout or 1.0, sid = cfg.sid or M.newSid(),
                         nextId = 0, pending = {} }, Sender)
 end }
 function Sender:send(cmd)
   self.nextId = self.nextId + 1
-  local frame = { k = "cmd", id = self.nextId, cmd = cmd }
+  local frame = { k = "cmd", sid = self.sid, id = self.nextId, cmd = cmd }
   self.pending[self.nextId] = { frame = frame, age = 0 }
   return frame
 end
-function Sender:ack(id) self.pending[id] = nil end
+-- Accepts an ack frame ({k=ack, sid, id}) or a bare id (legacy). An ack from a DIFFERENT session
+-- (e.g. still in flight when the UI rebooted) must not clear this session's pending.
+function Sender:ack(ack)
+  if type(ack) == "table" then
+    if ack.sid ~= nil and ack.sid ~= self.sid then return end
+    self.pending[ack.id] = nil
+  else
+    self.pending[ack] = nil
+  end
+end
 function Sender:tick(dt)
   local due = {}
   for _, p in pairs(self.pending) do
@@ -30,11 +50,14 @@ function Receiver:receive(frame, apply)
   if type(frame) ~= "table" or frame.k ~= "cmd" or type(frame.id) ~= "number" then
     return nil
   end
-  if not self.handled[frame.id] then
-    self.handled[frame.id] = true
+  -- Dedup key is (session, id): idempotent for retries within a session, but a restarted sender
+  -- (new sid, ids from 1) is never mistaken for a duplicate.
+  local key = tostring(frame.sid or "") .. ":" .. tostring(frame.id)
+  if not self.handled[key] then
+    self.handled[key] = true
     apply(frame.cmd)
   end
-  return { k = "ack", id = frame.id }
+  return { k = "ack", sid = frame.sid, id = frame.id }
 end
 
 return M

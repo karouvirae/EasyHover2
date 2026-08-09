@@ -387,7 +387,7 @@ local function netLoop()
     if f then
       rx:accept(f)
     else
-      local a = ackLink:onMessage(ch, msg); if a and a.k == "ack" then sender:ack(a.id) end
+      local a = ackLink:onMessage(ch, msg); if a and a.k == "ack" then sender:ack(a) end
       local h = hbLink:onMessage(ch, msg);  if h and h.k == "hb" then hbRx:mark(os.epoch("utc") / 1000) end
     end
     -- No markDirty: the render gate reads live telemetry via renderSig() and repaints
