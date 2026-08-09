@@ -31,9 +31,9 @@
       ["files"] = {
         {
           ["dst"] = "calibrate",
-          ["size"] = 80,
+          ["size"] = 86,
           ["src"] = "launchers/calibrate.lua",
-          ["sum"] = "85052033",
+          ["sum"] = "67657843",
         },
         {
           ["dst"] = "fcs/actuate/level.lua",
@@ -217,15 +217,15 @@
         },
         {
           ["dst"] = "hovertest",
-          ["size"] = 81,
+          ["size"] = 87,
           ["src"] = "launchers/hovertest.lua",
-          ["sum"] = "61bdd3b7",
+          ["sum"] = "d40111af",
         },
         {
           ["dst"] = "probe",
-          ["size"] = 76,
+          ["size"] = 82,
           ["src"] = "launchers/probe.lua",
-          ["sum"] = "79f170fe",
+          ["sum"] = "0ec3e16e",
         },
         {
           ["dst"] = "probebatch",
@@ -301,9 +301,9 @@
       ["files"] = {
         {
           ["dst"] = "calibrate",
-          ["size"] = 80,
+          ["size"] = 86,
           ["src"] = "launchers/calibrate.lua",
-          ["sum"] = "85052033",
+          ["sum"] = "67657843",
         },
         {
           ["dst"] = "cockpit",
@@ -457,15 +457,15 @@
         },
         {
           ["dst"] = "hovertest",
-          ["size"] = 81,
+          ["size"] = 87,
           ["src"] = "launchers/hovertest.lua",
-          ["sum"] = "61bdd3b7",
+          ["sum"] = "d40111af",
         },
         {
           ["dst"] = "probe",
-          ["size"] = 76,
+          ["size"] = 82,
           ["src"] = "launchers/probe.lua",
-          ["sum"] = "79f170fe",
+          ["sum"] = "0ec3e16e",
         },
         {
           ["dst"] = "probebatch",
@@ -586,5 +586,5 @@
     ["size"] = 64371,
     ["sum"] = "a42d04be",
   },
-  ["version"] = "f846e4dd",
+  ["version"] = "10b88e97",
 }
