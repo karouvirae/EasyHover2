@@ -59,6 +59,7 @@ return {
   osc = { window = 1.0, minChanges = 6 },
   dtMax = 0.5,
   attLimit = 0.6,   -- rad; runner aborts to landing if |pitch| or |roll| exceeds this
+  groundIdle = { moveEps = 0.5 },   -- blocks/s; engaged FCS parks (zero thrust) only when onGround AND slower than this in every axis AND not climbing
   profile = { climbHeight = 6, climbRate = 0.6, holdTime = 20, descendRate = 0.7,
               landEps = 0.4, watchdog = 60, overshootMargin = 2, leadCap = 1.0 },  -- taller+longer for a clearer read; watchdog raised so it doesn't cut the 20s hold
 }

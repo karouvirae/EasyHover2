@@ -4,6 +4,7 @@
 package.path = "/?.lua;/?/init.lua;" .. package.path
 
 local hwconfig  = require("fcs.io.hwconfig")
+local tuning    = require("fcs.tuning")
 local Backend   = require("fcs.io.backend")
 local shim      = require("fcs.io.shim")
 local frame     = require("fcs.frame")
@@ -35,7 +36,8 @@ local backend = Backend.new(shim, config)
 local loop    = hover.buildLoop(backend)   -- SINGLE arg; buildLoop reads tuning itself
 
 local pilot  = Pilot.new(inputCfg.default)
-local flight = Flight.new({ loop = loop, pilot = pilot })
+local flight = Flight.new({ loop = loop, pilot = pilot,
+  moveEps = tuning.groundIdle and tuning.groundIdle.moveEps })
 
 -- ---- Comms ----
 -- FCS RECEIVES commands on 102 and SENDS: telemetry on 101, acks on 103, heartbeat on 104.

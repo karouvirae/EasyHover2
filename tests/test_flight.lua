@@ -30,7 +30,9 @@ t.test("engage is gated by gndSafety", function()
   t.eq(L.armed, false, "loop not armed")
   t.truthy(f:handleCommand({ k = "gndSafety", on = false }), "safety off")
   t.truthy(f:handleCommand({ k = "engage" }), "engage honored")
-  t.eq(L.armed, true, "loop armed")
+  t.eq(f.engaged, true, "engaged")
+  f:step(0.1, {}, meas())                    -- meas() is airborne (onGround=false) => arms in step
+  t.eq(L.armed, true, "loop armed once stepped airborne")
 end)
 
 t.test("engage resets pilot setpoints to current state on next step", function()
@@ -55,6 +57,48 @@ t.test("clearDamped forwards to the loop", function()
   local f = Flight.new({ loop = L, pilot = Pilot.new(CFG) })
   f:handleCommand({ k = "clearDamped" })
   t.truthy(L.cleared, "loop cleared")
+end)
+
+-- ---- ground-idle (engaged-but-parked) ----
+local function groundMeas(o) o = o or {}
+  return { altitude=10, heading=0, swayPos=0, surgePos=0, pitch=0, roll=0, yawRate=0,
+           vSpeed=o.vSpeed or 0, swayVel=o.swayVel or 0, surgeVel=o.surgeVel or 0,
+           onGround=(o.onGround==nil) and true or o.onGround } end
+local function engagedFlight(L)
+  local f = Flight.new({ loop = L, pilot = Pilot.new(CFG) })
+  f:handleCommand({ k = "gndSafety", on = false }); f:handleCommand({ k = "engage" })
+  return f
+end
+
+t.test("parked: engaged + on-ground + at rest + no climb => loop disarmed (zero thrust)", function()
+  local L = fakeLoop(); local f = engagedFlight(L)
+  f:step(0.1, {}, groundMeas())
+  t.eq(L.armed, false, "parked craft => loop disarmed")
+end)
+
+t.test("climb un-parks: engaged + on-ground + climb held => loop armed", function()
+  local L = fakeLoop(); local f = engagedFlight(L)
+  f:step(0.1, { up = true }, groundMeas())
+  t.eq(L.armed, true, "climb intent arms for liftoff")
+end)
+
+t.test("motion un-parks: engaged + on-ground but moving > moveEps => loop armed", function()
+  local L = fakeLoop(); local f = engagedFlight(L)
+  f:step(0.1, {}, groundMeas{ surgeVel = 2.0 })   -- scraping forward over terrain
+  t.eq(L.armed, true, "moving craft treated as in-flight, not parked")
+end)
+
+t.test("airborne: engaged + not on-ground => loop armed", function()
+  local L = fakeLoop(); local f = engagedFlight(L)
+  f:step(0.1, {}, groundMeas{ onGround = false })
+  t.eq(L.armed, true, "airborne always active")
+end)
+
+t.test("snapshot reports parked + PARKED mode while parked", function()
+  local L = fakeLoop(); local f = engagedFlight(L)
+  local snap = f:step(0.1, {}, groundMeas())
+  t.eq(snap.parked, true, "parked flag set")
+  t.eq(snap.mode, "PARKED", "mode reads PARKED")
 end)
 
 t.test("step always cycles the loop and returns a snapshot with flags", function()

@@ -5,8 +5,9 @@ Flight.__index = Flight
 function Flight.new(deps)
   return setmetatable({
     loop = deps.loop, pilot = deps.pilot,
+    moveEps = deps.moveEps or 0.5,   -- ground-idle motion gate (blocks/s)
     engaged = false, gndSafety = true, positionHold = false,
-    fuelPump = false, flightMode = "NORMAL",
+    fuelPump = false, flightMode = "NORMAL", parked = false,
     _needReset = false, _loopHz = 0,
   }, Flight)
 end
@@ -17,7 +18,9 @@ function Flight:handleCommand(cmd)
     self.gndSafety = cmd.on and true or false; return true
   elseif k == "engage" then
     if self.gndSafety then return false end
-    self.engaged = true; self._needReset = true; self.loop:arm(true); return true
+    -- Engage only marks intent; arming is decided every step by the ground-idle gate, so
+    -- engaging while parked on the pad stays silent until the pilot commands a climb.
+    self.engaged = true; self._needReset = true; return true
   elseif k == "disengage" then
     self.engaged = false; self.positionHold = false
     self.pilot:setPositionHold(false); self.loop:arm(false); return true
@@ -34,10 +37,34 @@ function Flight:handleCommand(cmd)
   return false
 end
 
+-- Ground-idle predicate: the FCS is "parked" (engaged but should output ZERO thrust) only when it
+-- sits still on the ground with no climb intent. Requiring at-rest as well as onGround defends the
+-- fly-low-over-terrain case: a MOVING craft (onGround can flicker true over a tree/hill) is treated
+-- as in-flight so the controller stays live. Isolated on purpose -- the next hardening (fuse baro /
+-- altitude-vs-liftoff for uneven ground) is a one-function change here.
+function Flight:_parked(held, meas)
+  if not (meas and meas.onGround == true) then return false end
+  if held and held.up == true then return false end        -- climb un-parks (liftoff)
+  local eps = self.moveEps
+  return math.abs(meas.vSpeed or 0) < eps
+     and math.abs(meas.swayVel or 0) < eps
+     and math.abs(meas.surgeVel or 0) < eps                 -- moving => in-flight, not parked
+end
+
 function Flight:step(dt, held, meas)
   if self.engaged then
     if self._needReset then self.pilot:reset(meas); self._needReset = false end
-    self.loop:setpoints(self.pilot:update(dt, held or {}, meas))
+    self.parked = self:_parked(held, meas)
+    if self.parked then
+      self.pilot:reset(meas)         -- hold setpoints at current (no ramp/windup while parked)
+      self.loop:arm(false)           -- engaged-but-idle: disarmed loop = zero thrust, no osc/DAMPED
+    else
+      self.loop:setpoints(self.pilot:update(dt, held or {}, meas))
+      self.loop:arm(true)
+    end
+  else
+    self.parked = false
+    self.loop:arm(false)
   end
   local r = self.loop:cycle(dt, meas)
   self.lastDiag = r   -- exposed for optional flight instrumentation (demands/duties)
@@ -51,8 +78,9 @@ function Flight:snapshot(r, meas)
   local m = meas or {}
   return {
     engaged = self.engaged, gndSafety = self.gndSafety,
-    positionHold = self.positionHold, fuelPump = self.fuelPump,
-    mode = (r and r.mode) or self.loop:getMode(), flightMode = self.flightMode,
+    positionHold = self.positionHold, fuelPump = self.fuelPump, parked = self.parked,
+    mode = self.parked and "PARKED" or ((r and r.mode) or self.loop:getMode()),
+    flightMode = self.flightMode,
     altitude = m.altitude, vSpeed = m.vSpeed, heading = m.heading,
     yawRate = m.yawRate, swayPos = m.swayPos, surgePos = m.surgePos,
     onGround = m.onGround, loopHz = self._loopHz,
