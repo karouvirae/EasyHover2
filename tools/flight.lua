@@ -59,13 +59,20 @@ local heldRef = { held = {} }
 -- Same 34-column CSV + summary as tools/hover_test.lua, so flight logs compare 1:1 with hover_test.
 local LOGGING   = _G.EH2_FLIGHTLOG == true
 local LOG_PATH  = "/eh2_flight_log.csv"
-local PART_PATH = "/eh2_flight_log.csv.part"
-local logSummary, logPart, logT0
+local MAX_ROWS  = 3000   -- bound disk use (~0.5MB); the in-memory summary still covers the whole run
+local logSummary, logFile, logT0, logOk, logRows = nil, nil, nil, false, 0
+-- Write directly to ONE file (header at top, summary appended at end) -- no `.part` duplicate, so
+-- finalising never needs a second full copy on disk (that was the "Out of space" crash). EVERY
+-- disk write is best-effort: a full disk stops logging but NEVER crashes the flight, and the
+-- summary always prints to the terminal so the numbers survive even with no space / no uploader.
 local function logStart()
   if not LOGGING then return end
-  logSummary = Inst.Summary.new()
-  logPart = fs.open(PART_PATH, "w"); logPart.write(Inst.header() .. "\n")
-  logT0 = os.epoch("utc")
+  logSummary = Inst.Summary.new(); logT0 = os.epoch("utc"); logRows = 0; logOk = false
+  pcall(function() if fs.exists(LOG_PATH) then fs.delete(LOG_PATH) end end)          -- reclaim space
+  pcall(function() if fs.exists(LOG_PATH .. ".part") then fs.delete(LOG_PATH .. ".part") end end)
+  local ok, f = pcall(fs.open, LOG_PATH, "w")
+  if ok and f then logFile = f; logOk = pcall(logFile.write, Inst.header() .. "\n") end
+  if not logOk then print("(flight log: no disk space -- terminal summary only)") end
 end
 local function logCycle(dt, m)
   if not LOGGING then return end
@@ -82,19 +89,25 @@ local function logCycle(dt, m)
     heave = dem.heave, dPitch = dem.pitch, dRoll = dem.roll, dYaw = dem.yaw,
     dSway = dem.sway, dSurge = dem.surge, duties = r.duties,
   }
-  logSummary:add(sample)
-  logPart.write(Inst.formatRow(sample) .. "\n")
+  logSummary:add(sample)                          -- always: in-memory, no disk
+  if logOk and logRows < MAX_ROWS then            -- CSV rows are best-effort + capped, never fatal
+    if pcall(logFile.write, Inst.formatRow(sample) .. "\n") then
+      logRows = logRows + 1
+    else
+      logOk = false                               -- disk full: stop writing, keep flying
+    end
+  end
 end
 local function logFinish()
   if not LOGGING then return end
   loop:arm(false); pcall(function() loop:cycle(0, backend:sensors()) end)   -- stop thrust on exit
-  if logPart then logPart.close() end
-  local rows = ""
-  local pf = fs.open(PART_PATH, "r"); if pf then rows = pf.readAll() or ""; pf.close() end
-  local out = fs.open(LOG_PATH, "w")
-  out.write(Inst.formatSummary(logSummary:finalize()) .. "\n\n" .. rows); out.close()
-  print(""); print(Inst.formatSummary(logSummary:finalize()))
-  print("Log: " .. LOG_PATH)
+  local summaryText = Inst.formatSummary(logSummary:finalize())
+  if logFile then
+    pcall(logFile.write, "\n" .. summaryText .. "\n")   -- summary appended at end (no 2nd copy of rows)
+    pcall(logFile.close)
+  end
+  print(""); print(summaryText)                          -- ALWAYS visible, even with no disk/uploader
+  print(("Log: %s  (%d rows)"):format(LOG_PATH, logRows))
   if not pcall(function() return shell.run("carbide", "put", LOG_PATH) end) then
     print("(carbide unavailable -- grab " .. LOG_PATH .. " manually)")
   end
