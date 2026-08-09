@@ -684,6 +684,21 @@ function Suite.statusColour(plan)
   return colours.white
 end
 
+--- What to call files that differ from the manifest, given the plan. Under an UPDATE a differing
+--- file is simply the NEW version (outdated on disk), not corruption -- calling it "corrupt" every
+--- release was the long-standing EH1/EH2 papercut. It is corruption only in a same-version repair.
+function Suite.diffLabel(plan)
+  return plan == "update" and "outdated" or "corrupt"
+end
+
+--- Is the running Suite a persistent, saved copy worth keeping current? `wget run` executes from
+--- memory / a transient path, so its "self" is never our saved file -- attempting a self-update
+--- there reads the wrong file, never matches the manifest, and cried "Suite out of date" on every
+--- run. Only a real, saved easyhover2_suite.lua should self-update.
+function Suite.selfIsPersistent(path)
+  return type(path) == "string" and path:match("easyhover2_suite%.lua$") ~= nil
+end
+
 --- The shipped diagnostic commands for a role: root-level shipped files (`dst` has no "/"),
 --- excluding `startup.lua` (that is the boot launcher, not something you run by hand).
 --- In manifest order (gen_manifest sorts `files` by dst), so the list is deterministic.
@@ -1017,8 +1032,8 @@ local function drawIntegrity(rect, ctx)
   local bar = "[" .. ("#"):rep(filled) .. ("-"):rep(barWidth - filled) .. "]"
   putLine(c.x, c.y, bar, colours.lime, PANEL_BG, c.w)
   if c.h >= 2 then
-    putLine(c.x, c.y + 1, ("%d ok / %d missing / %d corrupt"):format(ok, #report.missing,
-      #report.corrupt), colours.white, PANEL_BG, c.w)
+    putLine(c.x, c.y + 1, ("%d ok / %d missing / %d %s"):format(ok, #report.missing,
+      #report.corrupt, Suite.diffLabel(ctx.plan)), colours.white, PANEL_BG, c.w)
   end
 end
 
@@ -1487,9 +1502,11 @@ end
 function Suite.selfUpdateNotice(base, manifest)
   if type(manifest.updater) ~= "table" then return end
   local ok, selfPath = pcall(shell.getRunningProgram)
-  if not ok or type(selfPath) ~= "string" or selfPath == "" then
-    selfPath = "easyhover2_suite.lua"
-  end
+  if not ok then return end
+  -- `wget run` executes transiently (no saved file of ours to update); only a real saved
+  -- easyhover2_suite.lua should self-update. Otherwise we'd read the wrong file and falsely
+  -- report the Suite out of date on every run.
+  if not Suite.selfIsPersistent(selfPath) then return end
   if not selfPath:match("^/") then selfPath = "/" .. selfPath end
 
   local mine = readFile(selfPath)

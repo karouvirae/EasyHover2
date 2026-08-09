@@ -211,9 +211,9 @@
         },
         {
           ["dst"] = "fcslog",
-          ["size"] = 282,
+          ["size"] = 291,
           ["src"] = "launchers/fcslog.lua",
-          ["sum"] = "6c95c665",
+          ["sum"] = "3a8acaf1",
         },
         {
           ["dst"] = "flight",
@@ -259,9 +259,9 @@
         },
         {
           ["dst"] = "tools/flight.lua",
-          ["size"] = 9749,
+          ["size"] = 9758,
           ["src"] = "tools/flight.lua",
-          ["sum"] = "0e9a8946",
+          ["sum"] = "62fffa0e",
         },
         {
           ["dst"] = "tools/hover_test.lua",
@@ -589,8 +589,8 @@
   },
   ["schema"] = 1,
   ["updater"] = {
-    ["size"] = 64371,
-    ["sum"] = "a42d04be",
+    ["size"] = 65475,
+    ["sum"] = "bcf61485",
   },
-  ["version"] = "aabd591e",
+  ["version"] = "9f51354f",
 }

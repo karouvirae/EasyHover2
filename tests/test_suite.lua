@@ -239,6 +239,20 @@ t.test("statusColour maps plan to colour", function()
   t.eq(Suite.statusColour("install"), colours.cyan)
 end)
 
+t.test("diffLabel: an available update lists files as outdated, not corrupt", function()
+  t.eq(Suite.diffLabel("update"), "outdated")   -- new version => changed files are outdated, NOT corrupt
+  t.eq(Suite.diffLabel("repair"), "corrupt")    -- same version but bytes differ => genuine corruption
+  t.eq(Suite.diffLabel("current"), "corrupt")
+end)
+
+t.test("selfIsPersistent: only a saved easyhover2_suite.lua self-updates (skip wget-run temps)", function()
+  t.eq(Suite.selfIsPersistent("/easyhover2_suite.lua"), true)
+  t.eq(Suite.selfIsPersistent("disk/easyhover2_suite.lua"), true)
+  t.eq(Suite.selfIsPersistent("rom/programs/http/wget"), false)  -- wget run: not our saved file
+  t.eq(Suite.selfIsPersistent(""), false)
+  t.eq(Suite.selfIsPersistent(nil), false)
+end)
+
 -- ---------------------------------------------------------------- Task 11: dashboard UI
 
 t.test("diagTools lists root-level shipped files, excludes startup.lua", function()

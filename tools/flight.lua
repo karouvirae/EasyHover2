@@ -211,7 +211,7 @@ local function healthTask()
 end
 
 if LOGGING then
-  print("EH2 FCS -- FLIGHT LOGGING ON. Fly the repro, then Ctrl-T to stop (log auto-saves + pastebins).")
+  print("EH2 FCS -- FLIGHT LOGGING ON. Fly the repro, then Ctrl-T to stop (log auto-saves + uploads to carbide).")
   logStart()
   local ok, err = pcall(parallel.waitForAny, controlTask, inputTask, telemetryTask, commandTask, healthTask, fuelTask)
   logFinish()
