@@ -15,6 +15,10 @@
 -- actually requires it. `dirs` is the resulting repair scope: top-level directory segments among
 -- the role's shipped dst paths.
 {
+  ["basalt"] = {
+    ["size"] = 306157,
+    ["sum"] = "f9a2dafa",
+  },
   ["base"] = "https://raw.githubusercontent.com/maar-10/EasyHover2/main",
   ["roles"] = {
     ["fcs"] = {

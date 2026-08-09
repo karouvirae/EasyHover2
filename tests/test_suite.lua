@@ -381,3 +381,16 @@ t.test("checkFile classifies a file against its manifest entry", function()
   t.eq(Suite.checkFile(entry, function() return nil end), "missing")
   t.eq(Suite.checkFile(entry, function() return "abX" end), "corrupt")
 end)
+
+-- ---------------------------------------------------------------- Task 2: manifest basalt entry
+
+t.test("manifest records the vendored basalt for SuiteX to verify", function()
+  local f = fs.open("/manifest.lua", "r")
+  if not f then error("manifest.lua not found") end
+  local body = f.readAll()
+  f.close()
+  local manifest = textutils.unserialise(body)
+  t.eq(type(manifest.basalt), "table")
+  t.truthy(manifest.basalt.size and manifest.basalt.size > 0, "basalt size")
+  t.eq(type(manifest.basalt.sum), "string")
+end)

@@ -218,9 +218,19 @@ local function build()
     updater = { size = 0, sum = "00000000" }
   end
 
+  -- release/basalt-full.lua is the pinned Basalt 2.0 full build. Tolerate its absence (though
+  -- it should always be present post-Task 2) with a placeholder like updater.
+  local basaltBody = readNorm("release/basalt-full.lua")
+  local basalt
+  if basaltBody then
+    basalt = { size = #basaltBody, sum = fnv1a(basaltBody) }
+  else
+    basalt = { size = 0, sum = "00000000" }
+  end
+
   local manifest = {
     version = version, schema = SCHEMA, base = REPO,
-    updater = updater, roles = roleTable,
+    updater = updater, basalt = basalt, roles = roleTable,
   }
   local out = HEADER .. luaValue(manifest, 0) .. "\n"
   return out, nil, version, roleTable

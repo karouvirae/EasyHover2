@@ -13,6 +13,7 @@ rm -rf "$WORK"; mkdir -p "$C0"
 [ -d "$ROOT/fcs" ] && cp -r "$ROOT/fcs" "$C0"/
 [ -d "$ROOT/ui" ] && cp -r "$ROOT/ui" "$C0"/
 [ -d "$ROOT/launchers" ] && cp -r "$ROOT/launchers" "$C0"/
+[ -d "$ROOT/release" ] && cp -r "$ROOT/release" "$C0"/
 [ -f "$ROOT/easyhover2_suite.lua" ] && cp "$ROOT/easyhover2_suite.lua" "$C0"/
 [ -f "$ROOT/manifest.lua" ] && cp "$ROOT/manifest.lua" "$C0"/
 # Args are passed via a file rather than CraftOS-PC's own argv, so --headless stays simple.
