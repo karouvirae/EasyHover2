@@ -16,6 +16,7 @@ local modemlib  = require("fcs.comms.modem")
 local telemetry = require("fcs.comms.telemetry")
 local command   = require("fcs.comms.command")
 local health    = require("fcs.comms.health")
+local Inst      = require("fcs.bringup.instrument")
 
 local CH = { telemetry = 101, command = 102, ack = 103, health = 104 }
 local CONFIG_PATH = "/eh2_hw_config.tbl"
@@ -52,6 +53,51 @@ local shared = { snap = flight:snapshot(nil, backend:sensors()) }
 local typewriter = peripheral.find("linked_typewriter")
 local heldRef = { held = {} }
 
+-- ---- Optional flight instrumentation (NO-OP unless launched via `fcslog`) ----
+-- `fcslog` sets _G.EH2_FLIGHTLOG before requiring this module; production `fcs`/`flight` do not,
+-- so LOGGING stays false and every logging branch below is a single boolean check per cycle.
+-- Same 34-column CSV + summary as tools/hover_test.lua, so flight logs compare 1:1 with hover_test.
+local LOGGING   = _G.EH2_FLIGHTLOG == true
+local LOG_PATH  = "/eh2_flight_log.csv"
+local PART_PATH = "/eh2_flight_log.csv.part"
+local logSummary, logPart, logT0
+local function logStart()
+  if not LOGGING then return end
+  logSummary = Inst.Summary.new()
+  logPart = fs.open(PART_PATH, "w"); logPart.write(Inst.header() .. "\n")
+  logT0 = os.epoch("utc")
+end
+local function logCycle(dt, m)
+  if not LOGGING then return end
+  local r = flight.lastDiag or {}
+  local dem = r.demands or {}
+  local sample = {
+    t = (os.epoch("utc") - logT0) / 1000, dt = dt,
+    phase = flight.engaged and (m.onGround and "ENG-GND" or "ENGAGED") or "IDLE",
+    mode = r.mode or flight.flightMode,
+    sp_alt = pilot.sp and pilot.sp.altitude or 0,
+    alt = m.altitude, vSpeed = m.vSpeed, pitch = m.pitch, roll = m.roll,
+    heading = m.heading, yawRate = m.yawRate, swayVel = m.swayVel, surgeVel = m.surgeVel,
+    swayPos = m.swayPos, surgePos = m.surgePos, onGround = m.onGround,
+    heave = dem.heave, dPitch = dem.pitch, dRoll = dem.roll, dYaw = dem.yaw,
+    dSway = dem.sway, dSurge = dem.surge, duties = r.duties,
+  }
+  logSummary:add(sample)
+  logPart.write(Inst.formatRow(sample) .. "\n")
+end
+local function logFinish()
+  if not LOGGING then return end
+  loop:arm(false); pcall(function() loop:cycle(0, backend:sensors()) end)   -- stop thrust on exit
+  if logPart then logPart.close() end
+  local rows = ""
+  local pf = fs.open(PART_PATH, "r"); if pf then rows = pf.readAll() or ""; pf.close() end
+  local out = fs.open(LOG_PATH, "w")
+  out.write(Inst.formatSummary(logSummary:finalize()) .. "\n\n" .. rows); out.close()
+  print(""); print(Inst.formatSummary(logSummary:finalize()))
+  print("Log: " .. LOG_PATH)
+  pcall(function() shell.run("pastebin", "put", LOG_PATH) end)
+end
+
 local function fuelInto(snap)
   -- Defensive fuel readback: methods may be absent -> nil (non-blocking).
   snap.thrusterFuel = {}
@@ -85,6 +131,7 @@ local function controlTask()
       local now = os.epoch("utc"); local dt = (now - lastT) / 1000; lastT = now
       local meas = backend:sensors()
       shared.snap = fuelInto(flight:step(dt, heldRef.held, meas))
+      logCycle(dt, meas)
       timer = os.startTimer(0)
     end
   end
@@ -125,4 +172,12 @@ local function healthTask()
   end
 end
 
-parallel.waitForAny(controlTask, inputTask, telemetryTask, commandTask, healthTask)
+if LOGGING then
+  print("EH2 FCS -- FLIGHT LOGGING ON. Fly the repro, then Ctrl-T to stop (log auto-saves + pastebins).")
+  logStart()
+  local ok, err = pcall(parallel.waitForAny, controlTask, inputTask, telemetryTask, commandTask, healthTask)
+  logFinish()
+  if not ok then print("FCS EXIT: " .. tostring(err)) end
+else
+  parallel.waitForAny(controlTask, inputTask, telemetryTask, commandTask, healthTask)
+end

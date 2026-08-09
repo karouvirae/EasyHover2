@@ -181,9 +181,9 @@
         },
         {
           ["dst"] = "fcs/runtime/flight.lua",
-          ["size"] = 2139,
+          ["size"] = 2225,
           ["src"] = "fcs/runtime/flight.lua",
-          ["sum"] = "afb56815",
+          ["sum"] = "cbaa6c9e",
         },
         {
           ["dst"] = "fcs/runtime/loop.lua",
@@ -208,6 +208,12 @@
           ["size"] = 4986,
           ["src"] = "fcs/tuning.lua",
           ["sum"] = "b521a12f",
+        },
+        {
+          ["dst"] = "fcslog",
+          ["size"] = 282,
+          ["src"] = "launchers/fcslog.lua",
+          ["sum"] = "6c95c665",
         },
         {
           ["dst"] = "flight",
@@ -253,9 +259,9 @@
         },
         {
           ["dst"] = "tools/flight.lua",
-          ["size"] = 4814,
+          ["size"] = 7362,
           ["src"] = "tools/flight.lua",
-          ["sum"] = "5025085e",
+          ["sum"] = "67a733bf",
         },
         {
           ["dst"] = "tools/hover_test.lua",
@@ -586,5 +592,5 @@
     ["size"] = 64371,
     ["sum"] = "a42d04be",
   },
-  ["version"] = "10b88e97",
+  ["version"] = "b49964f2",
 }

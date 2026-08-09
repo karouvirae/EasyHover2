@@ -40,6 +40,7 @@ function Flight:step(dt, held, meas)
     self.loop:setpoints(self.pilot:update(dt, held or {}, meas))
   end
   local r = self.loop:cycle(dt, meas)
+  self.lastDiag = r   -- exposed for optional flight instrumentation (demands/duties)
   if dt > 0 then self._loopHz = 1 / dt end
   return self:snapshot(r, meas)
 end

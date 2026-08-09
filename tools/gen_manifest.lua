@@ -35,7 +35,8 @@ local ROLES = {
     blurb = "Thrusters, sensors, pilot input, control loops. Boots the flight app.",
     configs = { "/eh2_hw_config.tbl" }, configModule = CONFIG_MODULE, luaPath = "/",
     startup = { src = "launchers/fcs.lua", dst = "startup.lua" },
-    roots   = { { src = "launchers/flight.lua", dst = "flight" } }, -- + SHARED_DIAG + config module
+    roots   = { { src = "launchers/flight.lua", dst = "flight" },
+                { src = "launchers/fcslog.lua", dst = "fcslog" } }, -- + SHARED_DIAG + config module
   },
   ui = {
     title = "Cockpit display", status = "released",
