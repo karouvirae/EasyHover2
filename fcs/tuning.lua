@@ -55,7 +55,7 @@ return {
     heaveMin = 0.05, heaveMax = 0.85,  -- floor MUST stay below true hover (~0.3) or it blocks the vSpeed brake
   },
   pwmPeriod = 0.3,
-  caps = { pitch = 0.2, roll = 0.2, yaw = 0.5, sway = 0.5, surge = 0.5 },  -- attitude/steering only; heave unclamped here (banded in the scheme)
+  caps = { pitch = 0.2, roll = 0.2, yaw = 0.5, sway = 0.7, surge = 0.7 },  -- attitude/steering only; heave unclamped here (banded in the scheme). sway/surge 0.5->0.7: flight #12 sway saturated the 0.5 cap (too slow lateral)
   osc = { window = 1.0, minChanges = 6 },
   dtMax = 0.5,
   attLimit = 0.6,   -- rad; runner aborts to landing if |pitch| or |roll| exceeds this
