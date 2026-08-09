@@ -34,4 +34,14 @@ function M.save(kind, cfg, write)
   return write(M.FILES[kind], textutils.serialise(cfg))
 end
 
+function M.splitLegacy(hw)
+  return { devbind = { thrusters = hw.thrusters, sensors = hw.sensors, fuelRelay = hw.fuelRelay },
+           senscal = hw.bindings }
+end
+
+function M.assembleHw(devbind, senscal)
+  return { thrusters = devbind.thrusters, sensors = devbind.sensors, fuelRelay = devbind.fuelRelay,
+           bindings = senscal }
+end
+
 return M
