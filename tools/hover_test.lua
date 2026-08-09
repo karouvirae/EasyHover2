@@ -130,8 +130,8 @@ local function run()
   print(Inst.formatSummary(summary:finalize()))
   print("")
   print("Log written: " .. LOG_PATH)
-  local okp = pcall(function() shell.run("pastebin", "put", LOG_PATH) end)
-  if not okp then print("(pastebin unavailable -- grab " .. LOG_PATH .. " manually)") end
+  local okp = pcall(function() return shell.run("carbide", "put", LOG_PATH) end)
+  if not okp then print("(carbide unavailable -- grab " .. LOG_PATH .. " manually)") end
 end
 
 return { run = run, buildLoop = buildLoop }

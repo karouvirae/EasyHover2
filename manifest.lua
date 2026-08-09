@@ -127,9 +127,9 @@
         },
         {
           ["dst"] = "fcs/input/keymap.lua",
-          ["size"] = 933,
+          ["size"] = 1087,
           ["src"] = "fcs/input/keymap.lua",
-          ["sum"] = "903067e4",
+          ["sum"] = "1e25637f",
         },
         {
           ["dst"] = "fcs/input/pilot.lua",
@@ -259,15 +259,15 @@
         },
         {
           ["dst"] = "tools/flight.lua",
-          ["size"] = 8726,
+          ["size"] = 8821,
           ["src"] = "tools/flight.lua",
-          ["sum"] = "042fc8eb",
+          ["sum"] = "4b598b31",
         },
         {
           ["dst"] = "tools/hover_test.lua",
-          ["size"] = 5720,
+          ["size"] = 5725,
           ["src"] = "tools/hover_test.lua",
-          ["sum"] = "14b273fe",
+          ["sum"] = "e8821a20",
         },
         {
           ["dst"] = "tools/probe.lua",
@@ -499,9 +499,9 @@
         },
         {
           ["dst"] = "tools/hover_test.lua",
-          ["size"] = 5720,
+          ["size"] = 5725,
           ["src"] = "tools/hover_test.lua",
-          ["sum"] = "14b273fe",
+          ["sum"] = "e8821a20",
         },
         {
           ["dst"] = "tools/probe.lua",
@@ -592,5 +592,5 @@
     ["size"] = 64371,
     ["sum"] = "a42d04be",
   },
-  ["version"] = "2a35fd5a",
+  ["version"] = "ae0102e0",
 }

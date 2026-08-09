@@ -95,7 +95,9 @@ local function logFinish()
   out.write(Inst.formatSummary(logSummary:finalize()) .. "\n\n" .. rows); out.close()
   print(""); print(Inst.formatSummary(logSummary:finalize()))
   print("Log: " .. LOG_PATH)
-  pcall(function() shell.run("pastebin", "put", LOG_PATH) end)
+  if not pcall(function() return shell.run("carbide", "put", LOG_PATH) end) then
+    print("(carbide unavailable -- grab " .. LOG_PATH .. " manually)")
+  end
 end
 
 -- ---- Fuel readback: DECOUPLED from the control loop ----

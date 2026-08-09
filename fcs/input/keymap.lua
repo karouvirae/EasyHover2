@@ -21,12 +21,14 @@ function M.resolve(map, codes)
   return held
 end
 
--- Default typewriter layout (WASD move, QE yaw, RF lift). keys.* is provided by CC.
+-- Default typewriter layout (WASD move, QE yaw, R/Space up, F/LShift down). keys.* provided by CC.
 M.default = {
   [keys.w] = {axis="surge", dir=1},  [keys.s] = {axis="surge", dir=-1},
   [keys.a] = {axis="sway",  dir=-1}, [keys.d] = {axis="sway",  dir=1},
   [keys.q] = {axis="yaw",   dir=-1}, [keys.e] = {axis="yaw",   dir=1},
   [keys.r] = {axis="lift",  dir=1},  [keys.f] = {axis="lift",  dir=-1},
+  [keys.space]     = {axis="lift", dir=1},   -- climb  (alias for R)
+  [keys.leftShift] = {axis="lift", dir=-1},  -- descend (alias for F)
 }
 
 return M
