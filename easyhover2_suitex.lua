@@ -252,7 +252,9 @@ local function finishCheck(ctx)
   })
   ctx.report, ctx.plan, ctx.diffLabel = report, plan, ctx.Suite.diffLabel(plan)
   refreshStatus(ctx)
-  setButtonsEnabled(ctx, true)
+  -- Belt-and-suspenders: a stray check that completes mid-op (e.g. re-armed by a role pick that
+  -- slipped through) must not re-enable the action buttons -- mirrors applyTheme's same guard.
+  setButtonsEnabled(ctx, ctx.checkDone and not ctx.opInFlight)
 end
 
 --- (Re)arms the incremental checkDriver. The Basalt Timer added in buildUI() steps it a few
@@ -271,6 +273,12 @@ local function startCheck(ctx)
 end
 
 local function activateRole(ctx, roleName)
+  -- Same re-entrancy guard as the verify/go/repair handlers: the Role dropdown stays open and
+  -- clickable even while setButtonsEnabled() has disabled the six action buttons (it only ever
+  -- touched BTN_KEYS, never the dropdowns), so a role picked mid-op must be a no-op rather than
+  -- calling startCheck() -> resetting ctx.checkDone mid-flight, which finishCheck's own guard
+  -- above also now defends against.
+  if ctx.opInFlight then return end
   local spec = ctx.manifest.roles[roleName]
   if not ctx.Suite.isReleased(spec) then
     logLine(ctx, ("role %s is reserved -- ships no files yet"):format(roleName), ctx.pal.repair)
