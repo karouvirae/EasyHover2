@@ -61,9 +61,9 @@
         },
         {
           ["dst"] = "fcs/comms/command.lua",
-          ["size"] = 2408,
+          ["size"] = 2290,
           ["src"] = "fcs/comms/command.lua",
-          ["sum"] = "386fa5cd",
+          ["sum"] = "a707ebed",
         },
         {
           ["dst"] = "fcs/comms/health.lua",
@@ -84,10 +84,16 @@
           ["sum"] = "a92d01f4",
         },
         {
+          ["dst"] = "fcs/comms/session.lua",
+          ["size"] = 718,
+          ["src"] = "fcs/comms/session.lua",
+          ["sum"] = "f4abfafb",
+        },
+        {
           ["dst"] = "fcs/comms/telemetry.lua",
-          ["size"] = 680,
+          ["size"] = 1175,
           ["src"] = "fcs/comms/telemetry.lua",
-          ["sum"] = "919d98b6",
+          ["sum"] = "234d2453",
         },
         {
           ["dst"] = "fcs/control/heading.lua",
@@ -343,9 +349,9 @@
         },
         {
           ["dst"] = "fcs/comms/command.lua",
-          ["size"] = 2408,
+          ["size"] = 2290,
           ["src"] = "fcs/comms/command.lua",
-          ["sum"] = "386fa5cd",
+          ["sum"] = "a707ebed",
         },
         {
           ["dst"] = "fcs/comms/health.lua",
@@ -366,10 +372,16 @@
           ["sum"] = "a92d01f4",
         },
         {
+          ["dst"] = "fcs/comms/session.lua",
+          ["size"] = 718,
+          ["src"] = "fcs/comms/session.lua",
+          ["sum"] = "f4abfafb",
+        },
+        {
           ["dst"] = "fcs/comms/telemetry.lua",
-          ["size"] = 680,
+          ["size"] = 1175,
           ["src"] = "fcs/comms/telemetry.lua",
-          ["sum"] = "919d98b6",
+          ["sum"] = "234d2453",
         },
         {
           ["dst"] = "fcs/control/heading.lua",
@@ -592,5 +604,5 @@
     ["size"] = 65475,
     ["sum"] = "bcf61485",
   },
-  ["version"] = "b86bef20",
+  ["version"] = "ab7ef5be",
 }

@@ -1,15 +1,13 @@
 -- fcs/comms/command.lua
+local session = require("fcs.comms.session")
 local M = {}
 
 -- A per-boot session id. Command ids reset to 1 on every UI restart, and the FCS runs continuously
 -- remembering which ids it has handled -- so without a session tag a restarted UI's id 1 collided
 -- with the FCS's old handled set and the command was ACKed but silently never applied. Stamping a
--- fresh sid per Sender namespaces the dedup so a reboot's ids can never be swallowed. os.epoch is
--- monotonic-per-boot (reboots are milliseconds apart at minimum); the random suffix is belt-and-braces.
-function M.newSid()
-  local t = (os.epoch and os.epoch("utc")) or (os.time and os.time() * 1000) or 0
-  return tostring(t) .. "-" .. tostring(math.random(0, 1000000))
-end
+-- fresh sid per Sender namespaces the dedup so a reboot's ids can never be swallowed. (Shared with
+-- telemetry, which has the mirror problem on FCS restart -- see fcs/comms/session.lua.)
+M.newSid = session.new
 
 local Sender = {}; Sender.__index = Sender
 M.Sender = { new = function(cfg)
