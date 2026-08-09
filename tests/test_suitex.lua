@@ -23,3 +23,19 @@ t.test("roleColour maps plan to a palette colour", function()
   t.eq(SuiteX.theme.roleColour(d, "repair"), d.repair)
   t.eq(SuiteX.theme.roleColour(d, "install"), d.install)
 end)
+
+t.test("buttonStates: Go disabled only when already current", function()
+  t.eq(SuiteX.buttonStates("update").go, "active")
+  t.eq(SuiteX.buttonStates("current").go, "disabled")
+  t.eq(SuiteX.buttonStates("current").verify, "active")
+end)
+
+t.test("planView builds status lines with the plan-aware diff label", function()
+  local v = SuiteX.planView({ role="fcs", state={version="a"}, manifest={version="b"}, plan="update",
+    report={ missing={}, corrupt={"x","y"}, total=10, present=10 }, diffLabel="outdated" })
+  local byLabel = {}; for _,l in ipairs(v.lines) do byLabel[l.label]=l end
+  t.eq(byLabel.installed.value, "a"); t.eq(byLabel.release.value, "b")
+  t.eq(byLabel.plan.role, "update")
+  t.eq(byLabel.files.value, "8 ok / 0 missing / 2 outdated")
+  t.eq(v.buttons.go, "active")
+end)

@@ -22,6 +22,27 @@ function SuiteX.theme.roleColour(pal, plan)
   else return pal.text end
 end
 
+function SuiteX.buttonStates(plan)
+  return { go = (plan == "current") and "disabled" or "active",
+    verify = "active", repair = "active", switch = "active", tools = "active", quit = "active" }
+end
+
+function SuiteX.planView(ctx)
+  local r = ctx.report or { missing={}, corrupt={}, total=0, present=0 }
+  local diff = #(r.corrupt or {})
+  local ok = math.max(0, (r.total or 0) - #(r.missing or {}) - diff)
+  return {
+    lines = {
+      { label="role", value = ctx.role or "?" },
+      { label="installed", value = (ctx.state and ctx.state.version) or "none" },
+      { label="release", value = (ctx.manifest and ctx.manifest.version) or "?" },
+      { label="plan", value = ctx.plan or "?", role = ctx.plan },
+      { label="files", value = ("%d ok / %d missing / %d %s"):format(ok, #(r.missing or {}), diff, ctx.diffLabel or "outdated") },
+    },
+    buttons = SuiteX.buttonStates(ctx.plan),
+  }
+end
+
 function SuiteX.run()
   -- (assembled in Task 9)
 end
