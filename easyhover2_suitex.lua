@@ -43,6 +43,28 @@ function SuiteX.planView(ctx)
   }
 end
 
+function SuiteX.checkDriver(files, checkOne)
+  local self = { files = files or {}, checkOne = checkOne, i = 0,
+    report = { missing = {}, corrupt = {}, present = 0, total = #(files or {}) } }
+  function self.step(n)
+    local stop = math.min(self.i + (n or 1), #self.files)
+    while self.i < stop do
+      self.i = self.i + 1
+      local e = self.files[self.i]; local v = self.checkOne(e)
+      if v == "missing" then self.report.missing[#self.report.missing+1] = e.dst
+      else self.report.present = self.report.present + 1
+        if v == "corrupt" then self.report.corrupt[#self.report.corrupt+1] = e.dst end end
+    end
+    return self.i >= #self.files
+  end
+  function self.progress() return self.i, #self.files end
+  function self.result()
+    self.report.ok = (#self.report.missing == 0 and #self.report.corrupt == 0)
+    return self.report
+  end
+  return self
+end
+
 function SuiteX.run()
   -- (assembled in Task 9)
 end

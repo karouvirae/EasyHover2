@@ -39,3 +39,14 @@ t.test("planView builds status lines with the plan-aware diff label", function()
   t.eq(byLabel.files.value, "8 ok / 0 missing / 2 outdated")
   t.eq(v.buttons.go, "active")
 end)
+
+t.test("checkDriver steps to completion and reports like a one-shot check", function()
+  local files = { {dst="a"},{dst="b"},{dst="c"},{dst="d"} }
+  local verdict = { a="ok", b="corrupt", c="ok", d="missing" }
+  local drv = SuiteX.checkDriver(files, function(e) return verdict[e.dst] end)
+  local done = drv.step(2); t.eq(done, false)
+  local i, total = drv.progress(); t.eq(i, 2); t.eq(total, 4)
+  done = drv.step(10); t.eq(done, true)               -- clamps past the end
+  local r = drv.result()
+  t.eq(#r.corrupt, 1); t.eq(#r.missing, 1); t.eq(r.present, 3); t.eq(r.total, 4); t.eq(r.ok, false)
+end)
