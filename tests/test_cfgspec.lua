@@ -1,0 +1,23 @@
+local t = require("tests.framework")
+local C = require("fcs.io.cfgspec")
+
+t.test("defaults + merge are additive per kind", function()
+  local d = C.defaults("devbind")
+  t.truthy(d.thrusters and d.sensors, "devbind shape")
+  local m = C.merge("devbind", { thrusters = { FL = "thruster_3" } })
+  t.eq(m.thrusters.FL, "thruster_3", "saved wins")
+  t.eq(m.thrusters.FR, false, "default fills the rest")
+end)
+
+t.test("validate accepts good, rejects wrong shape", function()
+  t.eq((C.validate("tuning", C.defaults("tuning"))), true)
+  local ok, err = C.validate("devbind", { nope = 1 })
+  t.eq(ok, false)
+  t.truthy(err)
+end)
+
+t.test("load merges saved over defaults via injected reader", function()
+  local body = textutils.serialise({ bindings = nil, thrusters = { MAIN = "thruster_9" } })
+  local m = C.load("devbind", function() return body end)
+  t.eq(m.thrusters.MAIN, "thruster_9")
+end)
