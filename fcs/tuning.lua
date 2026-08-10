@@ -43,23 +43,31 @@
 -- floor. Flight #9 = SOFTEN (reverse the #8 firm-up), filter the vertical derivative so it damps
 -- instead of buzzing on the coarse vSpeed, and fly higher/longer to see if the oscillation bounds
 -- or keeps growing (marginal instability vs bounded limit cycle).
-return {
-  gains = {
-    hoverDuty = 0.26,
-    alt   = { kp = 0.02, ki = 0.01, kd = 0.15, tauD = 0.35, iMax = 0.3, iMin = -0.3 },  -- ki/kd backed off; tauD up filters coarse vSpeed
-    pitch = { kp = 0.10, ki = 0, kd = 0.22, tauD = 0.2 },   -- SOFTENED (was 0.15/0.33); the firm-up grew the oscillation
-    roll  = { kp = 0.10, ki = 0, kd = 0.22, tauD = 0.2 },
-    yaw   = { kp = 0.95, ki = 0, kd = 1.0 },   -- kp up again (yaw dYaw peaked 0.33 of a 0.6 cap = headroom) + kd up to damp the faster yaw; pairs with a wider leadCapHeading in fcs/input/config.lua
-    sway  = { kp = 0.2, ki = 0, kd = 0.25 },
-    surge = { kp = 0.15, ki = 0, kd = 0.25 },
-    heaveMin = 0.05, heaveMax = 0.85,  -- floor MUST stay below true hover (~0.3) or it blocks the vSpeed brake
-  },
-  pwmPeriod = 0.3,
-  caps = { pitch = 0.2, roll = 0.2, yaw = 0.6, sway = 0.9, surge = 1.0 },  -- attitude/steering only; heave unclamped here (banded in the scheme). sway 0.9 / surge 1.0 (full MAIN authority forward); yaw 0.6 to use the higher kp
-  osc = { window = 1.0, minChanges = 6 },
-  dtMax = 0.5,
-  attLimit = 0.6,   -- rad; runner aborts to landing if |pitch| or |roll| exceeds this
-  groundIdle = { moveEps = 0.5 },   -- blocks/s; engaged FCS parks (zero thrust) only when onGround AND slower than this in every axis AND not climbing
-  profile = { climbHeight = 6, climbRate = 0.6, holdTime = 20, descendRate = 0.7,
-              landEps = 0.4, watchdog = 60, overshootMargin = 2, leadCap = 1.0 },  -- taller+longer for a clearer read; watchdog raised so it doesn't cut the 20s hold
-}
+--
+-- The literal checkpoint values above now live in fcs/io/tuningdefaults.lua (the single source
+-- of truth for defaults). This module builds its returned table from those defaults deep-merged
+-- with a saved /eh2_tuning.tbl (UI-PC-written config), saved values winning. LOAD-TIME ONLY.
+local cfgspec = require("fcs.io.cfgspec")
+
+local function readFile(p)
+  if fs and fs.exists(p) and not fs.isDir(p) then
+    local h = fs.open(p, "r")
+    if h then
+      local b = h.readAll()
+      h.close()
+      return b
+    end
+  end
+  return nil
+end
+
+-- Pure builder: defaults deep-merged with an injected "saved" table. No file IO.
+-- Exposed for tests; also used by the module body below with the real saved file.
+local function buildFrom(saved)
+  return cfgspec.merge("tuning", saved)
+end
+
+local M = cfgspec.load("tuning", readFile)
+M._buildFrom = buildFrom
+
+return M

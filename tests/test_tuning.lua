@@ -29,3 +29,11 @@ t.test("tuning exposes the flight profile params", function()
   t.near(T.profile.descendRate, 0.7, 1e-9)
   t.near(T.profile.leadCap, 1.0, 1e-9)
 end)
+
+t.test("tuning merges eh2_tuning.tbl over checkpoint defaults", function()
+  local build = require("fcs.tuning")._buildFrom   -- pure builder exposed for the test
+  local base = require("fcs.io.tuningdefaults").get()
+  local merged = build({ gains = { yaw = { kp = 1.23 } } })   -- injected "saved"
+  t.eq(merged.gains.yaw.kp, 1.23, "saved overrides")
+  t.eq(merged.caps.pitch, base.caps.pitch, "unspecified falls back to default")
+end)

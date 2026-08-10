@@ -160,6 +160,12 @@
           ["sum"] = "ec647b01",
         },
         {
+          ["dst"] = "fcs/io/cfgspec.lua",
+          ["size"] = 1722,
+          ["src"] = "fcs/io/cfgspec.lua",
+          ["sum"] = "c407f893",
+        },
+        {
           ["dst"] = "fcs/io/config.lua",
           ["size"] = 1327,
           ["src"] = "fcs/io/config.lua",
@@ -176,6 +182,12 @@
           ["size"] = 193,
           ["src"] = "fcs/io/shim.lua",
           ["sum"] = "95b14a93",
+        },
+        {
+          ["dst"] = "fcs/io/tuningdefaults.lua",
+          ["size"] = 1434,
+          ["src"] = "fcs/io/tuningdefaults.lua",
+          ["sum"] = "1fcccea6",
         },
         {
           ["dst"] = "fcs/leash.lua",
@@ -215,9 +227,9 @@
         },
         {
           ["dst"] = "fcs/tuning.lua",
-          ["size"] = 5374,
+          ["size"] = 4676,
           ["src"] = "fcs/tuning.lua",
-          ["sum"] = "21e5c3eb",
+          ["sum"] = "e8cb7b6a",
         },
         {
           ["dst"] = "fcslog",
@@ -430,6 +442,12 @@
           ["sum"] = "ec647b01",
         },
         {
+          ["dst"] = "fcs/io/cfgspec.lua",
+          ["size"] = 1722,
+          ["src"] = "fcs/io/cfgspec.lua",
+          ["sum"] = "c407f893",
+        },
+        {
           ["dst"] = "fcs/io/config.lua",
           ["size"] = 1327,
           ["src"] = "fcs/io/config.lua",
@@ -446,6 +464,12 @@
           ["size"] = 193,
           ["src"] = "fcs/io/shim.lua",
           ["sum"] = "95b14a93",
+        },
+        {
+          ["dst"] = "fcs/io/tuningdefaults.lua",
+          ["size"] = 1434,
+          ["src"] = "fcs/io/tuningdefaults.lua",
+          ["sum"] = "1fcccea6",
         },
         {
           ["dst"] = "fcs/mixer/level_flight.lua",
@@ -473,9 +497,9 @@
         },
         {
           ["dst"] = "fcs/tuning.lua",
-          ["size"] = 5374,
+          ["size"] = 4676,
           ["src"] = "fcs/tuning.lua",
-          ["sum"] = "21e5c3eb",
+          ["sum"] = "e8cb7b6a",
         },
         {
           ["dst"] = "hovertest",
@@ -608,5 +632,5 @@
     ["size"] = 66129,
     ["sum"] = "750f5356",
   },
-  ["version"] = "ab7ef5be",
+  ["version"] = "23e29c4a",
 }
