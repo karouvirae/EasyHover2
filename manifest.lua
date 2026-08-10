@@ -617,9 +617,9 @@
         },
         {
           ["dst"] = "ui/panels/config.lua",
-          ["size"] = 8289,
+          ["size"] = 8365,
           ["src"] = "ui/panels/config.lua",
-          ["sum"] = "42dcd04c",
+          ["sum"] = "58121b82",
         },
         {
           ["dst"] = "ui/panels/engine.lua",
@@ -650,5 +650,5 @@
     ["size"] = 66129,
     ["sum"] = "750f5356",
   },
-  ["version"] = "8048c71c",
+  ["version"] = "0994181a",
 }

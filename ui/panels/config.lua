@@ -132,6 +132,7 @@ local function labelFor(b, cfg, assign)
   if id == "bindTank" then return "TANK: " .. shortName(cfg.fuel and cfg.fuel.tank and cfg.fuel.tank.name) end
   return LABEL[id] or id
 end
+M.labelFor = labelFor
 
 -- Feed interval reads in minutes+seconds (it is minutes-scale on this build); pulse stays ms.
 local function fmtInterval(ms)
@@ -141,6 +142,7 @@ local function fmtInterval(ms)
   local s = totalSec % 60
   return string.format("%dm%02ds", m, s)
 end
+M.fmtInterval = fmtInterval
 
 local function timingLine(cfg, width)
   local e = cfg.engine or {}
@@ -149,6 +151,7 @@ local function timingLine(cfg, width)
     (e.invert and "on" or "off"), (e.kickstart and "on" or "off"))
   return s:sub(1, math.max(0, width))
 end
+M.timingLine = timingLine
 
 function M.render(ctx, w, h)
   ctx = ctx or {}
