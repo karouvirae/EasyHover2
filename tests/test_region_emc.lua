@@ -178,6 +178,7 @@ local function newCfgStubRuntime()
   function engine:applyConfig(cfg) end
 
   local runtime = {
+    uiRev = 0,
     config = {
       relay = { name = nil, side = "back" },
       fuel = newFuelCfg(),
@@ -216,6 +217,51 @@ t.test("_cfg: an unrecognised id returns nil (uical's own ConfigPanel.action dis
   local effect = M._cfg(runtime, "totallyBogus", { save = save })
 
   t.eq(effect, nil)
+end)
+
+-- REGRESSION (Important bug fix): uical._onButton -> _applyOp saves config to disk but never
+-- bumps uiRev, and the cadence signature has no field for relay side/name, pulseMs, intervalMs,
+-- or bind names -- so emc_config's labels (RELAY: <side>, PMP <name>, etc.) would stay stale
+-- until an unrelated telemetry change happened to repaint the page. M._cfg must bump uiRev itself
+-- after every delegated call, regardless of which id or what uical's effect was.
+
+t.test("_cfg: bumps runtime.uiRev after delegating (relaySide) so the config screen repaints", function()
+  local runtime = newCfgStubRuntime()
+  local save = newSaveSpy()
+  t.eq(runtime.uiRev, 0)
+
+  M._cfg(runtime, "relaySide", { save = save })
+
+  t.eq(runtime.uiRev, 1, "uiRev bumped exactly once")
+end)
+
+t.test("_cfg: bumps runtime.uiRev even for a bind op (BIND PUMP), no real peripheral touched", function()
+  local runtime = newCfgStubRuntime()
+  local save = newSaveSpy()
+  local deps = { scan = function() return {} end, save = save }
+
+  M._cfg(runtime, "bindPump", deps)
+
+  t.eq(runtime.uiRev, 1, "uiRev bumped even when no candidates were found to bind")
+end)
+
+t.test("_cfg: bumps runtime.uiRev even when the id is unrecognised", function()
+  local runtime = newCfgStubRuntime()
+  local save = newSaveSpy()
+
+  M._cfg(runtime, "totallyBogus", { save = save })
+
+  t.eq(runtime.uiRev, 1, "uiRev still bumps -- the caller pressed a button, screen must repaint")
+end)
+
+t.test("_cfg: repeated presses (relaySide twice) accumulate uiRev, one bump per call", function()
+  local runtime = newCfgStubRuntime()
+  local save = newSaveSpy()
+
+  M._cfg(runtime, "relaySide", { save = save })
+  M._cfg(runtime, "pulseUp", { save = save })
+
+  t.eq(runtime.uiRev, 2)
 end)
 
 -- ===== CONSTRUCTION PROBE: real Basalt, a Region hosting all three screens, stub runtime =====

@@ -97,8 +97,17 @@ end
 -- ===== M._cfg: thin delegate onto UI CAL's already-tested intent seam. No reimplementation. =====
 -- Valid ids: relaySide, pulseUp/pulseDn, intervalUp/intervalDn, bindPump/bindTank/bindRelay,
 -- toggleInvert/toggleKick. Deliberately never "calFuel" -- M._setMax below is the manual replacement.
+--
+-- uical._onButton -> _applyOp saves runtime.config to disk but does NOT bump runtime.uiRev, and
+-- the cadence signature (ui/basalt/cadence.lua) has no field for relay name/side, pulseMs,
+-- intervalMs, or bind names -- so a uiRev bump here is the ONLY thing that forces the merged
+-- page's render-gate to repaint emc_config's labels after a bind/relaySide/pulse/interval edit
+-- (mirrors ui/basalt/pages/config.lua's M._onButton, which bumps uiRev itself for the identical
+-- reason). Bumped unconditionally after delegating, regardless of the effect uical returns.
 function M._cfg(runtime, id, deps)
-  return Uical._onButton(runtime, id, os.epoch("utc"), deps)
+  local effect = Uical._onButton(runtime, id, os.epoch("utc"), deps)
+  runtime.uiRev = (runtime.uiRev or 0) + 1
+  return effect
 end
 
 -- ===== M._setMax: pure-of-Basalt manual-max stepper for emc_calfuel. =====
