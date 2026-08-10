@@ -147,8 +147,11 @@ if phase == "install" then
   check(stateField("version") == manifestVersion(), "install record matches the release",
     tostring(stateField("version")) .. " vs " .. tostring(manifestVersion()))
   local launcher = read("/startup.lua") or ""
-  check(launcher:find('require%("tools%.flight"%)') ~= nil,
-    "launcher requires the fcs entry point", launcher)
+  -- Task 9 changed launchers/fcs.lua to boot the interactive boot-loader UI (which assembles
+  -- /eh2_hw_config.tbl + /eh2_tuning.tbl from the pilot's chosen sources) and only then shell.run
+  -- the flight app, rather than requiring tools.flight directly.
+  check(launcher:find('require%("fcs%.boot%.loaderui"%)') ~= nil,
+    "launcher boots the fcs boot loader UI", launcher)
   check(#launcher < 200, "launcher is a thin shim, not a copy of the entry point",
     ("%d bytes"):format(#launcher))
   check(#noStagingLeftBehind() == 0, "no .eh2new staging files left behind")
@@ -306,17 +309,17 @@ elseif phase == "check" then
 elseif phase == "ui" then
   -- A FRESH install of the OTHER released role, on a bare computer. Nothing else here covers
   -- ui, and it is structurally different from fcs: a whole separate ui/ source tree, and it
-  -- boots ui.main instead of tools.flight.
+  -- boots the Basalt cockpit (ui.basalt.app) instead of tools.flight.
   runSuite("ui")
   check(stateField("role") == "ui", "install record names the role",
     tostring(stateField("role")))
   check(stateField("version") == manifestVersion(), "install record matches the release")
   check(fs.exists("/startup.lua"), "launcher installed as /startup.lua")
-  check(fs.exists("/ui/main.lua"), "role files installed")
+  check(fs.exists("/ui/basalt/app.lua"), "role files installed")
   check(fs.exists("/ui/panels/engine.lua"), "nested ui files installed")
   check(fs.exists("/cockpit"), "the cockpit launcher tool was installed")
   local launcher = read("/startup.lua") or ""
-  check(launcher:find('require%("ui%.main"%)') ~= nil,
+  check(launcher:find('require%("ui%.basalt%.app"%)') ~= nil,
     "the launcher starts the ui role", launcher)
   check(#noStagingLeftBehind() == 0, "no .eh2new staging files left behind")
 
@@ -347,10 +350,10 @@ elseif phase == "switch" then
 
   check(stateField("role") == "ui", "the install record now names the new role",
     tostring(stateField("role")))
-  check(fs.exists("/ui/main.lua"), "the new role's files landed")
+  check(fs.exists("/ui/basalt/app.lua"), "the new role's files landed")
   check(fs.exists("/cockpit"), "the new role's launcher tool landed")
   local launcher = read("/startup.lua") or ""
-  check(launcher:find('require%("ui%.main"%)') ~= nil,
+  check(launcher:find('require%("ui%.basalt%.app"%)') ~= nil,
     "the launcher now starts the new role, not the old one", launcher)
 
   -- pruneRole runs after every commit: a file that lived inside one of the NEW role's directories
