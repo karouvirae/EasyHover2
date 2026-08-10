@@ -309,6 +309,7 @@ function M.buildRuntime(deps)
     fuelReaders = fuelReaders,
     cfgserver = cfgserver,
     config = config,
+    rebindRelay = rebindRelay,
     uiRev = 0,
     state = { pumpFrac = 0, tankFrac = 0 },
     CH = CH,
