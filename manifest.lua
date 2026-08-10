@@ -275,9 +275,9 @@
         },
         {
           ["dst"] = "tools/calibrate.lua",
-          ["size"] = 10494,
+          ["size"] = 12137,
           ["src"] = "tools/calibrate.lua",
-          ["sum"] = "bebd85e3",
+          ["sum"] = "16463db3",
         },
         {
           ["dst"] = "tools/flight.lua",
@@ -533,9 +533,9 @@
         },
         {
           ["dst"] = "tools/calibrate.lua",
-          ["size"] = 10494,
+          ["size"] = 12137,
           ["src"] = "tools/calibrate.lua",
-          ["sum"] = "bebd85e3",
+          ["sum"] = "16463db3",
         },
         {
           ["dst"] = "tools/hover_test.lua",
@@ -632,5 +632,5 @@
     ["size"] = 66129,
     ["sum"] = "750f5356",
   },
-  ["version"] = "23e29c4a",
+  ["version"] = "6f01be9e",
 }

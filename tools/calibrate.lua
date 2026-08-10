@@ -57,21 +57,60 @@ function M.applyConstants(config, yawBaseline, baroThrusterOffset)
 end
 
 -- ---- interactive shell (in-game only) ----
-local hwconfig = require("fcs.io.hwconfig")
-local CONFIG_PATH = "/eh2_hw_config.tbl"
+local cfgspec = require("fcs.io.cfgspec")
+local LEGACY_CONFIG_PATH = "/eh2_hw_config.tbl"
 
-local function loadConfig()
-  local saved
-  if fs.exists(CONFIG_PATH) then
-    local f = fs.open(CONFIG_PATH, "r"); saved = textutils.unserialise(f.readAll() or ""); f.close()
+-- Load the FLAT senscal bindings table (cfg.signPitch, not cfg.bindings.signPitch).
+-- Prefers eh2_senscal.tbl; if that file is absent AND the old combined
+-- /eh2_hw_config.tbl is present, migrates the calibration out of it (read-through,
+-- nothing lost). `read(filename) -> bodyStringOrNil`.
+function M._loadCal(read)
+  local cfg, existed = cfgspec.load("senscal", read)
+  if not existed then
+    local legacyBody = read(LEGACY_CONFIG_PATH)
+    if legacyBody ~= nil then
+      local legacy = textutils.unserialise(legacyBody)
+      if type(legacy) == "table" then
+        cfg = cfgspec.merge("senscal", cfgspec.splitLegacy(legacy).senscal)
+      end
+    end
   end
-  return hwconfig.merge(saved or {}, hwconfig.defaults())
+  return cfg
 end
-local function saveConfig(c)
-  local tmp = CONFIG_PATH .. ".tmp"
-  local f = fs.open(tmp, "w"); f.write(textutils.serialise(c)); f.close()
-  if fs.exists(CONFIG_PATH) then fs.delete(CONFIG_PATH) end
-  fs.move(tmp, CONFIG_PATH)
+
+-- Persist ONLY the calibration values (flat bindings table) to eh2_senscal.tbl.
+-- `write(filename, body)`.
+function M._saveCal(cfg, write) return cfgspec.save("senscal", cfg, write) end
+
+-- Load the device-name bindings (config.sensors.<name>) the interactive shell needs to
+-- wrap peripherals. Mirrors _loadCal's read-through so the terminal fallback stays
+-- fully functional after the split: eh2_devbind.tbl first, else migrate out of legacy
+-- /eh2_hw_config.tbl.
+local function loadSensors(read)
+  local cfg, existed = cfgspec.load("devbind", read)
+  if not existed then
+    local legacyBody = read(LEGACY_CONFIG_PATH)
+    if legacyBody ~= nil then
+      local legacy = textutils.unserialise(legacyBody)
+      if type(legacy) == "table" then
+        cfg = cfgspec.merge("devbind", cfgspec.splitLegacy(legacy).devbind)
+      end
+    end
+  end
+  return cfg.sensors
+end
+
+local function realRead(p)
+  if fs.exists(p) and not fs.isDir(p) then
+    local f = fs.open(p, "r"); local b = f.readAll(); f.close(); return b
+  end
+  return nil
+end
+local function realWrite(p, body)
+  local tmp = p .. ".tmp"
+  local f = fs.open(tmp, "w"); f.write(body); f.close()
+  if fs.exists(p) then fs.delete(p) end
+  fs.move(tmp, p)
 end
 
 local function readNum(p, method) if not p then return 0 end local v = p[method](); return v or 0 end
@@ -107,7 +146,7 @@ local function stepAttitude(shim, config)
     print(prompt .. ", press Enter"); read(); local m = avgAngles(1)
     local r = cal.classifyGimbalAxis(n, m)
     print(("%s -> idx %d sign %d unit %s (%.3f vs %.3f)"):format(axis, r.idx, r.sign, r.unit, r.dominant, r.runnerUp))
-    if accept(r) then M.applyGimbal(config, axis, r); saveConfig(config); print("  saved") end
+    if accept(r) then M.applyGimbal(config, axis, r); M._saveCal(config.bindings, realWrite); print("  saved") end
   end
 end
 
@@ -130,7 +169,7 @@ local function stepLateral(shim, config)
   print(("front %d rear %d yawRate %d (diff %.2f)  sway[%s] yaw[%s]"):format(
     r.signFront, r.signRear, r.signYawRate, r.yawDiff or 0, r.swayStatus, r.yawStatus))
   if r.swayOk and r.yawOk then
-    write("  accept? (y/n): "); if read() == "y" then M.applyLateral(config, r); saveConfig(config); print("  saved") end
+    write("  accept? (y/n): "); if read() == "y" then M.applyLateral(config, r); M._saveCal(config.bindings, realWrite); print("  saved") end
   else print("  REJECTED - sway needs a clean sideways shove; yaw needs a clearer rotation") end
 end
 
@@ -143,7 +182,7 @@ local function stepSurge(shim, config)
   local peakV = M.peakByAbs(stream(function() return readNum(vm, "getVelocity") - n end, 3))
   local r = cal.classifyScalarSign(0, peakV)
   print(("surge sign %d (mag %.3f)"):format(r.sign, r.magnitude))
-  if accept(r) then M.applyScalarSign(config, "signVelMedial", r.sign); saveConfig(config); print("  saved") end
+  if accept(r) then M.applyScalarSign(config, "signVelMedial", r.sign); M._saveCal(config.bindings, realWrite); print("  saved") end
 end
 
 -- Compute yawRate exactly as fcs/io/backend.lua does, from the live velocity sensors.
@@ -185,7 +224,7 @@ local function stepHeading(shim, config)
     print("  REJECTED -- rotate a clear ~90deg AND keep it moving so the velocity sensors register yaw.")
     return
   end
-  if accept(r) then M.applyHeading(config, r); saveConfig(config); print("  saved (heading consistent with yawRate)") end
+  if accept(r) then M.applyHeading(config, r); M._saveCal(config.bindings, realWrite); print("  saved (heading consistent with yawRate)") end
 end
 
 local function stepGround(shim, config)
@@ -198,13 +237,13 @@ local function stepGround(shim, config)
   local off = cal.computeHeightOffset(rawAlt, config.bindings.baroThrusterOffset or 0)
   local thr = cal.computeGroundThreshold(optD)
   print(("heightOffset %.3f  onGroundThreshold %.3f"):format(off, thr))
-  write("  accept? (y/n): "); if read() == "y" then M.applyGround(config, off, thr); saveConfig(config); print("  saved") end
+  write("  accept? (y/n): "); if read() == "y" then M.applyGround(config, off, thr); M._saveCal(config.bindings, realWrite); print("  saved") end
 end
 
 local function stepConstants(config)
   write("yawBaseline (fore/aft sensor spacing, blocks): "); local yb = tonumber(read()) or config.bindings.yawBaseline
   write("baroThrusterOffset (+ = baro above thrusters, blocks): "); local bo = tonumber(read()) or config.bindings.baroThrusterOffset
-  M.applyConstants(config, yb, bo); saveConfig(config); print("  saved")
+  M.applyConstants(config, yb, bo); M._saveCal(config.bindings, realWrite); print("  saved")
 end
 
 local function review(config)
@@ -215,12 +254,12 @@ local function review(config)
     "yawBaseline","heightOffset","onGroundThreshold","baroThrusterOffset" }) do
     print(("  %-18s %s"):format(k, tostring(b[k])))
   end
-  saveConfig(config); print("written to " .. CONFIG_PATH)
+  M._saveCal(config.bindings, realWrite); print("written to " .. cfgspec.FILES.senscal)
 end
 
 function M.run()
   local shim = require("fcs.io.shim")
-  local config = loadConfig()
+  local config = { sensors = loadSensors(realRead), bindings = M._loadCal(realRead) }
   while true do
     print("\n== EH2 CALIBRATE == 1 attitude 2 lateral 3 surge 4 heading 5 ground 6 constants 7 review q quit")
     local ch = read()

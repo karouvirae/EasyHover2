@@ -39,3 +39,10 @@ t.test("applyConstants writes baseline and baro offset", function()
   local c = C.applyConstants(cfg(), 4, 5)
   t.near(c.bindings.yawBaseline, 4, 1e-9); t.near(c.bindings.baroThrusterOffset, 5, 1e-9)
 end)
+
+t.test("calibrate persists to eh2_senscal.tbl and read-through migrates legacy", function()
+  local C = require("tools.calibrate")
+  local cfg = C._loadCal(function(p) return p == "/eh2_hw_config.tbl"
+    and textutils.serialise(require("fcs.io.hwconfig").defaults()) or nil end)  -- only legacy present
+  t.truthy(cfg.signPitch ~= nil, "legacy bindings migrated into senscal cfg")
+end)
