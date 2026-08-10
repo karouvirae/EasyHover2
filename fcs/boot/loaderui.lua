@@ -1,0 +1,233 @@
+-- fcs/boot/loaderui.lua
+-- Terminal boot UI: lets the pilot pick a SOURCE per config concern (binding/sensor/tuning),
+-- assembles the runtime config via fcs.boot.loader, and writes the two files the flight app
+-- already reads (/eh2_hw_config.tbl + /eh2_tuning.tbl) -- the whole handoff. Boot UI and the
+-- flight app never run concurrently: this program returns (or the launcher exits) before
+-- launchers/flight.lua starts. No Basalt here on purpose -- keeps the FCS boot path light and
+-- dependency-free.
+--
+-- CHANNEL CONVENTION (Task 10's UI cfgserver responder mirrors this):
+--   CFG_CH = { req = 105, reply = 106 }
+--   The boot UI (cfgsync client, here) SENDS requests on req (105) and LISTENS for replies on
+--   reply (106). The UI-side responder does the opposite: listens on req, replies on reply.
+--   Channels 101-104 (telemetry/command/ack/health, see tools/flight.lua) are NOT reused.
+--
+-- CRITICAL: no peripheral/modem/disk access at module load time -- headless has no modem/disk,
+-- so `require("fcs.boot.loaderui")` must load clean. All peripheral access lives inside
+-- run()/buildSources() (and the real read/write helpers they call), never at the top level.
+
+local loader         = require("fcs.boot.loader")
+local cfgspec         = require("fcs.io.cfgspec")
+local tuningdefaults  = require("fcs.io.tuningdefaults")
+local cfgsync         = require("fcs.comms.cfgsync")
+local modemlib        = require("fcs.comms.modem")
+
+local M = {}
+
+M.CFG_CH = { req = 105, reply = 106 }
+
+local HW_CONFIG_PATH  = "/eh2_hw_config.tbl"
+local TUNING_PATH     = "/eh2_tuning.tbl"
+local LEGACY_CONFIG_PATH = HW_CONFIG_PATH -- same file; legacy read-through source, not the write target
+
+-- concern name -> cfgspec kind (mirrors fcs/boot/loader.lua's KIND table)
+local KIND = { binding = "devbind", sensor = "senscal", tuning = "tuning" }
+
+local UI_TIMEOUT = 2.0  -- seconds per attempt
+local UI_RETRIES = 3
+
+-- =====================================================================================
+-- Testable seam (headless) -- pure given injected write(); no read()/fs/peripheral here.
+-- =====================================================================================
+
+local function realWrite(path, body)
+  local tmp = path .. ".tmp"
+  local f = fs.open(tmp, "w"); f.write(body); f.close()
+  if fs.exists(path) then fs.delete(path) end
+  fs.move(tmp, path)
+end
+
+-- Atomically write the assembled hw + tuning tables to the two files the flight app reads.
+-- `write(path, body)` is injected for testing; defaults to the real atomic tmp-then-move writer.
+function M.commit(assembled, write)
+  write = write or realWrite
+  write(HW_CONFIG_PATH, textutils.serialise(assembled.hw))
+  write(TUNING_PATH, textutils.serialise(assembled.tuning))
+  return true
+end
+
+-- Resolve the pilot's chosen sources into an assembled config, then commit it.
+-- Returns true, assembled  on success, or  false, nil, err  (nothing is written on failure).
+function M.finish(choices, sources, write)
+  local ok, assembled, err = loader.resolve(choices, sources)
+  if not ok then return false, nil, err end
+  M.commit(assembled, write)
+  return true, assembled
+end
+
+-- =====================================================================================
+-- In-game only from here down: real fs/peripheral/modem/read() access. NOT headless-tested
+-- (no modem/disk in the CraftOS-PC harness); kept coherent by reading, mirrored against the
+-- design doc's "Own / Request from UI PC / Load from disk / Load defaults" flow.
+-- =====================================================================================
+
+local function realRead(path)
+  if fs.exists(path) and not fs.isDir(path) then
+    local f = fs.open(path, "r"); local b = f.readAll(); f.close(); return b
+  end
+  return nil
+end
+
+-- "own": the local split file (eh2_devbind.tbl / eh2_senscal.tbl); if that file is ABSENT and
+-- the legacy combined /eh2_hw_config.tbl exists, seed from splitLegacy read-through (mirrors
+-- tools/calibrate.lua's M._loadCal / loadSensors so terminal tool and boot UI agree).
+local function ownSource(concern)
+  local kind = KIND[concern]
+  local cfg, existed = cfgspec.load(kind, realRead)
+  if existed then return cfg end
+  local legacyBody = realRead(LEGACY_CONFIG_PATH)
+  if legacyBody == nil then return nil end
+  local legacy = textutils.unserialise(legacyBody)
+  if type(legacy) ~= "table" then return nil end
+  local split = cfgspec.splitLegacy(legacy)
+  local seed = split[kind]
+  if seed == nil then return nil end
+  return cfgspec.merge(kind, seed)
+end
+
+-- "disk": the split file read off a mounted disk drive's disk, if one is present.
+local function diskSource(concern)
+  local kind = KIND[concern]
+  local drive = peripheral.find("drive")
+  if not drive or not drive.isDiskPresent or not drive.isDiskPresent() then return nil end
+  local mount = drive.getMountPath and drive.getMountPath()
+  if not mount then return nil end
+  local body = realRead("/" .. mount .. "/" .. cfgspec.FILES[kind])
+  if body == nil then return nil end
+  local saved = textutils.unserialise(body)
+  if type(saved) ~= "table" then return nil end
+  return cfgspec.merge(kind, saved)
+end
+
+-- Wait for one cfgsync "cfg" reply (or the timeout) on `link`, updating `client`.
+-- Bounded by a real CraftOS timer so a silent UI PC can never hang the boot.
+local function waitForReply(link, client, kind, timeoutSec)
+  local timer = os.startTimer(timeoutSec)
+  while true do
+    local ev, p1, p2, p3, p4 = os.pullEvent()
+    if ev == "modem_message" then
+      local decoded = link:onMessage(p2, p4)
+      if decoded then
+        local status = client:onFrame(decoded)
+        if status == "done" then return client.received[kind] end
+      end
+    elseif ev == "timer" and p1 == timer then
+      return nil
+    end
+  end
+end
+
+-- "ui": request the config from the UI PC's FCS SYNC responder over CFG_CH, with a
+-- timeout + a couple of retries. Returns nil on no answer (caller shows the fallback
+-- message: "UI SYNC not responding -- start FCS SYNC on the UI, or pick Disk / Own / Defaults").
+local function uiSource(concern)
+  local modem = peripheral.find("modem")
+  if not modem then return nil end
+  local link = modemlib.wrap(modem, { txCh = M.CFG_CH.req, rxCh = M.CFG_CH.reply })
+  local kind = KIND[concern]
+  for attempt = 1, UI_RETRIES do
+    local client = cfgsync.Client.new({
+      sid = tostring(os.epoch("utc")) .. "-" .. attempt,
+      kinds = { kind }, timeout = UI_TIMEOUT,
+    })
+    local frame = client:next()
+    while frame do
+      link:send(frame)
+      frame = client:next()
+    end
+    local body = waitForReply(link, client, kind, UI_TIMEOUT)
+    if body ~= nil then return body end
+  end
+  return nil
+end
+
+-- Real sources table: get(concern, src) -> cfgTable | nil.
+function M.buildSources()
+  return {
+    get = function(concern, src)
+      if src == "own" then return ownSource(concern) end
+      if src == "disk" then return diskSource(concern) end
+      if src == "ui" then return uiSource(concern) end
+      if src == "defaults" and concern == "tuning" then return tuningdefaults.get() end
+      return nil
+    end,
+  }
+end
+
+local CONCERNS = { "binding", "sensor", "tuning" }
+local LABEL = { binding = "BINDING", sensor = "SENSOR", tuning = "TUNING" }
+
+local function diskIndicator()
+  local drive = peripheral.find("drive")
+  if not drive then return "no disk drive" end
+  if not (drive.isDiskPresent and drive.isDiskPresent()) then return "no disk inserted" end
+  local label = (drive.getDiskLabel and drive.getDiskLabel()) or "unlabeled"
+  return "disk: " .. tostring(label)
+end
+
+local function ownIndicator(concern)
+  local kind = KIND[concern]
+  if realRead("/" .. cfgspec.FILES[kind]) then return "split file present" end
+  if realRead(LEGACY_CONFIG_PATH) then return "legacy read-through" end
+  return "none available"
+end
+
+-- Render one concern's menu, read a pick, and return the chosen source string, the
+-- sentinel "ABORT" on 'q', or nil on an invalid choice (caller re-prompts).
+local function pickSource(concern)
+  print("")
+  print(("== %s source ==  (%s)"):format(LABEL[concern], diskIndicator()))
+  local opts = loader.SOURCES[concern]
+  for i, s in ipairs(opts) do
+    local extra = (s == "own") and ("  [" .. ownIndicator(concern) .. "]") or ""
+    print(("  %d) %s%s"):format(i, s, extra))
+  end
+  write("choice (q aborts): ")
+  local input = read()
+  if input == "q" then return "ABORT" end
+  local ch = tonumber(input)
+  return ch and opts[ch] or nil
+end
+
+-- Full interactive boot loop. Only place read()/term is touched. Returns the assembled
+-- {hw=, tuning=} result on success (files already written), or nil on explicit abort.
+function M.run()
+  local sources = M.buildSources()
+  print("EH2 BOOT LOADER")
+  while true do
+    local choices = {}
+    local aborted = false
+    for _, concern in ipairs(CONCERNS) do
+      local src = pickSource(concern)
+      while src == nil do
+        print("  invalid choice, try again")
+        src = pickSource(concern)
+      end
+      if src == "ABORT" then aborted = true; break end
+      choices[concern] = src
+    end
+    if aborted then return nil end
+
+    print("")
+    print("resolving...")
+    local ok, assembled, err = M.finish(choices, sources)
+    if ok then
+      print("OK -- wrote " .. HW_CONFIG_PATH .. " + " .. TUNING_PATH)
+      return assembled
+    end
+    print("FAILED: " .. tostring(err))
+    print("please re-pick")
+  end
+end
+
+return M

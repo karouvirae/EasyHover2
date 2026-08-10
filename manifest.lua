@@ -52,6 +52,18 @@
           ["sum"] = "c14dd597",
         },
         {
+          ["dst"] = "fcs/boot/loader.lua",
+          ["size"] = 1269,
+          ["src"] = "fcs/boot/loader.lua",
+          ["sum"] = "a867db0a",
+        },
+        {
+          ["dst"] = "fcs/boot/loaderui.lua",
+          ["size"] = 9417,
+          ["src"] = "fcs/boot/loaderui.lua",
+          ["sum"] = "4406bfec",
+        },
+        {
           ["dst"] = "fcs/bringup/instrument.lua",
           ["size"] = 5974,
           ["src"] = "fcs/bringup/instrument.lua",
@@ -62,6 +74,12 @@
           ["size"] = 2514,
           ["src"] = "fcs/bringup/profile.lua",
           ["sum"] = "103249cb",
+        },
+        {
+          ["dst"] = "fcs/comms/cfgsync.lua",
+          ["size"] = 2645,
+          ["src"] = "fcs/comms/cfgsync.lua",
+          ["sum"] = "d16bd5cf",
         },
         {
           ["dst"] = "fcs/comms/command.lua",
@@ -269,9 +287,9 @@
         },
         {
           ["dst"] = "startup.lua",
-          ["size"] = 77,
+          ["size"] = 189,
           ["src"] = "launchers/fcs.lua",
-          ["sum"] = "07af84ec",
+          ["sum"] = "509363c6",
         },
         {
           ["dst"] = "tools/calibrate.lua",
@@ -632,5 +650,5 @@
     ["size"] = 66129,
     ["sum"] = "750f5356",
   },
-  ["version"] = "6f01be9e",
+  ["version"] = "48752869",
 }
