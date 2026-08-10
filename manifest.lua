@@ -287,9 +287,9 @@
         },
         {
           ["dst"] = "startup.lua",
-          ["size"] = 189,
+          ["size"] = 178,
           ["src"] = "launchers/fcs.lua",
-          ["sum"] = "509363c6",
+          ["sum"] = "8136255a",
         },
         {
           ["dst"] = "tools/calibrate.lua",
@@ -764,5 +764,5 @@
     ["size"] = 66129,
     ["sum"] = "750f5356",
   },
-  ["version"] = "032ce4f0",
+  ["version"] = "15a49fa6",
 }
