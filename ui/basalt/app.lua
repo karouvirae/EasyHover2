@@ -391,7 +391,7 @@ function M.buildRuntime(deps)
     config = config,
     rebindRelay = rebindRelay,
     uiRev = 0,
-    state = { pumpFrac = 0, tankFrac = 0 },
+    state = { pumpFrac = 0, tankFrac = 0, pumpAmount = 0, tankMb = 0 },
     CH = CH,
     CFG_CH = CFG_CH,
   }
@@ -458,6 +458,8 @@ function M.buildState(runtime, now)
     nextFeedInMs = e.nextFeedInMs,
     pumpFrac     = runtime.state.pumpFrac,
     tankFrac     = runtime.state.tankFrac,
+    pumpAmount   = runtime.state.pumpAmount,   -- raw solid count (merged page: % vs manual max)
+    tankMb       = runtime.state.tankMb,       -- raw liquid mB (merged page: shown raw, gauge vs manual max)
     uiRev        = runtime.uiRev,
   }
 end
@@ -509,8 +511,12 @@ function M.startScheduled(basalt, runtime, frames, applyState, extraDirty)
   -- (c) fuel poll, 0.5s.
   basalt.schedule(function()
     while true do
-      runtime.state.pumpFrac = Fuel.read(runtime.fuelReaders.pump, runtime.config.fuel.pump.kind, runtime.config.fuel.pump)
-      runtime.state.tankFrac = Fuel.read(runtime.fuelReaders.tank, runtime.config.fuel.tank.kind, runtime.config.fuel.tank)
+      -- Capture the raw amount too (2nd return): the merged flight page divides by a MANUALLY set
+      -- max (config.fuel.<role>.full), not the device capacity, and shows the main tank in raw mB.
+      runtime.state.pumpFrac, runtime.state.pumpAmount =
+        Fuel.read(runtime.fuelReaders.pump, runtime.config.fuel.pump.kind, runtime.config.fuel.pump)
+      runtime.state.tankFrac, runtime.state.tankMb =
+        Fuel.read(runtime.fuelReaders.tank, runtime.config.fuel.tank.kind, runtime.config.fuel.tank)
       sleep(0.5)
     end
   end)

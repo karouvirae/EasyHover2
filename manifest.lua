@@ -617,9 +617,9 @@
         },
         {
           ["dst"] = "ui/basalt/app.lua",
-          ["size"] = 26570,
+          ["size"] = 27068,
           ["src"] = "ui/basalt/app.lua",
-          ["sum"] = "3d043b8d",
+          ["sum"] = "2d9a563d",
         },
         {
           ["dst"] = "ui/basalt/bitconfig/dtc.lua",
@@ -665,9 +665,9 @@
         },
         {
           ["dst"] = "ui/basalt/cadence.lua",
-          ["size"] = 1366,
+          ["size"] = 1466,
           ["src"] = "ui/basalt/cadence.lua",
-          ["sum"] = "768c4196",
+          ["sum"] = "2e4cb88c",
         },
         {
           ["dst"] = "ui/basalt/nav.lua",
@@ -731,9 +731,9 @@
         },
         {
           ["dst"] = "ui/fuel.lua",
-          ["size"] = 1345,
+          ["size"] = 1777,
           ["src"] = "ui/fuel.lua",
-          ["sum"] = "49d08dab",
+          ["sum"] = "50593fe2",
         },
         {
           ["dst"] = "ui/monitors.lua",
@@ -776,5 +776,5 @@
     ["size"] = 66129,
     ["sum"] = "750f5356",
   },
-  ["version"] = "32259643",
+  ["version"] = "b824768a",
 }

@@ -21,6 +21,7 @@ function M.sig(state)
     tostring(state.engineMaster), tostring(state.feeding), tostring(state.pulses),
     state.nextFeedInMs and tostring(math.floor(state.nextFeedInMs / 1000)) or "-",
     qn(state.pumpFrac, 100), qn(state.tankFrac, 100),
+    qn(state.pumpAmount, 1), qn(state.tankMb, 1),   -- raw fuel amounts (merged flight page gauges)
     tostring(state.uiRev),
   }, "|")
 end

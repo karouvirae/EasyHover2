@@ -37,4 +37,12 @@ function M.read(reader, kind, cal)
   return M.fraction({ amount = amount, capacity = capacity }, cal or {}), amount
 end
 
+-- Manual-max fraction: divide a raw amount by a MANUALLY set max, ignoring any device-reported
+-- capacity. Used by the merged flight page (config.fuel.<role>.full is the max the pilot sets
+-- under CAL FUEL). Returns 0 for a missing/non-positive max or a non-number amount.
+function M.manualFrac(amount, max)
+  if type(amount) ~= "number" or type(max) ~= "number" or max <= 0 then return 0 end
+  return clamp01(amount / max)
+end
+
 return M
