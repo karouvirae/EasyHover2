@@ -1,0 +1,44 @@
+local cfgspec = require("fcs.io.cfgspec")
+
+local M = {
+  SOURCES = {
+    binding = { "own", "ui", "disk" },
+    sensor = { "own", "ui", "disk" },
+    tuning = { "ui", "disk", "defaults" },
+  },
+}
+
+-- concern name -> cfgspec kind (NOT the same string for binding/sensor)
+local KIND = { binding = "devbind", sensor = "senscal", tuning = "tuning" }
+
+local function isMember(list, v)
+  for _, x in ipairs(list) do if x == v then return true end end
+  return false
+end
+
+function M.resolve(choices, sources)
+  local cfgs = {}
+  for _, concern in ipairs({ "binding", "sensor", "tuning" }) do
+    local src = choices[concern]
+    if not isMember(M.SOURCES[concern], src) then
+      return false, nil, concern .. ": invalid source '" .. tostring(src) .. "'"
+    end
+    local cfg = sources.get(concern, src)
+    if cfg == nil then
+      return false, nil, concern .. " (" .. tostring(src) .. "): no config available"
+    end
+    local ok, verr = cfgspec.validate(KIND[concern], cfg)
+    if not ok then
+      return false, nil, concern .. " (" .. tostring(src) .. "): " .. tostring(verr)
+    end
+    cfgs[concern] = cfg
+  end
+
+  local assembled = {
+    hw = cfgspec.assembleHw(cfgs.binding, cfgs.sensor),
+    tuning = cfgs.tuning,
+  }
+  return true, assembled, nil
+end
+
+return M
