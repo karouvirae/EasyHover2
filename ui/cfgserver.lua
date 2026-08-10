@@ -41,8 +41,11 @@ function Server:onMessage(frame)
   if not self._running then return nil end
 
   -- Build provider that reads from dir + FILES[kind]
+  -- Guard against unknown kinds (malformed/hostile frames)
   local provider = function(kind)
-    return self.read(self.dir .. cfgspec.FILES[kind])
+    local file = cfgspec.FILES[kind]
+    if not file then return nil end
+    return self.read(self.dir .. file)
   end
 
   return cfgsync.Responder.decide(frame, provider)
