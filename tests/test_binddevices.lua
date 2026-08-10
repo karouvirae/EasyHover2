@@ -1,0 +1,10 @@
+local t = require("tests.framework")
+
+t.test("binddevices.assign sets the right slot; candidates split by kind", function()
+  local B = require("tools.binddevices"); local cfg = require("fcs.io.cfgspec").defaults("devbind")
+  B.assign(cfg, "thruster", "FL", "thruster_2"); t.eq(cfg.thrusters.FL, "thruster_2")
+  B.assign(cfg, "sensor", "gimbal", "gimbal_0"); t.eq(cfg.sensors.gimbal, "gimbal_0")
+  B.assign(cfg, "relay", nil, "relay_1"); t.eq(cfg.fuelRelay, "relay_1")
+  local c = B.candidates({ { name="thruster_2", type="thruster" }, { name="gimbal_0", type="gimbal_sensor" } })
+  t.truthy(#c.thruster >= 1 and #c.sensor >= 1)
+end)
