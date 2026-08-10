@@ -135,4 +135,12 @@ function M.action(id, ctx)
   return nil
 end
 
+-- ===== Exports for the Basalt cockpit page (ui/basalt/pages/fcs.lua) =====
+-- Same reuse approach as ui/panels/engine.lua's buttonStates/fmt did for Task 15's EMC page:
+-- expose the local helpers verbatim (no behavior change) so the page can drive its Labels/Button
+-- styling from the SAME logic this panel's own render() uses, instead of re-deriving it.
+M.buttonStates = buttonStates
+M.fieldValues = fieldValues
+M.fmt = fmt
+
 return M
