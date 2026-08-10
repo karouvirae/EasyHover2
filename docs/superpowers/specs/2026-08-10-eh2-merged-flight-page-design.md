@@ -8,8 +8,12 @@ text scale 0.5) that stacks a compact **EMC** (engine) view over a compact **FCS
 
 The frame is split into a **top region** (EMC) and a **bottom region** (FCS). Each region owns its
 **own `ui/basalt/nav.lua` stack** and a small screen registry; drilling one region into a submenu
-**never affects the other**. The split is **flexible** — each region is sized to its current
-screen's content, so the busy half borrows rows from the other (no hard seam at the block border).
+**never affects the other**. The split is a **content-based FIXED split** computed once at build
+(`flight.M.split`, EMC ≈46%) — the boundary is NOT the block seam (EMC gets the smaller share), but
+each region's area is fixed. Every region screen (incl. the submenus) is deliberately compact
+enough to fit its region's rows, so a drill-in swaps content within the region without needing a
+resize-on-drill (the simpler, more robust choice made during design — dynamic borrowing was
+dropped as unnecessary given the compact screens).
 
 - Top region nav: `emc_main` → push `emc_config` → push `emc_calfuel`. `< BACK` pops one level.
 - Bottom region nav: `fcs_main` → push `fcs_params`. `< BACK` pops.

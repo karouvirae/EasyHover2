@@ -51,9 +51,11 @@ t.test("flight page builds both regions, applies, and a region drill bumps uiRev
   local before = rt.uiRev
   page.elements.top:push("emc_config")     -- drill the EMC region -> onNav should bump uiRev
   t.eq(rt.uiRev, before + 1, "region drill bumps uiRev so the render-gate repaints")
+  t.eq(page.elements.bottom:top(), "fcs_main", "drilling the TOP region leaves the BOTTOM region put")
   page.apply(sample)                       -- top now shows emc_config, bottom still fcs_main
 
   page.elements.bottom:push("fcs_params")  -- independent: drill the FCS region
+  t.eq(page.elements.top:top(), "emc_config", "drilling the BOTTOM region leaves the TOP region put")
   page.apply(sample)
 
   local ok, err = pcall(function() basalt.update("timer", -1) end)
