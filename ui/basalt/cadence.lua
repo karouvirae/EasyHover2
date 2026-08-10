@@ -1,0 +1,37 @@
+-- ui/basalt/cadence.lua
+-- Pure dirty-gate signature: quantized state string for render dedup.
+-- No peripherals, IO, or side effects. Testable & self-contained.
+
+local M = {}
+
+-- Nil-safe quantizer: returns "-" for non-numbers, quantized string for numbers.
+local function qn(x, mul)
+  if type(x) ~= "number" then return "-" end
+  return tostring(math.floor(x * mul + 0.5))
+end
+
+-- sig(state) -> quantized string of display-visible values.
+-- State is a flat table with canonical keys (missing fields return "-" or "nil").
+function M.sig(state)
+  state = state or {}
+  return table.concat({
+    tostring(state.engaged), tostring(state.gndSafety), tostring(state.positionHold),
+    tostring(state.mode), tostring(state.linkUp),
+    qn(state.altitude, 10), qn(state.vSpeed, 100), qn(state.heading, 1), qn(state.loopHz, 1),
+    tostring(state.engineMaster), tostring(state.feeding), tostring(state.pulses),
+    state.nextFeedInMs and tostring(math.floor(state.nextFeedInMs / 1000)) or "-",
+    qn(state.pumpFrac, 100), qn(state.tankFrac, 100),
+    tostring(state.uiRev),
+  }, "|")
+end
+
+-- gate(prev, state) -> changed, sig
+-- Returns (true, sig) on first frame (prev == nil) or when sig changes.
+-- Returns (false, sig) when sig is unchanged.
+function M.gate(prev, state)
+  local sig = M.sig(state)
+  local changed = (prev ~= sig)
+  return changed, sig
+end
+
+return M
