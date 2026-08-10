@@ -55,8 +55,8 @@ end
 -- Resolve the pilot's chosen sources into an assembled config, then commit it.
 -- Returns true, assembled  on success, or  false, nil, err  (nothing is written on failure).
 function M.finish(choices, sources, write)
-  local ok, assembled, err = loader.resolve(choices, sources)
-  if not ok then return false, nil, err end
+  local ok, assembled, err, failedConcern = loader.resolve(choices, sources)
+  if not ok then return false, nil, err, failedConcern end
   M.commit(assembled, write)
   return true, assembled
 end
@@ -74,7 +74,11 @@ local realRead = fsx.read
 -- tools/calibrate.lua's M._loadCal / loadSensors so terminal tool and boot UI agree).
 local function ownSource(concern)
   local kind = KIND[concern]
-  local cfg, existed = cfgspec.load(kind, realRead)
+  local cfg, existed, err = cfgspec.load(kind, realRead)
+  -- Present-but-unparseable local file: treat as UNAVAILABLE (nil) rather than silently
+  -- flying with cfgspec's defaults. resolve then fails on this concern so the pilot must
+  -- re-pick (the source menu shows "split file CORRUPT" so they know why).
+  if err then return nil end
   if existed then return cfg end
   local legacyBody = realRead(LEGACY_CONFIG_PATH)
   if legacyBody == nil then return nil end
@@ -179,7 +183,12 @@ end
 
 local function ownIndicator(concern)
   local kind = KIND[concern]
-  if realRead("/" .. cfgspec.FILES[kind]) then return "split file present" end
+  local body = realRead("/" .. cfgspec.FILES[kind])
+  if body then
+    local okp, parsed = pcall(textutils.unserialise, body)
+    if okp and type(parsed) == "table" then return "split file present" end
+    return "split file CORRUPT"
+  end
   if realRead(LEGACY_CONFIG_PATH) then return "legacy read-through" end
   return "none available"
 end
@@ -201,34 +210,56 @@ local function pickSource(concern)
   return ch and opts[ch] or nil
 end
 
+-- Close the cfgsync request/reply channels the "ui" source may have opened, so the flight
+-- app boots with a clean modem (best-effort; in-game only).
+local function closeCfgChannels()
+  local modem = peripheral.find("modem")
+  if modem and modem.close then
+    pcall(modem.close, M.CFG_CH.req)
+    pcall(modem.close, M.CFG_CH.reply)
+  end
+end
+
+-- Prompt for one concern until a valid source is picked; returns the source, or "ABORT" on 'q'.
+local function pickUntilValid(concern)
+  local src = pickSource(concern)
+  while src == nil do
+    print("  invalid choice, try again")
+    src = pickSource(concern)
+  end
+  return src
+end
+
 -- Full interactive boot loop. Only place read()/term is touched. Returns the assembled
 -- {hw=, tuning=} result on success (files already written), or nil on explicit abort.
 function M.run()
   local sources = M.buildSources()
   print("EH2 BOOT LOADER")
+  local choices = {}
+  local toPick = CONCERNS   -- first pass picks all three; later passes re-pick only the failed one
   while true do
-    local choices = {}
-    local aborted = false
-    for _, concern in ipairs(CONCERNS) do
-      local src = pickSource(concern)
-      while src == nil do
-        print("  invalid choice, try again")
-        src = pickSource(concern)
-      end
-      if src == "ABORT" then aborted = true; break end
+    for _, concern in ipairs(toPick) do
+      local src = pickUntilValid(concern)
+      if src == "ABORT" then return nil end
       choices[concern] = src
     end
-    if aborted then return nil end
 
     print("")
     print("resolving...")
-    local ok, assembled, err = M.finish(choices, sources)
+    local ok, assembled, err, failedConcern = M.finish(choices, sources)
     if ok then
       print("OK -- wrote " .. HW_CONFIG_PATH .. " + " .. TUNING_PATH)
+      closeCfgChannels()
       return assembled
     end
     print("FAILED: " .. tostring(err))
-    print("please re-pick")
+    if failedConcern and LABEL[failedConcern] then
+      print("re-pick " .. LABEL[failedConcern])
+      toPick = { failedConcern }   -- keep the other concerns' picks; only redo the one that failed
+    else
+      print("please re-pick")
+      toPick = CONCERNS
+    end
   end
 end
 

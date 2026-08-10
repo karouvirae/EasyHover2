@@ -21,15 +21,15 @@ function M.resolve(choices, sources)
   for _, concern in ipairs({ "binding", "sensor", "tuning" }) do
     local src = choices[concern]
     if not isMember(M.SOURCES[concern], src) then
-      return false, nil, concern .. ": invalid source '" .. tostring(src) .. "'"
+      return false, nil, concern .. ": invalid source '" .. tostring(src) .. "'", concern
     end
     local cfg = sources.get(concern, src)
     if cfg == nil then
-      return false, nil, concern .. " (" .. tostring(src) .. "): no config available"
+      return false, nil, concern .. " (" .. tostring(src) .. "): no config available", concern
     end
     local ok, verr = cfgspec.validate(KIND[concern], cfg)
     if not ok then
-      return false, nil, concern .. " (" .. tostring(src) .. "): " .. tostring(verr)
+      return false, nil, concern .. " (" .. tostring(src) .. "): " .. tostring(verr), concern
     end
     cfgs[concern] = cfg
   end

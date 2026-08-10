@@ -53,15 +53,15 @@
         },
         {
           ["dst"] = "fcs/boot/loader.lua",
-          ["size"] = 1269,
+          ["size"] = 1296,
           ["src"] = "fcs/boot/loader.lua",
-          ["sum"] = "a867db0a",
+          ["sum"] = "a99a94a6",
         },
         {
           ["dst"] = "fcs/boot/loaderui.lua",
-          ["size"] = 9896,
+          ["size"] = 11204,
           ["src"] = "fcs/boot/loaderui.lua",
-          ["sum"] = "3571d833",
+          ["sum"] = "1aac68d9",
         },
         {
           ["dst"] = "fcs/bringup/instrument.lua",
@@ -776,5 +776,5 @@
     ["size"] = 66129,
     ["sum"] = "750f5356",
   },
-  ["version"] = "88d1690a",
+  ["version"] = "f00bb63a",
 }
