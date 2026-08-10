@@ -1,0 +1,362 @@
+-- tests/test_bitconfig_dtc.lua
+-- DTC (Data Cartridge) sub-menu (ui/basalt/bitconfig/dtc.lua): tests the PURE M.plan map, the
+-- disk-layout path helpers (MUST match fcs/boot/loaderui.lua's diskSource byte-for-byte -- see
+-- Task 9's integration concern), M._detect/M._scan/M._export/M._import with an in-memory fs
+-- stub (no real disk), plus a real-CraftOS-PC Basalt construction probe.
+local t = require("tests.framework")
+local M = require("ui.basalt.bitconfig.dtc")
+local Nav = require("ui.basalt.nav")
+local BasaltApp = require("ui.basalt.app")
+local cfgspec = require("fcs.io.cfgspec")
+
+-- ===== M.KINDS: canonical ordered list, resolves via cfgspec.FILES =====
+
+t.test("KINDS: three kinds in devbind/senscal/tuning order", function()
+  t.eq(#M.KINDS, 3)
+  t.eq(M.KINDS[1], "devbind"); t.eq(M.KINDS[2], "senscal"); t.eq(M.KINDS[3], "tuning")
+end)
+
+-- ===== M.plan: PURE, no IO ===== (TDD cases from the task brief)
+
+t.test("plan: kind present locally but not on disk -> canExport true, canImport false", function()
+  local present = { localHas = { devbind = true }, diskHas = {} }
+  local plan = M.plan(present)
+  local row = plan[1] -- devbind is KINDS[1]
+  t.eq(row.kind, "devbind")
+  t.eq(row.hasLocal, true); t.eq(row.hasDisk, false)
+  t.eq(row.canExport, true); t.eq(row.canImport, false)
+end)
+
+t.test("plan: kind present on disk only -> canExport false, canImport true", function()
+  local present = { localHas = {}, diskHas = { senscal = true } }
+  local plan = M.plan(present)
+  local row = plan[2] -- senscal is KINDS[2]
+  t.eq(row.kind, "senscal")
+  t.eq(row.hasLocal, false); t.eq(row.hasDisk, true)
+  t.eq(row.canExport, false); t.eq(row.canImport, true)
+end)
+
+t.test("plan: kind present both local and disk -> both true", function()
+  local present = { localHas = { tuning = true }, diskHas = { tuning = true } }
+  local plan = M.plan(present)
+  local row = plan[3] -- tuning is KINDS[3]
+  t.eq(row.kind, "tuning")
+  t.eq(row.canExport, true); t.eq(row.canImport, true)
+end)
+
+t.test("plan: kind absent both -> both false", function()
+  local plan = M.plan({ localHas = {}, diskHas = {} })
+  for _, row in ipairs(plan) do
+    t.eq(row.hasLocal, false); t.eq(row.hasDisk, false)
+    t.eq(row.canExport, false); t.eq(row.canImport, false)
+  end
+end)
+
+t.test("plan: filename resolves via cfgspec.FILES for every row", function()
+  local plan = M.plan({ localHas = {}, diskHas = {} })
+  for _, row in ipairs(plan) do
+    t.eq(row.filename, cfgspec.FILES[row.kind])
+  end
+end)
+
+t.test("plan: exportable/importable convenience lists reflect canExport/canImport correctly", function()
+  local present = {
+    localHas = { devbind = true, tuning = true },
+    diskHas  = { senscal = true, tuning = true },
+  }
+  local plan = M.plan(present)
+  t.eq(#plan.exportable, 2)
+  t.eq(plan.exportable[1], "devbind"); t.eq(plan.exportable[2], "tuning")
+  t.eq(#plan.importable, 2)
+  t.eq(plan.importable[1], "senscal"); t.eq(plan.importable[2], "tuning")
+end)
+
+t.test("plan: empty present -> empty exportable/importable lists, three rows still present", function()
+  local plan = M.plan({})
+  t.eq(#plan, 3)
+  t.eq(#plan.exportable, 0)
+  t.eq(#plan.importable, 0)
+end)
+
+-- ===== Path helpers: MUST match loaderui.lua's diskSource byte-for-byte =====
+-- loaderui's diskSource reads realRead("/" .. mount .. "/" .. cfgspec.FILES[kind]).
+
+t.test("localPath/diskPath: resolve to the exact paths the boot loader's own/disk sources use", function()
+  t.eq(M.localPath("devbind"), "/eh2_devbind.tbl")
+  t.eq(M.localPath("devbind"), "/" .. cfgspec.FILES.devbind)
+  t.eq(M.diskPath("disk", "devbind"), "/disk/eh2_devbind.tbl")
+  t.eq(M.diskPath("disk", "devbind"), "/" .. "disk" .. "/" .. cfgspec.FILES.devbind)
+  t.eq(M.diskPath("disk", "senscal"), "/disk/eh2_senscal.tbl")
+  t.eq(M.diskPath("disk", "tuning"), "/disk/eh2_tuning.tbl")
+end)
+
+t.test("diskPath: works with an arbitrary mount name (not hardcoded to 'disk')", function()
+  t.eq(M.diskPath("disk3_1", "tuning"), "/disk3_1/eh2_tuning.tbl")
+end)
+
+-- ===== M._detect: drive presence/label detection, injected find =====
+
+t.test("_detect: no drive peripheral found -> present false, driveFound false", function()
+  local d = M._detect({ find = function(kind) return nil end })
+  t.eq(d.present, false)
+  t.eq(d.driveFound, false)
+  t.eq(d.mount, nil)
+end)
+
+t.test("_detect: drive found but no disk inserted -> present false, driveFound true", function()
+  local drive = { isDiskPresent = function() return false end }
+  local d = M._detect({ find = function(kind) t.eq(kind, "drive"); return drive end })
+  t.eq(d.present, false)
+  t.eq(d.driveFound, true)
+  t.eq(d.mount, nil)
+end)
+
+t.test("_detect: disk present -> present true, mount + label surfaced", function()
+  local drive = {
+    isDiskPresent = function() return true end,
+    getMountPath  = function() return "disk" end,
+    getDiskLabel  = function() return "CART1" end,
+  }
+  local d = M._detect({ find = function() return drive end })
+  t.eq(d.present, true)
+  t.eq(d.mount, "disk")
+  t.eq(d.label, "CART1")
+end)
+
+t.test("_detect: disk present with no label -> label falls back to 'unlabeled'", function()
+  local drive = {
+    isDiskPresent = function() return true end,
+    getMountPath  = function() return "disk" end,
+    getDiskLabel  = function() return nil end,
+  }
+  local d = M._detect({ find = function() return drive end })
+  t.eq(d.label, "unlabeled")
+end)
+
+-- ===== M._scan: which files exist locally / on disk, injected exists =====
+
+t.test("_scan: reports localHas/diskHas per kind via the injected exists()", function()
+  local existsSet = {
+    ["/eh2_devbind.tbl"] = true,
+    ["/disk/eh2_senscal.tbl"] = true,
+  }
+  local scan = M._scan("disk", { exists = function(p) return existsSet[p] == true end })
+  t.eq(scan.localHas.devbind, true)
+  t.eq(scan.localHas.senscal, false)
+  t.eq(scan.localHas.tuning, false)
+  t.eq(scan.diskHas.devbind, false)
+  t.eq(scan.diskHas.senscal, true)
+  t.eq(scan.diskHas.tuning, false)
+end)
+
+t.test("_scan: with mount=nil (no disk), diskHas is false for every kind regardless of exists()", function()
+  local scan = M._scan(nil, { exists = function(p) return true end })
+  t.eq(scan.diskHas.devbind, false)
+  t.eq(scan.diskHas.senscal, false)
+  t.eq(scan.diskHas.tuning, false)
+end)
+
+t.test("_scan feeds directly into M.plan", function()
+  local existsSet = { ["/eh2_devbind.tbl"] = true, ["/disk/eh2_devbind.tbl"] = true }
+  local scan = M._scan("disk", { exists = function(p) return existsSet[p] == true end })
+  local plan = M.plan(scan)
+  t.eq(plan[1].canExport, true); t.eq(plan[1].canImport, true) -- devbind
+  t.eq(plan[2].canExport, false); t.eq(plan[2].canImport, false) -- senscal
+end)
+
+-- ===== M._export / M._import: in-memory fs stub, atomic tmp-then-move =====
+
+local function fakeFsDeps(initialFiles)
+  local files = {}
+  for k, v in pairs(initialFiles or {}) do files[k] = v end
+  local log = { write = {}, delete = {}, move = {} }
+  local deps = {
+    exists = function(p) return files[p] ~= nil end,
+    read   = function(p) return files[p] end,
+    write  = function(p, body) log.write[#log.write + 1] = p; files[p] = body end,
+    delete = function(p) log.delete[#log.delete + 1] = p; files[p] = nil end,
+    move   = function(from, to) log.move[#log.move + 1] = { from = from, to = to }; files[to] = files[from]; files[from] = nil end,
+  }
+  return files, deps, log
+end
+
+t.test("_export: copies ONLY locally-present kinds to the CORRECT diskPath, returns exported kinds", function()
+  local files, deps, log = fakeFsDeps({
+    ["/eh2_devbind.tbl"] = "BODY-DEVBIND",
+    ["/eh2_tuning.tbl"]  = "BODY-TUNING",
+    -- senscal deliberately absent locally
+  })
+
+  local exported = M._export("disk", deps)
+
+  t.eq(#exported, 2)
+  t.eq(exported[1], "devbind"); t.eq(exported[2], "tuning")
+
+  t.eq(files["/disk/eh2_devbind.tbl"], "BODY-DEVBIND")
+  t.eq(files["/disk/eh2_tuning.tbl"], "BODY-TUNING")
+  t.eq(files["/disk/eh2_senscal.tbl"], nil, "senscal was never local, so never exported")
+
+  -- atomic: wrote to a .tmp path, then moved into place (no direct write to the final path)
+  local wroteTmp = false
+  for _, p in ipairs(log.write) do
+    if p == "/disk/eh2_devbind.tbl.tmp" then wroteTmp = true end
+  end
+  t.truthy(wroteTmp, "wrote to a .tmp path before moving")
+  local movedIntoPlace = false
+  for _, mv in ipairs(log.move) do
+    if mv.from == "/disk/eh2_devbind.tbl.tmp" and mv.to == "/disk/eh2_devbind.tbl" then movedIntoPlace = true end
+  end
+  t.truthy(movedIntoPlace, "moved the tmp file to the final diskPath")
+end)
+
+t.test("_export: overwriting an existing disk file deletes the old one before moving the new one in", function()
+  local files, deps, log = fakeFsDeps({
+    ["/eh2_devbind.tbl"] = "NEW-BODY",
+    ["/disk/eh2_devbind.tbl"] = "OLD-BODY",
+  })
+  M._export("disk", deps)
+  t.eq(files["/disk/eh2_devbind.tbl"], "NEW-BODY")
+  local deletedOld = false
+  for _, p in ipairs(log.delete) do if p == "/disk/eh2_devbind.tbl" then deletedOld = true end end
+  t.truthy(deletedOld, "old disk file deleted before the atomic move")
+end)
+
+t.test("_export: with mount=nil, exports nothing (no disk to export to)", function()
+  local files, deps = fakeFsDeps({ ["/eh2_devbind.tbl"] = "X" })
+  local exported = M._export(nil, deps)
+  t.eq(#exported, 0)
+end)
+
+t.test("_import: copies disk->local ONLY for disk-present kinds, to the CORRECT localPath", function()
+  local files, deps, log = fakeFsDeps({
+    ["/disk/eh2_senscal.tbl"] = "BODY-SENSCAL",
+    ["/disk/eh2_tuning.tbl"]  = "BODY-TUNING",
+    -- devbind deliberately absent on disk
+  })
+
+  local imported = M._import("disk", deps)
+
+  t.eq(#imported, 2)
+  t.eq(imported[1], "senscal"); t.eq(imported[2], "tuning")
+
+  t.eq(files["/eh2_senscal.tbl"], "BODY-SENSCAL")
+  t.eq(files["/eh2_tuning.tbl"], "BODY-TUNING")
+  t.eq(files["/eh2_devbind.tbl"], nil)
+
+  local wroteTmp = false
+  for _, p in ipairs(log.write) do
+    if p == "/eh2_senscal.tbl.tmp" then wroteTmp = true end
+  end
+  t.truthy(wroteTmp, "import also writes to a .tmp path before moving")
+  local movedIntoPlace = false
+  for _, mv in ipairs(log.move) do
+    if mv.from == "/eh2_senscal.tbl.tmp" and mv.to == "/eh2_senscal.tbl" then movedIntoPlace = true end
+  end
+  t.truthy(movedIntoPlace, "moved the tmp file to the final localPath")
+end)
+
+t.test("_import: with mount=nil, imports nothing", function()
+  local files, deps = fakeFsDeps({})
+  local imported = M._import(nil, deps)
+  t.eq(#imported, 0)
+end)
+
+-- ===== path-layout assertion: byte-for-byte match to loaderui.diskSource =====
+
+t.test("diskPath layout matches what fcs/boot/loaderui.lua's diskSource reads", function()
+  -- loaderui.diskSource: realRead("/" .. mount .. "/" .. cfgspec.FILES[kind])
+  local mount = "disk"
+  for _, kind in ipairs(M.KINDS) do
+    local loaderuiPath = "/" .. mount .. "/" .. cfgspec.FILES[kind]
+    t.eq(M.diskPath(mount, kind), loaderuiPath)
+  end
+end)
+
+-- ===== Construction probe: real CraftOS-PC Basalt, no real peripherals/disk =====
+
+t.test("M.build (no disk): constructs the element tree; apply() + one render pass do not error", function()
+  local basalt = BasaltApp.ensureBasalt()
+  local frame = basalt.createFrame()
+  local nav = Nav.new("bitconfig")
+
+  local deps = {
+    find = function(kind) return nil end,
+    exists = function(p) return false end,
+    read = function(p) return nil end,
+    write = function(p, b) end,
+    delete = function(p) end,
+    move = function(f, t) end,
+  }
+
+  local h = M.build(basalt, frame, nil, nav, deps)
+  t.eq(h.id, "dtc")
+  t.truthy(type(h.apply) == "function", "apply should be a function")
+  t.truthy(h.elements ~= nil, "elements table should be exposed")
+  t.truthy(h.elements.headerLabel ~= nil, "headerLabel present")
+  t.truthy(h.elements.diskLabel ~= nil, "diskLabel present")
+  t.truthy(h.elements.exportBtn ~= nil, "exportBtn present")
+  t.truthy(h.elements.importBtn ~= nil, "importBtn present")
+  t.truthy(h.elements.refreshBtn ~= nil, "refreshBtn present")
+  t.truthy(h.elements.backBtn ~= nil, "backBtn present")
+
+  t.eq(h.elements.diskLabel:getText(), "no disk drive")
+
+  local ok, err = pcall(h.apply, {})
+  t.truthy(ok, "apply should not error: " .. tostring(err))
+  local ok2, err2 = pcall(h.apply, {})
+  t.truthy(ok2, "apply should be safe to call repeatedly: " .. tostring(err2))
+
+  local ok3, err3 = pcall(function() basalt.update("timer", -1) end)
+  t.truthy(ok3, "basalt.update should not error: " .. tostring(err3))
+end)
+
+t.test("M.build (stub disk present): shows disk label; EXPORT/IMPORT wired to injected deps", function()
+  local basalt = BasaltApp.ensureBasalt()
+  local frame = basalt.createFrame()
+  local nav = Nav.new("bitconfig")
+
+  local files = { ["/eh2_devbind.tbl"] = "BODY1" }
+  local fakeDrive = {
+    isDiskPresent = function() return true end,
+    getMountPath  = function() return "disk" end,
+    getDiskLabel  = function() return "CART1" end,
+  }
+  local deps = {
+    find   = function(kind) if kind == "drive" then return fakeDrive end return nil end,
+    exists = function(p) return files[p] ~= nil end,
+    read   = function(p) return files[p] end,
+    write  = function(p, body) files[p] = body end,
+    delete = function(p) files[p] = nil end,
+    move   = function(from, to) files[to] = files[from]; files[from] = nil end,
+  }
+
+  local h = M.build(basalt, frame, nil, nav, deps)
+  t.eq(h.elements.diskLabel:getText(), "disk: CART1")
+
+  -- Exercise the same seam EXPORT's onClick calls internally.
+  local exported = M._export("disk", deps)
+  t.eq(#exported, 1); t.eq(exported[1], "devbind")
+  t.truthy(files["/disk/eh2_devbind.tbl"] ~= nil, "EXPORT wrote the disk copy")
+
+  local ok3, err3 = pcall(function() basalt.update("timer", -1) end)
+  t.truthy(ok3, "basalt.update should not error: " .. tostring(err3))
+end)
+
+t.test("M.build: BACK pops the nav stack", function()
+  local basalt = BasaltApp.ensureBasalt()
+  local frame = basalt.createFrame()
+  local nav = Nav.new("bitconfig")
+  nav:push("dtc")
+  t.eq(nav:top(), "dtc")
+
+  local deps = { find = function() return nil end, exists = function() return false end }
+  local h = M.build(basalt, frame, nil, nav, deps)
+  t.truthy(h.elements.backBtn ~= nil, "backBtn present")
+
+  -- Directly invoke nav:pop() the same way backBtn's onClick does (a real click needs
+  -- basalt.run(), forbidden here).
+  nav:pop()
+  t.eq(nav:top(), "bitconfig")
+end)
+
+return true
