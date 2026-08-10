@@ -23,7 +23,14 @@
 -- apply() closure, so `require("ui.basalt.pages.config")` loads clean headless.
 local ConfigPanel = require("ui.panels.config")
 local Config       = require("ui.config")
-local BasaltApp     = require("ui.basalt.app")
+-- NOTE: ui.basalt.app is required LAZILY below (inside M._onButton / M.build), NOT at module
+-- top. ui/basalt/app.lua's page registry (M.PAGES, Task 27) requires this module at ITS OWN
+-- module top -- a top-level require("ui.basalt.app") here would close the loop mid-load
+-- (require("ui.basalt.app") -> require(this file) -> require("ui.basalt.app") again, still
+-- executing) and CraftOS-PC's require rejects that with "loop or previous error loading module"
+-- (verified empirically). A lazy require inside the functions below is safe: by the time
+-- M._onButton/M.build actually RUN (never at require-time), ui.basalt.app has always already
+-- finished loading and is served straight from require's cache.
 
 local M = {}
 M.id = "config"
@@ -60,6 +67,7 @@ end
 -- Live frame re-resolution (actually moving a page onto the newly-assigned monitor) is an ASSEMBLY
 -- concern (T27) -- this seam only updates config + uiRev.
 function M._onButton(runtime, id, now, saveFn)
+  local BasaltApp = require("ui.basalt.app")
   saveFn = saveFn or Config.save
   if type(id) ~= "string" or id:sub(1, 7) ~= "assign:" then return nil end
   local monitor = id:sub(8)
@@ -75,6 +83,7 @@ end
 -- ===== M.build: construct the element tree =====
 
 function M.build(basalt, frame, runtime)
+  local BasaltApp = require("ui.basalt.app")
   local w, h = frame:getSize()
   local x = 2
   local iw = math.max(1, w - 2)

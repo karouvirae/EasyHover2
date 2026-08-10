@@ -44,6 +44,11 @@ local ROLES = {
     configs = { "/eh2_hw_config.tbl" }, configModule = CONFIG_MODULE, luaPath = "/",
     startup = { src = "launchers/ui.lua", dst = "startup.lua" },
     roots   = { { src = "launchers/cockpit.lua", dst = "cockpit" } },
+    -- Basalt is loadfile()'d at RUNTIME by ui/basalt/app.lua's M.ensureBasalt (never require()'d
+    -- -- see that file's header comment), so tools/closure.lua's require()-following discovery
+    -- can never find it. extraFiles ships it alongside the closure anyway, at exactly
+    -- "/basalt-full.lua" -- M.BASALT_PATHS' first (installed-location) candidate.
+    extraFiles = { { src = "release/basalt-full.lua", dst = "basalt-full.lua" } },
   },
 }
 
@@ -156,6 +161,20 @@ local function buildRole(roleName, spec)
     files[#files + 1] = { src = src, dst = dst, size = size, sum = sum }
     digestParts[#digestParts + 1] = roleName .. ":" .. dst .. ":" .. sum .. ":" .. size
   end
+
+  -- extraFiles (optional): shipped alongside the require() closure but never discoverable BY it
+  -- (e.g. Basalt -- loadfile'd at runtime, not require()'d). Each entry ships at its own `dst`
+  -- and folds into the digest exactly like a discovered file, so `version` still moves when an
+  -- extra file's bytes change. A role with no extraFiles field is completely unaffected (the loop
+  -- below runs zero times), preserving buildRole's existing contract for every other role.
+  for _, e in ipairs(spec.extraFiles or {}) do
+    local body = readNorm(e.src)
+    if body == nil then return nil, ("role %s: cannot read extra file: %s"):format(roleName, e.src) end
+    local size, sum = #body, fnv1a(body)
+    files[#files + 1] = { src = e.src, dst = e.dst, size = size, sum = sum }
+    digestParts[#digestParts + 1] = roleName .. ":" .. e.dst .. ":" .. sum .. ":" .. size
+  end
+
   table.sort(files, function(a, b) return a.dst < b.dst end)
 
   local dstList = {}

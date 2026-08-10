@@ -42,6 +42,7 @@ local Engine    = require("ui.engine")
 local Fuel      = require("ui.fuel")
 local CfgServer = require("ui.cfgserver")
 local cadence   = require("ui.basalt.cadence")
+local Nav       = require("ui.basalt.nav")
 
 local modemlib  = require("fcs.comms.modem")
 local telemetry = require("fcs.comms.telemetry")
@@ -49,6 +50,36 @@ local command   = require("fcs.comms.command")
 local health    = require("fcs.comms.health")
 
 local M = {}
+
+-- ===== Page/menu registry =====
+--
+-- M.PAGES: screen id -> module, covering every screen a per-monitor Nav stack (ui/basalt/nav.lua)
+-- can reach: the five top-level pages (emc/fcs/config/ap/nav) plus the BIT/CONFIG hub and its six
+-- sub-menus (tuning/mdb/uical/senscal/dtc/fcssync -- ids pinned by
+-- ui/basalt/bitconfig/hub.lua's M.ITEMS). Every module here is a PURE load (each one's own header
+-- comment states "NO peripheral/Basalt access at module LOAD") -- required at module top so
+-- M.run() never pays a mid-flight require cost.
+--
+-- CIRCULARITY NOTE: ui/basalt/pages/config.lua and ui/basalt/bitconfig/uical.lua both need
+-- BasaltApp.CONFIG_PATH -- they require ui.basalt.app LAZILY (inside the functions that use it,
+-- not at their own module top) specifically so this list doesn't loop back on itself
+-- (require("ui.basalt.app") -> require(pages.config) -> require("ui.basalt.app") again, still
+-- mid-load -- CraftOS-PC's require rejects that with "loop or previous error loading module",
+-- verified empirically). Every OTHER module below has no such back-reference.
+M.PAGES = {
+  emc       = require("ui.basalt.pages.emc"),
+  fcs       = require("ui.basalt.pages.fcs"),
+  config    = require("ui.basalt.pages.config"),
+  ap        = require("ui.basalt.pages.ap"),
+  nav       = require("ui.basalt.pages.nav"),
+  bitconfig = require("ui.basalt.bitconfig.hub"),
+  tuning    = require("ui.basalt.bitconfig.tuning"),
+  mdb       = require("ui.basalt.bitconfig.mdb"),
+  uical     = require("ui.basalt.bitconfig.uical"),
+  senscal   = require("ui.basalt.bitconfig.senscal"),
+  dtc       = require("ui.basalt.bitconfig.dtc"),
+  fcssync   = require("ui.basalt.bitconfig.fcssync"),
+}
 
 -- Same channel convention as ui/main.lua (101-104) and fcs/boot/loaderui.lua's cfgsync client
 -- (105-106, mirrored here: the UI is the RESPONDER -- listens on req, sends on reply).
@@ -182,6 +213,57 @@ function M.buildFrames(basalt, assign, present, wrap)
   end
   local terminal = basalt.getMainFrame()
   return { terminal = terminal, monitors = monitors, resolved = resolved }
+end
+
+-- ===== Per-frame nav-aware screen management (lazy build + visibility toggle) =====
+--
+-- One "frameRec" lives per top-level Basalt frame (the terminal, or one per assigned monitor
+-- name): { frame, nav = Nav.new(root), built = {}, lastTop = nil }. `built` lazily caches
+-- { [screenId] = { childFrame, handle } } as screens are visited, so the BIT/CONFIG hub's six
+-- sub-menus are never constructed until an operator actually navigates into one.
+
+-- M.rootForMonitor(assign, name) -> the nav ROOT screen id for a monitor's frame. `assign` is
+-- runtime.config.assign ([monitorName]=pageId); an unassigned or unrecognised page id falls back
+-- to "emc" (per task-27-brief.md). PURE -- no Basalt/peripherals, testable standalone.
+function M.rootForMonitor(assign, name)
+  local id = assign and assign[name]
+  if id ~= nil and M.PAGES[id] then return id end
+  return "emc"
+end
+
+-- M.newFrameRec(frame, root) -> a fresh frameRec rooted at `root`. PURE (Nav.new is pure).
+function M.newFrameRec(frame, root)
+  return { frame = frame, nav = Nav.new(root), built = {}, lastTop = nil }
+end
+
+-- M.showScreen(basalt, runtime, frameRec, screenId) -> { childFrame, handle } | nil
+-- Lazily builds screenId's child Frame (basalt-full.lua's Container:addFrame, auto-generated per
+-- emc.lua's header notes -- sized to fill frameRec.frame exactly, verified against
+-- release/basalt-full.lua's VisualElement width/height defaults of 1, which is why an explicit
+-- width/height is passed here) + that page's element tree (page.build(basalt, childFrame,
+-- runtime, frameRec.nav)) on FIRST visit, caching the result in frameRec.built. On EVERY call
+-- (cached or not) it then sets EXACTLY that screen's child Frame visible and every other built
+-- child invisible (Container.lua's render skips invisible children -- verified against
+-- release/basalt-full.lua's canRender check), so a repeat visit to an already-built screen is
+-- cheap: no rebuild, just a handful of setVisible() calls. Unknown screenId (not in M.PAGES) is a
+-- no-op that returns nil.
+function M.showScreen(basalt, runtime, frameRec, screenId)
+  local page = M.PAGES[screenId]
+  if not page then return nil end
+
+  local entry = frameRec.built[screenId]
+  if not entry then
+    local w, h = frameRec.frame:getSize()
+    local childFrame = frameRec.frame:addFrame({ x = 1, y = 1, width = w, height = h })
+    local handle = page.build(basalt, childFrame, runtime, frameRec.nav)
+    entry = { childFrame = childFrame, handle = handle }
+    frameRec.built[screenId] = entry
+  end
+
+  for id, e in pairs(frameRec.built) do
+    e.childFrame:setVisible(id == screenId)
+  end
+  return entry
 end
 
 -- ===== Runtime: comms/engine/fuel machinery (reused verbatim from ui/main.lua) =====
@@ -397,7 +479,15 @@ end
 -- CRITICAL non-blocking discipline (same as ui/main.lua): peripheral polls and long ops live in
 -- (a)-(d) below, NEVER in (e) the render-gate -- (e) only builds a quantized signature and calls
 -- applyState() when it actually changed, so paint stays off the FCS's shared main-thread budget.
-function M.startScheduled(basalt, runtime, frames, applyState)
+--
+-- extraDirty (optional 5th param, added for Task 27's nav-aware M.run()): a zero-arg function,
+-- checked every render-gate tick ALONGSIDE cadence.gate -- if it returns true, applyState() fires
+-- even when cadence.gate itself reports no telemetry change. This is how a per-monitor nav-stack
+-- push/pop (a screen switch with no telemetry change at all) still repaints within one ~0.2s gate
+-- tick instead of waiting for the next incidental telemetry change. nil/omitted -- e.g. every
+-- existing call site before this task -- behaves EXACTLY as before (cadence.gate is the sole
+-- trigger), so this stays fully backward compatible.
+function M.startScheduled(basalt, runtime, frames, applyState, extraDirty)
   applyState = applyState or function() end
 
   -- (a) modem_message router: telemetry -> rx, ack -> sender, health -> hbRx, cfgsync req -> reply.
@@ -442,13 +532,68 @@ function M.startScheduled(basalt, runtime, frames, applyState)
       local now = os.epoch("utc")
       local state = M.buildState(runtime, now)
       local changed, sig = cadence.gate(lastSig, state)
-      if changed then
+      local navDirty = extraDirty and extraDirty() or false
+      if changed or navDirty then
         lastSig = sig
         applyState(state, frames)
       end
       sleep(0.2)
     end
   end)
+end
+
+-- ===== M.run: top-level cockpit entry point =====
+--
+-- IN-GAME ONLY -- calls basalt.run(), which blocks on os.pullEventRaw() forever. NEVER call this
+-- from a test (see every M.build*/M.startScheduled test's own header notes on the same point).
+--
+-- ensureBasalt -> buildRuntime(deps) -> discoverMonitors -> buildFrames, then one frameRec
+-- (M.newFrameRec) per top-level frame: the terminal roots at "config"; each monitor roots at its
+-- assigned page id (M.rootForMonitor, default "emc" when unassigned/invalid). applyState (wired
+-- into M.startScheduled) lazily shows/builds the current nav top per frame (M.showScreen) and
+-- calls its handle.apply(state) -- FCS-SAFE: peripheral polls stay in M.startScheduled's (a)-(d),
+-- never on this path. `navChanged` (passed as M.startScheduled's extraDirty) makes the render-gate
+-- ALSO fire on a nav-stack change (an operator's BIT/CONFIG or BACK button press), not only on a
+-- telemetry change, so pressing a nav button switches the visible screen within one ~0.2s gate
+-- tick even while telemetry is holding perfectly still -- without reintroducing an unconditional
+-- repaint storm. deps.* mirrors M.buildRuntime's injectable seams (modem/wrap/find/read) plus
+-- deps.basaltOpts (-> M.ensureBasalt) and deps.getNames/deps.getType (-> M.discoverMonitors).
+--
+-- cfgserver is deliberately NOT auto-started here -- the FCS SYNC sub-menu (ui/basalt/bitconfig/
+-- fcssync.lua) starts/stops it on demand.
+function M.run(deps)
+  deps = deps or {}
+  local basalt = M.ensureBasalt(deps.basaltOpts)
+  local runtime = M.buildRuntime(deps)
+  local present = M.discoverMonitors(deps.getNames, deps.getType)
+  local built = M.buildFrames(basalt, runtime.config.assign, present, deps.wrap)
+
+  local frameRecs = {}
+  frameRecs.terminal = M.newFrameRec(built.terminal, "config")
+  for name, rec in pairs(built.monitors) do
+    frameRecs[name] = M.newFrameRec(rec.frame, M.rootForMonitor(runtime.config.assign, name))
+  end
+
+  local function applyState(state, _frames)
+    for _, frameRec in pairs(frameRecs) do
+      local top = frameRec.nav:top()
+      local entry = M.showScreen(basalt, runtime, frameRec, top)
+      if entry and entry.handle and entry.handle.apply then
+        entry.handle.apply(state)
+      end
+      frameRec.lastTop = top
+    end
+  end
+
+  local function navChanged()
+    for _, frameRec in pairs(frameRecs) do
+      if frameRec.nav:top() ~= frameRec.lastTop then return true end
+    end
+    return false
+  end
+
+  M.startScheduled(basalt, runtime, built, applyState, navChanged)
+  basalt.run()
 end
 
 return M

@@ -130,6 +130,14 @@ end
 -- "ui": request the config from the UI PC's FCS SYNC responder over CFG_CH, with a
 -- timeout + a couple of retries. Returns nil on no answer (caller shows the fallback
 -- message: "UI SYNC not responding -- start FCS SYNC on the UI, or pick Disk / Own / Defaults").
+--
+-- The UI-side responder (ui/cfgserver.lua's Server:onMessage -> fcs.comms.cfgsync's
+-- Responder.decide) answers with the RAW serialised file body it read off disk -- a STRING, not a
+-- table -- so `client.received[kind]` (what waitForReply returns) is that same raw string.
+-- loader.resolve, though, hands the concern's cfg straight to cfgspec.validate(kind, cfg), which
+-- expects an actual TABLE. Unserialise here before returning: an unparseable body (corrupt
+-- transmission, or a stale/incompatible responder) is treated as "no answer this attempt" rather
+-- than handing loader.resolve a raw string it can't validate.
 local function uiSource(concern)
   local modem = peripheral.find("modem")
   if not modem then return nil end
@@ -146,7 +154,10 @@ local function uiSource(concern)
       frame = client:next()
     end
     local body = waitForReply(link, client, kind, UI_TIMEOUT)
-    if body ~= nil then return body end
+    if body ~= nil then
+      local ok, parsed = pcall(textutils.unserialise, body)
+      if ok and type(parsed) == "table" then return parsed end
+    end
   end
   return nil
 end

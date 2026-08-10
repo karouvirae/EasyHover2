@@ -34,7 +34,9 @@ local Config      = require("ui.config")
 local Detect       = require("ui.detect")
 local Fuel         = require("ui.fuel")
 local ConfigPanel  = require("ui.panels.config")
-local BasaltApp    = require("ui.basalt.app")
+-- NOTE: ui.basalt.app is required LAZILY inside M._applyOp below, NOT at module top -- see
+-- ui/basalt/pages/config.lua's header note for the full rationale (ui/basalt/app.lua's page
+-- registry requires this module at ITS module top; a top-level require back would loop mid-load).
 
 local M = {}
 M.id = "uical"
@@ -159,6 +161,7 @@ end
 -- ALWAYS persists via save(BasaltApp.CONFIG_PATH, runtime.config) after applying, matching
 -- ui/main.lua's applyConfigOp (which calls Config.save unconditionally at the end).
 function M._applyOp(runtime, effect, deps)
+  local BasaltApp = require("ui.basalt.app")
   deps = deps or {}
   local d = {
     scan = deps.scan or realScanDescriptors,
