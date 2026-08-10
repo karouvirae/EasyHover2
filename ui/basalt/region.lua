@@ -17,6 +17,9 @@ Region.__index = Region
 --   builder(basalt, subFrame, region) -> { apply = function(state) end }
 --     * subFrame is a child frame sized to the region area -- build elements on it.
 --     * region:push(id) / region:pop() drive THIS region's nav (wire buttons to them).
+-- opts.onNav (optional): called after any push/pop. The merged page uses it to bump runtime.uiRev,
+-- since a region-internal nav change isn't a FRAME-level nav change and so wouldn't otherwise wake
+-- the (dirty-gated) render loop to swap the region's visible screen.
 function M.new(basalt, parent, opts)
   return setmetatable({
     basalt  = basalt,
@@ -24,13 +27,14 @@ function M.new(basalt, parent, opts)
     x = opts.x, y = opts.y, w = opts.width, h = opts.height,
     screens = opts.screens,
     nav     = Nav.new(opts.root),
+    onNav   = opts.onNav,
     built   = {},        -- [screenId] = { frame = <childFrame>, handle = <builder result> }
     lastTop = nil,
   }, Region)
 end
 
-function Region:push(id) self.nav:push(id); return self end
-function Region:pop() self.nav:pop(); return self end
+function Region:push(id) self.nav:push(id); if self.onNav then self.onNav() end; return self end
+function Region:pop() self.nav:pop(); if self.onNav then self.onNav() end; return self end
 function Region:top() return self.nav:top() end
 function Region:canBack() return self.nav:canBack() end
 

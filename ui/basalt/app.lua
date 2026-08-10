@@ -70,6 +70,7 @@ local M = {}
 M.PAGES = {
   emc       = require("ui.basalt.pages.emc"),
   fcs       = require("ui.basalt.pages.fcs"),
+  flight    = require("ui.basalt.pages.flight"),   -- merged EMC+FCS for the overhead 1x2 monitors
   config    = require("ui.basalt.pages.config"),
   ap        = require("ui.basalt.pages.ap"),
   nav       = require("ui.basalt.pages.nav"),
