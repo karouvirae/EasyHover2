@@ -121,6 +121,9 @@ local function stream(readerFn, secs)
   repeat out[#out+1] = readerFn(); sleep(0.1) until (os.epoch("utc") - t0) / 1000 >= secs
   return out
 end
+-- Exposed so other guided-calibration front-ends (e.g. ui/basalt/bitconfig/senscal.lua) can reuse
+-- the SAME sleep-loop sampler instead of reimplementing it. Pure delegation, no behavior change.
+M.stream = stream
 
 local function accept(result)
   print(("  status %s"):format(result.status or "ok"))
