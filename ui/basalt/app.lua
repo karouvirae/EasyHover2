@@ -208,6 +208,10 @@ function M.buildFrames(basalt, assign, present, wrap)
   local monitors = {}
   for name, panelId in pairs(resolved.assigned) do
     local mon = wrap(name)
+    -- All monitor panels render at text scale 0.5 -- the smallest cell = the most rows/cols, so
+    -- panels are compact and fit the tight overhead monitors. (The PC terminal frame can't scale;
+    -- setTextScale is a monitor-only method, so this is where "all UIs at 0.5" is enforced.)
+    if mon and mon.setTextScale then pcall(mon.setTextScale, 0.5) end
     local frame = basalt.createFrame()
     frame:setTerm(mon)
     monitors[name] = { frame = frame, panelId = panelId }
