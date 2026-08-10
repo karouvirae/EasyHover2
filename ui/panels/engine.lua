@@ -83,6 +83,7 @@ local function buttonStates(ctx)
     prime     = eng.master and "idle" or "disabled",
   }
 end
+M.buttonStates = buttonStates
 
 -- The feed countdown is minutes-scale (interval ~5m30s), so show m:ss, not raw ms.
 local function fmtCountdown(ms)
@@ -90,6 +91,7 @@ local function fmtCountdown(ms)
   local s = math.floor(ms / 1000 + 0.5)
   return string.format("%d:%02d", math.floor(s / 60), s % 60)
 end
+M.fmtCountdown = fmtCountdown
 
 local function statusLines(ctx, width)
   local eng = ctx.engine or {}
