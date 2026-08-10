@@ -2,6 +2,7 @@
 -- Pure helpers here are headless-tested; the interactive run() shell (added later)
 -- is in-game only. Wrapped peripherals take NO self: p.getAngles(), p.getVelocity().
 local cal = require("fcs.io.calibration")
+local fsx = require("fcs.io.fsx")
 local M = {}
 
 function M.average(nums)
@@ -100,20 +101,11 @@ local function loadSensors(read)
   return cfg.sensors
 end
 
-local function realRead(p)
-  if fs.exists(p) and not fs.isDir(p) then
-    local f = fs.open(p, "r"); local b = f.readAll(); f.close(); return b
-  end
-  return nil
-end
-local function realWrite(p, body)
-  local tmp = p .. ".tmp"
-  local f = fs.open(tmp, "w"); f.write(body); f.close()
-  if fs.exists(p) then fs.delete(p) end
-  fs.move(tmp, p)
-end
+local realRead = fsx.read
+local realWrite = fsx.writeAtomic
 
 local function readNum(p, method) if not p then return 0 end local v = p[method](); return v or 0 end
+M.readNum = readNum
 
 -- collect a reader's samples for ~secs seconds
 local function stream(readerFn, secs)
@@ -195,6 +187,7 @@ local function readYawRate(vf, vr, b)
   local base = (b.yawBaseline and b.yawBaseline ~= 0) and b.yawBaseline or 1
   return (b.signYawRate or 1) * (vfv - vrv) / base
 end
+M.readYawRate = readYawRate
 
 local function stepHeading(shim, config)
   local nav = config.sensors.navTable and shim.wrap(config.sensors.navTable)

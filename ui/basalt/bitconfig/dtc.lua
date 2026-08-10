@@ -25,6 +25,7 @@
 -- returns, so `require("ui.basalt.bitconfig.dtc")` loads clean headless.
 
 local cfgspec = require("fcs.io.cfgspec")
+local fsx = require("fcs.io.fsx")
 
 local M = {}
 M.id = "dtc"
@@ -75,28 +76,24 @@ end
 
 -- ===== real fs/peripheral seams (default injected deps; never called at module load) =====
 
-local function realRead(path)
-  if fs.exists(path) and not fs.isDir(path) then
-    local f = fs.open(path, "r"); local b = f.readAll(); f.close(); return b
-  end
-  return nil
-end
+-- realRead/realDelete/realExists delegate to fcs/io/fsx.lua's shared helper. realWriteFile stays
+-- a PLAIN (non-atomic) write -- atomicCopy below already implements its own generic tmp-then-move
+-- dance over local<->disk paths via deps.write/exists/delete/move, so this must write the exact
+-- body to the exact path handed to it (including the tmp path atomicCopy constructs), not run a
+-- second nested tmp+move of its own. realMove has no fsx equivalent (fsx exposes no M.move).
+local realRead = fsx.read
 
 local function realWriteFile(path, body)
   local f = fs.open(path, "w"); f.write(body); f.close()
 end
 
-local function realDelete(path)
-  if fs.exists(path) then fs.delete(path) end
-end
+local realDelete = fsx.delete
 
 local function realMove(from, to)
   fs.move(from, to)
 end
 
-local function realExists(path)
-  return fs.exists(path)
-end
+local realExists = fsx.exists
 
 local function realFind(kind)
   return peripheral.find(kind)

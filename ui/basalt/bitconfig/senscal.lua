@@ -49,6 +49,7 @@ local cal       = require("fcs.io.calibration")
 local calibrate = require("tools.calibrate")
 local cfgspec   = require("fcs.io.cfgspec")
 local shim      = require("fcs.io.shim")
+local fsx       = require("fcs.io.fsx")
 
 local M = {}
 M.id = "senscal"
@@ -206,19 +207,12 @@ end
 -- ===== BASALT RUNNER: per-phase sampling reducers + the real (non-test) sampler.   =====
 -- =====================================================================================
 
-local function readNum(p, method)
-  if not p then return 0 end
-  local v = p[method](); return v or 0
-end
-
--- yawRate exactly as tools/calibrate.lua's local readYawRate computes it (and as
--- fcs/io/backend.lua does at runtime), so heading's cross-check sampler sees the SAME signal.
-local function readYawRate(vf, vr, b)
-  local vfv = (b.signVelFront or 1) * readNum(vf, "getVelocity")
-  local vrv = (b.signVelRear or 1) * readNum(vr, "getVelocity")
-  local base = (b.yawBaseline and b.yawBaseline ~= 0) and b.yawBaseline or 1
-  return (b.signYawRate or 1) * (vfv - vrv) / base
-end
+-- Reuses tools/calibrate.lua's M.readNum/M.readYawRate (exported additively from that module)
+-- instead of keeping copy-pasted duplicates here -- readYawRate is exactly as tools/calibrate.lua's
+-- local readYawRate computes it (and as fcs/io/backend.lua does at runtime), so heading's
+-- cross-check sampler sees the SAME signal.
+local readNum = calibrate.readNum
+local readYawRate = calibrate.readYawRate
 
 local function reduceAvgAngles(rawStream)
   local a, b = {}, {}
@@ -438,24 +432,13 @@ M._realSampler = realSampler
 -- ===== real fs read/write (default injected seams; never called at module load) =====
 
 local function realRead(filename)
-  local path = "/" .. filename
-  if not fs.exists(path) or fs.isDir(path) then return nil end
-  local f = fs.open(path, "r")
-  if not f then return nil end
-  local body = f.readAll()
-  f.close()
-  return body
+  return fsx.read("/" .. filename)
 end
 
--- Atomic tmp-then-move write, mirrors ui/basalt/bitconfig/tuning.lua's realWrite exactly.
+-- Atomic tmp-then-move write, mirrors ui/basalt/bitconfig/tuning.lua's realWrite exactly
+-- (delegates to fcs/io/fsx.lua's shared helper).
 local function realWrite(filename, body)
-  local path = "/" .. filename
-  local tmp = path .. ".tmp"
-  local f = fs.open(tmp, "w")
-  f.write(body)
-  f.close()
-  if fs.exists(path) then fs.delete(path) end
-  fs.move(tmp, path)
+  return fsx.writeAtomic("/" .. filename, body)
 end
 
 -- ===== M.build: construct the step-runner element tree =====

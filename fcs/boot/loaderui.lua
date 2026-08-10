@@ -21,6 +21,7 @@ local cfgspec         = require("fcs.io.cfgspec")
 local tuningdefaults  = require("fcs.io.tuningdefaults")
 local cfgsync         = require("fcs.comms.cfgsync")
 local modemlib        = require("fcs.comms.modem")
+local fsx             = require("fcs.io.fsx")
 
 local M = {}
 
@@ -40,12 +41,7 @@ local UI_RETRIES = 3
 -- Testable seam (headless) -- pure given injected write(); no read()/fs/peripheral here.
 -- =====================================================================================
 
-local function realWrite(path, body)
-  local tmp = path .. ".tmp"
-  local f = fs.open(tmp, "w"); f.write(body); f.close()
-  if fs.exists(path) then fs.delete(path) end
-  fs.move(tmp, path)
-end
+local realWrite = fsx.writeAtomic
 
 -- Atomically write the assembled hw + tuning tables to the two files the flight app reads.
 -- `write(path, body)` is injected for testing; defaults to the real atomic tmp-then-move writer.
@@ -71,12 +67,7 @@ end
 -- design doc's "Own / Request from UI PC / Load from disk / Load defaults" flow.
 -- =====================================================================================
 
-local function realRead(path)
-  if fs.exists(path) and not fs.isDir(path) then
-    local f = fs.open(path, "r"); local b = f.readAll(); f.close(); return b
-  end
-  return nil
-end
+local realRead = fsx.read
 
 -- "own": the local split file (eh2_devbind.tbl / eh2_senscal.tbl); if that file is ABSENT and
 -- the legacy combined /eh2_hw_config.tbl exists, seed from splitLegacy read-through (mirrors

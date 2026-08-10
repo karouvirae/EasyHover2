@@ -31,20 +31,11 @@ end
 
 -- ---- interactive shell (in-game only) ----
 local cfgspec = require("fcs.io.cfgspec")
+local fsx = require("fcs.io.fsx")
 local LEGACY_CONFIG_PATH = "/eh2_hw_config.tbl"
 
-local function realRead(p)
-  if fs.exists(p) and not fs.isDir(p) then
-    local f = fs.open(p, "r"); local b = f.readAll(); f.close(); return b
-  end
-  return nil
-end
-local function realWrite(p, body)
-  local tmp = p .. ".tmp"
-  local f = fs.open(tmp, "w"); f.write(body); f.close()
-  if fs.exists(p) then fs.delete(p) end
-  fs.move(tmp, p)
-end
+local realRead = fsx.read
+local realWrite = fsx.writeAtomic
 
 -- Load the existing device binding so a re-run edits rather than clobbers.
 -- Prefers eh2_devbind.tbl; if absent AND the old combined /eh2_hw_config.tbl

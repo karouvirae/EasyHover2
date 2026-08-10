@@ -48,6 +48,7 @@ local modemlib  = require("fcs.comms.modem")
 local telemetry = require("fcs.comms.telemetry")
 local command   = require("fcs.comms.command")
 local health    = require("fcs.comms.health")
+local fsx       = require("fcs.io.fsx")
 
 local M = {}
 
@@ -270,15 +271,8 @@ end
 
 -- Real atomic-tmp-write-free file reader for cfgserver -- mirrors fcs/boot/loaderui.lua's
 -- realRead exactly (read-only: cfgserver only ever answers `req` frames with file bodies).
-local function realRead(path)
-  if fs.exists(path) and not fs.isDir(path) then
-    local f = fs.open(path, "r")
-    local b = f.readAll()
-    f.close()
-    return b
-  end
-  return nil
-end
+-- Delegates to fcs/io/fsx.lua's shared helper.
+local realRead = fsx.read
 
 -- M.buildRuntime(deps) -> runtime
 -- deps.modem   -- a modem peripheral (default peripheral.find("modem"))

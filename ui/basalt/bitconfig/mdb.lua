@@ -16,6 +16,7 @@
 
 local cfgspec      = require("fcs.io.cfgspec")
 local binddevices   = require("tools.binddevices")
+local fsx           = require("fcs.io.fsx")
 
 local M = {}
 M.id = "mdb"
@@ -138,24 +139,13 @@ end
 -- ===== module load). =====
 
 local function realRead(filename)
-  local path = "/" .. filename
-  if not fs.exists(path) or fs.isDir(path) then return nil end
-  local f = fs.open(path, "r")
-  if not f then return nil end
-  local body = f.readAll()
-  f.close()
-  return body
+  return fsx.read("/" .. filename)
 end
 
--- Atomic tmp-then-move write, mirrors ui/basalt/bitconfig/tuning.lua's realWrite exactly.
+-- Atomic tmp-then-move write, mirrors ui/basalt/bitconfig/tuning.lua's realWrite exactly
+-- (delegates to fcs/io/fsx.lua's shared helper).
 local function realWrite(filename, body)
-  local path = "/" .. filename
-  local tmp = path .. ".tmp"
-  local f = fs.open(tmp, "w")
-  f.write(body)
-  f.close()
-  if fs.exists(path) then fs.delete(path) end
-  fs.move(tmp, path)
+  return fsx.writeAtomic("/" .. filename, body)
 end
 
 -- Live descriptor scan, {name=, type=} shape -- matches tools/binddevices.lua's buildDescriptors

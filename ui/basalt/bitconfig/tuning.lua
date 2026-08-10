@@ -18,6 +18,7 @@
 
 local cfgspec        = require("fcs.io.cfgspec")
 local tuningdefaults  = require("fcs.io.tuningdefaults")
+local fsx             = require("fcs.io.fsx")
 
 local M = {}
 M.id = "tuning"
@@ -176,29 +177,17 @@ end
 -- ===== real fs read/write/delete (default injected seams; never called at module load) =====
 
 local function realRead(filename)
-  local path = "/" .. filename
-  if not fs.exists(path) or fs.isDir(path) then return nil end
-  local f = fs.open(path, "r")
-  if not f then return nil end
-  local body = f.readAll()
-  f.close()
-  return body
+  return fsx.read("/" .. filename)
 end
 
 -- Atomic tmp-then-move write, mirrors fcs/boot/loaderui.lua's realWrite / fcs/io/config.lua's
--- M.save exactly.
+-- M.save exactly (delegates to fcs/io/fsx.lua's shared helper).
 local function realWrite(filename, body)
-  local path = "/" .. filename
-  local tmp = path .. ".tmp"
-  local f = fs.open(tmp, "w")
-  f.write(body)
-  f.close()
-  if fs.exists(path) then fs.delete(path) end
-  fs.move(tmp, path)
+  return fsx.writeAtomic("/" .. filename, body)
 end
 
 local function realDelete(path)
-  if fs.exists(path) then fs.delete(path) end
+  fsx.delete(path)
 end
 
 -- ===== M.build: construct the paged-stepper element tree =====
