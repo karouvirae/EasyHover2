@@ -107,6 +107,25 @@ t.test("isProtected covers EH2 config + suite files", function()
   t.eq(Suite.isProtected("/fcs/io/config.lua"), false)  -- code is not protected
 end)
 
+t.test("resolveChannel: flag wins, else marker, else default min; corrupt -> min", function()
+  t.eq(Suite.resolveChannel("dev", nil), "dev", "explicit --dev")
+  t.eq(Suite.resolveChannel("min", "dev"), "min", "explicit --min overrides a dev marker")
+  t.eq(Suite.resolveChannel(nil, "dev"), "dev", "marker chosen when no flag")
+  t.eq(Suite.resolveChannel(nil, "min"), "min", "marker chosen when no flag")
+  t.eq(Suite.resolveChannel(nil, nil), "min", "absent marker defaults to min")
+  t.eq(Suite.resolveChannel(nil, "garbage"), "min", "corrupt marker defaults to min")
+  t.eq(Suite.resolveChannel(nil, "  dev\n"), "dev", "marker is trimmed")
+end)
+
+t.test("manifestName maps channel to the fetched file", function()
+  t.eq(Suite.manifestName("min"), "manifest.lua")
+  t.eq(Suite.manifestName("dev"), "manifest-dev.lua")
+end)
+
+t.test("the channel marker is a PROTECTED path (install cannot clobber the operator's choice)", function()
+  t.eq(Suite.isProtected(Suite.CHANNEL_FILE), true)
+end)
+
 t.test("choosePlan truth table (carried from v1)", function()
   t.eq(Suite.choosePlan({ anyInstall = false }), "install")
   t.eq(Suite.choosePlan({ anyInstall = true, forceRepair = true }), "repair")

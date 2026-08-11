@@ -67,6 +67,10 @@ local TOKEN_FILE = "/easyhover2_suite_token.txt"
 --- What is installed here.
 local STATE_FILE = "/easyhover2_install.txt"
 
+--- Which release channel to install: "min" (minified, default) or "dev" (readable source).
+--- One line, persisted so a bare update stays on the operator's choice.
+local CHANNEL_FILE = "/eh2_channel.txt"
+
 --- Backups land here: a single-latest folder, one file per path, replaced on each run that needed them.
 local BACKUP_ROOT = "/easyhover2_backup"
 
@@ -80,6 +84,7 @@ local PROTECTED = {
   "^/eh2_.*%.log$",
   "^/easyhover2_backup",
   "^/easyhover2_install%.txt$",
+  "^/eh2_channel%.txt$",
   "^/easyhover2_suite_src%.txt$",
   "^/easyhover2_suite_token%.txt$",
 }
@@ -232,6 +237,19 @@ function Suite.formatState(state)
   return ("version=%s\nschema=%d\nrole=%s\nat=%s\n"):format(
     tostring(state.version), tonumber(state.schema) or 1,
     tostring(state.role), tostring(state.at or ""))
+end
+
+--- Pick the release channel. An explicit flag wins; otherwise a valid marker; otherwise min.
+function Suite.resolveChannel(flag, markerRaw)
+  if flag == "dev" or flag == "min" then return flag end
+  markerRaw = markerRaw and markerRaw:gsub("%s+", "") or ""
+  if markerRaw == "dev" or markerRaw == "min" then return markerRaw end
+  return "min"
+end
+
+--- Which manifest a channel fetches.
+function Suite.manifestName(channel)
+  return (channel == "dev") and "manifest-dev.lua" or "manifest.lua"
 end
 
 --- Which role do the files on disk look like? Used when the install record is missing or
@@ -1296,6 +1314,7 @@ function Suite.main(args)
   args = args or {}
   local wantRole, checkOnly, forceRepair, listOnly, fastPath =
     nil, false, false, false, false
+  local wantChannel = nil
 
   for _, arg in ipairs(args) do
     local a = tostring(arg):lower()
@@ -1304,6 +1323,8 @@ function Suite.main(args)
     elseif a == "--fast" then fastPath = true
     elseif a == "--repair" then forceRepair = true
     elseif a == "--list" then listOnly = true
+    elseif a == "--dev" then wantChannel = "dev"
+    elseif a == "--min" then wantChannel = "min"
     elseif a == "--help" or a == "-h" then
       say("EasyHover 2 Suite", colours.cyan)
       dim("  easyhover2_suite.lua              install or update, as appropriate")
@@ -1312,6 +1333,8 @@ function Suite.main(args)
       dim("  easyhover2_suite.lua --fast       trust the version stamp, skip checksums")
       dim("  easyhover2_suite.lua --list       list every role")
       dim("  easyhover2_suite.lua <role>       install or switch to a role")
+      dim("  easyhover2_suite.lua --dev        install the readable (un-minified) channel")
+      dim("  easyhover2_suite.lua --min        force back to the minified channel (default)")
       print("")
       dim("Source override: put a base URL in " .. SOURCE_FILE)
       dim("Private repo:    put a GitHub token in " .. TOKEN_FILE)
@@ -1343,10 +1366,16 @@ function Suite.main(args)
       .. "Ask the server owner to enable http, or install from a floppy disk.")
   end
 
+  -- ---- release channel: minified (default) or readable source (--dev)
+  local channel = Suite.resolveChannel(wantChannel, readFile(CHANNEL_FILE))
+  writeRaw(CHANNEL_FILE, channel .. "\n")   -- persist / normalise (writeRaw bypasses guard by design)
+  local manifestFile = Suite.manifestName(channel)
+  dim("channel: " .. channel .. (wantChannel and " (from flag)" or ""))
+
   -- ---- the release manifest
-  local body, err = fetch(base .. "/manifest.lua")
+  local body, err = fetch(base .. "/" .. manifestFile)
   if not body then
-    bad("could not reach the release manifest: " .. tostring(err))
+    bad("could not reach the release manifest (" .. manifestFile .. "): " .. tostring(err))
     print("")
     dim("If the repository is private, raw.githubusercontent.com returns 404 without a")
     dim("token. Put one in " .. TOKEN_FILE .. ", or make the repository public.")
@@ -1357,7 +1386,7 @@ function Suite.main(args)
   -- environment, so the manifest cannot do anything but describe files.
   local manifest = textutils.unserialise(body)
   if type(manifest) ~= "table" or type(manifest.roles) ~= "table" or not manifest.version then
-    die("the release manifest is not readable (is the source URL right?)")
+    die("the release manifest (" .. manifestFile .. ") is not readable (is the source URL right?)")
   end
 
   local order = {}
@@ -1586,6 +1615,7 @@ end
 Suite.fetch = fetch
 Suite.readFile = readFile
 Suite.STATE_FILE = STATE_FILE
+Suite.CHANNEL_FILE = CHANNEL_FILE
 Suite.base = DEFAULT_BASE
 function Suite.checkFile(entry, read)
   local body = read(entry.dst)
