@@ -111,6 +111,21 @@ local function manifestVersion()
   return m and m.version or nil
 end
 
+--- The manifest's own record for one shipped file, e.g. manifestEntry("fcs", "tools/flight.lua").
+--- Channel-independent: works the same whether the mirror shipped source or minified bytes,
+--- because the manifest's sum/size are generated FROM whatever was actually shipped.
+local function manifestEntry(role, dst)
+  local body = read("/mirror_manifest.lua")
+  if not body then return nil end
+  local m = textutils.unserialise(body)
+  local spec = m and m.roles and m.roles[role]
+  if not spec or not spec.files then return nil end
+  for _, entry in ipairs(spec.files) do
+    if entry.dst == dst then return entry end
+  end
+  return nil
+end
+
 local function noStagingLeftBehind()
   local leftovers = {}
   local function walk(dir)
@@ -218,7 +233,18 @@ elseif phase == "update" then
     "the update re-synced the state record to the real release",
     tostring(stateField("version")) .. " vs " .. tostring(manifestVersion()))
   local flightBody = read("/tools/flight.lua") or ""
-  check(flightBody:find("FCS runtime") ~= nil, "role files are still the real content")
+  -- Channel-independent "is this the real content" check: luamin strips comments (so the
+  -- default/minified channel never contains the source string "FCS runtime"), but the manifest's
+  -- checksum+size are generated from whatever was actually shipped in this channel, exactly the
+  -- same comparison Suite.integrity() itself makes -- so this holds against source and minified
+  -- installs alike.
+  local flightEntry = manifestEntry("fcs", "tools/flight.lua")
+  check(flightEntry ~= nil, "test setup: manifest has an entry for tools/flight.lua")
+  check(flightEntry ~= nil and #flightBody == flightEntry.size
+    and Suite.checksum(flightBody) == flightEntry.sum,
+    "role files are still the real content, verified against the manifest checksum",
+    flightEntry and ("%d/%s vs manifest %d/%s"):format(
+      #flightBody, tostring(Suite.checksum(flightBody)), flightEntry.size, tostring(flightEntry.sum)))
   check(fs.exists("/eh2_hw_config.tbl"), "config untouched by a plain update")
   local cfg = textutils.unserialise(read("/eh2_hw_config.tbl") or "")
   check(type(cfg) == "table" and cfg.bindings and cfg.bindings.heightOffset == 13,
@@ -237,7 +263,16 @@ elseif phase == "repair" then
   local restored = read("/tools/flight.lua") or ""
   check(#restored > 1000, "the corrupt file was replaced with the real one",
     ("%d bytes"):format(#restored))
-  check(restored:find("FCS runtime"), "and it is the real content")
+  -- Same channel-independent check as the update phase above: verify against the manifest's
+  -- checksum+size rather than a source comment luamin strips in the default/minified channel.
+  local Suite = loadSuiteModule()
+  local flightEntry = manifestEntry("fcs", "tools/flight.lua")
+  check(flightEntry ~= nil, "test setup: manifest has an entry for tools/flight.lua")
+  check(flightEntry ~= nil and #restored == flightEntry.size
+    and Suite.checksum(restored) == flightEntry.sum,
+    "and it is the real content, verified against the manifest checksum",
+    flightEntry and ("%d/%s vs manifest %d/%s"):format(
+      #restored, tostring(Suite.checksum(restored)), flightEntry.size, tostring(flightEntry.sum)))
   check(not fs.exists(extra), "a stale file inside the role directory was cleared")
   check(fs.exists("/eh2_hw_config.tbl"), "MY CONFIG SURVIVED THE REPAIR")
   local cfg = textutils.unserialise(read("/eh2_hw_config.tbl") or "")
