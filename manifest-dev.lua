@@ -59,9 +59,9 @@
         },
         {
           ["dst"] = "fcs/boot/loaderui.lua",
-          ["size"] = 11204,
+          ["size"] = 12042,
           ["src"] = "fcs/boot/loaderui.lua",
-          ["sum"] = "1aac68d9",
+          ["sum"] = "e804e283",
         },
         {
           ["dst"] = "fcs/bringup/instrument.lua",
@@ -812,5 +812,5 @@
     ["size"] = 70702,
     ["sum"] = "3dd2fb64",
   },
-  ["version"] = "1c0935c5",
+  ["version"] = "0bccb2aa",
 }

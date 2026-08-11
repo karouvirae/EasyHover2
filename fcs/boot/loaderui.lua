@@ -230,8 +230,23 @@ local function pickUntilValid(concern)
   return src
 end
 
--- Full interactive boot loop. Only place read()/term is touched. Returns the assembled
--- {hw=, tuning=} result on success (files already written), or nil on explicit abort.
+-- After a successful write, ask the pilot whether to boot the FCS now. Loops until a clear
+-- answer; returns true (start the flight app with the chosen config) or false (return to the
+-- console -- the config is on disk, nothing is started). Accepts y/yes and n/no, any case.
+local function confirmBoot()
+  while true do
+    print("")
+    write("FCS config complete -- boot FCS? (Y/N): ")
+    local input = (read() or ""):lower()
+    if input == "y" or input == "yes" then return true end
+    if input == "n" or input == "no" then return false end
+    print("  please answer Y or N")
+  end
+end
+
+-- Full interactive boot loop. Only place read()/term is touched. On a successful resolve the
+-- config is written and the pilot is asked whether to boot: returns the assembled {hw=, tuning=}
+-- result if they choose to boot, or nil if they decline (config saved, nothing started) or abort.
 function M.run()
   local sources = M.buildSources()
   print("EH2 BOOT LOADER")
@@ -250,7 +265,11 @@ function M.run()
     if ok then
       print("OK -- wrote " .. HW_CONFIG_PATH .. " + " .. TUNING_PATH)
       closeCfgChannels()
-      return assembled
+      if confirmBoot() then
+        return assembled
+      end
+      print("returning to console (config saved, FCS not started)")
+      return nil
     end
     print("FAILED: " .. tostring(err))
     if failedConcern and LABEL[failedConcern] then
