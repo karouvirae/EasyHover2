@@ -1368,8 +1368,8 @@ function Suite.main(args)
 
   -- ---- release channel: minified (default) or readable source (--dev)
   local channel = Suite.resolveChannel(wantChannel, readFile(CHANNEL_FILE))
-  if not checkOnly then
-    writeRaw(CHANNEL_FILE, channel .. "\n")   -- persist only on a real run, never on a dry-run (writeRaw bypasses guard by design)
+  if not checkOnly and not listOnly then
+    writeRaw(CHANNEL_FILE, channel .. "\n")   -- persist only on a real install, not --check/--list (writeRaw bypasses guard by design)
   end
   local manifestFile = Suite.manifestName(channel)
   dim("channel: " .. channel .. (wantChannel and " (from flag)" or ""))

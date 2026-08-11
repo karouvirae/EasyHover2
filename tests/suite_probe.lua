@@ -351,6 +351,14 @@ elseif phase == "check" then
     "--check --dev did not persist a channel switch",
     tostring(read("/eh2_channel.txt")) .. " vs " .. tostring(channelBefore))
 
+  -- --list is the sibling read-only/informational flag: it must not persist a channel switch
+  -- either, for the same reason.
+  local channelBefore2 = read("/eh2_channel.txt")
+  runSuite("--list", "--dev")
+  check(read("/eh2_channel.txt") == channelBefore2,
+    "--list --dev did not persist a channel switch",
+    tostring(read("/eh2_channel.txt")) .. " vs " .. tostring(channelBefore2))
+
 elseif phase == "ui" then
   -- A FRESH install of the OTHER released role, on a bare computer. Nothing else here covers
   -- ui, and it is structurally different from fcs: a whole separate ui/ source tree, and it
