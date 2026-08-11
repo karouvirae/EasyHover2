@@ -25,8 +25,12 @@ test("minifies each app .lua into dist/<same path>, shrinking bytes", () => {
 });
 
 test("hard-fails on an unparseable file, naming it, and writes no dist for that build", () => {
-  const root = fixture({ "ui/bad.lua": "local x = = (" });
+  const root = fixture({
+    "fcs/good.lua": "return 1\n", // processed before ui/bad.lua (fcs precedes ui in MINIFY_DIRS)
+    "ui/bad.lua": "local x = = (",
+  });
   assert.throws(() => build(root), /ui\/bad\.lua/);
+  assert.equal(existsSync(join(root, "dist")), false, "no dist/ at all -- not even the file minified before the failure");
 });
 
 test("is deterministic / idempotent (two builds byte-identical)", () => {

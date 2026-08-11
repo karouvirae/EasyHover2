@@ -34,10 +34,14 @@ function walkLua(absDir) {
 }
 
 // build(root) -> sorted array of repo-relative paths written under root/dist. Throws on parse fail.
+// Two-phase: minify everything into memory FIRST (nothing touches disk yet); only once every
+// file has parsed successfully do we wipe dist/ and flush the buffered output. This guarantees
+// a mid-run parse failure writes nothing partial -- dist/ is left exactly as it was before the
+// call. Buffered bytes are tiny (whole-repo Lua source, ~150KB) so an in-memory Map is fine; no
+// temp files/dirs needed for a dev-only tool that never runs in-game.
 export function build(root = REPO_ROOT) {
   const distAbs = join(root, DIST);
-  if (existsSync(distAbs)) rmSync(distAbs, { recursive: true, force: true }); // fresh each run
-  const written = [];
+  const buffered = new Map(); // rel -> minified bytes
   for (const d of MINIFY_DIRS) {
     const dirAbs = join(root, d);
     if (!existsSync(dirAbs)) continue;
@@ -47,13 +51,17 @@ export function build(root = REPO_ROOT) {
       let min;
       try { min = luamin.minify(src); }
       catch (e) { throw new Error(`luamin failed to parse ${rel}: ${e.message}`); }
-      const outAbs = join(distAbs, rel);
-      mkdirSync(dirname(outAbs), { recursive: true });
-      writeFileSync(outAbs, min);
-      written.push(rel);
+      buffered.set(rel, min);
     }
   }
-  return written;
+  // All files parsed successfully -- safe to touch disk now.
+  if (existsSync(distAbs)) rmSync(distAbs, { recursive: true, force: true }); // fresh each run
+  for (const [rel, min] of buffered) {
+    const outAbs = join(distAbs, rel);
+    mkdirSync(dirname(outAbs), { recursive: true });
+    writeFileSync(outAbs, min);
+  }
+  return [...buffered.keys()].sort();
 }
 
 // CLI entry (only when run directly, not when imported by the test).
