@@ -389,6 +389,46 @@ local function activateRole(ctx, roleName)
   startCheck(ctx)
 end
 
+--- Swap SuiteX to another release channel: load that channel's manifest (cached in ctx.manifests
+--- after the first fetch), rebuild the manifest-derived UI + the current role's spec, and re-arm
+--- the check so the dashboard reflects the new channel's plan. INSPECTION ONLY -- never writes the
+--- /eh2_channel.txt marker (that happens on a real install, in runEngineOp). Returns true, or
+--- false+err on a fetch/parse failure so the caller can revert the checkbox and keep the current
+--- channel.
+local function reloadManifest(ctx, channel)
+  local manifest = ctx.manifests[channel]
+  if not manifest then
+    local body, err = ctx.Suite.fetch(ctx.Suite.base .. "/" .. ctx.Suite.manifestName(channel))
+    if not body then return false, err end
+    manifest = textutils.unserialise(body)
+    if type(manifest) ~= "table" or type(manifest.roles) ~= "table" or not manifest.version then
+      return false, "the " .. channel .. " manifest is not readable"
+    end
+    ctx.manifests[channel] = manifest
+  end
+  ctx.channel = channel
+  ctx.manifest = manifest
+  ctx.order = buildOrder(manifest)
+  -- keep the same role if the new channel still ships it; otherwise fall back to "unresolved"
+  if ctx.role and manifest.roles[ctx.role] and ctx.Suite.isReleased(manifest.roles[ctx.role]) then
+    ctx.spec = manifest.roles[ctx.role]
+  else
+    ctx.role, ctx.spec = nil, nil
+  end
+  -- refresh the manifest-derived UI (version subtitle + role dropdown items)
+  ctx.ui.subtitle:setText("release " .. tostring(manifest.version or "?"))
+  local roleItems = {}
+  for _, name in ipairs(ctx.order) do
+    if ctx.Suite.isReleased(manifest.roles[name]) then
+      roleItems[#roleItems + 1] = { text = name, callback = function() activateRole(ctx, name) end }
+    end
+  end
+  ctx.ui.roleDropdown:setItems(roleItems)
+  ctx.ui.roleDropdown:setSelectedText(ctx.role or "(choose)")
+  startCheck(ctx)   -- early-returns cleanly if ctx.spec is nil
+  return true
+end
+
 --- Runs an engine call (performPlan) without blocking the Basalt render loop: basalt.schedule()
 --- wraps it in a coroutine, so the fetch()/sleep() calls inside performPlan yield back to
 --- Basalt's event loop between HTTP round-trips instead of freezing the screen for the whole
@@ -414,6 +454,12 @@ local function runEngineOp(ctx, fn)
     ctx.opInFlight = false
     if not ok then
       logLine(ctx, "action failed: " .. tostring(err), ctx.pal.error)
+    else
+      -- Persist the channel actually installed so a later bare classic run stays on it (mirrors
+      -- the classic suite writing /eh2_channel.txt on a real --dev/--min install). PROTECTED gates
+      -- only the release install/delete path, never the Suite's own marker write.
+      local f = fs.open(ctx.Suite.CHANNEL_FILE, "w")
+      if f then f.write(ctx.channel .. "\n"); f.close() end
     end
     ctx.state = ctx.Suite.parseState(ctx.Suite.readFile(ctx.Suite.STATE_FILE))
     ctx.hasFiles = fs.exists("/startup.lua")
@@ -593,8 +639,9 @@ function SuiteX.run()
     return
   end
 
-  -- ---- the release manifest
-  local manifestBody, manifestErr = Suite.fetch(Suite.base .. "/manifest.lua")
+  -- ---- the release channel (honors /eh2_channel.txt, same marker the classic suite uses) + manifest
+  local channel = Suite.resolveChannel(nil, Suite.readFile(Suite.CHANNEL_FILE))
+  local manifestBody, manifestErr = Suite.fetch(Suite.base .. "/" .. Suite.manifestName(channel))
   if not manifestBody then
     abort("could not fetch the release manifest: " .. tostring(manifestErr))
     return
@@ -662,6 +709,7 @@ function SuiteX.run()
     Suite = Suite, basalt = basalt, manifest = manifest, order = buildOrder(manifest),
     role = role, spec = spec, state = state, hasFiles = hasFiles, tab = "main",
     plan = nil, report = nil, diffLabel = nil, checkDone = false, opInFlight = false,
+    channel = channel, manifests = { [channel] = manifest },
   }
 
   buildUI(ctx)
