@@ -589,6 +589,15 @@ function Suite.performPlan(base, manifest, spec, role, plan, fresh)
       interrupted(("%s arrived corrupt (expected %d bytes / %s, got %d / %s)")
         :format(entry.src, entry.size, entry.sum, #content, Suite.checksum(content)))
     end
+    -- Delete-then-write, deliberately NOT write-temp-then-move. temp+move would keep the old file
+    -- until the new one is durably written (surviving a disk-full mid-write), but at a peak cost of
+    -- one extra file of headroom -- and for basalt-full.lua (~306 KB) that extra copy pushes a large
+    -- role toward CC:T's hard 1 MB disk ceiling, the very wall this change exists to stay under.
+    -- Frugality wins: deleting first frees the old file's space so the new write almost never fails,
+    -- and the rare disk-full-mid-write is self-healing (the state stamp far below is withheld until
+    -- every file lands, so a re-run re-fetches the one missing file). guard() below runs BEFORE the
+    -- delete, so a PROTECTED operator path (a config, /eh2_*.tbl, the install record) can never be
+    -- deleted or overwritten here -- it dies first.
     local final = "/" .. entry.dst
     guard(final, "replace")
     if fs.exists(final) then fs.delete(final) end

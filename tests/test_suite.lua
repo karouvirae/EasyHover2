@@ -424,6 +424,110 @@ t.test("performPlan writes each verified file in place; a mid-run failure keeps 
   fs.delete("/" .. dir)
 end)
 
+-- The self-heal contract has a second half the test above does not pin: the install record
+-- (/easyhover2_install.txt) must be WITHHELD when a run does not finish. That withheld stamp is
+-- what makes "interrupted -> re-run fixes it" work instead of "interrupted -> Suite believes it is
+-- current and never re-fetches the stale files". A regression that stamped the record early would
+-- pass the file-placement test above yet silently break self-heal -- so assert the stamp directly.
+t.test("performPlan withholds the install record when a run does not finish (self-heal stays armed)", function()
+  local dir = "probe_stamp_dir"
+  local bodies = { "AA" }   -- file 1 fetches OK; file 2's fetch fails part way through
+  local files = {
+    { src = dir .. "/a.lua", dst = dir .. "/a.lua", size = #bodies[1], sum = Suite.checksum(bodies[1]) },
+    { src = dir .. "/b.lua", dst = dir .. "/b.lua", size = 4,          sum = "deadbeef" },
+  }
+  local spec = { files = files, dirs = { dir }, configs = {}, entry = "" }
+  if fs.exists("/" .. dir) then fs.delete("/" .. dir) end
+
+  -- Never clobber a real install record: stash and restore it around the probe.
+  local savedState
+  if fs.exists(Suite.STATE_FILE) then
+    local f = fs.open(Suite.STATE_FILE, "r"); savedState = f.readAll(); f.close()
+  end
+  fs.delete(Suite.STATE_FILE)
+
+  local savedFetch = Suite.fetch
+  local n = 0
+  Suite.fetch = function() n = n + 1; if n >= 2 then return nil, "boom" end; return bodies[n] end
+
+  local ok = pcall(Suite.performPlan, "http://mirror", { version = "vT", schema = 1 },
+    spec, "fcs", "install", true)
+
+  Suite.fetch = savedFetch
+
+  t.eq(ok, false, "the failed fetch aborts the run")
+  t.eq(fs.exists(Suite.STATE_FILE), false,
+    "install record NOT written after a partial run -- the next run still sees work to do")
+
+  if fs.exists("/" .. dir) then fs.delete("/" .. dir) end
+  fs.delete(Suite.STATE_FILE)
+  if savedState then local f = fs.open(Suite.STATE_FILE, "w"); f.write(savedState); f.close() end
+end)
+
+-- Requirement: a file that fails verification must NOT destroy the good copy already on disk. The
+-- whole safety of delete-then-write rests on verify (size+checksum) running BEFORE the delete. This
+-- pre-seeds a good target, hands back a CORRUPT download for it, and proves the original survives
+-- byte-for-byte. If someone ever reorders the delete ahead of the verify, this goes red.
+t.test("performPlan refuses a corrupt download and leaves the existing good file intact", function()
+  local dir = "probe_verify_dir"
+  if fs.exists("/" .. dir) then fs.delete("/" .. dir) end
+  local original = "GOOD-ORIGINAL"
+  local f = fs.open("/" .. dir .. "/c.lua", "w"); f.write(original); f.close()
+
+  local want = "NEW-VERIFIED-CONTENT"   -- what the manifest promises...
+  local files = {
+    { src = dir .. "/c.lua", dst = dir .. "/c.lua", size = #want, sum = Suite.checksum(want) },
+  }
+  local spec = { files = files, dirs = { dir }, configs = {}, entry = "" }
+
+  local savedFetch = Suite.fetch
+  Suite.fetch = function() return "CORRUPTED-BYTES" end   -- ...but the fetch hands back the wrong bytes
+
+  local ok = pcall(Suite.performPlan, "http://mirror", { version = "vT", schema = 1 },
+    spec, "fcs", "update", false)
+
+  Suite.fetch = savedFetch
+
+  t.eq(ok, false, "a corrupt download aborts the run")
+  t.eq(fs.exists("/" .. dir .. "/c.lua"), true, "the existing good file is still there")
+  local g = fs.open("/" .. dir .. "/c.lua", "r"); local now = g.readAll(); g.close()
+  t.eq(now, original, "the good file was neither deleted nor overwritten by the corrupt download")
+  t.eq(fs.exists("/" .. dir .. "/c.lua.eh2new"), false, "no staging turd left behind")
+
+  fs.delete("/" .. dir)
+end)
+
+-- Config-sacred, end-to-end. Configs are handled by extendConfig, never the payload loop -- but the
+-- guarantee that ultimately protects them is guard() firing BEFORE the delete. Force the issue: put
+-- a PROTECTED config path in the payload file list with a download that would pass verification, so
+-- the ONLY thing that can stop the overwrite is the guard. The operator's file must be untouched.
+t.test("performPlan never deletes or overwrites a protected config, even if one is in the file list", function()
+  local cfg = "/eh2_probe_guard.tbl"   -- matches PROTECTED ^/eh2_.*%.tbl$
+  local original = "operator=owned\n"
+  local f = fs.open(cfg, "w"); f.write(original); f.close()
+
+  local want = "release-would-overwrite-this"
+  local files = {
+    { src = "eh2_probe_guard.tbl", dst = "eh2_probe_guard.tbl", size = #want, sum = Suite.checksum(want) },
+  }
+  local spec = { files = files, dirs = {}, configs = {}, entry = "" }
+
+  local savedFetch = Suite.fetch
+  Suite.fetch = function() return want end   -- size+checksum WOULD pass; only guard() stands in the way
+
+  local ok = pcall(Suite.performPlan, "http://mirror", { version = "vT", schema = 1 },
+    spec, "fcs", "update", false)
+
+  Suite.fetch = savedFetch
+
+  t.eq(ok, false, "the guard aborts the run before any protected path is touched")
+  t.eq(fs.exists(cfg), true, "the protected config was NOT deleted")
+  local g = fs.open(cfg, "r"); local now = g.readAll(); g.close()
+  t.eq(now, original, "the protected config's content is untouched")
+
+  fs.delete(cfg)
+end)
+
 -- ---------------------------------------------------------------- Task 2: manifest basalt entry
 
 t.test("manifest records the vendored basalt for SuiteX to verify", function()

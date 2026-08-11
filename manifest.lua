@@ -809,8 +809,8 @@
   },
   ["schema"] = 1,
   ["updater"] = {
-    ["size"] = 68261,
-    ["sum"] = "1127aafd",
+    ["size"] = 69118,
+    ["sum"] = "b8ca222f",
   },
   ["version"] = "1c0935c5",
 }
