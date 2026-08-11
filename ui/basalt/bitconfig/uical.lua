@@ -34,6 +34,7 @@ local Config      = require("ui.config")
 local Detect       = require("ui.detect")
 local Fuel         = require("ui.fuel")
 local ConfigPanel  = require("ui.panels.config")
+local Picker       = require("ui.basalt.picker")
 -- NOTE: ui.basalt.app is required LAZILY inside M._applyOp below, NOT at module top -- see
 -- ui/basalt/pages/config.lua's header note for the full rationale (ui/basalt/app.lua's page
 -- registry requires this module at ITS module top; a top-level require back would loop mid-load).
@@ -46,6 +47,24 @@ M.title = "UI CAL"
 
 local RELAY_SIDES = { "back", "front", "left", "right", "top", "bottom" }
 M.RELAY_SIDES = RELAY_SIDES
+
+-- Picker options for the RELAY SIDE dropdown. Returns a FRESH table every call -- deliberately NOT
+-- a cached/shared table: Basalt's Collection:selectItem(idx) (release/basalt-full.lua's
+-- Collection.lua) sets `.selected=true` on the picked item WITHOUT clearing any OTHER item's
+-- `.selected` flag first (that clearing only happens on a real mouse_click, not the programmatic
+-- selectItem path Picker.setOptions uses). A single table reused across multiple setOptions calls
+-- (e.g. every refresh(), or two different Picker instances) would accumulate stale `.selected=true`
+-- flags on earlier-picked entries, and DropDown:getSelectedItem() returns the FIRST such flagged
+-- item in list order -- silently freezing the shown selection at whichever side was selected
+-- first, ever. A fresh table per call has no stale flags, so this can't happen (mirrors why
+-- M._toOptions/M._fuelCandidates/M._relayCandidates are likewise built fresh on every use).
+function M._sideOptions()
+  local opts = {}
+  for _, s in ipairs(RELAY_SIDES) do
+    opts[#opts + 1] = { text = s, value = s }
+  end
+  return opts
+end
 
 function M.nextSide(cur)
   for i, s in ipairs(RELAY_SIDES) do
@@ -80,6 +99,38 @@ local function kindOfName(descriptors, name, FuelMod)
     if d.name == name then return FuelMod.kindOf(d.methods) end
   end
   return "inventory"
+end
+
+-- ===== M._fuelCandidates / M._relayCandidates: PURE dropdown-population filters, mirroring the =====
+-- ===== exact classify math doBind already uses (Fuel.kindOf ~= "unknown" for pump/tank, =====
+-- ===== d.type == "redstone_relay" for relay) -- so a picker's option list can never drift from =====
+-- ===== what doBind itself would have cycled through. =====
+
+function M._fuelCandidates(descriptors)
+  local out = {}
+  for _, d in ipairs(descriptors or {}) do
+    if Fuel.kindOf(d.methods) ~= "unknown" then out[#out + 1] = d.name end
+  end
+  return out
+end
+
+function M._relayCandidates(descriptors)
+  local out = {}
+  for _, d in ipairs(descriptors or {}) do
+    if d.type == "redstone_relay" then out[#out + 1] = d.name end
+  end
+  return out
+end
+
+-- ===== M._toOptions: candidates -> Picker options, leading with a "(none)"/false unbind entry. =====
+-- ===== Shared by uical's own build() and ui/basalt/regions/emc.lua's config screen so both bind =====
+-- ===== dropdowns present the identical (none)+candidates shape (mirrors mdb.lua's M.pickerOptions). =====
+function M._toOptions(candidates)
+  local opts = { { text = "(none)", value = false } }
+  for _, name in ipairs(candidates or {}) do
+    opts[#opts + 1] = { text = name, value = name }
+  end
+  return opts
 end
 
 -- ===== op handlers: operate on runtime.config/runtime.engine/runtime.fuelReaders/ =====
@@ -199,6 +250,53 @@ function M._applyOp(runtime, effect, deps)
   save(BasaltApp.CONFIG_PATH, runtime.config)
 end
 
+-- ===== M._pickBind / M._pickSide: the DROPDOWN-pick effectful seams -- SET the chosen value =====
+-- ===== directly (no cycling), mirroring doBind/cycleRelaySide's DRAIN-SAFETY discipline exactly. =====
+--
+-- role: "pump" | "tank" | "relay". `name` is the value a Picker's onPick handed back -- a
+-- peripheral name, or `false` for the "(none)" unbind entry. `descriptors` is whatever the caller
+-- last scanned (used only to classify a pump/tank pick's kind via kindOfName). deps = { save= }.
+--
+-- DRAIN SAFETY: every relay pick (bind a new relay OR unbind to false) re-asserts the funnel
+-- blocked on the (possibly new/possibly now-absent) relay -- rebindRelay() must re-wrap whatever
+-- runtime.config.relay.name now is (nil included) BEFORE blockNow() re-writes it HIGH, exactly
+-- like doBind's relay branch. Pump/tank picks never touch the relay, so no re-block there.
+function M._pickBind(runtime, role, name, descriptors, deps)
+  local BasaltApp = require("ui.basalt.app")
+  deps = deps or {}
+  local save = deps.save or Config.save
+
+  if role == "relay" then
+    runtime.config.relay.name = name
+    if not runtime.config.relay.side then runtime.config.relay.side = "back" end
+    runtime.rebindRelay()
+    runtime.engine:blockNow()
+  else
+    runtime.config.fuel[role].name = name
+    if name then
+      -- name == false (the "(none)" unbind pick) leaves .kind alone/default, matching doBind's
+      -- own behaviour of only ever classifying an actually-bound name.
+      runtime.config.fuel[role].kind = kindOfName(descriptors or {}, name, Fuel)
+    end
+  end
+
+  save(BasaltApp.CONFIG_PATH, runtime.config)
+  return name
+end
+
+function M._pickSide(runtime, side, deps)
+  local BasaltApp = require("ui.basalt.app")
+  deps = deps or {}
+  local save = deps.save or Config.save
+
+  runtime.config.relay.side = side
+  runtime.rebindRelay()
+  runtime.engine:blockNow()
+
+  save(BasaltApp.CONFIG_PATH, runtime.config)
+  return side
+end
+
 -- ===== M._onButton: the TESTABLE intent seam. Reuses ui/panels/config.lua's M.action for the =====
 -- ===== id -> effect mapping (scan/bind*/calFuel/relaySide/pulse*/interval*/toggle* ids only -- =====
 -- ===== this menu never emits an "assign:" id). =====
@@ -215,11 +313,6 @@ end
 -- deps (optional, 5th arg): { scan=, save=, Detect=, Fuel= } -- injectable exactly like
 -- tuning.lua's (read,write,delete) / mdb.lua's (read,write,scan) trailing params.
 
-local function shortName(n)
-  if type(n) == "string" and n ~= "" then return n end
-  return "--"
-end
-
 local function fmtInterval(ms)
   if type(ms) ~= "number" then return "?" end
   local totalSec = math.floor(ms / 1000 + 0.5)
@@ -230,6 +323,11 @@ end
 
 function M.build(basalt, frame, runtime, nav, deps)
   deps = deps or {}
+  local scanFn = deps.scan or realScanDescriptors
+
+  -- Scanned once at build time (and again on SCAN) to populate the bind/relay pickers' candidate
+  -- lists -- see the header note on why this menu never touches peripherals outside a button click.
+  local descriptors = scanFn()
 
   local w, h = frame:getSize()
   local x = 2
@@ -251,11 +349,53 @@ function M.build(basalt, frame, runtime, nav, deps)
     return left, right
   end
 
+  -- Dropdown pickers replace the old click-to-cycle bind/relay-side buttons -- cycling through
+  -- abbreviated peripheral names to find the right one proved unusable in-game (see picker.lua's
+  -- header note). Label + dropdown share one row each, same vertical footprint as the old buttons.
+  local dropW = math.max(6, math.min(14, math.floor(iw * 0.5)))
+  local labelW = math.max(1, iw - dropW - 1)
+  local dropX = x + labelW + 1
+
+  local refresh -- forward-declared: picker onPick closures call this; assigned its body below.
+
+  local function pickerRow(labelText, options, current, placeholder, dropdownHeight, onPick)
+    local lbl = frame:addLabel({ x = x, y = y, width = labelW, height = 1, autoSize = false, text = labelText })
+    local picker = Picker.make(frame, {
+      x = dropX, y = y, width = dropW, dropdownHeight = dropdownHeight or 5,
+      options = options, current = current, placeholder = placeholder,
+      onPick = onPick,
+    })
+    y = y + 1
+    return lbl, picker
+  end
+
   local scanBtn, calFuelBtn = pairBtns("SCAN", "CAL FUEL")
-  local bindRelayBtn = fullBtn("RELAY: --")
-  local bindPumpBtn  = fullBtn("PUMP: --")
-  local bindTankBtn  = fullBtn("TANK: --")
-  local relaySideBtn = fullBtn("RELAY SIDE: back")
+
+  local cfg0 = runtime.config or {}
+  local relayLabel, relayPicker = pickerRow("RELAY",
+    M._toOptions(M._relayCandidates(descriptors)), cfg0.relay and cfg0.relay.name, "(none)", 5,
+    function(value)
+      M._pickBind(runtime, "relay", value, descriptors, deps)
+      refresh()
+    end)
+  local pumpLabel, pumpPicker = pickerRow("PUMP",
+    M._toOptions(M._fuelCandidates(descriptors)), cfg0.fuel and cfg0.fuel.pump and cfg0.fuel.pump.name, "(none)", 5,
+    function(value)
+      M._pickBind(runtime, "pump", value, descriptors, deps)
+      refresh()
+    end)
+  local tankLabel, tankPicker = pickerRow("TANK",
+    M._toOptions(M._fuelCandidates(descriptors)), cfg0.fuel and cfg0.fuel.tank and cfg0.fuel.tank.name, "(none)", 5,
+    function(value)
+      M._pickBind(runtime, "tank", value, descriptors, deps)
+      refresh()
+    end)
+  local sideLabel, sidePicker = pickerRow("SIDE",
+    M._sideOptions(), (cfg0.relay and cfg0.relay.side) or "back", "back", 6,
+    function(value)
+      M._pickSide(runtime, value, deps)
+      refresh()
+    end)
 
   local timingLabel = frame:addLabel({ x = x, y = y, width = iw, height = 1, autoSize = false, text = "" })
   y = y + 1
@@ -266,14 +406,15 @@ function M.build(basalt, frame, runtime, nav, deps)
 
   local backBtn = fullBtn("< BACK")
 
-  -- apply(state)/refresh: idempotent repaint of the bound-name feedback + timing line from
-  -- runtime.config. Never polls peripherals -- config-only, like the terminal Config panel.
-  local function refresh()
+  -- apply(state)/refresh: idempotent repaint of the picker selections + timing line from
+  -- runtime.config. Never polls peripherals -- config-only, like the terminal Config panel (the
+  -- candidate LISTS only change on SCAN; the pickers' CURRENT selection always tracks config here).
+  refresh = function()
     local cfg = runtime.config or {}
-    bindRelayBtn:setText("RELAY: " .. shortName(cfg.relay and cfg.relay.name))
-    bindPumpBtn:setText("PUMP: " .. shortName(cfg.fuel and cfg.fuel.pump and cfg.fuel.pump.name))
-    bindTankBtn:setText("TANK: " .. shortName(cfg.fuel and cfg.fuel.tank and cfg.fuel.tank.name))
-    relaySideBtn:setText("RELAY SIDE: " .. ((cfg.relay and cfg.relay.side) or "back"))
+    relayPicker.setOptions(M._toOptions(M._relayCandidates(descriptors)), cfg.relay and cfg.relay.name)
+    pumpPicker.setOptions(M._toOptions(M._fuelCandidates(descriptors)), cfg.fuel and cfg.fuel.pump and cfg.fuel.pump.name)
+    tankPicker.setOptions(M._toOptions(M._fuelCandidates(descriptors)), cfg.fuel and cfg.fuel.tank and cfg.fuel.tank.name)
+    sidePicker.setOptions(M._sideOptions(), (cfg.relay and cfg.relay.side) or "back")
     local e = cfg.engine or {}
     timingLabel:setText(string.format("P %sms  I %s  inv %s  kick %s",
       tostring(e.pulseMs or "?"), fmtInterval(e.intervalMs),
@@ -287,12 +428,14 @@ function M.build(basalt, frame, runtime, nav, deps)
     end
   end
 
-  scanBtn:onClick(onId("scan"))
+  -- SCAN both auto-detect-proposes bindings (via M._onButton -> doScan, unchanged) AND re-scans
+  -- descriptors so the pickers' candidate lists pick up any newly-connected peripherals.
+  scanBtn:onClick(function()
+    M._onButton(runtime, "scan", os.epoch("utc"), deps)
+    descriptors = scanFn()
+    refresh()
+  end)
   calFuelBtn:onClick(onId("calFuel"))
-  bindRelayBtn:onClick(onId("bindRelay"))
-  bindPumpBtn:onClick(onId("bindPump"))
-  bindTankBtn:onClick(onId("bindTank"))
-  relaySideBtn:onClick(onId("relaySide"))
   pulseDnBtn:onClick(onId("pulseDn"))
   pulseUpBtn:onClick(onId("pulseUp"))
   intDnBtn:onClick(onId("intervalDn"))
@@ -315,8 +458,10 @@ function M.build(basalt, frame, runtime, nav, deps)
     elements = {
       headerLabel = headerLabel,
       scanBtn = scanBtn, calFuelBtn = calFuelBtn,
-      bindRelayBtn = bindRelayBtn, bindPumpBtn = bindPumpBtn, bindTankBtn = bindTankBtn,
-      relaySideBtn = relaySideBtn,
+      relayLabel = relayLabel, relayPicker = relayPicker,
+      pumpLabel = pumpLabel, pumpPicker = pumpPicker,
+      tankLabel = tankLabel, tankPicker = tankPicker,
+      sideLabel = sideLabel, sidePicker = sidePicker,
       timingLabel = timingLabel,
       pulseDnBtn = pulseDnBtn, pulseUpBtn = pulseUpBtn,
       intDnBtn = intDnBtn, intUpBtn = intUpBtn,

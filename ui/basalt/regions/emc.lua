@@ -8,14 +8,21 @@
 --
 -- Three screens, drilling deeper each time:
 --   M.main    ("emc_main")    -- flight-glance: gauges + ENG SW/PRIME + MASTER/FEED lights + CONFIG
---   M.config  ("emc_config")  -- relay/pulse/interval/bind controls, reusing UI CAL's tested seam
+--   M.config  ("emc_config")  -- relay/pulse/interval/bind controls, reusing UI CAL's tested seams
 --   M.calfuel ("emc_calfuel") -- manual max steppers (no auto-cal) that the gauges divide against
 --
 -- REUSE, not reimplementation:
 --   * ui/basalt/switchbtn.lua's Switch.make/set for the ENG SW color-state button.
---   * ui/basalt/bitconfig/uical.lua's M._onButton for every config-drill button id (relaySide,
---     pulseUp/Dn, intervalUp/Dn, bindPump/Tank/Relay, toggleInvert/Kick) -- NOT "calFuel" (the old
---     single-button auto-cal); this module's own M._setMax is the manual replacement.
+--   * ui/basalt/bitconfig/uical.lua's M._onButton for the config-drill button ids that stay
+--     buttons (pulseUp/Dn, intervalUp/Dn) via M._cfg below -- NOT "calFuel" (the old single-button
+--     auto-cal); this module's own M._setMax is the manual replacement.
+--   * ui/basalt/picker.lua's Picker.make + uical.lua's _sideOptions/_fuelCandidates/
+--     _relayCandidates/_toOptions/_pickBind/_pickSide for RELAY SIDE and BIND PUMP/TANK/RELAY --
+--     DROPDOWNS, not click-to-cycle buttons (cycling abbreviated peripheral names to find the
+--     right one proved unusable in-game). These bypass M._cfg/_onButton entirely (a Picker's
+--     onPick hands back the tapped value directly, so there's nothing to "cycle to next" through
+--     ConfigPanel.action) -- each onPick calls uical's _pickBind/_pickSide then bumps
+--     runtime.uiRev itself (see M.config's local `bump()`).
 --   * ui/fuel.lua's Fuel.manualFrac for both gauges' fill fraction (amount / config-set max).
 --
 -- RENDER-PATH DISCIPLINE: apply(state) reads ONLY `state` (the polled cadence snapshot -- already
@@ -45,6 +52,7 @@ local Fuel   = require("ui.fuel")
 local Uical  = require("ui.basalt.bitconfig.uical")
 local Config = require("ui.config")
 local ConfigPanel = require("ui.panels.config")
+local Picker = require("ui.basalt.picker")
 
 local M = {}
 
@@ -225,7 +233,17 @@ end
 
 -- ===== M.config ("emc_config"): engine config drill, ~11 rows =====
 
-function M.config(basalt, frame, region, runtime)
+-- deps (optional, 5th arg): { scan= } -- injectable exactly like uical.build's trailing deps;
+-- defaults to Uical._realScanDescriptors (the SAME real scanner uical.lua's own menu uses -- no
+-- second implementation). Scanned once at build time to populate the four pickers' candidate
+-- lists; this screen has no dedicated RESCAN control (SCAN+auto-detect lives on UI CAL), so the
+-- candidate lists are fixed for the screen's lifetime -- only each picker's CURRENT selection is
+-- refreshed afterwards, from runtime.config, on every apply().
+function M.config(basalt, frame, region, runtime, deps)
+  deps = deps or {}
+  local scanFn = deps.scan or Uical._realScanDescriptors
+  local descriptors = scanFn()
+
   local w = ({ frame:getSize() })[1]
   local half = math.max(1, math.floor(w / 2))
   local rest = math.max(1, w - half)
@@ -234,8 +252,37 @@ function M.config(basalt, frame, region, runtime)
   local backBtn = frame:addButton({ x = 1, y = y, width = w, height = 1, text = "< BACK" })
   y = y + 1
 
-  local relayBtn = frame:addButton({ x = 1, y = y, width = w, height = 1, text = "RELAY: --" })
-  y = y + 1
+  -- Dropdown pickers replace the old click-to-cycle RELAY SIDE / BIND PUMP/TANK/RELAY buttons --
+  -- reuses uical.lua's tested _sideOptions / _fuelCandidates / _relayCandidates / _toOptions
+  -- / _pickBind / _pickSide seams verbatim, no reimplementation. Label + dropdown share one row.
+  local labelW = math.min(4, math.max(1, w - 3))
+  local dropW  = math.max(3, w - labelW)
+  local dropX  = 1 + labelW
+
+  local function pickerRow(labelText, options, current, placeholder, dropdownHeight, onPick)
+    local lbl = frame:addLabel({ x = 1, y = y, width = labelW, height = 1, autoSize = false, text = labelText })
+    local picker = Picker.make(frame, {
+      x = dropX, y = y, width = dropW, dropdownHeight = dropdownHeight or 5,
+      options = options, current = current, placeholder = placeholder,
+      onPick = onPick,
+    })
+    y = y + 1
+    return lbl, picker
+  end
+
+  -- Every pick bumps runtime.uiRev itself (bypasses M._cfg, which only wraps ConfigPanel.action
+  -- ids) -- see the header note: uical's _pickBind/_pickSide save config but don't touch uiRev,
+  -- and the cadence signature has no field for relay/bind names or sides, so this is the ONLY
+  -- thing that wakes the dirty-gated render loop to repaint the picker's new selection.
+  local function bump() runtime.uiRev = (runtime.uiRev or 0) + 1 end
+
+  local cfg0 = runtime.config
+  local sideLabel, sidePicker = pickerRow("SIDE",
+    Uical._sideOptions(), (cfg0.relay and cfg0.relay.side) or "back", "back", 6,
+    function(value)
+      Uical._pickSide(runtime, value, deps)
+      bump()
+    end)
 
   local timingLabel = frame:addLabel({ x = 1, y = y, width = w, height = 1, autoSize = false, text = "" })
   y = y + 1
@@ -250,12 +297,33 @@ function M.config(basalt, frame, region, runtime)
 
   y = y + 1 -- spacer
 
-  local bindPumpBtn  = frame:addButton({ x = 1, y = y, width = w, height = 1, text = "PMP unbound" })
-  y = y + 1
-  local bindTankBtn  = frame:addButton({ x = 1, y = y, width = w, height = 1, text = "TNK unbound" })
-  y = y + 1
-  local bindRelayBtn = frame:addButton({ x = 1, y = y, width = w, height = 1, text = "RLY unbound" })
-  y = y + 1
+  -- Candidate NAME lists computed ONCE from the build-time scan (no peripheral touch from
+  -- apply()) -- but the Picker OPTIONS built from them are NOT cached: Uical._toOptions(...) is
+  -- called fresh every time a picker's options are set (here, and again in apply() below). A
+  -- cached/shared options TABLE reused across multiple setOptions calls hits the exact same
+  -- stale-.selected hazard documented on uical.lua's M._sideOptions -- Basalt's
+  -- Collection:selectItem(idx) never clears a previously-selected item's flag, so reusing one
+  -- table across calls would eventually freeze the shown selection at whichever candidate was
+  -- selected first, ever.
+  local pumpCandidates  = Uical._fuelCandidates(descriptors)
+  local tankCandidates  = Uical._fuelCandidates(descriptors)
+  local relayCandidates = Uical._relayCandidates(descriptors)
+
+  local pumpLabel, pumpPicker = pickerRow("PMP", Uical._toOptions(pumpCandidates), cfg0.fuel.pump.name, "(none)", 5,
+    function(value)
+      Uical._pickBind(runtime, "pump", value, descriptors, deps)
+      bump()
+    end)
+  local tankLabel, tankPicker = pickerRow("TNK", Uical._toOptions(tankCandidates), cfg0.fuel.tank.name, "(none)", 5,
+    function(value)
+      Uical._pickBind(runtime, "tank", value, descriptors, deps)
+      bump()
+    end)
+  local relayLabel, relayPicker = pickerRow("RLY", Uical._toOptions(relayCandidates), cfg0.relay and cfg0.relay.name, "(none)", 5,
+    function(value)
+      Uical._pickBind(runtime, "relay", value, descriptors, deps)
+      bump()
+    end)
 
   y = y + 1 -- spacer
 
@@ -263,44 +331,25 @@ function M.config(basalt, frame, region, runtime)
   y = y + 1
 
   backBtn:onClick(function() region:pop() end)
-  relayBtn:onClick(function() M._cfg(runtime, "relaySide") end)
   pulseDnBtn:onClick(function() M._cfg(runtime, "pulseDn") end)
   pulseUpBtn:onClick(function() M._cfg(runtime, "pulseUp") end)
   intDnBtn:onClick(function() M._cfg(runtime, "intervalDn") end)
   intUpBtn:onClick(function() M._cfg(runtime, "intervalUp") end)
-  bindPumpBtn:onClick(function() M._cfg(runtime, "bindPump") end)
-  bindTankBtn:onClick(function() M._cfg(runtime, "bindTank") end)
-  bindRelayBtn:onClick(function() M._cfg(runtime, "bindRelay") end)
   calFuelBtn:onClick(function() region:push("emc_calfuel") end)
 
-  -- apply(state): labels from runtime.config + the polled state's fuel amounts. NO peripheral read.
+  -- apply(state): reads ONLY state + runtime.config (per the header's RENDER-PATH DISCIPLINE) --
+  -- refreshes the timing line and each picker's CURRENT selection; candidate lists stay fixed
+  -- (from the build-time scan) since this screen has no rescan control.
   local function apply(state)
     state = state or {}
     local cfg = runtime.config
 
-    relayBtn:setText(fit("RELAY: " .. ((cfg.relay and cfg.relay.side) or "back"), w))
     timingLabel:setText(ConfigPanel.timingLine(cfg, w))
 
-    local pump = cfg.fuel.pump
-    if pump.name then
-      bindPumpBtn:setText(fit("PMP " .. pump.name .. " " .. tostring(state.pumpAmount or 0), w))
-    else
-      bindPumpBtn:setText("PMP unbound")
-    end
-
-    local tank = cfg.fuel.tank
-    if tank.name then
-      bindTankBtn:setText(fit("TNK " .. tank.name .. " " .. tostring(state.tankMb or 0), w))
-    else
-      bindTankBtn:setText("TNK unbound")
-    end
-
-    local relay = cfg.relay
-    if relay and relay.name then
-      bindRelayBtn:setText(fit("RLY " .. relay.name, w))
-    else
-      bindRelayBtn:setText("RLY unbound")
-    end
+    sidePicker.setOptions(Uical._sideOptions(), (cfg.relay and cfg.relay.side) or "back")
+    pumpPicker.setOptions(Uical._toOptions(pumpCandidates), cfg.fuel.pump.name)
+    tankPicker.setOptions(Uical._toOptions(tankCandidates), cfg.fuel.tank.name)
+    relayPicker.setOptions(Uical._toOptions(relayCandidates), cfg.relay and cfg.relay.name)
   end
 
   apply({})
@@ -308,10 +357,12 @@ function M.config(basalt, frame, region, runtime)
   return {
     apply = apply,
     elements = {
-      backBtn = backBtn, relayBtn = relayBtn, timingLabel = timingLabel,
+      backBtn = backBtn, sideLabel = sideLabel, sidePicker = sidePicker, timingLabel = timingLabel,
       pulseDnBtn = pulseDnBtn, pulseUpBtn = pulseUpBtn,
       intDnBtn = intDnBtn, intUpBtn = intUpBtn,
-      bindPumpBtn = bindPumpBtn, bindTankBtn = bindTankBtn, bindRelayBtn = bindRelayBtn,
+      pumpLabel = pumpLabel, pumpPicker = pumpPicker,
+      tankLabel = tankLabel, tankPicker = tankPicker,
+      relayLabel = relayLabel, relayPicker = relayPicker,
       calFuelBtn = calFuelBtn,
     },
   }

@@ -7,6 +7,7 @@ local t = require("tests.framework")
 local M = require("ui.basalt.regions.emc")
 local Region = require("ui.basalt.region")
 local BasaltApp = require("ui.basalt.app")
+local Uical = require("ui.basalt.bitconfig.uical")
 
 -- ===== stub engine: records toggleMaster/feedNow, mutable .master field for status(now) =====
 
@@ -262,6 +263,142 @@ t.test("_cfg: repeated presses (relaySide twice) accumulate uiRev, one bump per 
   M._cfg(runtime, "pulseUp", { save = save })
 
   t.eq(runtime.uiRev, 2)
+end)
+
+-- ===== M.config pickers: construction probe + DRAIN-SAFETY through the exact seams its onPick =====
+-- ===== closures call (Uical._pickBind / Uical._pickSide -- already exhaustively unit-tested in =====
+-- ===== tests/test_bitconfig_uical.lua; here we confirm M.config wires them with the SAME deps =====
+-- ===== it was given, and that its own uiRev bump happens on top). =====
+
+t.test("M.config: builds SIDE/PMP/TNK/RLY as DROPDOWN pickers (not cycle buttons), reflecting runtime.config", function()
+  local basalt = BasaltApp.ensureBasalt()
+  local frame = basalt.createFrame()
+  local region = { push = function() end, pop = function() end }
+
+  local runtime = {
+    uiRev = 0,
+    config = {
+      relay = { name = "relay_2", side = "top" },
+      fuel = {
+        pump = { name = "tank_1",  kind = "fluid",     empty = 0, full = 1000 },
+        tank = { name = "chest_1", kind = "inventory", empty = 0, full = 4000 },
+      },
+      engine = { pulseMs = 250, intervalMs = 330000, invert = false, kickstart = true, masterDefault = false },
+    },
+  }
+  local descriptors = {
+    { name = "relay_1", type = "redstone_relay", methods = { setOutput = true } },
+    { name = "relay_2", type = "redstone_relay", methods = { setOutput = true } },
+    { name = "tank_1",  type = "fluid_tank",     methods = { getFuelAmountMb = true } },
+    { name = "chest_1", type = "inventory",      methods = { list = true } },
+  }
+  local scanCalls = 0
+  local function scan() scanCalls = scanCalls + 1; return descriptors end
+
+  local h = M.config(basalt, frame, region, runtime, { scan = scan })
+
+  t.eq(scanCalls, 1, "scans once at build time (no rescan control on this screen)")
+  t.truthy(h.elements.sidePicker ~= nil, "sidePicker present (dropdown, not a cycle button)")
+  t.truthy(h.elements.sidePicker.dropdown ~= nil, "sidePicker exposes its dropdown element")
+  t.truthy(h.elements.pumpPicker ~= nil, "pumpPicker present")
+  t.truthy(h.elements.tankPicker ~= nil, "tankPicker present")
+  t.truthy(h.elements.relayPicker ~= nil, "relayPicker present")
+
+  t.eq(h.elements.sidePicker.dropdown:getSelectedItem().value, "top", "relay side reflected")
+  t.eq(h.elements.pumpPicker.dropdown:getSelectedItem().value, "tank_1", "pump bind reflected")
+  t.eq(h.elements.tankPicker.dropdown:getSelectedItem().value, "chest_1", "tank bind reflected")
+  t.eq(h.elements.relayPicker.dropdown:getSelectedItem().value, "relay_2", "relay bind reflected")
+
+  local ok, err = pcall(h.apply, {})
+  t.truthy(ok, "apply should not error: " .. tostring(err))
+  local ok2, err2 = pcall(h.apply, {})
+  t.truthy(ok2, "apply should be safe to call repeatedly: " .. tostring(err2))
+
+  local okr, errr = pcall(function() basalt.update("timer", -1) end)
+  t.truthy(okr, "basalt.update should not error: " .. tostring(errr))
+end)
+
+t.test("M.config: unbound relay/pump/tank show the (none) placeholder, not a stale name", function()
+  local basalt = BasaltApp.ensureBasalt()
+  local frame = basalt.createFrame()
+  local region = { push = function() end, pop = function() end }
+
+  local runtime = {
+    uiRev = 0,
+    config = {
+      relay = { name = nil, side = nil },
+      fuel = newFuelCfg(),
+      engine = { pulseMs = 250, intervalMs = 330000, invert = false, kickstart = true, masterDefault = false },
+    },
+  }
+  local function scan() return {} end
+
+  local h = M.config(basalt, frame, region, runtime, { scan = scan })
+
+  t.eq(h.elements.pumpPicker.dropdown:getSelectedItem(), nil, "no name bound -> nothing selected")
+  t.eq(h.elements.relayPicker.dropdown:getSelectedItem(), nil, "no relay bound -> nothing selected")
+  -- SIDE always has a value (defaults to "back" even unset) -- never unbound like a name picker.
+  t.eq(h.elements.sidePicker.dropdown:getSelectedItem().value, "back")
+end)
+
+t.test("M.config: picking a relay through its wired onPick (Uical._pickBind) re-blocks -- DRAIN SAFETY -- and M.config's own bump() fires", function()
+  local basalt = BasaltApp.ensureBasalt()
+  local frame = basalt.createFrame()
+  local region = { push = function() end, pop = function() end }
+  local runtime, calls = newCfgStubRuntime()
+  local save, saveCalls = newSaveSpy()
+  local descriptors = { { name = "relay_9", type = "redstone_relay", methods = {} } }
+  local function scan() return descriptors end
+  local deps = { scan = scan, save = save }
+
+  M.config(basalt, frame, region, runtime, deps)
+  t.eq(runtime.uiRev, 0, "no pick made yet")
+
+  -- Drive the EXACT seam M.config's RELAY picker's onPick closure calls, with the SAME deps
+  -- M.config itself was built with -- confirms the wiring (not just the seam in isolation).
+  Uical._pickBind(runtime, "relay", "relay_9", descriptors, deps)
+
+  t.eq(runtime.config.relay.name, "relay_9")
+  t.eq(calls.rebind, 1, "DRAIN SAFETY: rebindRelay fired on the relay pick")
+  t.eq(calls.blockNow, 1, "DRAIN SAFETY: engine:blockNow fired on the relay pick")
+  t.eq(#saveCalls, 1)
+end)
+
+t.test("M.config: pump/tank picks through Uical._pickBind never touch the relay (NO re-block)", function()
+  local basalt = BasaltApp.ensureBasalt()
+  local frame = basalt.createFrame()
+  local region = { push = function() end, pop = function() end }
+  local runtime, calls = newCfgStubRuntime()
+  local save = newSaveSpy()
+  local descriptors = { { name = "tank_9", type = "fluid_tank", methods = { getFuelAmountMb = true } } }
+  local function scan() return descriptors end
+  local deps = { scan = scan, save = save }
+
+  M.config(basalt, frame, region, runtime, deps)
+
+  Uical._pickBind(runtime, "pump", "tank_9", descriptors, deps)
+
+  t.eq(runtime.config.fuel.pump.name, "tank_9")
+  t.eq(calls.rebind, 0, "pump pick never rebinds the relay")
+  t.eq(calls.blockNow, 0, "pump pick never re-blocks")
+end)
+
+t.test("M.config: picking a relay side through Uical._pickSide re-blocks -- DRAIN SAFETY", function()
+  local basalt = BasaltApp.ensureBasalt()
+  local frame = basalt.createFrame()
+  local region = { push = function() end, pop = function() end }
+  local runtime, calls = newCfgStubRuntime()
+  local save = newSaveSpy()
+  local function scan() return {} end
+  local deps = { scan = scan, save = save }
+
+  M.config(basalt, frame, region, runtime, deps)
+
+  Uical._pickSide(runtime, "left", deps)
+
+  t.eq(runtime.config.relay.side, "left")
+  t.eq(calls.rebind, 1, "DRAIN SAFETY: rebindRelay fired on the side pick")
+  t.eq(calls.blockNow, 1, "DRAIN SAFETY: engine:blockNow fired on the side pick")
 end)
 
 -- ===== CONSTRUCTION PROBE: real Basalt, a Region hosting all three screens, stub runtime =====
