@@ -574,7 +574,13 @@ function SuiteX.run()
     abort("could not fetch the Suite engine: " .. tostring(suiteErr))
     return
   end
-  local chunk, loadErr = load(suiteBody, "=suite", "t")
+  -- Load with THIS program's own environment (`_ENV`), not the bare base `_G`. In CC:Tweaked
+  -- `shell` (and `require`/`package`) are PROGRAM-scoped -- injected into a program's `_ENV`, not
+  -- into base `_G` -- so a chunk loaded without an env can't see them and blows up the moment the
+  -- engine touches `shell` (e.g. Suite.selfUpdateNotice's shell.getRunningProgram). `_ENV` carries
+  -- shell; `_G` still resolves through it to the one real global, so the `_G.EH2_SUITE_NO_RUN`
+  -- suppression above keeps working. (Same reason the Basalt loadfile below passes `_ENV`.)
+  local chunk, loadErr = load(suiteBody, "=suite", "t", _ENV)
   if not chunk then
     _G.EH2_SUITE_NO_RUN = nil
     abort("the Suite engine did not parse: " .. tostring(loadErr))

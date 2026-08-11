@@ -1509,6 +1509,9 @@ end
 --- by this point, so replacing it is safe, and the next run uses it.
 function Suite.selfUpdateNotice(base, manifest)
   if type(manifest.updater) ~= "table" then return end
+  -- `shell` is a program-scoped API in CC:Tweaked; guard it so the engine never hard-crashes when
+  -- loaded in an environment without it (there's no running-program file to self-update anyway).
+  if type(shell) ~= "table" or type(shell.getRunningProgram) ~= "function" then return end
   local ok, selfPath = pcall(shell.getRunningProgram)
   if not ok then return end
   -- `wget run` executes transiently (no saved file of ours to update); only a real saved
