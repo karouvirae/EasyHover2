@@ -306,6 +306,16 @@ elseif phase == "check" then
   check(read("/tools/flight.lua") == before, "--check wrote nothing, even to a corrupt file")
   check(#noStagingLeftBehind() == 0, "--check staged nothing")
 
+  -- The channel marker must not be persisted by a dry run either -- not even when a flag
+  -- would actually change it. `install` (earlier in this chain) already wrote /eh2_channel.txt
+  -- as "min" with a real run, so pairing --check with --dev here is the case that actually
+  -- exercises the write: a bug that skips the checkOnly gate would flip the marker to "dev".
+  local channelBefore = read("/eh2_channel.txt")
+  runSuite("--check", "--dev")
+  check(read("/eh2_channel.txt") == channelBefore,
+    "--check --dev did not persist a channel switch",
+    tostring(read("/eh2_channel.txt")) .. " vs " .. tostring(channelBefore))
+
 elseif phase == "ui" then
   -- A FRESH install of the OTHER released role, on a bare computer. Nothing else here covers
   -- ui, and it is structurally different from fcs: a whole separate ui/ source tree, and it
