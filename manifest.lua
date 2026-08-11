@@ -683,9 +683,9 @@
         },
         {
           ["dst"] = "ui/basalt/pages/config.lua",
-          ["size"] = 7778,
+          ["size"] = 9074,
           ["src"] = "ui/basalt/pages/config.lua",
-          ["sum"] = "973e1f46",
+          ["sum"] = "580d19a4",
         },
         {
           ["dst"] = "ui/basalt/pages/emc.lua",
@@ -713,9 +713,9 @@
         },
         {
           ["dst"] = "ui/basalt/picker.lua",
-          ["size"] = 1787,
+          ["size"] = 2489,
           ["src"] = "ui/basalt/picker.lua",
-          ["sum"] = "e2078999",
+          ["sum"] = "e4779b9e",
         },
         {
           ["dst"] = "ui/basalt/region.lua",
@@ -812,5 +812,5 @@
     ["size"] = 66417,
     ["sum"] = "677c0845",
   },
-  ["version"] = "5365a5c6",
+  ["version"] = "1c0935c5",
 }

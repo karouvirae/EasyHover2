@@ -23,6 +23,7 @@
 -- apply() closure, so `require("ui.basalt.pages.config")` loads clean headless.
 local ConfigPanel = require("ui.panels.config")
 local Config       = require("ui.config")
+local Picker       = require("ui.basalt.picker")   -- pure module (no ui.basalt.app dep) -> safe at top
 -- NOTE: ui.basalt.app is required LAZILY below (inside M._onButton / M.build), NOT at module
 -- top. ui/basalt/app.lua's page registry (M.PAGES, Task 27) requires this module at ITS OWN
 -- module top -- a top-level require("ui.basalt.app") here would close the loop mid-load
@@ -80,6 +81,24 @@ function M._onButton(runtime, id, now, saveFn)
   return { kind = "config", op = "cycleAssign", monitor = monitor, assigned = next }
 end
 
+-- Options for a monitor's assignment dropdown: "(none)" (unassigned) + each monitor-displayable page.
+function M._assignOptions()
+  local opts = { { text = "(none)", value = false } }
+  for _, id in ipairs(M.ASSIGN_CYCLE) do opts[#opts + 1] = { text = id, value = id } end
+  return opts
+end
+
+-- Set (not cycle) a monitor's page assignment directly from the dropdown. `pageId` false/nil ->
+-- unassigned. Persists + bumps uiRev, same as the old cycle seam. Testable (saveFn injectable).
+function M._pickAssign(runtime, monitor, pageId, saveFn)
+  local BasaltApp = require("ui.basalt.app")
+  saveFn = saveFn or Config.save
+  runtime.config.assign[monitor] = pageId or nil
+  saveFn(BasaltApp.CONFIG_PATH, runtime.config)
+  runtime.uiRev = (runtime.uiRev or 0) + 1
+  return { kind = "config", op = "assign", monitor = monitor, assigned = pageId or nil }
+end
+
 -- ===== M.build: construct the element tree =====
 
 function M.build(basalt, frame, runtime)
@@ -94,9 +113,18 @@ function M.build(basalt, frame, runtime)
   local monHeader = frame:addLabel({ x = x, y = y, width = iw, height = 1, autoSize = false, text = "MONITORS" })
   y = y + 1
 
-  local monButtons = {}
+  -- Per-monitor assignment DROPDOWN (name label on the left, page picker on the right) -- replaces
+  -- the old click-to-cycle button so you pick a page from a list instead of cycling.
+  local assignOpts = M._assignOptions()
+  local monPickers = {}
   for _, name in ipairs(monitors) do
-    monButtons[name] = frame:addButton({ x = x, y = y, width = iw, height = 1, text = name .. ": --" })
+    local nameW = math.min(#name + 1, math.max(4, math.floor(iw / 2)))
+    frame:addLabel({ x = x, y = y, width = nameW, height = 1, autoSize = false, text = name })
+    monPickers[name] = Picker.make(frame, {
+      x = x + nameW, y = y, width = math.max(4, iw - nameW),
+      options = assignOpts, current = runtime.config.assign[name] or false, placeholder = "(none)",
+      onPick = function(value) M._pickAssign(runtime, name, value) end,
+    })
     y = y + 1
   end
 
@@ -109,14 +137,7 @@ function M.build(basalt, frame, runtime)
   local tankLabel   = frame:addLabel({ x = x, y = y + 2, width = iw, height = 1, autoSize = false, text = "TANK --" })
   local timingLabel = frame:addLabel({ x = x, y = y + 3, width = iw, height = 1, autoSize = false, text = "TIMING --" })
 
-  for _, name in ipairs(monitors) do
-    local btn = monButtons[name]
-    btn:onClick(function()
-      M._onButton(runtime, "assign:" .. name, os.epoch("utc"))
-    end)
-  end
-
-  -- apply(state): refresh the monitor cycle button labels (current runtime.config.assign) and the
+  -- apply(state): refresh the monitor assignment pickers (current runtime.config.assign) and the
   -- device-summary Labels (from runtime.config) -- reuses ui/panels/config.lua's labelFor/
   -- timingLine helpers so the summary text matches the old terminal-rendered panel exactly.
   -- Idempotent -- safe to call repeatedly; only ever SETS element props, config-derived values
@@ -127,8 +148,7 @@ function M.build(basalt, frame, runtime)
     local assign = cfg.assign or {}
 
     for _, name in ipairs(monitors) do
-      local btn = monButtons[name]
-      btn:setText(name .. ": " .. ConfigPanel.labelFor({ monitorName = name }, cfg, assign))
+      monPickers[name].setOptions(assignOpts, assign[name] or false)
     end
 
     -- ConfigPanel.labelFor already prefixes these ("RELAY: <name>", "PUMP: <name>", "TANK: <name>")
@@ -144,7 +164,7 @@ function M.build(basalt, frame, runtime)
     apply = apply,
     elements = {
       monHeader = monHeader, devHeader = devHeader,
-      monButtons = monButtons,
+      monPickers = monPickers,
       relayLabel = relayLabel, pumpLabel = pumpLabel, tankLabel = tankLabel, timingLabel = timingLabel,
     },
   }

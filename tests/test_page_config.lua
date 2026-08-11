@@ -115,8 +115,8 @@ t.test("M.build constructs the element tree; apply() + one render pass do not er
   t.eq(h.id, "config")
   t.truthy(type(h.apply) == "function", "apply should be a function")
   t.truthy(h.elements ~= nil, "elements table should be exposed")
-  t.truthy(h.elements.monButtons.monitor_0 ~= nil, "monitor_0 assign button present")
-  t.truthy(h.elements.monButtons.monitor_1 ~= nil, "monitor_1 assign button present")
+  t.truthy(h.elements.monPickers.monitor_0 ~= nil, "monitor_0 assign picker present")
+  t.truthy(h.elements.monPickers.monitor_1 ~= nil, "monitor_1 assign picker present")
   t.truthy(h.elements.relayLabel ~= nil, "relayLabel present")
   t.truthy(h.elements.pumpLabel ~= nil, "pumpLabel present")
   t.truthy(h.elements.tankLabel ~= nil, "tankLabel present")
@@ -129,8 +129,8 @@ t.test("M.build constructs the element tree; apply() + one render pass do not er
   local ok2, err2 = pcall(h.apply, { uiRev = 1 })
   t.truthy(ok2, "apply should be safe to call repeatedly: " .. tostring(err2))
 
-  t.eq(h.elements.monButtons.monitor_0:getText(), "monitor_0: emc")
-  t.eq(h.elements.monButtons.monitor_1:getText(), "monitor_1: fcs")
+  t.eq(h.elements.monPickers.monitor_0.dropdown:getSelectedItem().value, "emc", "picker reflects monitor_0 assignment")
+  t.eq(h.elements.monPickers.monitor_1.dropdown:getSelectedItem().value, "fcs", "picker reflects monitor_1 assignment")
   t.truthy(h.elements.relayLabel:getText():find("redstone_relay_0") ~= nil, "relay label shows bound name")
   t.truthy(h.elements.pumpLabel:getText():find("pump_0") ~= nil, "pump label shows bound name")
   t.truthy(h.elements.tankLabel:getText():find("tank_0") ~= nil, "tank label shows bound name")
@@ -140,28 +140,41 @@ t.test("M.build constructs the element tree; apply() + one render pass do not er
   t.truthy(ok3, "basalt.update should not error: " .. tostring(err3))
 end)
 
-t.test("M.build's monitor button click cycles the assignment through _onButton + apply() reflects it", function()
+t.test("_assignOptions lists (none) + every monitor-displayable page", function()
+  local opts = M._assignOptions()
+  t.eq(opts[1].value, false); t.eq(opts[1].text, "(none)")
+  -- the rest mirror ASSIGN_CYCLE in order
+  for i, id in ipairs(M.ASSIGN_CYCLE) do t.eq(opts[i + 1].value, id) end
+end)
+
+t.test("_pickAssign sets the chosen page directly (not a cycle), saves, bumps uiRev", function()
+  local saved = {}
+  local saveFn = function(path, cfg) saved.path = path; saved.cfg = cfg end
+  local runtime = { config = { assign = {} }, uiRev = 0 }
+  M._pickAssign(runtime, "monitor_0", "flight", saveFn)
+  t.eq(runtime.config.assign.monitor_0, "flight", "picked page set directly")
+  t.eq(runtime.uiRev, 1, "uiRev bumped -> render-gate repaints")
+  t.truthy(saved.cfg == runtime.config, "persisted the config")
+  M._pickAssign(runtime, "monitor_0", false, saveFn)
+  t.eq(runtime.config.assign.monitor_0, nil, "(none) unassigns the monitor")
+end)
+
+t.test("M.build's assignment picker reflects a _pickAssign change after apply()", function()
   local basalt = BasaltApp.ensureBasalt()
   local frame = basalt.createFrame()
-
   local Config = require("ui.config")
-  local cfg = Config.withDefaults({ assign = {} })
-  local runtime = { config = cfg, monitors = { "monitor_0" }, uiRev = 0 }
+  local runtime = { config = Config.withDefaults({ assign = {} }), monitors = { "monitor_0" }, uiRev = 0 }
 
   local h = M.build(basalt, frame, runtime)
-  local ok, err = pcall(h.apply, { uiRev = 0 })
-  t.truthy(ok, "initial apply should not error: " .. tostring(err))
-  t.eq(h.elements.monButtons.monitor_0:getText(), "monitor_0: --")
+  h.apply({ uiRev = 0 })
+  t.eq(h.elements.monPickers.monitor_0.dropdown:getSelectedItem().value, false, "unassigned -> (none) selected")
 
-  -- Directly invoke the same intent seam the button's onClick wires up (a real click through
-  -- Basalt's event loop needs basalt.run(), which blocks -- forbidden here; see header comment).
-  local saveFn = function() end
-  M._onButton(runtime, "assign:monitor_0", os.epoch("utc"), saveFn)
-  t.eq(runtime.config.assign.monitor_0, "emc")
+  M._pickAssign(runtime, "monitor_0", "flight", function() end)  -- same seam the picker's onPick calls
+  h.apply({ uiRev = runtime.uiRev })
+  t.eq(h.elements.monPickers.monitor_0.dropdown:getSelectedItem().value, "flight", "picker follows the new assignment")
 
-  local ok2, err2 = pcall(h.apply, { uiRev = runtime.uiRev })
-  t.truthy(ok2, "apply after assignment change should not error: " .. tostring(err2))
-  t.eq(h.elements.monButtons.monitor_0:getText(), "monitor_0: emc")
+  local ok, err = pcall(function() basalt.update("timer", -1) end)
+  t.truthy(ok, "basalt.update should not error: " .. tostring(err))
 end)
 
 return true

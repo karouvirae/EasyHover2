@@ -28,6 +28,13 @@ t.test("picker builds a dropdown, reflects current, refreshes options, renders",
   p.setOptions({ { text = "relay_1", value = "relay_1" } }, "relay_1")  -- refresh (e.g. after re-scan)
   t.eq(p.dropdown:getSelectedItem().value, "relay_1", "options refreshed + new current selected")
 
+  -- Reused options table across setOptions must reflect the new current (no frozen selection).
+  local shared = { { text = "x", value = "x" }, { text = "y", value = "y" } }
+  p.setOptions(shared, "x")
+  t.eq(p.dropdown:getSelectedItem().value, "x")
+  p.setOptions(shared, "y")   -- same table, different current
+  t.eq(p.dropdown:getSelectedItem().value, "y", "reused table -> selection follows the new current")
+
   local ok, err = pcall(function() basalt.update("timer", -1) end)
   t.truthy(ok, "basalt.update should not error: " .. tostring(err))
 end)
