@@ -26,10 +26,16 @@
 --   * IT CHECKSUMS EVERY FILE, EVERY RUN. A version stamp only says the files were correct
 --     when they were written; it cannot know one has since been truncated by a chunk unload or
 --     hand-edited. Finding that is the job, so it is the default, and it costs no network.
---   * ALL OR NOTHING. Every file is downloaded and checksum-verified into a `.eh2new` staging
---     file first. Only once every single one has arrived intact are they moved into place. A
---     dropped connection or a chunk unload half way through leaves the install exactly as it
---     was.
+--   * VERIFIED BEFORE IT LANDS, AND REPLACED IN PLACE. Every file is checksum-verified BEFORE it
+--     is written, so a corrupt download is refused without the file on disk ever being touched.
+--     Each verified file then replaces its target directly, one at a time -- no second full copy
+--     of the role is ever held on disk. (This used to stage the WHOLE set into `.eh2new` files
+--     and commit them at the end; that needed roughly double the role's size free and hit "disk
+--     full" on a cramped computer, which is why it was dropped.) The trade for the small
+--     footprint: a connection dropped part way leaves the earlier files updated and the rest not.
+--     That is self-healing, not damage -- the install record is stamped only once every file is
+--     in place, so a half-finished run still reads as out-of-date, and the next run (which
+--     re-checks every file) simply re-fetches whatever still differs.
 --   * CONFIG IS SACRED. Nothing matching the protected list is ever deleted, and `guard()` is
 --     asserted immediately before every write, so a wrong manifest still could not clobber a
 --     config. The guarantee does not depend on the manifest being right.
@@ -540,51 +546,61 @@ function Suite.performPlan(base, manifest, spec, role, plan, fresh)
     for _, path in ipairs(cleared) do dim("cleared " .. path) end
   end
 
-  -- ---- stage: download and verify EVERYTHING before moving anything into place
+  -- ---- fetch, verify, and replace EACH file in place, one at a time.
+  --
+  -- Direct in-place replacement -- deliberately NOT the old download-everything-into-.eh2new-
+  -- then-commit staging. Staging held a SECOND copy of every file at once, so a big role needed
+  -- roughly double its own size in free space and hit "disk full" on a cramped computer. Writing
+  -- each verified file straight over its target keeps the peak footprint to a single file's worth
+  -- of headroom. The trade: the SET is no longer all-or-nothing -- an interruption part way
+  -- through leaves earlier files updated and later ones not. That is self-healing, because the
+  -- state stamp is written only once every file is in place (far below), so a half-finished run
+  -- still scores as "update"/"repair" and the next run re-fetches whatever still differs. Content
+  -- is still checksum-verified BEFORE it is written, so a corrupt download can never land on disk.
+  --
+  -- doFetch resolves to Suite.fetch (the exposed engine fetch) so a test can inject a failing
+  -- fetch and assert the in-place semantics; it is `fetch` verbatim in every real run.
+  local doFetch = Suite.fetch or fetch
   print("")
-  say(("Fetching %d file(s)..."):format(#spec.files))
-  local staged = {}
+  say(("Installing %d file(s) in place..."):format(#spec.files))
+  local written = 0
 
-  local function discardStaged()
-    for _, item in ipairs(staged) do
-      if fs.exists(item.stage) then fs.delete(item.stage) end
+  -- Truthful failure: by the time this fires, `written` files have ALREADY been replaced in
+  -- place, so "nothing was changed" would be a lie. Say what really happened and how to recover.
+  local function interrupted(reason)
+    if written > 0 then
+      die(("%s\n%d of %d file(s) were already replaced. Run the Suite again to finish -- it "
+        .. "re-checks every file and re-fetches whatever still differs.")
+        :format(reason, written, #spec.files))
     end
+    die(reason .. "\nNothing was changed; the install is as it was.")
   end
 
   for index, entry in ipairs(spec.files) do
     local url = ("%s/%s"):format(base, entry.src)
-    local content, fetchErr = fetch(url)
+    local content, fetchErr = doFetch(url)
     if not content then
-      discardStaged()
-      die(("failed on %s (%s)\nNothing was changed; the install is as it was.")
-        :format(entry.src, tostring(fetchErr)))
+      interrupted(("failed on %s (%s)"):format(entry.src, tostring(fetchErr)))
     end
-    -- GitHub raw serves what is committed; a proxy that rewrites line endings would show up
-    -- here as a size mismatch rather than as a mysterious runtime error later.
+    -- GitHub raw serves what is committed; a proxy that rewrites line endings would show up here
+    -- as a size mismatch rather than as a mysterious runtime error later. Verified BEFORE the
+    -- write below, so a corrupt download is refused without the file on disk ever being touched.
     if #content ~= entry.size or Suite.checksum(content) ~= entry.sum then
-      discardStaged()
-      die(("%s arrived corrupt (expected %d bytes / %s, got %d / %s)\nNothing was changed.")
+      interrupted(("%s arrived corrupt (expected %d bytes / %s, got %d / %s)")
         :format(entry.src, entry.size, entry.sum, #content, Suite.checksum(content)))
     end
-    local stagePath = "/" .. entry.dst .. STAGE
-    guard("/" .. entry.dst, "write")
-    if not writeRaw(stagePath, content) then
-      discardStaged()
-      die("could not write " .. stagePath .. " (disk full?)\nNothing was changed.")
+    local final = "/" .. entry.dst
+    guard(final, "replace")
+    if fs.exists(final) then fs.delete(final) end
+    if not writeRelease(final, content) then
+      interrupted("could not write " .. final .. " (disk full?)")
     end
-    staged[#staged + 1] = { stage = stagePath, final = "/" .. entry.dst, dst = entry.dst }
+    written = written + 1
     if index % 5 == 0 or index == #spec.files then
       dim(("  %d/%d"):format(index, #spec.files))
     end
   end
-
-  -- ---- commit: every file arrived intact, so move them all into place
-  for _, item in ipairs(staged) do
-    guard(item.final, "replace")
-    if fs.exists(item.final) then fs.delete(item.final) end
-    fs.move(item.stage, item.final)
-  end
-  good(("Installed %d file(s)."):format(#staged))
+  good(("Installed %d file(s)."):format(written))
 
   -- ---- configs: extend with any newly added defaults, in place
   print("")
@@ -623,7 +639,7 @@ function Suite.performPlan(base, manifest, spec, role, plan, fresh)
   end
   good(("Now at %s as role '%s'."):format(manifest.version, role))
   if spec.entry ~= "" then
-    if #staged > 0 and not fresh then
+    if written > 0 and not fresh then
       -- THIS COMPUTER IS STILL RUNNING THE OLD CODE. CC loads a program once; new files on
       -- disk do nothing until something starts them. Updating a running cockpit and then
       -- wondering why the new buttons do not work is exactly what happens without this line,

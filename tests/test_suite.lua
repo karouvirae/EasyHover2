@@ -382,6 +382,48 @@ t.test("checkFile classifies a file against its manifest entry", function()
   t.eq(Suite.checkFile(entry, function() return "abX" end), "corrupt")
 end)
 
+-- ---------------------------------------------------------------- performPlan: in-place install
+--
+-- performPlan replaces each file IN PLACE, one at a time -- no download-everything-into-.eh2new-
+-- then-commit staging -- so a role never needs a second full copy of itself on disk (the disk
+-- pressure that motivated the change). The observable contract of "in place": when a fetch fails
+-- PART WAY through, the files that already succeeded sit on disk at their FINAL paths, not rolled
+-- back, and never as leftover .eh2new staging turds. The old all-or-nothing staging discarded
+-- every partial write on a mid-run failure, so it would leave those final paths absent -- which
+-- is exactly what this asserts against. Suite.fetch is injected so the failure needs no network.
+t.test("performPlan writes each verified file in place; a mid-run failure keeps the earlier ones", function()
+  local dir = "probe_inplace_dir"
+  local bodies = { "AA", "BBB" }   -- files 1 and 2 fetch OK; file 3's fetch fails
+  local files = {
+    { src = dir .. "/a.lua", dst = dir .. "/a.lua", size = #bodies[1], sum = Suite.checksum(bodies[1]) },
+    { src = dir .. "/b.lua", dst = dir .. "/b.lua", size = #bodies[2], sum = Suite.checksum(bodies[2]) },
+    { src = dir .. "/c.lua", dst = dir .. "/c.lua", size = 4,          sum = "deadbeef" },
+  }
+  local spec = { files = files, dirs = { dir }, configs = {}, entry = "" }
+
+  if fs.exists("/" .. dir) then fs.delete("/" .. dir) end
+
+  local savedFetch = Suite.fetch
+  local n = 0
+  Suite.fetch = function() n = n + 1; if n >= 3 then return nil, "boom" end; return bodies[n] end
+
+  local ok = pcall(Suite.performPlan, "http://mirror", { version = "vT", schema = 1 },
+    spec, "fcs", "install", true)
+
+  Suite.fetch = savedFetch
+
+  t.eq(ok, false, "the failed fetch aborts the run (die throws)")
+  t.eq(fs.exists("/" .. dir .. "/a.lua"), true, "file 1 was written straight to its FINAL path")
+  t.eq(fs.exists("/" .. dir .. "/b.lua"), true, "file 2 was written straight to its FINAL path")
+  t.eq(fs.exists("/" .. dir .. "/c.lua"), false, "the file whose fetch failed was never written")
+  t.eq(fs.exists("/" .. dir .. "/a.lua.eh2new"), false, "no .eh2new staging copy left behind")
+  t.eq(fs.exists("/" .. dir .. "/b.lua.eh2new"), false, "no .eh2new staging copy left behind")
+  local f = fs.open("/" .. dir .. "/a.lua", "r"); local a = f.readAll(); f.close()
+  t.eq(a, bodies[1], "file 1 holds the verified content")
+
+  fs.delete("/" .. dir)
+end)
+
 -- ---------------------------------------------------------------- Task 2: manifest basalt entry
 
 t.test("manifest records the vendored basalt for SuiteX to verify", function()
