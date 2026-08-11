@@ -1,0 +1,1 @@
+local a={}function a.clamp(b,c)local d={}for e,f in pairs(b)do local g=c[e]if g and f>g then d[e]=g elseif g and f<-g then d[e]=-g else d[e]=f end end;return d end;return a

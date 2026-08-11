@@ -1,0 +1,1 @@
+local a={}a.__index=a;function a.new(b)return setmetatable({backend=b.backend,acc={},on={}},a)end;function a:state(c)return self.on[c]==true end;function a:apply(d,e)for c,f in pairs(d)do local g=(self.acc[c]or 0)+(f or 0)*e;local h;if e>0 and g>=e then h=true;g=g-e else h=false end;self.acc[c]=g;if self.on[c]~=h then self.on[c]=h;self.backend:setThruster(c,h)end end end;return a

@@ -1,0 +1,1 @@
+local a=require("fcs.comms.protocol")local b={}local c={}c.__index=c;function b.wrap(d,e)if d.open then pcall(d.open,e.rxCh)end;return setmetatable({dev=d,txCh=e.txCh,rxCh=e.rxCh},c)end;function c:send(f)self.dev.transmit(self.txCh,self.rxCh,a.encode(f))end;function c:onMessage(g,h)if g~=self.rxCh then return nil end;return a.decode(h)end;return b

@@ -1,0 +1,1 @@
+local a,b=16777619,2166136261;local function c(d)local e,f,g=b,#d,1;while g<=f do local h=g+255;if h>f then h=f end;local i={string.byte(d,g,h)}for j=1,#i do e=bit32.bxor(e,i[j])local k=e%65536;local l=(e-k)/65536;e=(l*a%65536*65536+k*a)%4294967296 end;g=h+1 end;return("%08x"):format(e)end;return c

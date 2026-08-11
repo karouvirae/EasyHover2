@@ -1,0 +1,1 @@
+local a={}function a.encode(b)return textutils.serialize(b)end;function a.decode(c)if type(c)~="string"then return nil end;local d,e=pcall(textutils.unserialize,c)if not d or type(e)~="table"then return nil end;return e end;return a

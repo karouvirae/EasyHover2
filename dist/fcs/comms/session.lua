@@ -1,0 +1,1 @@
+local a={}function a.new()local b=os.epoch and os.epoch("utc")or os.time and os.time()*1000 or 0;return tostring(b).."-"..tostring(math.random(0,1000000))end;return a

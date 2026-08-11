@@ -1,0 +1,1 @@
+local a={}function a.step(b,c,d,e,f,g)local h=f*(e>0 and e or 0)local i=c-b;if i>h then b=b+h elseif i<-h then b=b-h else b=c end;if b>d+g then b=d+g elseif b<d-g then b=d-g end;return b end;return a

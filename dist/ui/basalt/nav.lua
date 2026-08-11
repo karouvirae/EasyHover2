@@ -1,0 +1,1 @@
+local a={}local b={}b.__index=b;a.new=function(c)return setmetatable({stack={c}},b)end;function b:push(d)self.stack[#self.stack+1]=d end;function b:pop()if self:depth()>1 then table.remove(self.stack)end;return self:top()end;function b:top()return self.stack[#self.stack]end;function b:depth()return#self.stack end;function b:canBack()return self:depth()>1 end;return a

@@ -1,0 +1,1 @@
+package.path="/?.lua;/?/init.lua;"..package.path;local a=require("fcs.boot.loaderui")local b=a.run()if b then require("tools.flight")end

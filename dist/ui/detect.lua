@@ -1,0 +1,1 @@
+local a=require("ui.fuel")local b={}function b.propose(c)local d=nil;local e={}for f,g in ipairs(c)do if d==nil and g.type=="redstone_relay"then d=g.name end;if#e<2 and a.kindOf(g.methods)~="unknown"then e[#e+1]=g.name end end;return{relay=d,fuel={pump=e[1],tank=e[2]}}end;return b

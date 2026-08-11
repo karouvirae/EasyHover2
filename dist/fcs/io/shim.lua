@@ -1,0 +1,1 @@
+local a={}function a.getNames()return peripheral.getNames()end;function a.getType(b)return peripheral.getType(b)end;function a.wrap(b)return peripheral.wrap(b)end;return a

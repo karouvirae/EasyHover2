@@ -1,0 +1,1 @@
+return{default={headingRate=2.2,leadCapHeading=0.70,climbRate=4.5,leadCapVert=8.0,surgeSpeed=10.0,surgeLead=20.0,swaySpeed=5.0,swayLead=10.0}}

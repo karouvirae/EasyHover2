@@ -1,0 +1,1 @@
+local a=require("fcs.io.cfgspec")local function b(c)if fs and fs.exists(c)and not fs.isDir(c)then local d=fs.open(c,"r")if d then local e=d.readAll()d.close()return e end end;return nil end;local function f(g)return a.merge("tuning",g)end;local h=a.load("tuning",b)h._buildFrom=f;return h
