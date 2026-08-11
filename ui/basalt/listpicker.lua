@@ -21,4 +21,87 @@ function M.formatLabel(name, width)
   return s
 end
 
+-- Fresh item tables (formatted text + preserved value). Fresh per show() so Basalt's
+-- Collection:selectItem never cross-contaminates a shared options table's .selected flags
+-- (same hazard the old picker.lua documented).
+local function buildItems(options, width)
+  local items = {}
+  for i, o in ipairs(options or {}) do
+    items[i] = { text = M.formatLabel(o.text, width), value = o.value }
+  end
+  return items
+end
+
+-- M.make(frame) -> controller. Builds NO Basalt elements until the first show() (lazy: many
+-- pickers on one page must not each stand up a hidden overlay upfront).
+function M.make(frame)
+  local ctrl = { frame = frame, list = nil, opts = nil, elements = nil }
+
+  local function build()
+    local w, h = frame:getSize()
+    local overlay = frame:addFrame({ x = 1, y = 1, width = w, height = h })
+    overlay:setZ(100)                 -- above the page's own elements -> captures in-bounds clicks
+    overlay:setBackground(colors.black)
+    overlay:setVisible(false)
+
+    local title = overlay:addLabel({ x = 1, y = 1, width = w, height = 1, autoSize = false, text = "" })
+    local listH = math.max(1, h - 2)  -- rows 2..h-1
+    local list  = overlay:addList({ x = 1, y = 2, width = w, height = listH })
+    list:setShowScrollBar(false)      -- kill the 1-col mis-hittable bar; UP/DOWN + wheel instead
+
+    local third = math.max(1, math.floor(w / 3))
+    local upBtn   = overlay:addButton({ x = 1,             y = h, width = third, height = 1, text = "UP" })
+    local downBtn = overlay:addButton({ x = 1 + third,     y = h, width = third, height = 1, text = "DOWN" })
+    local backBtn = overlay:addButton({ x = 1 + 2 * third, y = h, width = math.max(1, w - 2 * third), height = 1, text = "BACK" })
+
+    list:onSelect(function(_self, index) ctrl.pick(index) end)
+    upBtn:onClick(function() ctrl.scrollBy(-listH) end)
+    downBtn:onClick(function() ctrl.scrollBy(listH) end)
+    backBtn:onClick(function() ctrl.hide() end)
+
+    ctrl.list = list
+    ctrl.listWidth = w
+    ctrl.elements = { overlay = overlay, list = list, title = title, upBtn = upBtn, downBtn = downBtn, backBtn = backBtn }
+  end
+
+  function ctrl.show(opts)
+    if not ctrl.elements then build() end
+    ctrl.opts = opts
+    ctrl.elements.title:setText(M.formatLabel(opts.title or "pick", ctrl.listWidth))
+    ctrl.list:setItems(buildItems(opts.options, ctrl.listWidth))
+    ctrl.list:clearItemSelection()
+    local idx
+    for i, o in ipairs(opts.options or {}) do
+      if o.value == opts.current then idx = i break end
+    end
+    if idx then
+      ctrl.list:selectItem(idx)
+      ctrl.list:scrollToItem(idx)
+    else
+      ctrl.list:setOffset(0)
+    end
+    ctrl.elements.overlay:setVisible(true)
+  end
+
+  function ctrl.hide()
+    if ctrl.elements then ctrl.elements.overlay:setVisible(false) end
+  end
+
+  function ctrl.visible()
+    return ctrl.elements ~= nil and ctrl.elements.overlay:getVisible() == true
+  end
+
+  function ctrl.pick(index)
+    local o = ctrl.opts and ctrl.opts.options and ctrl.opts.options[index]
+    if o and ctrl.opts.onPick then ctrl.opts.onPick(o.value, o) end
+    ctrl.hide()
+  end
+
+  function ctrl.scrollBy(delta)
+    if ctrl.list then ctrl.list:setOffset((ctrl.list:getOffset() or 0) + delta) end
+  end
+
+  return ctrl
+end
+
 return M
