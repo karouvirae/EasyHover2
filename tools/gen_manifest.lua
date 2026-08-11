@@ -20,6 +20,25 @@ local closure = require("tools.closure")
 local SCHEMA = 1 -- bump ONLY when persisted config layout changes incompatibly
 local REPO = "https://raw.githubusercontent.com/maar-10/EasyHover2/main"
 
+-- Which source files are minified into dist/ (mirror of tools/build.mjs MINIFY_DIRS).
+local MINIFY_PREFIXES = { "fcs/", "ui/", "launchers/", "tools/" }
+local function isMinifiable(src)
+  if not src:match("%.lua$") then return false end
+  for _, p in ipairs(MINIFY_PREFIXES) do
+    if src:sub(1, #p) == p then return true end
+  end
+  return false
+end
+-- For a channel ("min"|"dev") return (manifestSrc, readPath) for a source path. In the min
+-- channel a minifiable file is described AND read from dist/; everything else (basalt, config
+-- data) is identical to dev.
+local function channelPaths(src, channel)
+  if channel == "min" and isMinifiable(src) then
+    return "dist/" .. src, "dist/" .. src
+  end
+  return src, src
+end
+
 -- Diagnostic launchers every released role ships identically, as their declared command name.
 local SHARED_DIAG = {
   { src = "launchers/calibrate.lua",  dst = "calibrate"  },
@@ -141,7 +160,7 @@ end
 -- Discovered files ship with dst = src UNLESS their src is a launcher entry, in which case they
 -- keep that launcher's declared dst. Every launcher src is itself a closure root, so it is
 -- guaranteed to appear in `discovered` -- no separate union step needed.
-local function buildRole(roleName, spec)
+local function buildRole(roleName, spec, channel)
   local entries = launcherEntries(spec)
   local srcToDst, rootSrcs, seenSrc = {}, {}, {}
   for _, e in ipairs(entries) do
@@ -154,11 +173,12 @@ local function buildRole(roleName, spec)
 
   local files, digestParts = {}, {}
   for _, src in ipairs(discovered) do
-    local body = readNorm(src)
-    if body == nil then return nil, ("role %s: cannot read file: %s"):format(roleName, src) end
+    local manifestSrc, readPath = channelPaths(src, channel)
+    local body = readNorm(readPath)
+    if body == nil then return nil, ("role %s: cannot read file: %s (did you run `node tools/build.mjs`?)"):format(roleName, readPath) end
     local dst = srcToDst[src] or src
     local size, sum = #body, fnv1a(body)
-    files[#files + 1] = { src = src, dst = dst, size = size, sum = sum }
+    files[#files + 1] = { src = manifestSrc, dst = dst, size = size, sum = sum }
     digestParts[#digestParts + 1] = roleName .. ":" .. dst .. ":" .. sum .. ":" .. size
   end
 
@@ -168,10 +188,11 @@ local function buildRole(roleName, spec)
   -- extra file's bytes change. A role with no extraFiles field is completely unaffected (the loop
   -- below runs zero times), preserving buildRole's existing contract for every other role.
   for _, e in ipairs(spec.extraFiles or {}) do
-    local body = readNorm(e.src)
-    if body == nil then return nil, ("role %s: cannot read extra file: %s"):format(roleName, e.src) end
+    local manifestSrc, readPath = channelPaths(e.src, channel)
+    local body = readNorm(readPath)
+    if body == nil then return nil, ("role %s: cannot read extra file: %s"):format(roleName, readPath) end
     local size, sum = #body, fnv1a(body)
-    files[#files + 1] = { src = e.src, dst = e.dst, size = size, sum = sum }
+    files[#files + 1] = { src = manifestSrc, dst = e.dst, size = size, sum = sum }
     digestParts[#digestParts + 1] = roleName .. ":" .. e.dst .. ":" .. sum .. ":" .. size
   end
 
@@ -213,13 +234,13 @@ local HEADER = [==[
 -- the role's shipped dst paths.
 ]==]
 
-local function build()
+local function build(channel)
   local roleTable, allDigestParts = {}, {}
   local roleNames = {}
   for name in pairs(ROLES) do roleNames[#roleNames + 1] = name end
   table.sort(roleNames)
   for _, name in ipairs(roleNames) do
-    local role, err, digestParts = buildRole(name, ROLES[name])
+    local role, err, digestParts = buildRole(name, ROLES[name], channel)
     if not role then return nil, err end
     roleTable[name] = role
     for _, part in ipairs(digestParts) do allDigestParts[#allDigestParts + 1] = part end
@@ -272,41 +293,32 @@ if mode == "--selftest" then
   return
 end
 
-local out, err, version, roleTable = build()
-if not out then
-  print("ERROR " .. tostring(err))
-  writeResult("ERROR " .. tostring(err))
-  return
-end
+local CHANNELS = {
+  { channel = "min", path = "manifest.lua" },
+  { channel = "dev", path = "manifest-dev.lua" },
+}
 
 if mode == "--check" then
-  local existing = readNorm("manifest.lua") or ""
-  if existing == out then
-    print("manifest.lua is in sync (version " .. version .. ")")
-    writeResult("IN SYNC")
-  else
-    print("manifest.lua is OUT OF SYNC with the working tree.")
-    print("  run: tools/gen_manifest.lua")
-    writeResult("OUT OF SYNC")
+  local anyDrift = false
+  for _, c in ipairs(CHANNELS) do
+    local out, err = build(c.channel)
+    if not out then print("ERROR " .. tostring(err)); writeResult("ERROR " .. tostring(err)); return end
+    local existing = readNorm(c.path) or ""
+    if existing ~= out then anyDrift = true; print(c.path .. " is OUT OF SYNC") end
   end
+  writeResult(anyDrift and "OUT OF SYNC" or "IN SYNC")
   return
 end
 
-local f = fs.open("manifest.lua", "w")
-if not f then
-  print("ERROR could not open manifest.lua for writing")
-  writeResult("ERROR could not open manifest.lua for writing")
-  return
+-- write mode
+local wroteVersions = {}
+for _, c in ipairs(CHANNELS) do
+  local out, err, version = build(c.channel)
+  if not out then print("ERROR " .. tostring(err)); writeResult("ERROR " .. tostring(err)); return end
+  local f = fs.open(c.path, "w")
+  if not f then print("ERROR could not open " .. c.path); writeResult("ERROR could not open " .. c.path); return end
+  f.write(out); f.close()
+  wroteVersions[#wroteVersions + 1] = c.path .. "=" .. version
+  print(c.path .. " written: version " .. version)
 end
-f.write(out)
-f.close()
-
-print("manifest.lua written: version " .. version .. ", schema " .. SCHEMA)
-local names = {}
-for name in pairs(roleTable) do names[#names + 1] = name end
-table.sort(names)
-for _, name in ipairs(names) do
-  local r = roleTable[name]
-  print("  * " .. name .. " (" .. r.status .. ") " .. #r.files .. " file(s)")
-end
-writeResult("WROTE " .. version)
+writeResult("WROTE " .. table.concat(wroteVersions, " "))
