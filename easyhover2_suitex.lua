@@ -288,6 +288,8 @@ local function applyTheme(ctx)
   ui.toolDropdown:setBackground(pal.bg); ui.toolDropdown:setForeground(pal.text)
   ui.pickerLabels[1]:setForeground(pal.dim); ui.pickerLabels[2]:setForeground(pal.dim)
   ui.advancedLabel:setForeground(pal.dim)
+  ui.devCheck:setBackground(pal.bg); ui.devCheck:setForeground(pal.text)
+  ui.devCheckLabel:setForeground(pal.text)
   paintTabButtons(ctx)
   refreshStatus(ctx)
   -- Repaint the palette even mid-op, but don't let a theme toggle re-enable the action buttons
@@ -549,7 +551,33 @@ local function buildUI(ctx)
     bx = bx + bw + 1
   end
 
-  ui.advancedLabel = ui.frameAdv:addLabel({ x = 2, y = 2, text = "Advanced tools -- coming soon.", foreground = pal.dim })
+  -- Advanced tab: the dev-channel toggle -- graphical equivalent of the classic suite's --dev.
+  -- Ticked installs the readable source channel (manifest-dev.lua); unticked the minified default.
+  -- The choice re-checks the dashboard immediately; it is persisted to /eh2_channel.txt only on a
+  -- real install (runEngineOp), never on the toggle itself.
+  ui.advancedLabel = ui.frameAdv:addLabel({ x = 2, y = 2, text = "Install channel", foreground = pal.dim })
+  ui.devCheck = ui.frameAdv:addCheckBox({ x = 2, y = 3, checked = (ctx.channel == "dev"),
+    text = " ", checkedText = "x", background = pal.bg, foreground = pal.text })
+  ui.devCheckLabel = ui.frameAdv:addLabel({ x = 6, y = 3,
+    text = "Dev version (readable source)", foreground = pal.text })
+  ui.devCheck:onChange("checked", function(_, checked)
+    if ctx.suppressDevBox then return end               -- ignore our own programmatic reverts
+    local desired = checked and "dev" or "min"
+    if desired == ctx.channel then return end            -- idempotent (also absorbs a revert-to-same)
+    if ctx.opInFlight then                                -- no channel switch mid-install
+      ctx.suppressDevBox = true
+      ui.devCheck:setChecked(ctx.channel == "dev")
+      ctx.suppressDevBox = false
+      return
+    end
+    local okReload, err = reloadManifest(ctx, desired)
+    if not okReload then
+      logLine(ctx, "could not load the " .. desired .. " channel: " .. tostring(err), ctx.pal.error)
+      ctx.suppressDevBox = true
+      ui.devCheck:setChecked(ctx.channel == "dev")   -- revert to the channel still in effect
+      ctx.suppressDevBox = false
+    end
+  end)
 
   ui.buttons.go:onClick(function()
     -- Defense in depth: setButtonsEnabled()/ctx.opInFlight already keep this disabled during an
