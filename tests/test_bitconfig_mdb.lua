@@ -1,10 +1,11 @@
 -- tests/test_bitconfig_mdb.lua
 -- MDB-CONF sub-menu (ui/basalt/bitconfig/mdb.lua): tests the PURE view-model (M.view /
--- M.nextBinding / M.applyCycle), the TESTABLE save seam (M._save) with a capturing write spy,
--- the PARITY requirement (MDB path writes byte-identical to the bare tools/binddevices path for
--- the same assignments), plus a real-CraftOS-PC Basalt construction probe -- build the element
--- tree on a frame bound to term.current() with a stub scan + injected read/write, apply(state),
--- then one basalt.update(...) render pass. NEVER basalt.run() (blocks on pullEventRaw).
+-- M.pickerOptions / M.applyBinding), the TESTABLE save seam (M._save) with a capturing write spy,
+-- the PARITY requirement (MDB's dropdown-picker path writes byte-identical to the bare
+-- tools/binddevices path for the same assignments), plus a real-CraftOS-PC Basalt construction
+-- probe -- build the element tree on a frame bound to term.current() with a stub scan + injected
+-- read/write, apply(state), then one basalt.update(...) render pass. NEVER basalt.run() (blocks
+-- on pullEventRaw).
 local t = require("tests.framework")
 local M = require("ui.basalt.bitconfig.mdb")
 local Nav = require("ui.basalt.nav")
@@ -67,71 +68,63 @@ t.test("view: unbound slot reads current == false; relay row present with slot =
   t.eq(relayRow.current, false)
 end)
 
--- ===== M.nextBinding: pure cycle, TDD cases from the brief =====
+-- ===== M.pickerOptions: pure, the (none)+candidates shape a Picker's dropdown gets =====
 
-t.test("nextBinding: false -> first candidate -> next -> ... -> last -> back to false (wrap)", function()
-  t.eq(M.nextBinding(false, { "a", "b" }), "a")
-  t.eq(M.nextBinding("a", { "a", "b" }), "b")
-  t.eq(M.nextBinding("b", { "a", "b" }), false)
+t.test("pickerOptions: leads with a (none)/false unbind entry, then one entry per candidate", function()
+  local opts = M.pickerOptions({ "thruster_1", "thruster_2" })
+  t.eq(#opts, 3)
+  t.eq(opts[1].text, "(none)")
+  t.eq(opts[1].value, false)
+  t.eq(opts[2].text, "thruster_1")
+  t.eq(opts[2].value, "thruster_1")
+  t.eq(opts[3].text, "thruster_2")
+  t.eq(opts[3].value, "thruster_2")
 end)
 
-t.test("nextBinding: unknown current is treated as unbound, returns first candidate", function()
-  t.eq(M.nextBinding("zzz", { "a", "b" }), "a")
+t.test("pickerOptions: empty/nil candidates still yields just the (none) entry", function()
+  t.eq(#M.pickerOptions({}), 1)
+  t.eq(M.pickerOptions({})[1].value, false)
+  t.eq(#M.pickerOptions(nil), 1)
 end)
 
-t.test("nextBinding: empty candidates always yields false", function()
-  t.eq(M.nextBinding(false, {}), false)
-  t.eq(M.nextBinding("a", {}), false)
-end)
+-- ===== M.applyBinding: pure, deep-copies (devbind-shaped), does not mutate input =====
 
--- ===== M.applyCycle: pure, deep-copies (devbind-shaped), does not mutate input =====
-
-t.test("applyCycle advances the right slot only, and does not mutate the input cfg", function()
+t.test("applyBinding sets the right slot only, and does not mutate the input cfg", function()
   local cfg = cfgspec.defaults("devbind")
-  local descriptors = {
-    { name = "thruster_1", type = "thruster" },
-    { name = "thruster_2", type = "thruster" },
-  }
-  local out = M.applyCycle(cfg, "thruster", "FL", descriptors)
+  local out = M.applyBinding(cfg, "thruster", "FL", "thruster_1")
   t.eq(out.thrusters.FL, "thruster_1")
   t.eq(cfg.thrusters.FL, false, "input cfg not mutated")
   t.truthy(out ~= cfg, "returns a different table")
   t.truthy(out.thrusters ~= cfg.thrusters, "nested thrusters table is a copy too")
 
-  local out2 = M.applyCycle(out, "thruster", "FL", descriptors)
+  local out2 = M.applyBinding(out, "thruster", "FL", "thruster_2")
   t.eq(out2.thrusters.FL, "thruster_2")
-  t.eq(out.thrusters.FL, "thruster_1", "prior generation cfg not mutated by the next applyCycle call")
+  t.eq(out.thrusters.FL, "thruster_1", "prior generation cfg not mutated by the next applyBinding call")
 
-  -- other slots untouched across both cycles
+  -- other slots untouched across both picks
   t.eq(out2.thrusters.FR, cfg.thrusters.FR)
   t.eq(out2.sensors.gimbal, cfg.sensors.gimbal)
   t.eq(out2.fuelRelay, cfg.fuelRelay)
 end)
 
-t.test("applyCycle on a sensor slot", function()
+t.test("applyBinding on a sensor slot", function()
   local cfg = cfgspec.defaults("devbind")
-  local descriptors = { { name = "gimbal_0", type = "gimbal_sensor" } }
-  local out = M.applyCycle(cfg, "sensor", "gimbal", descriptors)
+  local out = M.applyBinding(cfg, "sensor", "gimbal", "gimbal_0")
   t.eq(out.sensors.gimbal, "gimbal_0")
   t.eq(cfg.sensors.gimbal, false, "input not mutated")
 end)
 
-t.test("applyCycle on the relay slot (slot == nil)", function()
+t.test("applyBinding on the relay slot (slot == nil)", function()
   local cfg = cfgspec.defaults("devbind")
-  local descriptors = { { name = "relay_1", type = "redstone_relay" } }
-  local out = M.applyCycle(cfg, "relay", nil, descriptors)
+  local out = M.applyBinding(cfg, "relay", nil, "relay_1")
   t.eq(out.fuelRelay, "relay_1")
   t.eq(cfg.fuelRelay, false, "input not mutated")
 end)
 
-t.test("applyCycle wraps a bound slot back to unbound (false) at the end of the candidate list", function()
+t.test("applyBinding with value == false unbinds a currently-bound slot (the (none) pick)", function()
   local cfg = cfgspec.defaults("devbind")
   cfg.thrusters.FL = "thruster_2"
-  local descriptors = {
-    { name = "thruster_1", type = "thruster" },
-    { name = "thruster_2", type = "thruster" },
-  }
-  local out = M.applyCycle(cfg, "thruster", "FL", descriptors)
+  local out = M.applyBinding(cfg, "thruster", "FL", false)
   t.eq(out.thrusters.FL, false)
 end)
 
@@ -153,18 +146,11 @@ t.test("_save writes the serialised cfg under eh2_devbind.tbl via the injected w
 end)
 
 -- ===== PARITY: the key requirement =====
--- Applying a given set of slot assignments through the MDB path (M.applyCycle) and saving must
--- produce a file BYTE-IDENTICAL to applying the SAME assignments via the bare
--- tools/binddevices `assign` + cfgspec.save("devbind", ...) path.
+-- Applying a given set of slot assignments through the MDB path (M.applyBinding, what a
+-- dropdown's onPick fires) and saving must produce a file BYTE-IDENTICAL to applying the SAME
+-- assignments via the bare tools/binddevices `assign` + cfgspec.save("devbind", ...) path.
 
-t.test("PARITY: MDB applyCycle+save writes byte-identical output to the bare binddevices.assign+save path", function()
-  local descriptors = {
-    { name = "thruster_1", type = "thruster" },
-    { name = "thruster_2", type = "thruster" },
-    { name = "gimbal_0", type = "gimbal_sensor" },
-    { name = "relay_1", type = "redstone_relay" },
-  }
-
+t.test("PARITY: MDB dropdown-pick (applyBinding)+save writes byte-identical output to the bare binddevices.assign+save path", function()
   -- Path A: bare binddevices.assign calls directly against a fresh devbind cfg.
   local cfgA = cfgspec.defaults("devbind")
   binddevices.assign(cfgA, "thruster", "FL", "thruster_1")
@@ -174,17 +160,14 @@ t.test("PARITY: MDB applyCycle+save writes byte-identical output to the bare bin
   local capA = {}
   cfgspec.save("devbind", cfgA, function(f, b) capA.filename = f; capA.body = b end)
 
-  -- Path B: the MDB M.applyCycle path, cycling to the SAME final bindings.
-  --   FL: false -> thruster_1                       (1 cycle)
-  --   FR: false -> thruster_1 -> thruster_2          (2 cycles)
-  --   gimbal: false -> gimbal_0                      (1 cycle)
-  --   relay: false -> relay_1                        (1 cycle)
+  -- Path B: the MDB dropdown-picker path -- each M.applyBinding call is exactly what a Picker's
+  -- onPick(value) does when the operator taps a name directly (no cycling: dropdowns jump
+  -- straight to the tapped value).
   local cfgB = cfgspec.defaults("devbind")
-  cfgB = M.applyCycle(cfgB, "thruster", "FL", descriptors)
-  cfgB = M.applyCycle(cfgB, "thruster", "FR", descriptors)
-  cfgB = M.applyCycle(cfgB, "thruster", "FR", descriptors)
-  cfgB = M.applyCycle(cfgB, "sensor", "gimbal", descriptors)
-  cfgB = M.applyCycle(cfgB, "relay", nil, descriptors)
+  cfgB = M.applyBinding(cfgB, "thruster", "FL", "thruster_1")
+  cfgB = M.applyBinding(cfgB, "thruster", "FR", "thruster_2")
+  cfgB = M.applyBinding(cfgB, "sensor", "gimbal", "gimbal_0")
+  cfgB = M.applyBinding(cfgB, "relay", nil, "relay_1")
   t.eq(cfgB.thrusters.FL, "thruster_1")
   t.eq(cfgB.thrusters.FR, "thruster_2")
   t.eq(cfgB.sensors.gimbal, "gimbal_0")
@@ -222,6 +205,8 @@ t.test("M.build constructs the element tree; apply() + one render pass do not er
   t.truthy(h.elements.rescanBtn ~= nil, "rescanBtn present")
   t.truthy(h.elements.backBtn ~= nil, "backBtn present")
   t.truthy(#h.elements.rowSlots > 0, "at least one row slot present")
+  t.truthy(h.elements.rowSlots[1].picker ~= nil, "row slot exposes a picker, not a cycle button")
+  t.truthy(h.elements.rowSlots[1].picker.dropdown ~= nil, "picker exposes its dropdown element")
 
   local ok, err = pcall(h.apply, {})
   t.truthy(ok, "apply should not error: " .. tostring(err))
@@ -260,10 +245,10 @@ t.test("M.build: scans once via injected scan at build time; SAVE writes via inj
   local h = M.build(basalt, frame, nil, nav, read, write, scan)
   t.eq(scanCalls, 1, "M.build scans once up front")
 
-  -- Exercise SAVE through the same intent path the button wires up: call the Basalt-free seams
-  -- directly with the same write/descriptors this build() was given (mirrors what the onClick
-  -- closures do internally).
-  local cfg = M.applyCycle(cfgspec.load("devbind", read), "relay", nil, descriptors)
+  -- Exercise SAVE through the same intent path a dropdown pick wires up: call the Basalt-free
+  -- seams directly with the same write this build() was given (mirrors what a Picker's onPick
+  -- closure does internally).
+  local cfg = M.applyBinding(cfgspec.load("devbind", read), "relay", nil, "relay_1")
   t.eq(cfg.fuelRelay, "relay_1")
   M._save(cfg, write)
   t.truthy(stored ~= nil, "SAVE wrote a body")

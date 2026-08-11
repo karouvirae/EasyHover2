@@ -6,9 +6,13 @@
 -- than reimplementing them, and a parity test enforces that this menu writes a BYTE-IDENTICAL
 -- file to the bare tool for the same assignments.
 --
+-- Each of the 19 slots is bound via a DROPDOWN (ui/basalt/picker.lua), not a click-to-cycle
+-- button -- cycling through abbreviated peripheral names to find the right one in-game proved
+-- unusable; a dropdown lets the operator see the whole candidate list and tap the right name.
+--
 -- Follows the Task 21 (ui/basalt/bitconfig/tuning.lua) template EXACTLY: module exports `M.id`,
--- `M.title`, a Basalt-free PURE view-model (M.SLOTS / M.view / M.nextBinding / M.applyCycle), a
--- Basalt-free save seam (M._save), and `M.build(basalt, frame, runtime, nav, read, write, scan)
+-- `M.title`, a Basalt-free PURE view-model (M.SLOTS / M.view / M.pickerOptions / M.applyBinding),
+-- a Basalt-free save seam (M._save), and `M.build(basalt, frame, runtime, nav, read, write, scan)
 -- -> { id, apply(state), elements }` with an idempotent apply() (config menu, no live telemetry).
 --
 -- NO peripheral/Basalt access at module LOAD -- everything lives inside M.build/the closures it
@@ -17,6 +21,7 @@
 local cfgspec      = require("fcs.io.cfgspec")
 local binddevices   = require("tools.binddevices")
 local fsx           = require("fcs.io.fsx")
+local Picker        = require("ui.basalt.picker")
 
 local M = {}
 M.id = "mdb"
@@ -81,21 +86,15 @@ function M.view(cfg, descriptors)
   return rows
 end
 
--- ===== M.nextBinding(current, candidates) -> the next binding in the cycle. PURE. =====
--- false (unbound) -> candidates[1] -> candidates[2] -> ... -> candidates[#candidates] -> false.
--- An unknown current value (not in candidates, not false) treats itself as "before the list"
--- and returns candidates[1]. Empty candidates always yields false (nothing to bind to).
-function M.nextBinding(current, candidates)
-  candidates = candidates or {}
-  if #candidates == 0 then return false end
-  if current == false or current == nil then return candidates[1] end
-  for i, name in ipairs(candidates) do
-    if name == current then
-      if i == #candidates then return false end
-      return candidates[i + 1]
-    end
+-- ===== M.pickerOptions(candidates) -> ordered Picker options for a slot's dropdown. PURE. =====
+-- Always leads with a "(none)" entry whose value is `false` (unbind), followed by one
+-- { text = name, value = name } per candidate, in the order binddevices.candidates gave them.
+function M.pickerOptions(candidates)
+  local opts = { { text = "(none)", value = false } }
+  for _, name in ipairs(candidates or {}) do
+    opts[#opts + 1] = { text = name, value = name }
   end
-  return candidates[1]
+  return opts
 end
 
 -- ===== cloneCfg: a devbind-shaped copy that preserves cfgspec.save's serialised byte layout. =====
@@ -119,14 +118,16 @@ local function cloneCfg(cfg)
   return out
 end
 
--- ===== M.applyCycle(cfg, slotKind, slot, descriptors) -> a NEW cfg (cfg NOT mutated) with =====
--- ===== that slot advanced via nextBinding(currentAtSlot, candidatesForSlotKind). PURE. =====
-function M.applyCycle(cfg, slotKind, slot, descriptors)
+-- ===== M.applyBinding(cfg, slotKind, slot, value) -> a NEW cfg (cfg NOT mutated) with that =====
+-- ===== slot set to `value` (a candidate name, or false to unbind) via binddevices.assign. PURE. =====
+-- This is what a dropdown pick applies: the operator taps the exact target name (or "(none)"),
+-- so unlike the old click-to-cycle stepper there is no "current -> next" computation here -- the
+-- cloneCfg scaffold is still used so the assignment lands on the SAME no-rehash byte layout the
+-- bare tools/binddevices path produces (see cloneCfg's comment above; this is what keeps MDB's
+-- saved eh2_devbind.tbl byte-identical to the bare tool's for the same assignments).
+function M.applyBinding(cfg, slotKind, slot, value)
   local copy = cloneCfg(cfg)
-  local candidatesByKind = binddevices.candidates(descriptors or {})
-  local cur = currentAt(copy, slotKind, slot)
-  local nextVal = M.nextBinding(cur, candidatesByKind[slotKind] or {})
-  binddevices.assign(copy, slotKind, slot, nextVal)
+  binddevices.assign(copy, slotKind, slot, value)
   return copy
 end
 
@@ -159,15 +160,10 @@ local function realScan()
   return out
 end
 
--- ===== M.build: construct the paged per-slot CYCLE-button element tree =====
--- A per-slot CYCLE button (rather than a DropDown) is used for all 19 slots: it needs no open/
--- closed popup state to track across a paged list, and click-to-advance is exactly M.nextBinding
--- already gives us -- simpler and more reliable than verifying DropDown's paging interaction.
-
-local function fmtCurrent(v)
-  if v == false then return "----" end
-  return tostring(v)
-end
+-- ===== M.build: construct the paged per-slot DROPDOWN element tree =====
+-- Each of the 19 slots gets a Picker (ui/basalt/picker.lua) instead of a CYCLE button: the
+-- operator opens the dropdown, sees every candidate name at once, and taps the one they want
+-- (plus a "(none)" entry to unbind) -- no more hunting through an abbreviated-name cycle.
 
 function M.build(basalt, frame, runtime, nav, read, write, scan)
   read = read or realRead
@@ -175,7 +171,9 @@ function M.build(basalt, frame, runtime, nav, read, write, scan)
   scan = scan or realScan
 
   local descriptors = scan()
-  local workingCfg = (cfgspec.load("devbind", read))
+  -- Normalise the loaded cfg onto the canonical cloneCfg scaffold immediately, so a SAVE with
+  -- zero picks made still lands on the same no-rehash byte layout every onPick keeps it on.
+  local workingCfg = cloneCfg((cfgspec.load("devbind", read)))
 
   local w, h = frame:getSize()
   local x = 2
@@ -188,9 +186,15 @@ function M.build(basalt, frame, runtime, nav, read, write, scan)
   local dataRows = math.max(1, h - dataTop - footerRows + 1)
   local ROWS_PER_PAGE = dataRows
 
-  local cycleW = 8
-  local labelW = math.max(1, iw - cycleW - 1)
-  local cycleX = x + labelW + 1
+  -- Give the dropdown a usable width for peripheral names; DropDown truncates ("...") anything
+  -- longer than fits, per release/basalt-full.lua's List:render. dropdownHeight is kept modest
+  -- (see DROPDOWN_HEIGHT below) -- a slot near the page bottom can still have its OPEN dropdown
+  -- extend past the frame's bottom edge; that's an accepted tradeoff, not solved by shrinking
+  -- rows-per-page (see the dropdown-mdb-report.md concerns section).
+  local dropW = math.max(6, math.min(12, math.floor(iw * 0.5)))
+  local labelW = math.max(1, iw - dropW - 1)
+  local dropX = x + labelW + 1
+  local DROPDOWN_HEIGHT = 5
 
   local rowSlots = {}
   local slotRowInfo = {}
@@ -209,30 +213,34 @@ function M.build(basalt, frame, runtime, nav, read, write, scan)
       local slot = rowSlots[i]
       if row then
         slotRowInfo[i] = { slotKind = row.slotKind, slot = row.slot }
-        slot.label:setText(row.label .. " " .. fmtCurrent(row.current))
-        slot.cycle:setEnabled(true)
+        slot.label:setText(row.label)
+        slot.picker.dropdown:setEnabled(true)
+        slot.picker.setOptions(M.pickerOptions(row.candidates), row.current)
       else
         slotRowInfo[i] = nil
         slot.label:setText("")
-        slot.cycle:setEnabled(false)
+        slot.picker.dropdown:setEnabled(false)
+        slot.picker.setOptions({}, false)
       end
     end
   end
 
   for i = 1, ROWS_PER_PAGE do
     local y = dataTop + i - 1
-    local lbl   = frame:addLabel({ x = x, y = y, width = labelW, height = 1, autoSize = false, text = "" })
-    local cycle = frame:addButton({ x = cycleX, y = y, width = cycleW, height = 1, text = "CYCLE" })
-    rowSlots[i] = { label = lbl, cycle = cycle }
+    local lbl = frame:addLabel({ x = x, y = y, width = labelW, height = 1, autoSize = false, text = "" })
 
     local slotIdx = i
-    cycle:onClick(function()
-      local info = slotRowInfo[slotIdx]
-      if info then
-        workingCfg = M.applyCycle(workingCfg, info.slotKind, info.slot, descriptors)
-        refreshPage()
-      end
-    end)
+    local picker = Picker.make(frame, {
+      x = dropX, y = y, width = dropW, dropdownHeight = DROPDOWN_HEIGHT,
+      options = {}, current = false, placeholder = "(none)",
+      onPick = function(value)
+        local info = slotRowInfo[slotIdx]
+        if info then
+          workingCfg = M.applyBinding(workingCfg, info.slotKind, info.slot, value)
+        end
+      end,
+    })
+    rowSlots[i] = { label = lbl, picker = picker }
   end
 
   local footerY1 = dataTop + ROWS_PER_PAGE
