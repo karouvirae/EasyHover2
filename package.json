@@ -1,0 +1,14 @@
+{
+  "name": "easyhover2-build",
+  "private": true,
+  "type": "module",
+  "version": "1.0.0",
+  "description": "Dev-only pre-deploy minify build for EasyHover 2 (dist/ is the committed artifact).",
+  "scripts": {
+    "build": "node tools/build.mjs",
+    "test": "node --test tests/"
+  },
+  "dependencies": {
+    "luamin": "1.0.4"
+  }
+}

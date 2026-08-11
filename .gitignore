@@ -2,6 +2,9 @@
 .claude/
 .mcp.json
 
+# Node build tooling (dist/ is the committed artifact; node_modules is dev-only)
+node_modules/
+
 # Milestone backups (kept locally, not versioned; git history serves this now)
 backup/
 
