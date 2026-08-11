@@ -129,8 +129,8 @@ t.test("M.build constructs the element tree; apply() + one render pass do not er
   local ok2, err2 = pcall(h.apply, { uiRev = 1 })
   t.truthy(ok2, "apply should be safe to call repeatedly: " .. tostring(err2))
 
-  t.eq(h.elements.monPickers.monitor_0.dropdown:getSelectedItem().value, "emc", "picker reflects monitor_0 assignment")
-  t.eq(h.elements.monPickers.monitor_1.dropdown:getSelectedItem().value, "fcs", "picker reflects monitor_1 assignment")
+  t.eq(h.elements.monPickers.monitor_0.selectedItem().value, "emc", "picker reflects monitor_0 assignment")
+  t.eq(h.elements.monPickers.monitor_1.selectedItem().value, "fcs", "picker reflects monitor_1 assignment")
   t.truthy(h.elements.relayLabel:getText():find("redstone_relay_0") ~= nil, "relay label shows bound name")
   t.truthy(h.elements.pumpLabel:getText():find("pump_0") ~= nil, "pump label shows bound name")
   t.truthy(h.elements.tankLabel:getText():find("tank_0") ~= nil, "tank label shows bound name")
@@ -167,11 +167,11 @@ t.test("M.build's assignment picker reflects a _pickAssign change after apply()"
 
   local h = M.build(basalt, frame, runtime)
   h.apply({ uiRev = 0 })
-  t.eq(h.elements.monPickers.monitor_0.dropdown:getSelectedItem().value, false, "unassigned -> (none) selected")
+  t.eq(h.elements.monPickers.monitor_0.selectedItem().value, false, "unassigned -> (none) selected")
 
   M._pickAssign(runtime, "monitor_0", "flight", function() end)  -- same seam the picker's onPick calls
   h.apply({ uiRev = runtime.uiRev })
-  t.eq(h.elements.monPickers.monitor_0.dropdown:getSelectedItem().value, "flight", "picker follows the new assignment")
+  t.eq(h.elements.monPickers.monitor_0.selectedItem().value, "flight", "picker follows the new assignment")
 
   local ok, err = pcall(function() basalt.update("timer", -1) end)
   t.truthy(ok, "basalt.update should not error: " .. tostring(err))

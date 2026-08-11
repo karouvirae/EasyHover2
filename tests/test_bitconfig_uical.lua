@@ -549,7 +549,7 @@ t.test("M.build constructs the element tree; apply() + one render pass do not er
   t.truthy(h.elements.headerLabel ~= nil, "headerLabel present")
   t.truthy(h.elements.scanBtn ~= nil, "scanBtn present")
   t.truthy(h.elements.relayPicker ~= nil, "relayPicker present (DROPDOWN, not a cycle button)")
-  t.truthy(h.elements.relayPicker.dropdown ~= nil, "relayPicker exposes its dropdown element")
+  t.truthy(h.elements.relayPicker.trigger ~= nil, "relayPicker exposes its trigger element")
   t.truthy(h.elements.pumpPicker ~= nil, "pumpPicker present")
   t.truthy(h.elements.tankPicker ~= nil, "tankPicker present")
   t.truthy(h.elements.sidePicker ~= nil, "sidePicker present (RELAY SIDE dropdown)")
@@ -584,13 +584,13 @@ t.test("M.build: pickers reflect runtime.config at build time (bound name/side s
 
   local h = M.build(basalt, frame, runtime, nav, deps)
 
-  t.eq(h.elements.relayPicker.dropdown:getSelectedItem().value, "relay_2", "relay name selected")
-  t.eq(h.elements.pumpPicker.dropdown:getSelectedItem().value, "tank_1", "pump name selected")
-  t.eq(h.elements.tankPicker.dropdown:getSelectedItem().value, "chest_1", "tank name selected")
-  t.eq(h.elements.sidePicker.dropdown:getSelectedItem().value, "top", "relay side selected")
+  t.eq(h.elements.relayPicker.selectedItem().value, "relay_2", "relay name selected")
+  t.eq(h.elements.pumpPicker.selectedItem().value, "tank_1", "pump name selected")
+  t.eq(h.elements.tankPicker.selectedItem().value, "chest_1", "tank name selected")
+  t.eq(h.elements.sidePicker.selectedItem().value, "top", "relay side selected")
 end)
 
-t.test("M.build: picking a relay via the dropdown persists + re-blocks (DRAIN SAFETY end-to-end)", function()
+t.test("M.build: picking a relay via the picker persists + re-blocks (DRAIN SAFETY end-to-end)", function()
   local basalt = BasaltApp.ensureBasalt()
   local frame = basalt.createFrame()
 
@@ -602,14 +602,9 @@ t.test("M.build: picking a relay via the dropdown persists + re-blocks (DRAIN SA
   local h = M.build(basalt, frame, runtime, nav, deps)
   local before = #saveCalls
 
-  -- Simulate the operator tapping "relay_2" in the RELAY dropdown -- fire onSelect directly (a
-  -- real click needs basalt.run(), forbidden in headless tests).
-  h.elements.relayPicker.dropdown:selectItem(3) -- (none), relay_1, relay_2 -> index 3
-  local sel = h.elements.relayPicker.dropdown:getSelectedItem()
-  t.eq(sel.value, "relay_2")
-
-  -- selectItem() alone doesn't fire onSelect in every DropDown implementation, so also drive the
-  -- tested seam directly (exactly what the onPick closure does) to assert the end-to-end wiring.
+  -- Simulate the operator tapping "relay_2" in the RELAY picker's overlay -- drive the tested seam
+  -- directly (exactly what the trigger's wired onPick closure does; a real click needs
+  -- basalt.run(), forbidden in headless tests).
   M._pickBind(runtime, "relay", "relay_2", descriptorsA(), deps)
 
   t.eq(runtime.config.relay.name, "relay_2")

@@ -299,15 +299,15 @@ t.test("M.config: builds SIDE/PMP/TNK/RLY as DROPDOWN pickers (not cycle buttons
 
   t.eq(scanCalls, 1, "scans once at build time (no rescan control on this screen)")
   t.truthy(h.elements.sidePicker ~= nil, "sidePicker present (dropdown, not a cycle button)")
-  t.truthy(h.elements.sidePicker.dropdown ~= nil, "sidePicker exposes its dropdown element")
+  t.truthy(h.elements.sidePicker.trigger ~= nil, "sidePicker exposes its trigger element")
   t.truthy(h.elements.pumpPicker ~= nil, "pumpPicker present")
   t.truthy(h.elements.tankPicker ~= nil, "tankPicker present")
   t.truthy(h.elements.relayPicker ~= nil, "relayPicker present")
 
-  t.eq(h.elements.sidePicker.dropdown:getSelectedItem().value, "top", "relay side reflected")
-  t.eq(h.elements.pumpPicker.dropdown:getSelectedItem().value, "tank_1", "pump bind reflected")
-  t.eq(h.elements.tankPicker.dropdown:getSelectedItem().value, "chest_1", "tank bind reflected")
-  t.eq(h.elements.relayPicker.dropdown:getSelectedItem().value, "relay_2", "relay bind reflected")
+  t.eq(h.elements.sidePicker.selectedItem().value, "top", "relay side reflected")
+  t.eq(h.elements.pumpPicker.selectedItem().value, "tank_1", "pump bind reflected")
+  t.eq(h.elements.tankPicker.selectedItem().value, "chest_1", "tank bind reflected")
+  t.eq(h.elements.relayPicker.selectedItem().value, "relay_2", "relay bind reflected")
 
   local ok, err = pcall(h.apply, {})
   t.truthy(ok, "apply should not error: " .. tostring(err))
@@ -335,10 +335,10 @@ t.test("M.config: unbound relay/pump/tank show the (none) placeholder, not a sta
 
   local h = M.config(basalt, frame, region, runtime, { scan = scan })
 
-  t.eq(h.elements.pumpPicker.dropdown:getSelectedItem(), nil, "no name bound -> nothing selected")
-  t.eq(h.elements.relayPicker.dropdown:getSelectedItem(), nil, "no relay bound -> nothing selected")
+  t.eq(h.elements.pumpPicker.selectedItem(), nil, "no name bound -> nothing selected")
+  t.eq(h.elements.relayPicker.selectedItem(), nil, "no relay bound -> nothing selected")
   -- SIDE always has a value (defaults to "back" even unset) -- never unbound like a name picker.
-  t.eq(h.elements.sidePicker.dropdown:getSelectedItem().value, "back")
+  t.eq(h.elements.sidePicker.selectedItem().value, "back")
 end)
 
 t.test("M.config: picking a relay through its wired onPick (Uical._pickBind) re-blocks -- DRAIN SAFETY -- and M.config's own bump() fires", function()

@@ -214,12 +214,12 @@ function M.build(basalt, frame, runtime, nav, read, write, scan)
       if row then
         slotRowInfo[i] = { slotKind = row.slotKind, slot = row.slot }
         slot.label:setText(row.label)
-        slot.picker.dropdown:setEnabled(true)
+        slot.picker.setEnabled(true)
         slot.picker.setOptions(M.pickerOptions(row.candidates), row.current)
       else
         slotRowInfo[i] = nil
         slot.label:setText("")
-        slot.picker.dropdown:setEnabled(false)
+        slot.picker.setEnabled(false)
         slot.picker.setOptions({}, false)
       end
     end

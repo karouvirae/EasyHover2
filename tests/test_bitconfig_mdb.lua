@@ -206,7 +206,7 @@ t.test("M.build constructs the element tree; apply() + one render pass do not er
   t.truthy(h.elements.backBtn ~= nil, "backBtn present")
   t.truthy(#h.elements.rowSlots > 0, "at least one row slot present")
   t.truthy(h.elements.rowSlots[1].picker ~= nil, "row slot exposes a picker, not a cycle button")
-  t.truthy(h.elements.rowSlots[1].picker.dropdown ~= nil, "picker exposes its dropdown element")
+  t.truthy(h.elements.rowSlots[1].picker.trigger ~= nil, "picker exposes its trigger element")
 
   local ok, err = pcall(h.apply, {})
   t.truthy(ok, "apply should not error: " .. tostring(err))

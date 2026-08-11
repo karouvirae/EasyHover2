@@ -1,13 +1,18 @@
 -- ui/basalt/picker.lua
--- A dropdown picker: choose ONE value from a list, replacing tedious click-to-cycle buttons
--- (cycling abbreviated peripheral names to find the right tank/vault is miserable). Wraps Basalt's
--- DropDown: click opens a scrollable list, tapping an item fires onPick(value) and closes.
+-- A one-of-N value picker. Renders a small TRIGGER BUTTON showing the current selection; clicking
+-- it opens ui/basalt/listpicker.lua's full-region modal list (readable namespace-stripped tail-first
+-- labels, UP/DOWN + wheel, no mis-hittable scrollbar). Replaces the old inline Basalt DropDown,
+-- which front-truncated long peripheral IDs to an unreadable shared prefix and hid its scroll on a
+-- 1-column bar. Same public setOptions() shape as before, so consumers barely change.
 --
--- options = { { text = <label shown>, value = <what onPick receives> }, ... }
--- The pure M.indexOf is unit-tested; the Basalt wiring is exercised by a construction probe.
+-- Returns { trigger, overlay, setOptions(options,current), setEnabled(enabled),
+--           selectedItem()->option|nil, getValue()->value|nil }.
+-- selectedItem()/getValue() resolve purely from the last setOptions via M.indexOf -- the drop-in
+-- replacement for the old dropdown:getSelectedItem(). The pure M.indexOf is unit-tested.
+local ListPicker = require("ui.basalt.listpicker")
 local M = {}
 
--- Index of the option whose value == current (for the initial selection/label). nil if none match.
+-- Index of the option whose value == current. nil if none match.
 function M.indexOf(options, current)
   for i, o in ipairs(options) do
     if o.value == current then return i end
@@ -15,47 +20,66 @@ function M.indexOf(options, current)
   return nil
 end
 
--- Fresh copies of the item tables. Basalt tracks selection as a `.selected` flag ON each item
--- object, so two pickers handed the SAME options table would cross-contaminate each other's
--- selection. Copying makes every picker own its items -- callers may share an options template.
-local function copyOptions(options)
-  local out = {}
-  for i, o in ipairs(options or {}) do out[i] = { text = o.text, value = o.value } end
-  return out
-end
-
--- Make a picker on `frame`. opts = { x, y, width, dropdownHeight=6, options, current, placeholder,
--- onPick=function(value, item) }. Returns { dropdown, setOptions(options, current) } so callers can
--- refresh the list (e.g. after a re-scan) and reflect the current binding.
+-- Make a picker on `frame`. opts = { x, y, width, height=1, options, current, placeholder,
+-- title, onPick=function(value,item) }. dropdownHeight (legacy) is accepted and ignored.
 function M.make(frame, opts)
-  local dd = frame:addDropDown({
-    x = opts.x, y = opts.y, width = opts.width,
-    dropdownHeight = opts.dropdownHeight or 6,
-  })
   local placeholder = opts.placeholder or "pick..."
+  local btnW = opts.width or 10
+  local state = { options = opts.options or {}, current = opts.current }
+  local overlay = ListPicker.make(frame)
 
-  local function setOptions(options, current)
-    local items = copyOptions(options)   -- this picker owns its item objects (no cross-contamination)
-    dd:setItems(items)
-    -- Basalt's Collection:selectItem never clears a previously-selected item's `.selected` flag
-    -- (only a real mouse_click does), so clear first, then select.
-    dd:clearItemSelection()
-    local idx = M.indexOf(items, current)
-    if idx then
-      dd:selectItem(idx)
-      dd.set("text", items[idx].text or placeholder)  -- DropDown has no :setText
-    else
-      dd.set("text", placeholder)
-    end
+  local trigger = frame:addButton({
+    x = opts.x, y = opts.y, width = btnW, height = opts.height or 1, text = "",
+  })
+
+  local function currentText()
+    local idx = M.indexOf(state.options, state.current)
+    local text = idx and state.options[idx].text or placeholder
+    return ListPicker.formatLabel(text, btnW)
   end
 
-  setOptions(opts.options or {}, opts.current)
+  local function setOptions(options, current)
+    state.options = options or {}
+    state.current = current
+    trigger:setText(currentText())
+  end
 
-  dd:onSelect(function(_, _index, item)
-    if opts.onPick then opts.onPick(item and item.value, item) end
+  trigger:onClick(function()
+    overlay.show({
+      title = opts.title or placeholder,
+      options = state.options,
+      current = state.current,
+      onPick = function(value, item)
+        if opts.onPick then opts.onPick(value, item) end
+      end,
+    })
   end)
 
-  return { dropdown = dd, setOptions = setOptions }
+  local function setEnabled(enabled)
+    trigger:setEnabled(enabled and true or false)
+  end
+
+  local function selectedItem()
+    local idx = M.indexOf(state.options, state.current)
+    return idx and state.options[idx] or nil
+  end
+
+  local function getValue()
+    local it = selectedItem()
+    if it then return it.value end
+    return nil
+  end
+
+  setOptions(state.options, state.current)
+
+  return {
+    trigger = trigger,
+    overlay = overlay,
+    setOptions = setOptions,
+    setEnabled = setEnabled,
+    selectedItem = selectedItem,
+    getValue = getValue,
+  }
 end
 
 return M
