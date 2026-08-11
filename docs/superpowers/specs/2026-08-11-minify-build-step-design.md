@@ -2,27 +2,39 @@
 
 **Date:** 2026-08-11
 **Project:** EasyHover 2
-**Status:** Approved (brainstorming complete) — ready for `writing-plans`
+**Status:** Approved (brainstorming complete), **NOT started** — recorded-state handoff. Diagnosis corrected below after discovering a concurrent session's change.
 
-## Problem
+## ⚠️ CONCURRENCY / CORRECTION (read first)
 
-The `ui` (cockpit) role exceeds CC:Tweaked's default **1 MB** per-computer disk
-quota when deploying/updating.
+This spec was drafted believing the `ui`-role >1 MB overflow was caused by the
+suite's **2× `.eh2new` staging peak** at update time. That is **no longer true for
+current HEAD.** A **concurrent session** landed commit **`d7be6de` (2026-08-11):
+"install files in place, one at a time"** — `Suite.performPlan` now deletes-then-writes
+each verified file directly (`easyhover2_suite.lua:594`), so the peak is **one file of
+headroom, not 2×**. That change *was* the fix for the disk-full. **Reconcile this spec
+with the other session's handoff before implementing.**
 
-Root cause is **not** steady-state size — the `ui` role at rest is only ~0.5 MB
-(`basalt-full.lua` 306 KB + ~205 KB app + a little shared). The overflow happens at
-**update time**: `easyhover2_suite.lua` stages every changed file to a `.eh2new`
-copy *while the old file still exists*, committing all-at-once only after every file
-has arrived intact (all-or-nothing, `easyhover2_suite.lua:543`–587). An update
-therefore transiently needs up to **~2× the role's size**, and a basalt-touching
-update double-counts the 306 KB basalt (~612 KB) on top of the app tree — that is
-what tips past 1 MB.
+**Corrected picture (measured from the manifest, current HEAD):**
+- `ui` role steady state = **612 KB** (basalt 306 KB, already vendor-minified + pinned =
+  irreducible floor; + ~306 KB UI app code). `fcs` role = 106 KB.
+- With in-place install the `ui` role **no longer overflows** on install — but it sits at
+  **61 % of a 1 MB disk**, leaving thin headroom for configs, the rolling backup, DTC
+  disk exports, the suite itself, and logs.
+
+So minify is now a **headroom improvement, not a crash fix.**
+
+## Problem (corrected)
+
+The `ui` (cockpit) role occupies **612 KB — 61 % of the default 1 MB disk** — of which
+**half (306 KB) is basalt**, which cannot shrink (vendor-minified `full` build, pinned by
+the `feedback-basalt-full-build` house rule). That leaves little margin for runtime data.
 
 ## Goal
 
-Cut the deployed **byte** footprint of the app source so both steady state and the
-2× update peak sit comfortably under 1 MB, via a **pre-deploy build step** that
-minifies the deployable files with **luamin** (https://mths.be/luamin).
+Reclaim disk headroom on the `ui` computer by cutting the **byte** footprint of the app
+source (basalt untouched), via a **pre-deploy build step** that minifies the deployable
+files with **luamin** (https://mths.be/luamin). Target: `ui` role **612 KB → ~437 KB**,
+free space ~388 KB → **~563 KB**.
 
 ## Evidence (measured, not estimated)
 
@@ -31,9 +43,10 @@ on this machine (Node v22, luamin 1.0.4):
 
 - **All 89 files parsed** — zero CC:Tweaked-dialect failures. No parse gate needed
   beyond "fail the build if a file ever stops parsing".
-- **57.1 % reduction**: app source 340 KB → 146 KB, **saving ~190 KB**.
-- `ui` role steady state **~0.5 MB → ~0.38 MB**; worst-case (basalt-touching)
-  update peak **~1.05 MB → ~0.8 MB** — under quota with headroom.
+- **57.1 % reduction** on the full app tree: 340 KB → 146 KB, ~190 KB saved.
+- Applied to the `ui` role specifically: its **~306 KB of app code → ~131 KB**, so the
+  `ui` role drops **612 KB → ~437 KB** (basalt's 306 KB is untouched). Free space on a
+  1 MB disk: ~388 KB → **~563 KB**.
 
 ## Decisions (locked during brainstorming)
 

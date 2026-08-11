@@ -5,19 +5,35 @@
 **Full design spec:** [`docs/superpowers/specs/2026-08-11-minify-build-step-design.md`](docs/superpowers/specs/2026-08-11-minify-build-step-design.md)
 
 Brainstorming (Superpowers) is complete and the design is **approved**. Nothing has
-been implemented yet — that's your job. Next Superpowers step is **`writing-plans`**
+been implemented yet. **Status: not started, recorded-state only** (a second concurrent
+session was mid-flight — see the banner). Next Superpowers step is **`writing-plans`**
 against the spec, then **`executing-plans`** (or `subagent-driven-development`).
 
 ---
 
-## Why (one paragraph)
+## ⚠️ CONCURRENCY — READ BEFORE ANYTHING
 
-The `ui` role blows CC:Tweaked's 1 MB disk quota **at update time**, not at rest.
-`easyhover2_suite.lua` stages every changed file to a `.eh2new` copy while the old
-file still exists and commits all-at-once (`easyhover2_suite.lua:543`–587), so an
-update needs ~2× the role size, and a basalt-touching update double-counts the 306 KB
-basalt. Fix = minify the app source with **luamin** so both steady state and the 2×
-peak drop under 1 MB.
+This handoff overlaps a **second, concurrent session** on the same repo. That session
+landed **`d7be6de` (2026-08-11): "install files in place, one at a time."** It changed
+`Suite.performPlan` to delete-then-write each verified file directly
+(`easyhover2_suite.lua:594`) — so the install peak is now **one file of headroom, not
+2×**. **That was the actual fix for the disk-full crash.**
+
+Consequences for THIS task:
+- The original "2× update-time staging peak" diagnosis is **obsolete** — do not repeat it.
+- Minify is now a **headroom improvement, not a crash fix** (see corrected Why below).
+- **Before implementing, reconcile with the other session's handoff** (its state was
+  being recorded separately by the user) so the two efforts don't clash on
+  `easyhover2_suite.lua` / `gen_manifest` / the manifest format.
+
+## Why (corrected)
+
+The `ui` role occupies **612 KB — 61 % of the default 1 MB disk** (basalt 306 KB, the
+irreducible pinned floor; + ~306 KB UI app code). With the in-place install (`d7be6de`)
+it **no longer overflows** — but headroom for configs, the rolling backup, DTC disk
+exports, the suite, and logs is thin. Minifying the app half (luamin, ~57 %) drops the
+`ui` role to **~437 KB**, restoring free space from ~388 KB to **~563 KB**. Basalt is
+untouched.
 
 ## Decisions locked (do not re-litigate)
 
@@ -36,7 +52,8 @@ peak drop under 1 MB.
 - Node **v22.20.0**, npm 10.9.3, **luamin 1.0.4** all present.
 - luamin's **API** works (CLI arg-parsing is buggy — use the API).
 - **All 89 app files parse**; **57.1 % size reduction** (340 KB → 146 KB, ~190 KB saved).
-- `ui` steady state ~0.5 MB → ~0.38 MB; worst update peak ~1.05 MB → ~0.8 MB.
+- Exact `ui` role (from manifest) = **612 KB** (basalt 306 KB + ~306 KB app). Minify the
+  app half → `ui` role **~437 KB**; free space ~388 KB → ~563 KB. `fcs` role = 106 KB.
 - Test harness `tests/run_headless.sh` copies role dirs (`fcs tools ui release
   launchers`) into the CraftOS computer root and `require`s modules — so the dist
   acceptance gate is just the same harness pointed at `dist/`.
@@ -79,10 +96,10 @@ git push origin main
   fails loudly if any file stops parsing.
 - Both manifests regenerate and `run_gen.sh --check` passes for both.
 - `tests/run_headless_dist.sh` prints `OK` (behaviour parity on minified code).
-- Fresh `wget run` install (default) lands the **minified** channel and fits with
-  update-peak headroom under 1 MB; `--dev` lands readable source; switching channels
-  keeps `/eh2_hw_config.tbl` and other protected configs untouched.
-- In-game: `ui` role installs and updates without hitting the quota.
+- Fresh `wget run` install (default) lands the **minified** channel (`ui` role ~437 KB,
+  ~563 KB free); `--dev` lands readable source; switching channels keeps
+  `/eh2_hw_config.tbl` and other protected configs untouched.
+- In-game: `ui` role installs/updates with comfortable disk headroom.
 
 ## Gotchas / guardrails (from memory + this repo)
 
