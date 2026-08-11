@@ -427,6 +427,7 @@ local function reloadManifest(ctx, channel)
   end
   ctx.ui.roleDropdown:setItems(roleItems)
   ctx.ui.roleDropdown:setSelectedText(ctx.role or "(choose)")
+  refreshToolsDropdown(ctx)
   startCheck(ctx)   -- early-returns cleanly if ctx.spec is nil
   return true
 end
@@ -737,7 +738,7 @@ function SuiteX.run()
     Suite = Suite, basalt = basalt, manifest = manifest, order = buildOrder(manifest),
     role = role, spec = spec, state = state, hasFiles = hasFiles, tab = "main",
     plan = nil, report = nil, diffLabel = nil, checkDone = false, opInFlight = false,
-    channel = channel, manifests = { [channel] = manifest },
+    channel = channel, manifests = { [channel] = manifest }, suppressDevBox = false,
   }
 
   buildUI(ctx)
