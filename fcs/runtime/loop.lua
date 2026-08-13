@@ -14,6 +14,10 @@ function Loop.new(cfg)
 end
 function Loop:setpoints(t) self.sp = t end
 function Loop:arm(b) self.armed = b and true or false end
+function Loop:setActive(d)
+  self.scheme, self.mixer, self.caps = d.scheme, d.mixer, d.caps or self.caps
+  self.scheme:reset()
+end
 function Loop:getMode() return self.mode end
 function Loop:clearDamped()
   self.mode = "NORMAL"
