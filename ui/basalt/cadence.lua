@@ -16,7 +16,7 @@ function M.sig(state)
   state = state or {}
   return table.concat({
     tostring(state.engaged), tostring(state.gndSafety), tostring(state.positionHold),
-    tostring(state.mode), tostring(state.linkUp),
+    tostring(state.mode), tostring(state.flightMode), tostring(state.linkUp),
     qn(state.altitude, 10), qn(state.vSpeed, 100), qn(state.heading, 1), qn(state.loopHz, 1),
     tostring(state.engineMaster), tostring(state.feeding), tostring(state.pulses),
     state.nextFeedInMs and tostring(math.floor(state.nextFeedInMs / 1000)) or "-",
