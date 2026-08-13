@@ -209,9 +209,9 @@
         },
         {
           ["dst"] = "fcs/io/tuningdefaults.lua",
-          ["size"] = 1434,
+          ["size"] = 2299,
           ["src"] = "fcs/io/tuningdefaults.lua",
-          ["sum"] = "1fcccea6",
+          ["sum"] = "f50acc6d",
         },
         {
           ["dst"] = "fcs/leash.lua",
@@ -251,9 +251,9 @@
         },
         {
           ["dst"] = "fcs/tuning.lua",
-          ["size"] = 4676,
+          ["size"] = 5052,
           ["src"] = "fcs/tuning.lua",
-          ["sum"] = "e8cb7b6a",
+          ["sum"] = "c80f9ef2",
         },
         {
           ["dst"] = "fcslog",
@@ -509,9 +509,9 @@
         },
         {
           ["dst"] = "fcs/io/tuningdefaults.lua",
-          ["size"] = 1434,
+          ["size"] = 2299,
           ["src"] = "fcs/io/tuningdefaults.lua",
-          ["sum"] = "1fcccea6",
+          ["sum"] = "f50acc6d",
         },
         {
           ["dst"] = "fcs/mixer/level_flight.lua",
@@ -539,9 +539,9 @@
         },
         {
           ["dst"] = "fcs/tuning.lua",
-          ["size"] = 4676,
+          ["size"] = 5052,
           ["src"] = "fcs/tuning.lua",
-          ["sum"] = "e8cb7b6a",
+          ["sum"] = "c80f9ef2",
         },
         {
           ["dst"] = "hovertest",
@@ -818,5 +818,5 @@
     ["size"] = 70702,
     ["sum"] = "3dd2fb64",
   },
-  ["version"] = "5b0cacd1",
+  ["version"] = "36454af9",
 }

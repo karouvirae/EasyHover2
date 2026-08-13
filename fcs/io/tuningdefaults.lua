@@ -41,6 +41,27 @@ local DEFAULTS = {
   },
 }
 
+-- Per-mode tuning: MAN/CRUISE are full, independent records seeded from the base
+-- (PRECISION is NOT here -- it reads the top-level tuning, keeping its calibration).
+DEFAULTS.modes = {
+  MAN = {
+    gains = deep(DEFAULTS.gains),
+    caps  = { pitch = 0.4, roll = 0.4, yaw = DEFAULTS.caps.yaw, sway = DEFAULTS.caps.sway, surge = DEFAULTS.caps.surge },
+    feel  = deep(DEFAULTS.feel),
+  },
+  CRUISE = {
+    gains = deep(DEFAULTS.gains),
+    caps  = deep(DEFAULTS.caps),
+    feel  = deep(DEFAULTS.feel),
+  },
+}
+-- Tilt feel (MAN): arrow-key tilt, rad and rad/s; keep tiltCap < attLimit (0.6).
+DEFAULTS.modes.MAN.feel.tiltRate = 0.8
+DEFAULTS.modes.MAN.feel.tiltCap  = 0.40
+-- Surge-throttle feel (CRUISE): W ramps up, release holds, S ramps down; 0..1 of MAIN.
+DEFAULTS.modes.CRUISE.feel.cruiseThrottleRate = 1.0
+DEFAULTS.modes.CRUISE.feel.cruiseThrottleMax  = 1.0
+
 local M = {}
 
 function M.get()

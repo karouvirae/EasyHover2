@@ -70,4 +70,14 @@ end
 local M = cfgspec.load("tuning", readFile)
 M._buildFrom = buildFrom
 
+-- PRECISION = the calibrated top-level tuning (unchanged path); MAN/CRUISE = their own records.
+function M.forMode(id)
+  if id == "PRECISION" or id == nil then
+    return { gains = M.gains, caps = M.caps, feel = M.feel }
+  end
+  local rec = M.modes and M.modes[id]
+  if not rec then return { gains = M.gains, caps = M.caps, feel = M.feel } end  -- fallback
+  return rec
+end
+
 return M
