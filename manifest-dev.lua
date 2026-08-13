@@ -773,9 +773,9 @@
         },
         {
           ["dst"] = "ui/basalt/regions/fcs.lua",
-          ["size"] = 4219,
+          ["size"] = 5633,
           ["src"] = "ui/basalt/regions/fcs.lua",
-          ["sum"] = "95d76b55",
+          ["sum"] = "784de882",
         },
         {
           ["dst"] = "ui/basalt/switchbtn.lua",
@@ -854,5 +854,5 @@
     ["size"] = 70702,
     ["sum"] = "3dd2fb64",
   },
-  ["version"] = "25af2483",
+  ["version"] = "50959cfd",
 }
