@@ -36,6 +36,7 @@ local backend = Backend.new(shim, config)
 local loop, registry = hover.buildLoop(backend)   -- SINGLE arg; buildLoop reads tuning itself
 
 local pilot  = Pilot.new(inputCfg.default)
+pilot:setMode(registry.byId[registry.default].policy, registry.byId[registry.default].feel)
 local flight = Flight.new({ loop = loop, pilot = pilot, registry = registry,
   moveEps = tuning.groundIdle and tuning.groundIdle.moveEps })
 

@@ -4,10 +4,10 @@ Flight.__index = Flight
 
 function Flight.new(deps)
   return setmetatable({
-    loop = deps.loop, pilot = deps.pilot,
+    loop = deps.loop, pilot = deps.pilot, registry = deps.registry,
     moveEps = deps.moveEps or 0.5,   -- ground-idle motion gate (blocks/s)
     engaged = false, gndSafety = true, positionHold = false,
-    fuelPump = false, flightMode = "NORMAL", parked = false,
+    fuelPump = false, flightMode = (deps.registry and deps.registry.default) or "PRECISION", parked = false,
     _needReset = false, _loopHz = 0,
   }, Flight)
 end
@@ -32,7 +32,13 @@ function Flight:handleCommand(cmd)
   elseif k == "clearDamped" then
     self.loop:clearDamped(); return true
   elseif k == "flightMode" then
-    self.flightMode = cmd.id; return true
+    local reg = self.registry
+    local d = reg and reg.byId[cmd.id]
+    if not d then return true end                 -- unknown id: stay on current mode
+    self.loop:setActive(d)
+    self.pilot:setMode(d.policy, d.feel)
+    self.flightMode = cmd.id
+    return true
   end
   return false
 end
