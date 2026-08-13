@@ -5,10 +5,9 @@
 local hwconfig = require("fcs.io.hwconfig")
 local tuning   = require("fcs.tuning")
 local Backend  = require("fcs.io.backend")
-local Scheme   = require("fcs.schemes.level_flight")
-local Mixer    = require("fcs.mixer.level_flight")
 local Level    = require("fcs.actuate.level")
 local Loop     = require("fcs.runtime.loop")
+local Registry = require("fcs.modes.registry")
 local Profile  = require("fcs.bringup.profile")
 local Inst     = require("fcs.bringup.instrument")
 
@@ -25,14 +24,13 @@ local function loadConfig()
 end
 
 local function buildLoop(backend)
-  local g = tuning.gains
-  local scheme = Scheme.new({ hoverDuty = g.hoverDuty, alt = g.alt, pitch = g.pitch,
-    roll = g.roll, yaw = g.yaw, sway = g.sway, surge = g.surge,
-    heaveMin = g.heaveMin, heaveMax = g.heaveMax })
-  return Loop.new({ scheme = scheme, mixer = Mixer.new(),
+  local reg = Registry.build(tuning)          -- tuning is the module singleton (has DOT forMode)
+  local d = reg.byId[reg.default]
+  local loop = Loop.new({ scheme = d.scheme, mixer = d.mixer, caps = d.caps,
     pwm = Level.new({ backend = backend, steps = 15 }),
     sd = nil,
-    backend = backend, dtMax = tuning.dtMax, caps = tuning.caps, osc = tuning.osc })
+    backend = backend, dtMax = tuning.dtMax, osc = tuning.osc })
+  return loop, reg
 end
 
 local function baseline(backend)

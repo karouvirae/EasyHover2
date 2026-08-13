@@ -1,0 +1,1 @@
+local a=require("fcs.schemes.level_flight")local b={}b.__index=b;function b.new(c)return setmetatable({inner=a.new(c)},b)end;function b:reset()self.inner:reset()end;function b:update(d,e,f,g)local h=self.inner:update(d,e,f,g)h.surge=d.surgeThrottle or 0;return h end;return b

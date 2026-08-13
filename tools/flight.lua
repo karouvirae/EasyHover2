@@ -33,10 +33,10 @@ end
 
 local config  = loadConfig()
 local backend = Backend.new(shim, config)
-local loop    = hover.buildLoop(backend)   -- SINGLE arg; buildLoop reads tuning itself
+local loop, registry = hover.buildLoop(backend)   -- SINGLE arg; buildLoop reads tuning itself
 
 local pilot  = Pilot.new(inputCfg.default)
-local flight = Flight.new({ loop = loop, pilot = pilot,
+local flight = Flight.new({ loop = loop, pilot = pilot, registry = registry,
   moveEps = tuning.groundIdle and tuning.groundIdle.moveEps })
 
 -- ---- Comms ----
