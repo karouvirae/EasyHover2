@@ -1,7 +1,8 @@
 -- ui/basalt/pages/fcs.lua
 -- FCS (flight controller status + engage/safety) cockpit page: Basalt port of ui/panels/fcs.lua's
--- ENGAGE / DISENGAGE / GND SAFE controls and status overview. POS HOLD + CLR DAMP are NOT here --
--- they move to the A/P page (Task 18).
+-- ENGAGE / DISENGAGE / GND SAFE controls and status overview, plus (Task 12) a live
+-- PRECISION / MAN / CRUISE flight-mode selector. POS HOLD + CLR DAMP are NOT here -- they move to
+-- the A/P page (Task 18).
 --
 -- Follows the Task 15 template EXACTLY (see ui/basalt/pages/emc.lua's header comment for the full
 -- Basalt API provenance notes -- not re-derived here): module exports `M.id`, `M.title`, a
@@ -12,6 +13,7 @@
 -- NO peripheral/Basalt access at module LOAD -- everything lives inside M.build/M._onButton/the
 -- apply() closure, so `require("ui.basalt.pages.fcs")` loads clean headless.
 local FcsPanel = require("ui.panels.fcs")
+local Switch   = require("ui.basalt.switchbtn")
 
 local M = {}
 M.id = "fcs"
@@ -28,6 +30,12 @@ M.title = "FCS"
 -- ctx only needs the four fields ui.panels.fcs.action() actually reads for engage/disengage/
 -- gndSafety -- engaged/gndSafety/positionHold/mode -- read from the latest telemetry snapshot
 -- (runtime.rx:latest()), same source ui/basalt/app.lua:M.buildState draws the cadence state from.
+--
+-- Mode ids (PRECISION/MAN/CRUISE, Task 12): FcsPanel.action(id) returns the RAW flightMode
+-- command { k = "flightMode", id = id } (no `.kind`/`.cmd` wrapper -- see ui/panels/fcs.lua's
+-- M.action doc comment), so it is sent AS the command itself, through the exact same
+-- `runtime.links.tel:send(runtime.sender:send(cmd))` call the wrapped button actions use below --
+-- same command path as ENGAGE/DISENGAGE/GND SAFE, just unwrapped one level.
 function M._onButton(runtime, id, now)
   local latest = runtime.rx:latest() or {}
   local ctx = {
@@ -39,8 +47,9 @@ function M._onButton(runtime, id, now)
   local effect = FcsPanel.action(id, ctx)
   if not effect then return nil end
 
-  if effect.kind == "command" then
-    runtime.links.tel:send(runtime.sender:send(effect.cmd))
+  local cmd = (effect.kind == "command") and effect.cmd or effect
+  if cmd then
+    runtime.links.tel:send(runtime.sender:send(cmd))
   end
 
   return effect
@@ -55,16 +64,19 @@ local CTRL_LABEL = {
   gndSafety = "GND SAFE",
 }
 
--- Row of disabled placeholder MODE buttons -- the future FCS flight modes the user builds next.
--- Visual-only affordances: no onClick, no intent seam, permanently styled disabled.
-local PLACEHOLDER_ORDER = { "altHold", "hdgHold", "auto" }
-local PLACEHOLDER_LABEL = {
-  altHold = "ALT HLD",
-  hdgHold = "HDG HLD",
-  auto    = "AUTO",
-}
+-- Live flight-mode selector row (Task 12): one switch per FcsPanel.MODES id
+-- (PRECISION/MAN/CRUISE), labelled by the mode id itself. Real onClick + apply() wiring -- no
+-- longer the disabled ALT HLD/HDG HLD/AUTO placeholders. No-optimistic-UI: green comes ONLY from
+-- apply(state) reading the reported state.flightMode via FcsPanel.modeActive, never from the tap.
+local MODE_ORDER = FcsPanel.MODES
 
+-- FIELD_ORDER indexes ui.panels.fcs's fieldValues(ctx) table (keyed MODE/ALT/VSPD/HDG/LOOP/LINK).
+-- FIELD_LABEL is the ON-SCREEN prefix text for each -- identical to the key except MODE, which
+-- shows the derived loop state (NORMAL/GROUND/DAMPED/PARKED) and is relabelled STATE here so it
+-- reads distinctly from the new PRECISION/MAN/CRUISE mode selector above (LOOP is already taken --
+-- it shows loopHz).
 local FIELD_ORDER = { "MODE", "ALT", "VSPD", "HDG", "LOOP", "LINK" }
+local FIELD_LABEL = { MODE = "STATE", ALT = "ALT", VSPD = "VSPD", HDG = "HDG", LOOP = "LOOP", LINK = "LINK" }
 
 -- state -> Basalt background/foreground/enabled, mirroring ui/toolkit.lua's BUTTON_BG mapping
 -- (on/active -> green, off -> red, idle -> gray, disabled -> gray box with dim text) so the
@@ -85,7 +97,7 @@ function M.build(basalt, frame, runtime)
   local iw = math.max(1, w - 2)
 
   -- Three full-width control buttons, stacked -- same composition as emc.lua's engine controls.
-  -- Reserve room below for the placeholder MODE row (1 line + 1 gap) and the six status Labels.
+  -- Reserve room below for the mode-selector row (1 line + 1 gap) and the six status Labels.
   local rows = #CTRL_ORDER
   local ctrlTop = 2
   local statusWant = #FIELD_ORDER
@@ -102,16 +114,19 @@ function M.build(basalt, frame, runtime)
     y = y + btnH
   end
 
-  -- Placeholder MODE row: three buttons side-by-side, splitting the interior width (the last one
-  -- absorbs any remainder so the row never overshoots iw).
+  -- Mode-selector row: one switch per MODE_ORDER id, side-by-side, splitting the interior width
+  -- (the last one absorbs any remainder so the row never overshoots iw) -- same row-splitting
+  -- pattern the old placeholder row used, now built with ui/basalt/switchbtn.lua's Switch.make so
+  -- each one is a real color-state switch (reused the same way ui/basalt/regions/fcs.lua's
+  -- fcs/gnd switches are built).
   local phTop = y + 1
-  local phCount = #PLACEHOLDER_ORDER
+  local phCount = #MODE_ORDER
   local phW = math.max(1, math.floor(iw / phCount))
-  local placeholders = {}
+  local modeSwitches = {}
   local px = x
-  for i, id in ipairs(PLACEHOLDER_ORDER) do
+  for i, id in ipairs(MODE_ORDER) do
     local width = (i == phCount) and math.max(1, iw - (phW * (phCount - 1))) or phW
-    placeholders[id] = frame:addButton({ x = px, y = phTop, width = width, height = 1, text = PLACEHOLDER_LABEL[id] })
+    modeSwitches[id] = Switch.make(frame, { x = px, y = phTop, width = width, height = 1, text = id })
     px = px + width
   end
 
@@ -120,7 +135,7 @@ function M.build(basalt, frame, runtime)
 
   local labels = {}
   for i, name in ipairs(FIELD_ORDER) do
-    labels[name] = frame:addLabel({ x = x, y = statusTop + i - 1, width = iw, height = 1, autoSize = false, text = name .. " --" })
+    labels[name] = frame:addLabel({ x = x, y = statusTop + i - 1, width = iw, height = 1, autoSize = false, text = FIELD_LABEL[name] .. " --" })
   end
 
   for _, id in ipairs(CTRL_ORDER) do
@@ -130,13 +145,16 @@ function M.build(basalt, frame, runtime)
     end)
   end
 
-  -- Placeholders: styled disabled once, at construction -- apply() never touches them (they carry
-  -- no live state; a future task wires real FCS flight modes onto this row).
-  for _, id in ipairs(PLACEHOLDER_ORDER) do
-    local btn = placeholders[id]
-    btn:setBackground(colors.gray)
-    btn:setForeground(colors.lightGray)
-    btn:setEnabled(false)
+  -- Mode switches: tapping dispatches FcsPanel.action(id) through the SAME M._onButton intent seam
+  -- (and hence the same runtime.links.tel:send(runtime.sender:send(cmd)) command path) the
+  -- ENGAGE/DISENGAGE/GND SAFE buttons above use. No optimistic UI here -- onClick only SENDS the
+  -- command; it never flips the switch itself. The switch only turns green once apply(state) below
+  -- observes the reported state.flightMode confirming this mode (FcsPanel.modeActive).
+  for _, id in ipairs(MODE_ORDER) do
+    local sw = modeSwitches[id]
+    sw.button:onClick(function()
+      M._onButton(runtime, id, os.epoch("utc"))
+    end)
   end
 
   -- apply(state): update elements from the canonical flat cadence state. Idempotent -- safe to
@@ -152,7 +170,7 @@ function M.build(basalt, frame, runtime)
 
     local values = FcsPanel.fieldValues(state)
     for _, name in ipairs(FIELD_ORDER) do
-      labels[name]:setText(name .. " " .. values[name])
+      labels[name]:setText(FIELD_LABEL[name] .. " " .. values[name])
     end
 
     local btnStates = FcsPanel.buttonStates(state)
@@ -163,6 +181,11 @@ function M.build(basalt, frame, runtime)
       btn:setForeground(colors[style.fg])
       btn:setEnabled(style.enabled)
     end
+
+    -- No-optimistic-UI: green ONLY when the reported state.flightMode confirms this mode.
+    for _, id in ipairs(MODE_ORDER) do
+      modeSwitches[id].set(FcsPanel.modeActive(state, id) and "on" or "off")
+    end
   end
 
   return {
@@ -170,8 +193,12 @@ function M.build(basalt, frame, runtime)
     apply = apply,
     elements = {
       engageBtn = buttons.engage, disengageBtn = buttons.disengage, gndSafetyBtn = buttons.gndSafety,
-      altHoldBtn = placeholders.altHold, hdgHoldBtn = placeholders.hdgHold, autoBtn = placeholders.auto,
-      modeLabel = labels.MODE, altLabel = labels.ALT, vspdLabel = labels.VSPD,
+      modeBtns = {
+        PRECISION = modeSwitches.PRECISION and modeSwitches.PRECISION.button,
+        MAN       = modeSwitches.MAN and modeSwitches.MAN.button,
+        CRUISE    = modeSwitches.CRUISE and modeSwitches.CRUISE.button,
+      },
+      stateLabel = labels.MODE, altLabel = labels.ALT, vspdLabel = labels.VSPD,
       hdgLabel = labels.HDG, loopLabel = labels.LOOP, linkLabel = labels.LINK,
     },
   }

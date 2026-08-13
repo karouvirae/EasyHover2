@@ -92,21 +92,23 @@ t.test("M.build constructs the element tree; apply() + one render pass do not er
   t.truthy(h.elements.engageBtn ~= nil, "engageBtn element present")
   t.truthy(h.elements.disengageBtn ~= nil, "disengageBtn element present")
   t.truthy(h.elements.gndSafetyBtn ~= nil, "gndSafetyBtn element present")
-  t.truthy(h.elements.altHoldBtn ~= nil, "altHoldBtn placeholder present")
-  t.truthy(h.elements.hdgHoldBtn ~= nil, "hdgHoldBtn placeholder present")
-  t.truthy(h.elements.autoBtn ~= nil, "autoBtn placeholder present")
-
-  -- Placeholder MODE buttons are disabled visual-only affordances -- no onClick, no intent seam.
-  t.eq(h.elements.altHoldBtn:getEnabled(), false, "altHold placeholder disabled")
-  t.eq(h.elements.hdgHoldBtn:getEnabled(), false, "hdgHold placeholder disabled")
-  t.eq(h.elements.autoBtn:getEnabled(), false, "auto placeholder disabled")
+  t.truthy(h.elements.modeBtns ~= nil, "modeBtns table present")
+  t.truthy(h.elements.modeBtns.PRECISION ~= nil, "PRECISION mode switch present")
+  t.truthy(h.elements.modeBtns.MAN ~= nil, "MAN mode switch present")
+  t.truthy(h.elements.modeBtns.CRUISE ~= nil, "CRUISE mode switch present")
 
   local sampleState = {
     engaged = true, gndSafety = false, positionHold = false, mode = "FLIGHT",
     altitude = 42.5, vSpeed = -0.3, heading = 180, loopHz = 20, linkUp = true, uiRev = 1,
+    flightMode = "MAN",
   }
   local ok, err = pcall(h.apply, sampleState)
   t.truthy(ok, "apply should not error: " .. tostring(err))
+
+  -- No-optimistic-UI: apply() drives the mode switches purely from reported state.flightMode --
+  -- only the reported mode is enabled/"on" (green), the others are "off" (red).
+  t.eq(h.elements.modeBtns.MAN:getEnabled(), true, "MAN switch enabled once apply() has run")
+  t.eq(h.elements.modeBtns.PRECISION:getEnabled(), true, "PRECISION switch enabled once apply() has run")
 
   -- Idempotent: calling apply() again with the same/changed state must not error either.
   local ok2, err2 = pcall(h.apply, sampleState)
@@ -114,6 +116,17 @@ t.test("M.build constructs the element tree; apply() + one render pass do not er
 
   local ok3, err3 = pcall(function() basalt.update("timer", -1) end)
   t.truthy(ok3, "basalt.update should not error: " .. tostring(err3))
+end)
+
+t.test("_onButton: mode id sends the raw flightMode command through the same command path", function()
+  local runtime, sent = newRuntime({ engaged = true, gndSafety = false, positionHold = false, mode = "FLIGHT" })
+  local effect = M._onButton(runtime, "CRUISE", 5000)
+  t.truthy(effect ~= nil, "effect should be returned")
+  t.eq(effect.k, "flightMode")
+  t.eq(effect.id, "CRUISE")
+  t.eq(#sent, 1, "one frame sent through runtime.links.tel, same as ENGAGE/DISENGAGE")
+  t.eq(sent[1].k, "flightMode")
+  t.eq(sent[1].id, "CRUISE")
 end)
 
 t.test("M.build's apply() reflects gndSafety-on: engage disabled", function()

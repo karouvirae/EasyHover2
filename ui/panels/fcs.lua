@@ -116,9 +116,31 @@ function M.render(ctx, w, h)
   return dl
 end
 
--- ===== action(id, ctx) -> effect|nil =====
+-- ===== Flight-mode selector (Task 12) =====
+-- PRECISION / MAN / CRUISE, driven purely by reported telemetry -- no optimistic UI.
+-- M.MODES lists the selectable modes; M.modeActive(ctx, id) is true only when the LATEST
+-- reported ctx.flightMode equals id (ctx==nil/{} means nothing is active yet -- no optimism).
+M.MODES = { "PRECISION", "MAN", "CRUISE" }
 
+local MODE_SET = {}
+for _, id in ipairs(M.MODES) do MODE_SET[id] = true end
+
+function M.modeActive(ctx, id)
+  return (ctx and ctx.flightMode) == id
+end
+
+-- ===== action(id, ctx) -> effect|nil =====
+--
+-- Mode ids (PRECISION/MAN/CRUISE) return the RAW flightMode command { k = "flightMode", id = id }
+-- directly -- no ctx needed, matching fcs.runtime.flight's handleCommand shape (see
+-- tests/test_flight_modes.lua) and tests/test_panels_fcs_modes.lua's F.action("MAN").k contract.
+-- Every other (button) id keeps the pre-existing { kind = "command", cmd = ... } wrapped shape.
+-- ui/basalt/pages/fcs.lua's M._onButton unwraps whichever shape comes back before sending.
 function M.action(id, ctx)
+  if MODE_SET[id] then
+    return { k = "flightMode", id = id }
+  end
+
   ctx = ctx or {}
   if id == "engage" then
     if ctx.gndSafety then return nil end
