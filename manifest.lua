@@ -689,9 +689,9 @@
         },
         {
           ["dst"] = "ui/basalt/bitconfig/tuning.lua",
-          ["size"] = 5038,
+          ["size"] = 6175,
           ["src"] = "dist/ui/basalt/bitconfig/tuning.lua",
-          ["sum"] = "f29b156f",
+          ["sum"] = "4e45c42d",
         },
         {
           ["dst"] = "ui/basalt/bitconfig/uical.lua",
@@ -860,5 +860,5 @@
     ["size"] = 70702,
     ["sum"] = "3dd2fb64",
   },
-  ["version"] = "63db5cc0",
+  ["version"] = "7eb896bf",
 }

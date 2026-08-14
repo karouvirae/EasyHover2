@@ -120,40 +120,127 @@ M.ROW_SPEC = ROW_SPEC
 local SPEC_BY_ID = {}
 for _, spec in ipairs(ROW_SPEC) do SPEC_BY_ID[spec.id] = spec end
 
+-- ===== per-mode tuning: PRECISION is the top-level gains/caps/feel (unchanged); MAN/CRUISE =====
+-- ===== live under modes.MAN / modes.CRUISE and carry their own extra FEEL rows on top      =====
+-- ===== of the 34 base rows (see fcs/io/tuningdefaults.lua's DEFAULTS.modes).                =====
+
+M.MODES = { "PRECISION", "MAN", "CRUISE" }
+
+-- M.pathFor(mode, dotted) -> dotted path into the cfg tree for that mode. PRECISION (or a nil
+-- mode) is the top-level path as-is; MAN/CRUISE are prefixed under modes.<mode>. PURE.
+function M.pathFor(mode, dotted)
+  if mode == nil or mode == "PRECISION" then return dotted end
+  return "modes." .. mode .. "." .. dotted
+end
+
+-- Per-mode EXTRA rows, on top of the 34 base ROW_SPEC rows -- MAN gets arrow-key tilt feel,
+-- CRUISE gets surge-throttle feel (see tuningdefaults.lua's DEFAULTS.modes.MAN/.CRUISE.feel).
+-- PRECISION has none: the top level has no tilt/throttle feel to tune.
+local MODE_EXTRA_ROWS = {
+  MAN = {
+    { id = "feel.tiltRate", label = "TILT RATE", group = "FEEL", step = 0.1,  min = 0.1, max = 2.0 },
+    { id = "feel.tiltCap",  label = "TILT CAP",  group = "FEEL", step = 0.05, min = 0,   max = 0.6 },
+  },
+  CRUISE = {
+    { id = "feel.cruiseThrottleRate", label = "THROTTLE RATE", group = "FEEL", step = 0.1,  min = 0.1, max = 2.0 },
+    { id = "feel.cruiseThrottleMax",  label = "THROTTLE MAX",  group = "FEEL", step = 0.05, min = 0,   max = 1.0 },
+  },
+}
+
+-- specFor(mode, rowId) -> the {id,label,group,step,min,max} spec for rowId, scoped to mode: the
+-- 34 base specs are shared by every mode; a mode's own extras (e.g. MAN's feel.tiltRate) only
+-- resolve when looked up under THAT mode, so e.g. M.apply(cfg,"PRECISION","feel.tiltRate",...)
+-- is correctly a no-op (PRECISION has no such row).
+local function specFor(mode, rowId)
+  local base = SPEC_BY_ID[rowId]
+  if base then return base end
+  local extras = MODE_EXTRA_ROWS[mode]
+  if extras then
+    for _, s in ipairs(extras) do
+      if s.id == rowId then return s end
+    end
+  end
+  return nil
+end
+
 -- ===== M.rows / M.apply: the PURE view-model. No Basalt, no fs, no mutation of `cfg`. =====
 
--- M.rows(cfg) -> ordered list of {id, label, group, value, step}, value read from cfg at the
--- dotted path (nil-safe: falls back to the tuningdefaults value, then 0). PURE.
-function M.rows(cfg)
+-- M.rows(cfg, mode) -> ordered list of {id, label, group, value, step}, value read from cfg at
+-- pathFor(mode, spec.id) (nil-safe: falls back to the tuningdefaults value at that same path,
+-- then 0). `mode` defaults to "PRECISION" (byte-identical to the pre-existing M.rows(cfg)
+-- behaviour). MAN/CRUISE additionally append that mode's extra FEEL rows. PURE.
+function M.rows(cfg, mode)
+  mode = mode or "PRECISION"
   cfg = cfg or {}
   local defaults = tuningdefaults.get()
-  local out = {}
-  for _, spec in ipairs(ROW_SPEC) do
-    local v = getPath(cfg, spec.id)
-    if v == nil then v = getPath(defaults, spec.id) end
+
+  local function row(spec)
+    local path = M.pathFor(mode, spec.id)
+    local v = getPath(cfg, path)
+    if v == nil then v = getPath(defaults, path) end
     if v == nil then v = 0 end
-    out[#out + 1] = { id = spec.id, label = spec.label, group = spec.group, value = v, step = spec.step }
+    return { id = spec.id, label = spec.label, group = spec.group, value = v, step = spec.step }
   end
+
+  local out = {}
+  for _, spec in ipairs(ROW_SPEC) do out[#out + 1] = row(spec) end
+  for _, spec in ipairs(MODE_EXTRA_ROWS[mode] or {}) do out[#out + 1] = row(spec) end
   return out
 end
 
--- M.apply(cfg, rowId, delta) -> a NEW cfg (deep-copied; `cfg` is never mutated) with the value at
--- rowId's path set to clamp(currentValue + delta*step, min, max), rounded to the step's precision.
--- Unknown rowId -> unchanged (deep-copied) cfg. `delta` is a signed integer (+1/-1).
-function M.apply(cfg, rowId, delta)
+-- M.apply([mode,] cfg-or-rowId, rowId-or-delta, [delta]) -> a NEW cfg (deep-copied; `cfg` is
+-- never mutated) with the value at pathFor(mode, rowId) set to
+-- clamp(currentValue + delta*step, min, max), rounded to the step's precision. Unknown rowId (for
+-- that mode) -> unchanged (deep-copied) cfg. `delta` is a signed integer (+1/-1).
+--
+-- Two call shapes, told apart by argument count so existing 3-arg call sites keep working
+-- byte-identically (mode defaults to "PRECISION"):
+--   M.apply(cfg, rowId, delta)        -- legacy/PRECISION shorthand
+--   M.apply(cfg, mode, rowId, delta)  -- explicit mode (PRECISION/MAN/CRUISE)
+function M.apply(...)
+  local n = select("#", ...)
+  local cfg, mode, rowId, delta
+  if n <= 3 then
+    cfg, rowId, delta = ...
+    mode = "PRECISION"
+  else
+    cfg, mode, rowId, delta = ...
+  end
+  mode = mode or "PRECISION"
+
   local copy = deepcopy(cfg or {})
-  local spec = SPEC_BY_ID[rowId]
+  local spec = specFor(mode, rowId)
   if not spec then return copy end
 
+  local path = M.pathFor(mode, rowId)
   local defaults = tuningdefaults.get()
-  local cur = getPath(copy, rowId)
-  if cur == nil then cur = getPath(defaults, rowId) end
+  local cur = getPath(copy, path)
+  if cur == nil then cur = getPath(defaults, path) end
   if cur == nil then cur = 0 end
 
   local dn = tonumber(delta) or 0
   local raw = clamp(cur + dn * spec.step, spec.min, spec.max)
   raw = roundTo(raw, decimalsForStep(spec.step))
-  setPath(copy, rowId, raw)
+  setPath(copy, path, raw)
+  return copy
+end
+
+-- M.resetMode(cfg, mode) -> a NEW cfg (deep-copied; `cfg` is never mutated) with ONLY that mode's
+-- subtree reset to tuningdefaults.get() values -- PRECISION resets the top-level gains/caps/feel,
+-- MAN/CRUISE reset modes.<mode> (including that mode's extra feel, e.g. tiltRate/tiltCap) --
+-- leaving the rest of the tree (including the other modes) untouched.
+function M.resetMode(cfg, mode)
+  mode = mode or "PRECISION"
+  local copy = deepcopy(cfg or {})
+  local defaults = tuningdefaults.get()
+  if mode == "PRECISION" then
+    copy.gains = deepcopy(defaults.gains)
+    copy.caps  = deepcopy(defaults.caps)
+    copy.feel  = deepcopy(defaults.feel)
+  else
+    copy.modes = copy.modes or {}
+    copy.modes[mode] = deepcopy(defaults.modes[mode])
+  end
   return copy
 end
 
