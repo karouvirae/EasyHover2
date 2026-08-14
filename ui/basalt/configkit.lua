@@ -12,16 +12,25 @@ function M.fitLabel(text, width)
   return require("ui.basalt.listpicker").formatLabel(text, width)
 end
 
--- splitWidths(total, n): divide `total` columns into `n` button widths summing to `total`, each
--- >= 1, remainder distributed to the leftmost cells (so a 14-col row of 3 buttons is 5/5/4).
+-- splitWidths(total, n): divide `total` columns into `n` button widths, remainder distributed to
+-- the leftmost cells (so a 14-col row of 3 buttons is 5/5/4). PRECONDITION: n <= total -- always
+-- true for actionRow (a handful of buttons across >= 12 cols). Under that precondition this sums
+-- EXACTLY to `total` with every width >= 1: base = floor(total/n) is >= 1, the first (total % n)
+-- cells get base+1 and the rest get base -- no clamp needed, no rounding slop.
+-- Degenerate n > total (more buttons than columns) returns n all-1 widths; the sum is then n, NOT
+-- total -- over-subscribed by design. Callers that could hit this must handle the overflow
+-- themselves (e.g. a scrollable row); this function does not silently claim to sum to total.
 function M.splitWidths(total, n)
   local out = {}
   if not n or n <= 0 then return out end
+  if n > total then
+    for i = 1, n do out[i] = 1 end
+    return out
+  end
   local base = math.floor(total / n)
   local rem = total - base * n
   for i = 1, n do
-    local w = base + ((i <= rem) and 1 or 0)
-    out[i] = (w < 1) and 1 or w
+    out[i] = base + ((i <= rem) and 1 or 0)
   end
   return out
 end
@@ -113,18 +122,27 @@ local function words(lines)
 end
 
 -- wrapWords(ws, width): greedy word wrap -- pack words onto a line while it fits `width`,
--- otherwise start a new one. A single word longer than `width` is kept whole (never split).
+-- otherwise start a new one. A single word longer than `width` is HARD-BROKEN into width-sized
+-- chunks (never left overlong) so every returned line is structurally guaranteed <= width.
 local function wrapWords(ws, width)
   local out = {}
   local cur = ""
-  for _, w in ipairs(ws) do
-    if cur == "" then
-      cur = w
-    elseif #cur + 1 + #w <= width then
-      cur = cur .. " " .. w
-    else
-      out[#out + 1] = cur
-      cur = w
+  for _, word in ipairs(ws) do
+    local w = word
+    while #w > width do
+      if cur ~= "" then out[#out + 1] = cur; cur = "" end
+      out[#out + 1] = w:sub(1, width)
+      w = w:sub(width + 1)
+    end
+    if w ~= "" then
+      if cur == "" then
+        cur = w
+      elseif #cur + 1 + #w <= width then
+        cur = cur .. " " .. w
+      else
+        out[#out + 1] = cur
+        cur = w
+      end
     end
   end
   if cur ~= "" then out[#out + 1] = cur end
@@ -132,12 +150,15 @@ local function wrapWords(ws, width)
 end
 
 -- helpLines(entryId, width): GLOSSARY[entryId].title followed by its lines greedily
--- word-wrapped to `width`; unknown entryId -> {"(no help)"}.
+-- word-wrapped to `width`; unknown entryId -> {"(no help)"}. The title is passed through
+-- fitLabel so it too is guaranteed <= width (matters once width drops below a title's length,
+-- e.g. a narrow scroll region), and wrapWords hard-breaks any overlong word -- together every
+-- line this returns is structurally <= width for ANY entryId/width, not just the current content.
 function M.helpLines(entryId, width)
   local entry = M.GLOSSARY[entryId]
   if not entry then return { "(no help)" } end
   local w = (type(width) == "number" and width > 0) and width or 14
-  local out = { entry.title }
+  local out = { M.fitLabel(entry.title, w) }
   for _, l in ipairs(wrapWords(words(entry.lines), w)) do
     out[#out + 1] = l
   end

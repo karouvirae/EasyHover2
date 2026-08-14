@@ -26,6 +26,21 @@ t.test("splitWidths puts the remainder on the leftmost cells", function()
   t.eq(w[3], 4, "rightmost cell is the base")
 end)
 
+t.test("splitWidths sums exactly to total when n <= total (no clamp slop)", function()
+  local w = ck.splitWidths(14, 4)
+  t.eq(#w, 4, "four cells")
+  t.eq(w[1] + w[2] + w[3] + w[4], 14, "sums exactly to total")
+  for i, v in ipairs(w) do t.truthy(v >= 1, "cell " .. i .. " >= 1") end
+end)
+
+t.test("splitWidths degenerate n > total returns documented all-1s (sum = n, not total)", function()
+  local w = ck.splitWidths(2, 3)
+  t.eq(#w, 3, "three cells")
+  t.eq(w[1], 1, "over-subscribed cell is 1")
+  t.eq(w[2], 1, "over-subscribed cell is 1")
+  t.eq(w[3], 1, "over-subscribed cell is 1")
+end)
+
 t.test("glossary + help lines fit width and lead with title", function()
   local L = ck.helpLines("gains", 14)
   t.truthy(#L >= 2, "has content")
@@ -41,6 +56,14 @@ t.test("helpLines covers every required glossary entry", function()
     local L = ck.helpLines(id, 14)
     t.truthy(#L >= 2, "has content: " .. id)
     for _, ln in ipairs(L) do t.truthy(#ln <= 14, "fits (" .. id .. "): " .. ln) end
+  end
+end)
+
+t.test("helpLines guarantees every line fits a narrow width (title + hard-broken words)", function()
+  for _, id in ipairs({ "gains", "hoverduty", "modes" }) do
+    local L = ck.helpLines(id, 6)
+    t.truthy(#L >= 2, "has content: " .. id)
+    for _, ln in ipairs(L) do t.truthy(#ln <= 6, "fits width=6 (" .. id .. "): " .. ln) end
   end
 end)
 
