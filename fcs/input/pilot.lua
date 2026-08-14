@@ -13,6 +13,7 @@ function Pilot.new(cfg)
     policy = { tilt = false, surge = "position" },
     tilt = { pitch = 0, roll = 0 },
     throttle = 0,
+    climbHeld = 0,
   }, Pilot)
 end
 
@@ -27,8 +28,10 @@ function Pilot:setPositionHold(b) self.hold = b and true or false end
 function Pilot:setMode(policy, feel)
   self.policy = policy or { tilt = false, surge = "position" }
   if feel then self.cfg = feel end
-  self.tilt.pitch, self.tilt.roll, self.throttle = 0, 0, 0   -- transition: center tilt, drop throttle
+  self.tilt.pitch, self.tilt.roll, self.throttle, self.climbHeld = 0, 0, 0, 0   -- transition: center tilt, drop throttle
 end
+
+function Pilot:setTrimDir(dir) self.cfg.trimDir = (dir and dir < 0) and -1 or 1 end
 
 local function dirOf(held, neg, pos)
   return (held[pos] and 1 or 0) - (held[neg] and 1 or 0)
@@ -53,10 +56,21 @@ function Pilot:update(dt, held, meas)
     end
   end
 
-  -- Lift: slew altitude, leashed to current altitude +/- leadCapVert.
+  -- Lift: slew altitude, leashed to current altitude +/- leadCapVert. In coupled mode the rate
+  -- ramps with hold time (tap = base climbRate nudge, sustained hold -> climbRate*(1+climbBoost)).
   local ld = dirOf(held, "down", "up")
+  local climbRate = c.climbRate
+  if self.policy.surge == "coupled" then
+    if ld ~= 0 then
+      self.climbHeld = (self.climbHeld or 0) + dt
+      local ramp = math.min(1, self.climbHeld / (c.climbRampTime or 1.0))
+      climbRate = c.climbRate * (1 + (c.climbBoost or 0) * ramp)
+    else
+      self.climbHeld = 0
+    end
+  end
   if ld ~= 0 then
-    local a = sp.altitude + c.climbRate * dt * ld
+    local a = sp.altitude + climbRate * dt * ld
     local lo, hi = meas.altitude - c.leadCapVert, meas.altitude + c.leadCapVert
     if a < lo then a = lo elseif a > hi then a = hi end
     sp.altitude = a
@@ -76,6 +90,48 @@ function Pilot:update(dt, held, meas)
   local utarget = (sud ~= 0) and (meas.surgePos + surgeLead * sud) or sp.surgePos
   sp.surgePos = leash.step(sp.surgePos, utarget, meas.surgePos, dt, surgeSpeed, surgeLead)
 
+  -- Coupled (CPL/DCPL) horizontal + rudder inputs. Runs before the tilt block so auto-trim can
+  -- read self.throttle. The generic sway/surge leash above still ran; we override sp.surgePos/
+  -- swayPos to the measured position while the pilot is actively commanding, so the CPL cushion
+  -- holds wherever you stop rather than at a leashed-ahead point.
+  if self.policy.surge == "coupled" then
+    -- Throttle (L-Shift=surgeFwd): ramp up while held, decay to idle on release. Cap [0,1].
+    if held.surgeFwd then self.throttle = self.throttle + (c.throttleRate or 1.0) * dt
+    else self.throttle = self.throttle - (c.throttleDecay or 1.0) * dt end
+    if self.throttle < 0 then self.throttle = 0 elseif self.throttle > 1 then self.throttle = 1 end
+    -- Cushioned brake (Space=surgeBack): decel ~ forward speed, tapered to 0, cap 1.0.
+    local brake = 0
+    if held.surgeBack then
+      brake = (c.brakeGain or 0.5) * math.max(0, meas.surgeVel or 0)
+      if brake > 1.0 then brake = 1.0 end
+    end
+    -- Fine surge (arrows up/down).
+    local fine = dirOf(held, "fineBack", "fineFwd") * (c.slowSurgeRate or 0.3)
+    sp.surgeCmd = self.throttle - brake + fine
+    sp.surgeActive = held.surgeFwd or held.surgeBack or (fine ~= 0) or false
+    if sp.surgeActive then sp.surgePos = meas.surgePos end
+    -- Strafe (arrows left/right = sway flags).
+    local strafe = dirOf(held, "swayLeft", "swayRight") * (c.strafeRate or 0.3)
+    sp.swayCmd = strafe
+    sp.swayActive = (strafe ~= 0)
+    if sp.swayActive then sp.swayPos = meas.swayPos end
+    -- Rudder (Q/E): rear-only yaw. Same heading ramp + leash as the full-yaw block, flagged so the
+    -- scheme reroutes to the rear-only effector this tick.
+    local rd = dirOf(held, "rudderLeft", "rudderRight")
+    if rd ~= 0 then
+      sp.heading = angle.wrap(sp.heading + c.headingRate * dt * rd)
+      local cap = c.leadCapHeading
+      if cap then
+        local err = angle.wrap(sp.heading - (meas.heading or 0))
+        if err > cap then sp.heading = angle.wrap((meas.heading or 0) + cap)
+        elseif err < -cap then sp.heading = angle.wrap((meas.heading or 0) - cap) end
+      end
+      sp.yawRear = true
+    else
+      sp.yawRear = false
+    end
+  end
+
   -- Mode policy: tilt (MAN pitch/roll setpoint, auto-levels on release) and throttle
   -- (CRUISE held forward-throttle). Applied here so the existing altitude/heading/sway/surge
   -- ramp logic above stays untouched; positionHold (self.hold) never reaches this point.
@@ -89,7 +145,15 @@ function Pilot:update(dt, held, meas)
     end
     self.tilt.pitch = toward(self.tilt.pitch, dirOf(held, "pitchDown", "pitchUp"), c.tiltRate or 0.8, c.tiltCap or 0.4)
     self.tilt.roll  = toward(self.tilt.roll,  dirOf(held, "rollLeft",  "rollRight"), c.tiltRate or 0.8, c.tiltCap or 0.4)
-    sp.pitch, sp.roll = self.tilt.pitch, self.tilt.roll
+    if self.policy.surge == "coupled" then
+      local trim = (c.trimGain or 0) * (c.trimDir or -1) * (self.throttle or 0)
+      local p = self.tilt.pitch + trim
+      local cap = c.tiltCap or 0.4
+      if p > cap then p = cap elseif p < -cap then p = -cap end
+      sp.pitch, sp.roll = p, self.tilt.roll
+    else
+      sp.pitch, sp.roll = self.tilt.pitch, self.tilt.roll
+    end
   else
     sp.pitch, sp.roll = 0, 0
   end
