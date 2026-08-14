@@ -116,11 +116,15 @@ function M.render(ctx, w, h)
   return dl
 end
 
--- ===== Flight-mode selector (Task 12) =====
--- PRECISION / MAN / CRUISE, driven purely by reported telemetry -- no optimistic UI.
+-- ===== Flight-mode selector (Task 12; CPL/DCPL added Task 6 of the CPL/DCPL modes feature) =====
+-- PRECISION / MAN / CRUISE / CPL / DCPL, driven purely by reported telemetry -- no optimistic UI.
 -- M.MODES lists the selectable modes; M.modeActive(ctx, id) is true only when the LATEST
 -- reported ctx.flightMode equals id (ctx==nil/{} means nothing is active yet -- no optimism).
-M.MODES = { "PRECISION", "MAN", "CRUISE" }
+M.MODES = { "PRECISION", "MAN", "CRUISE", "CPL", "DCPL" }
+
+-- Short ASCII display labels (CC:T font, no unicode) for the narrow selector surfaces -- the
+-- merged region's ~14-col width can't fit the full mode ids side-by-side once there are 5 of them.
+M.MODE_LABEL = { PRECISION = "PRE", MAN = "MAN", CRUISE = "CRU", CPL = "CPL", DCPL = "DCP" }
 
 local MODE_SET = {}
 for _, id in ipairs(M.MODES) do MODE_SET[id] = true end

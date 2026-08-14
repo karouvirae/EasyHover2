@@ -96,6 +96,8 @@ t.test("M.build constructs the element tree; apply() + one render pass do not er
   t.truthy(h.elements.modeBtns.PRECISION ~= nil, "PRECISION mode switch present")
   t.truthy(h.elements.modeBtns.MAN ~= nil, "MAN mode switch present")
   t.truthy(h.elements.modeBtns.CRUISE ~= nil, "CRUISE mode switch present")
+  t.truthy(h.elements.modeBtns.CPL ~= nil, "CPL mode switch present")
+  t.truthy(h.elements.modeBtns.DCPL ~= nil, "DCPL mode switch present")
 
   local sampleState = {
     engaged = true, gndSafety = false, positionHold = false, mode = "FLIGHT",
@@ -127,6 +129,30 @@ t.test("_onButton: mode id sends the raw flightMode command through the same com
   t.eq(#sent, 1, "one frame sent through runtime.links.tel, same as ENGAGE/DISENGAGE")
   t.eq(sent[1].k, "flightMode")
   t.eq(sent[1].id, "CRUISE")
+end)
+
+t.test("FIT CHECK: mode selector row fits a realistic narrow frame width (14 cols), all 5 short labels", function()
+  -- config-UI-overhaul lesson: assert the fit against an EXPLICIT small/narrow frame, not the wide
+  -- headless terminal term.current() binds by default (see tests/test_bitconfig_tuning.lua's
+  -- "every screen must fit a REALISTIC monitor" regression, same 14x12 convention).
+  local basalt = BasaltApp.ensureBasalt()
+  local root = basalt.createFrame()
+  local frame = root:addFrame({ x = 1, y = 1, width = 14, height = 12 })
+  local frameW, frameH = frame:getSize()
+  t.eq(frameW, 14, "sanity: the narrow frame really is 14 cols wide, not the wide headless default")
+
+  local runtime = newRuntime({ engaged = false, gndSafety = false, positionHold = false, mode = "GROUND" })
+  local h = M.build(basalt, frame, runtime)
+
+  t.truthy(h.elements.modeBtns.CPL ~= nil, "CPL present on the narrow frame too")
+  t.truthy(h.elements.modeBtns.DCPL ~= nil, "DCPL present on the narrow frame too")
+
+  for id, btn in pairs(h.elements.modeBtns) do
+    local ex, ew = btn:getX(), btn:getWidth()
+    t.truthy(ex + ew - 1 <= frameW - 1,
+      id .. " switch overshoots the interior width: x=" .. tostring(ex) .. " width=" .. tostring(ew) ..
+      " frameW=" .. tostring(frameW))
+  end
 end)
 
 t.test("M.build's apply() reflects gndSafety-on: engage disabled", function()

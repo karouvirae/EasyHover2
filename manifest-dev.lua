@@ -767,9 +767,9 @@
         },
         {
           ["dst"] = "ui/basalt/pages/fcs.lua",
-          ["size"] = 9558,
+          ["size"] = 9522,
           ["src"] = "ui/basalt/pages/fcs.lua",
-          ["sum"] = "527e76c0",
+          ["sum"] = "138a03d6",
         },
         {
           ["dst"] = "ui/basalt/pages/flight.lua",
@@ -803,9 +803,9 @@
         },
         {
           ["dst"] = "ui/basalt/regions/fcs.lua",
-          ["size"] = 5633,
+          ["size"] = 5981,
           ["src"] = "ui/basalt/regions/fcs.lua",
-          ["sum"] = "784de882",
+          ["sum"] = "fde0b3e2",
         },
         {
           ["dst"] = "ui/basalt/switchbtn.lua",
@@ -863,9 +863,9 @@
         },
         {
           ["dst"] = "ui/panels/fcs.lua",
-          ["size"] = 5397,
+          ["size"] = 5766,
           ["src"] = "ui/panels/fcs.lua",
-          ["sum"] = "ca2d9610",
+          ["sum"] = "2c3a0415",
         },
         {
           ["dst"] = "ui/toolkit.lua",
@@ -884,5 +884,5 @@
     ["size"] = 70702,
     ["sum"] = "3dd2fb64",
   },
-  ["version"] = "1f251356",
+  ["version"] = "31f69ae2",
 }

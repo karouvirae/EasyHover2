@@ -126,7 +126,7 @@ function M.build(basalt, frame, runtime)
   local px = x
   for i, id in ipairs(MODE_ORDER) do
     local width = (i == phCount) and math.max(1, iw - (phW * (phCount - 1))) or phW
-    modeSwitches[id] = Switch.make(frame, { x = px, y = phTop, width = width, height = 1, text = id })
+    modeSwitches[id] = Switch.make(frame, { x = px, y = phTop, width = width, height = 1, text = FcsPanel.MODE_LABEL[id] or id })
     px = px + width
   end
 
@@ -193,11 +193,11 @@ function M.build(basalt, frame, runtime)
     apply = apply,
     elements = {
       engageBtn = buttons.engage, disengageBtn = buttons.disengage, gndSafetyBtn = buttons.gndSafety,
-      modeBtns = {
-        PRECISION = modeSwitches.PRECISION and modeSwitches.PRECISION.button,
-        MAN       = modeSwitches.MAN and modeSwitches.MAN.button,
-        CRUISE    = modeSwitches.CRUISE and modeSwitches.CRUISE.button,
-      },
+      modeBtns = (function()
+        local m = {}
+        for _, id in ipairs(MODE_ORDER) do m[id] = modeSwitches[id] and modeSwitches[id].button end
+        return m
+      end)(),
       stateLabel = labels.MODE, altLabel = labels.ALT, vspdLabel = labels.VSPD,
       hdgLabel = labels.HDG, loopLabel = labels.LOOP, linkLabel = labels.LINK,
     },

@@ -1,8 +1,9 @@
 -- ui/basalt/regions/fcs.lua
 -- FCS region screens for the merged flight page (bottom region). Two screens:
---   fcs_main   : [FCS][GND][PARAMS] color-switches + the PRECISION/MAN/CRUISE mode selector
---                (ui.panels.fcs's MODES/action/modeActive -- same shared contract Task 12's
---                standalone FCS page selector uses).
+--   fcs_main   : [FCS][GND][PARAMS] color-switches + the 5-mode (PRE/MAN/CRU/CPL/DCP) selector,
+--                wrapped 3-then-2 across two rows on this ~14-col region (ui.panels.fcs's
+--                MODES/MODE_LABEL/action/modeActive -- same shared contract Task 12's standalone
+--                FCS page selector uses).
 --   fcs_params : the six status lines (MODE/ALT/VSPD/HDG/LOOP/LINK), moved off the main view.
 -- Builders match the region contract: (basalt, subFrame, region, runtime) -> { apply(state) }.
 -- Command sends mirror ui/basalt/pages/fcs.lua exactly. No render-path peripheral polling.
@@ -73,22 +74,26 @@ function M.main(basalt, frame, region, runtime)
     px = px + width
   end
 
-  -- MODE selector (Task 13): one real switch per FcsPanel.MODES id, side-by-side on the row below
-  -- the control row -- same row-splitting shape the old inert placeholder grid used, but now driven
-  -- by the shared ui.panels.fcs contract (same MODES/action/modeActive the standalone FCS page's
-  -- selector uses, Task 12) so both surfaces read identically. No-optimistic-UI: onClick only SENDS
-  -- the command via M._onMode; apply(state) below is the only thing that ever turns a switch green.
+  -- MODE selector (Task 13; wrapped to 2 rows + short labels for the 5-mode CPL/DCPL feature): one
+  -- real switch per FcsPanel.MODES id, driven by the shared ui.panels.fcs contract (same
+  -- MODES/MODE_LABEL/action/modeActive the standalone FCS page's selector uses, Task 12) so both
+  -- surfaces read identically. No-optimistic-UI: onClick only SENDS the command via M._onMode;
+  -- apply(state) below is the only thing that ever turns a switch green.
+  -- 5 modes no longer fit one row on this ~14-col merged region -- wrap to two rows (3-then-2) with
+  -- short ASCII labels (FcsPanel.MODE_LABEL) instead of the full mode ids.
   local MODE_ORDER = FcsPanel.MODES
   local modeSwitches = {}
-  local mcw = math.max(1, math.floor(iw / #MODE_ORDER))
-  local mx = x
-  local my = 4
+  local perRow = 3
+  local mcw = math.max(1, math.floor(iw / perRow))
   for i, id in ipairs(MODE_ORDER) do
-    local width = (i == #MODE_ORDER) and math.max(1, iw - mcw * (#MODE_ORDER - 1)) or mcw
-    local sw = Switch.make(frame, { x = mx, y = my, width = width, height = 1, text = id })
+    local col = (i - 1) % perRow
+    local rowY = 4 + math.floor((i - 1) / perRow)
+    local last = (col == perRow - 1) or (i == #MODE_ORDER)
+    local width = last and math.max(1, iw - mcw * col) or mcw
+    local sw = Switch.make(frame, { x = x + mcw * col, y = rowY, width = width, height = 1,
+      text = FcsPanel.MODE_LABEL[id] or id })
     sw.button:onClick(function() M._onMode(runtime, id) end)
     modeSwitches[id] = sw
-    mx = mx + width
   end
 
   local function apply(state)
