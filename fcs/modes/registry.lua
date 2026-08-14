@@ -1,10 +1,12 @@
 -- fcs/modes/registry.lua -- builds all three selectable flight modes ONCE at boot. Each
 -- descriptor carries a ready scheme/mixer/caps/feel and a pilot policy. Selection at runtime
 -- is then just an O(1) swap of which descriptor is active -- no per-tick allocation.
-local Level  = require("fcs.schemes.level_flight")
-local Manual = require("fcs.schemes.manual")
-local Cruise = require("fcs.schemes.cruise")
-local Mixer  = require("fcs.mixer.level_flight")
+local Level     = require("fcs.schemes.level_flight")
+local Manual    = require("fcs.schemes.manual")
+local Cruise    = require("fcs.schemes.cruise")
+local Coupled   = require("fcs.schemes.coupled")
+local Decoupled = require("fcs.schemes.decoupled")
+local Mixer     = require("fcs.mixer.level_flight")
 
 local M = {}
 
@@ -14,9 +16,11 @@ local function schemeCfg(g)
 end
 
 local SPECS = {
-  { id = "PRECISION", label = "PRECISION", ctor = Level,  policy = { tilt = false, surge = "position" } },
-  { id = "MAN",       label = "MAN",       ctor = Manual, policy = { tilt = true,  surge = "position" } },
-  { id = "CRUISE",    label = "CRUISE",    ctor = Cruise, policy = { tilt = false, surge = "throttle" } },
+  { id = "PRECISION", label = "PRECISION", ctor = Level,     policy = { tilt = false, surge = "position" } },
+  { id = "MAN",       label = "MAN",       ctor = Manual,    policy = { tilt = true,  surge = "position" } },
+  { id = "CRUISE",    label = "CRUISE",    ctor = Cruise,    policy = { tilt = false, surge = "throttle" } },
+  { id = "CPL",       label = "CPL",       ctor = Coupled,   policy = { tilt = true,  surge = "coupled" } },
+  { id = "DCPL",      label = "DCPL",      ctor = Decoupled, policy = { tilt = true,  surge = "coupled" } },
 }
 
 -- tuning is a dot-function object: tuning.forMode(id) (matches fcs.tuning.forMode).

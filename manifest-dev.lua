@@ -209,9 +209,9 @@
         },
         {
           ["dst"] = "fcs/io/tuningdefaults.lua",
-          ["size"] = 2299,
+          ["size"] = 3220,
           ["src"] = "fcs/io/tuningdefaults.lua",
-          ["sum"] = "f50acc6d",
+          ["sum"] = "a7350b5c",
         },
         {
           ["dst"] = "fcs/leash.lua",
@@ -227,9 +227,9 @@
         },
         {
           ["dst"] = "fcs/modes/registry.lua",
-          ["size"] = 1597,
+          ["size"] = 1936,
           ["src"] = "fcs/modes/registry.lua",
-          ["sum"] = "7fed661b",
+          ["sum"] = "ce8b4240",
         },
         {
           ["dst"] = "fcs/runtime/flight.lua",
@@ -250,10 +250,22 @@
           ["sum"] = "0d407293",
         },
         {
+          ["dst"] = "fcs/schemes/coupled.lua",
+          ["size"] = 1437,
+          ["src"] = "fcs/schemes/coupled.lua",
+          ["sum"] = "b759d20b",
+        },
+        {
           ["dst"] = "fcs/schemes/cruise.lua",
           ["size"] = 619,
           ["src"] = "fcs/schemes/cruise.lua",
           ["sum"] = "207df2a4",
+        },
+        {
+          ["dst"] = "fcs/schemes/decoupled.lua",
+          ["size"] = 233,
+          ["src"] = "fcs/schemes/decoupled.lua",
+          ["sum"] = "9595281a",
         },
         {
           ["dst"] = "fcs/schemes/level_flight.lua",
@@ -527,9 +539,9 @@
         },
         {
           ["dst"] = "fcs/io/tuningdefaults.lua",
-          ["size"] = 2299,
+          ["size"] = 3220,
           ["src"] = "fcs/io/tuningdefaults.lua",
-          ["sum"] = "f50acc6d",
+          ["sum"] = "a7350b5c",
         },
         {
           ["dst"] = "fcs/mixer/level_flight.lua",
@@ -539,9 +551,9 @@
         },
         {
           ["dst"] = "fcs/modes/registry.lua",
-          ["size"] = 1597,
+          ["size"] = 1936,
           ["src"] = "fcs/modes/registry.lua",
-          ["sum"] = "7fed661b",
+          ["sum"] = "ce8b4240",
         },
         {
           ["dst"] = "fcs/runtime/loop.lua",
@@ -556,10 +568,22 @@
           ["sum"] = "0d407293",
         },
         {
+          ["dst"] = "fcs/schemes/coupled.lua",
+          ["size"] = 1437,
+          ["src"] = "fcs/schemes/coupled.lua",
+          ["sum"] = "b759d20b",
+        },
+        {
           ["dst"] = "fcs/schemes/cruise.lua",
           ["size"] = 619,
           ["src"] = "fcs/schemes/cruise.lua",
           ["sum"] = "207df2a4",
+        },
+        {
+          ["dst"] = "fcs/schemes/decoupled.lua",
+          ["size"] = 233,
+          ["src"] = "fcs/schemes/decoupled.lua",
+          ["sum"] = "9595281a",
         },
         {
           ["dst"] = "fcs/schemes/level_flight.lua",
@@ -860,5 +884,5 @@
     ["size"] = 70702,
     ["sum"] = "3dd2fb64",
   },
-  ["version"] = "736599fc",
+  ["version"] = "fb54ffc2",
 }

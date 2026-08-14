@@ -62,6 +62,29 @@ DEFAULTS.modes.MAN.feel.tiltCap  = 0.40
 DEFAULTS.modes.CRUISE.feel.cruiseThrottleRate = 1.0
 DEFAULTS.modes.CRUISE.feel.cruiseThrottleMax  = 1.0
 
+-- CPL/DCPL (plane-style coupled/decoupled): W/S throttle+brake, A/D strafe (sway), arrow-key
+-- climb ramp, and a pitch trim so the craft can hold level surge without the pilot fighting the
+-- nose-up tendency at speed.
+local function coupledFeel()
+  local f = deep(DEFAULTS.feel)
+  f.throttleRate = 1.0; f.throttleDecay = 1.0; f.brakeGain = 0.5
+  f.slowSurgeRate = 0.3; f.strafeRate = 0.3
+  f.climbRampTime = 1.0; f.climbBoost = 2.0
+  f.trimGain = 0.1; f.trimDir = -1        -- -1 = nose-down trim (this craft pitches nose-up on accel)
+  return f
+end
+DEFAULTS.modes.CPL = {
+  gains = deep(DEFAULTS.gains),
+  caps  = { pitch = 0.4, roll = 0.4, yaw = DEFAULTS.caps.yaw, sway = DEFAULTS.caps.sway,
+            surge = DEFAULTS.caps.surge, yawRear = DEFAULTS.caps.yaw },
+  feel  = coupledFeel(),
+}
+DEFAULTS.modes.DCPL = {
+  gains = deep(DEFAULTS.gains),
+  caps  = deep(DEFAULTS.modes.CPL.caps),
+  feel  = coupledFeel(),
+}
+
 local M = {}
 
 function M.get()

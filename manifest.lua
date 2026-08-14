@@ -161,9 +161,9 @@
         },
         {
           ["dst"] = "fcs/input/pilot.lua",
-          ["size"] = 2407,
+          ["size"] = 3981,
           ["src"] = "dist/fcs/input/pilot.lua",
-          ["sum"] = "441d7f99",
+          ["sum"] = "d5c81970",
         },
         {
           ["dst"] = "fcs/io/backend.lua",
@@ -209,9 +209,9 @@
         },
         {
           ["dst"] = "fcs/io/tuningdefaults.lua",
-          ["size"] = 1161,
+          ["size"] = 1566,
           ["src"] = "dist/fcs/io/tuningdefaults.lua",
-          ["sum"] = "59bf5f90",
+          ["sum"] = "561214ff",
         },
         {
           ["dst"] = "fcs/leash.lua",
@@ -221,15 +221,15 @@
         },
         {
           ["dst"] = "fcs/mixer/level_flight.lua",
-          ["size"] = 1056,
+          ["size"] = 1110,
           ["src"] = "dist/fcs/mixer/level_flight.lua",
-          ["sum"] = "937afacb",
+          ["sum"] = "fa216b02",
         },
         {
           ["dst"] = "fcs/modes/registry.lua",
-          ["size"] = 834,
+          ["size"] = 1044,
           ["src"] = "dist/fcs/modes/registry.lua",
-          ["sum"] = "581eacbf",
+          ["sum"] = "b1727d26",
         },
         {
           ["dst"] = "fcs/runtime/flight.lua",
@@ -250,10 +250,22 @@
           ["sum"] = "59404929",
         },
         {
+          ["dst"] = "fcs/schemes/coupled.lua",
+          ["size"] = 501,
+          ["src"] = "dist/fcs/schemes/coupled.lua",
+          ["sum"] = "b6a04cc4",
+        },
+        {
           ["dst"] = "fcs/schemes/cruise.lua",
           ["size"] = 275,
           ["src"] = "dist/fcs/schemes/cruise.lua",
           ["sum"] = "9f84f00e",
+        },
+        {
+          ["dst"] = "fcs/schemes/decoupled.lua",
+          ["size"] = 109,
+          ["src"] = "dist/fcs/schemes/decoupled.lua",
+          ["sum"] = "61bcbcaf",
         },
         {
           ["dst"] = "fcs/schemes/level_flight.lua",
@@ -527,21 +539,21 @@
         },
         {
           ["dst"] = "fcs/io/tuningdefaults.lua",
-          ["size"] = 1161,
+          ["size"] = 1566,
           ["src"] = "dist/fcs/io/tuningdefaults.lua",
-          ["sum"] = "59bf5f90",
+          ["sum"] = "561214ff",
         },
         {
           ["dst"] = "fcs/mixer/level_flight.lua",
-          ["size"] = 1056,
+          ["size"] = 1110,
           ["src"] = "dist/fcs/mixer/level_flight.lua",
-          ["sum"] = "937afacb",
+          ["sum"] = "fa216b02",
         },
         {
           ["dst"] = "fcs/modes/registry.lua",
-          ["size"] = 834,
+          ["size"] = 1044,
           ["src"] = "dist/fcs/modes/registry.lua",
-          ["sum"] = "581eacbf",
+          ["sum"] = "b1727d26",
         },
         {
           ["dst"] = "fcs/runtime/loop.lua",
@@ -556,10 +568,22 @@
           ["sum"] = "59404929",
         },
         {
+          ["dst"] = "fcs/schemes/coupled.lua",
+          ["size"] = 501,
+          ["src"] = "dist/fcs/schemes/coupled.lua",
+          ["sum"] = "b6a04cc4",
+        },
+        {
           ["dst"] = "fcs/schemes/cruise.lua",
           ["size"] = 275,
           ["src"] = "dist/fcs/schemes/cruise.lua",
           ["sum"] = "9f84f00e",
+        },
+        {
+          ["dst"] = "fcs/schemes/decoupled.lua",
+          ["size"] = 109,
+          ["src"] = "dist/fcs/schemes/decoupled.lua",
+          ["sum"] = "61bcbcaf",
         },
         {
           ["dst"] = "fcs/schemes/level_flight.lua",
@@ -860,5 +884,5 @@
     ["size"] = 70702,
     ["sum"] = "3dd2fb64",
   },
-  ["version"] = "509d4dc8",
+  ["version"] = "aca6637f",
 }

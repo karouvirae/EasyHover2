@@ -1,6 +1,7 @@
 -- tests/test_tuning_modes.lua
 local t = require("tests.framework")
 local tuning = require("fcs.tuning")
+local tuningdefaults = require("fcs.io.tuningdefaults")
 
 t.test("forMode PRECISION returns the top-level tuning", function()
   local p = tuning.forMode("PRECISION")
@@ -17,6 +18,18 @@ end)
 t.test("forMode CRUISE adds surge-throttle feel", function()
   local c = tuning.forMode("CRUISE")
   t.truthy(c.feel.cruiseThrottleMax and c.feel.cruiseThrottleRate, "CRUISE has throttle feel")
+end)
+
+t.test("forMode CPL adds trim feel", function()
+  local c = tuning.forMode("CPL")
+  t.truthy(c.feel.trimGain, "CPL has trimGain")
+  t.truthy(c.feel.trimDir, "CPL has trimDir")
+end)
+
+t.test("tuningdefaults CPL record carries trim feel", function()
+  local d = tuningdefaults.get()
+  t.truthy(d.modes.CPL.feel.trimGain, "CPL trimGain exists")
+  t.truthy(d.modes.CPL.feel.trimDir, "CPL trimDir exists")
 end)
 
 t.test("mode records are independent (mutating MAN never touches PRECISION/CRUISE)", function()

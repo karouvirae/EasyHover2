@@ -9,23 +9,36 @@ local function fakeTuning()
   local g = golden.gains()
   local base = { gains = g, caps = { pitch=0.2, roll=0.2, yaw=0.6, sway=0.9, surge=1.0 },
     feel = { headingRate=2.2, climbRate=4.5, surgeSpeed=10, swaySpeed=5 } }
+  local function coupledRecord()
+    return { gains=g, caps={pitch=0.4,roll=0.4,yaw=0.6,sway=0.9,surge=1.0,yawRear=0.6},
+      feel={ throttleRate=1.0, throttleDecay=1.0, brakeGain=0.5, slowSurgeRate=0.3,
+             strafeRate=0.3, climbRampTime=1.0, climbBoost=2.0, trimGain=0.1, trimDir=-1 } }
+  end
   return { forMode = function(id)
     if id == "MAN" then return { gains=g, caps={pitch=0.4,roll=0.4,yaw=0.6,sway=0.9,surge=1.0},
       feel={ tiltRate=0.8, tiltCap=0.4 } } end
     if id == "CRUISE" then return { gains=g, caps=base.caps,
       feel={ cruiseThrottleRate=1.0, cruiseThrottleMax=1.0 } } end
+    if id == "CPL" or id == "DCPL" then return coupledRecord() end
     return base
   end }
 end
 
-t.test("registry builds all three modes with correct policy + default", function()
+t.test("registry builds all five modes with correct policy + default", function()
   local reg = Registry.build(fakeTuning())
   t.eq(reg.default, "PRECISION", "default is PRECISION")
-  t.eq(#reg.order, 3, "three modes")
+  t.eq(#reg.order, 5, "five modes")
   t.eq(reg.byId.MAN.policy.tilt, true, "MAN tilt enabled")
   t.eq(reg.byId.CRUISE.policy.surge, "throttle", "CRUISE surge throttle")
   t.eq(reg.byId.PRECISION.policy.tilt, false, "PRECISION no tilt")
   t.truthy(reg.byId.PRECISION.scheme and reg.byId.PRECISION.mixer, "PRECISION has scheme+mixer")
+end)
+
+t.test("registry includes CPL and DCPL with coupled policy", function()
+  local reg = Registry.build(fakeTuning())
+  t.truthy(reg.byId.CPL and reg.byId.DCPL, "CPL/DCPL present")
+  t.eq(reg.byId.CPL.policy.surge, "coupled", "CPL coupled policy")
+  t.eq(reg.byId.DCPL.policy.tilt, true, "DCPL tilt enabled")
 end)
 
 t.test("PRECISION descriptor reproduces the golden baseline", function()
