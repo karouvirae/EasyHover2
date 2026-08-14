@@ -26,6 +26,7 @@
 
 local cfgspec = require("fcs.io.cfgspec")
 local fsx = require("fcs.io.fsx")
+local configkit = require("ui.basalt.configkit")
 
 local M = {}
 M.id = "dtc"
@@ -200,10 +201,18 @@ local function indicatorText(drive)
   return "disk: " .. tostring(drive.label)
 end
 
-local function fmtRow(row)
+-- fmtRow(row, width): compact per-kind status line, e.g. "tuning  L:OK D:--" -- DISPLAY-ONLY,
+-- row.hasLocal/hasDisk (the underlying present/plan data) are untouched. `row.kind` (already
+-- short: devbind/senscal/tuning) is run through configkit.fitLabel so the framework still governs
+-- the one variable-length part of the line; the fixed "L:.."/"D:.." suffix is built directly
+-- rather than piped through fitLabel too -- fitLabel unconditionally strips everything up to a
+-- string's FIRST ":" (its namespace-strip contract, see listpicker.formatLabel/test_configkit.lua),
+-- which would eat the kind name and the "L" the moment the suffix's own colons entered the string.
+local function fmtRow(row, width)
   local l = row.hasLocal and "OK" or "--"
   local d = row.hasDisk and "OK" or "--"
-  return row.filename .. "  local:" .. l .. "  disk:" .. d
+  local kind = configkit.fitLabel(row.kind, width)
+  return kind .. "  L:" .. l .. " D:" .. d
 end
 
 function M.build(basalt, frame, runtime, nav, deps)
@@ -225,47 +234,52 @@ function M.build(basalt, frame, runtime, nav, deps)
 
   local footerY1 = dataTop + #M.KINDS
   local footerY2 = footerY1 + 1
-  local thirdW = math.max(1, math.floor(iw / 3))
-
-  local exportBtn  = frame:addButton({ x = x,             y = footerY1, width = thirdW, height = 1, text = "EXPORT" })
-  local importBtn  = frame:addButton({ x = x + thirdW,     y = footerY1, width = thirdW, height = 1, text = "IMPORT" })
-  local refreshBtn = frame:addButton({ x = x + 2 * thirdW, y = footerY1, width = math.max(1, iw - 2 * thirdW), height = 1, text = "REFRESH" })
-  local backBtn    = frame:addButton({ x = x, y = footerY2, width = iw, height = 1, text = "< BACK" })
 
   local drive = { present = false, driveFound = false, mount = nil, label = nil }
 
-  local function refresh()
+  -- Forward-declared so doExport/doImport/REFRESH's onClick closures can call it: they're only
+  -- CALLED after the actionRow buttons below have been constructed and `refresh` assigned (same
+  -- upvalue-before-assignment discipline as configkit.helpScreen's `row`/`render`).
+  local refresh
+
+  local function doExport()
+    if drive.present and drive.mount then
+      M._export(drive.mount, deps)
+      refresh()
+    end
+  end
+  local function doImport()
+    if drive.present and drive.mount then
+      M._import(drive.mount, deps)
+      refresh()
+    end
+  end
+
+  -- EXPORT/IMPORT/REFRESH share one actionRow; `<` gets its own full-width row below (four
+  -- buttons across ~14 cols reads too cramped once fitLabel starts ellipsizing every label).
+  local footerRow = configkit.actionRow(frame, { x = x, y = footerY1, w = iw }, {
+    { label = "EXPORT",  onClick = doExport },
+    { label = "IMPORT",  onClick = doImport },
+    { label = "REFRESH", onClick = function() refresh() end },
+  })
+
+  local backRow = configkit.actionRow(frame, { x = x, y = footerY2, w = iw }, {
+    { label = "<", onClick = function() if nav then nav:pop() end end },
+  })
+
+  refresh = function()
     drive = M._detect(deps)
     diskLabel:setText(indicatorText(drive))
 
     local scan = M._scan(drive.mount, deps)
     local plan = M.plan(scan)
     for i = 1, #M.KINDS do
-      rowSlots[i]:setText(fmtRow(plan[i]))
+      rowSlots[i]:setText(fmtRow(plan[i], iw))
     end
 
-    exportBtn:setEnabled(drive.present)
-    importBtn:setEnabled(drive.present)
+    footerRow.setState(1, drive.present and "off" or "disabled")
+    footerRow.setState(2, drive.present and "off" or "disabled")
   end
-
-  exportBtn:onClick(function()
-    if drive.present and drive.mount then
-      M._export(drive.mount, deps)
-      refresh()
-    end
-  end)
-  importBtn:onClick(function()
-    if drive.present and drive.mount then
-      M._import(drive.mount, deps)
-      refresh()
-    end
-  end)
-  refreshBtn:onClick(function()
-    refresh()
-  end)
-  backBtn:onClick(function()
-    if nav then nav:pop() end
-  end)
 
   refresh()
 
@@ -278,7 +292,7 @@ function M.build(basalt, frame, runtime, nav, deps)
     apply = apply,
     elements = {
       headerLabel = headerLabel, diskLabel = diskLabel, rowSlots = rowSlots,
-      exportBtn = exportBtn, importBtn = importBtn, refreshBtn = refreshBtn, backBtn = backBtn,
+      footerRow = footerRow, backRow = backRow,
     },
   }
 end

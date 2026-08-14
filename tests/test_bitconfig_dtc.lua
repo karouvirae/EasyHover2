@@ -294,10 +294,24 @@ t.test("M.build (no disk): constructs the element tree; apply() + one render pas
   t.truthy(h.elements ~= nil, "elements table should be exposed")
   t.truthy(h.elements.headerLabel ~= nil, "headerLabel present")
   t.truthy(h.elements.diskLabel ~= nil, "diskLabel present")
-  t.truthy(h.elements.exportBtn ~= nil, "exportBtn present")
-  t.truthy(h.elements.importBtn ~= nil, "importBtn present")
-  t.truthy(h.elements.refreshBtn ~= nil, "refreshBtn present")
-  t.truthy(h.elements.backBtn ~= nil, "backBtn present")
+
+  -- EXPORT/IMPORT/REFRESH are one configkit.actionRow; BACK ("<") is its own full-width row.
+  t.truthy(h.elements.footerRow ~= nil, "footerRow (EXPORT/IMPORT/REFRESH) present")
+  t.eq(#h.elements.footerRow.buttons, 3, "footerRow has exactly EXPORT/IMPORT/REFRESH")
+  t.truthy(h.elements.footerRow.buttons[1].button ~= nil, "EXPORT button present")
+  t.truthy(h.elements.footerRow.buttons[2].button ~= nil, "IMPORT button present")
+  t.truthy(h.elements.footerRow.buttons[3].button ~= nil, "REFRESH button present")
+  t.truthy(type(h.elements.footerRow.setState) == "function", "footerRow.setState present")
+
+  t.truthy(h.elements.backRow ~= nil, "backRow (<) present")
+  t.eq(#h.elements.backRow.buttons, 1, "backRow has exactly one button")
+  t.truthy(h.elements.backRow.buttons[1].button ~= nil, "back button present")
+
+  -- No disk detected -> EXPORT/IMPORT start disabled (gray, not clickable); REFRESH stays "off"
+  -- (usable) -- mirrors the old exportBtn/importBtn:setEnabled(drive.present) gating exactly.
+  t.eq(h.elements.footerRow.buttons[1].button:getEnabled(), false, "EXPORT disabled: no disk")
+  t.eq(h.elements.footerRow.buttons[2].button:getEnabled(), false, "IMPORT disabled: no disk")
+  t.eq(h.elements.footerRow.buttons[3].button:getEnabled(), true, "REFRESH always enabled")
 
   t.eq(h.elements.diskLabel:getText(), "no disk drive")
 
@@ -333,6 +347,11 @@ t.test("M.build (stub disk present): shows disk label; EXPORT/IMPORT wired to in
   local h = M.build(basalt, frame, nil, nav, deps)
   t.eq(h.elements.diskLabel:getText(), "disk: CART1")
 
+  -- Disk present -> EXPORT/IMPORT are enabled (mirrors the old exportBtn/importBtn:setEnabled
+  -- (drive.present) gating, now expressed as footerRow's switchbtn "off" state).
+  t.eq(h.elements.footerRow.buttons[1].button:getEnabled(), true, "EXPORT enabled: disk present")
+  t.eq(h.elements.footerRow.buttons[2].button:getEnabled(), true, "IMPORT enabled: disk present")
+
   -- Exercise the same seam EXPORT's onClick calls internally.
   local exported = M._export("disk", deps)
   t.eq(#exported, 1); t.eq(exported[1], "devbind")
@@ -351,9 +370,10 @@ t.test("M.build: BACK pops the nav stack", function()
 
   local deps = { find = function() return nil end, exists = function() return false end }
   local h = M.build(basalt, frame, nil, nav, deps)
-  t.truthy(h.elements.backBtn ~= nil, "backBtn present")
+  t.truthy(h.elements.backRow ~= nil, "backRow present")
+  t.truthy(h.elements.backRow.buttons[1].button ~= nil, "back button present")
 
-  -- Directly invoke nav:pop() the same way backBtn's onClick does (a real click needs
+  -- Directly invoke nav:pop() the same way the "<" button's onClick does (a real click needs
   -- basalt.run(), forbidden here).
   nav:pop()
   t.eq(nav:top(), "bitconfig")
