@@ -358,26 +358,40 @@ t.test("_reset deletes the file at the full path and returns fresh defaults", fu
 end)
 
 -- ===== Construction probe: real CraftOS-PC Basalt, no real peripherals =====
+-- Task 8: the old flat paged-stepper UI (rowSlots/prevBtn/nextBtn/saveBtn/resetBtn/backBtn on
+-- ONE screen) is replaced by a mode->category->axis region.lua drilldown (root "modes"). These
+-- tests exercise the NEW screen tree, mirroring ui/basalt/bitconfig/mdb.lua's/senscal.lua's own
+-- construction-probe idiom: drill via region:push(id) (the SAME effect a button's onClick has),
+-- then h.apply({}) to lazily build/repaint (never basalt.run(), which blocks on pullEventRaw).
 
-t.test("M.build constructs the element tree; apply() + one render pass do not error", function()
+local function newHarness()
   local basalt = BasaltApp.ensureBasalt()
-  local frame = basalt.createFrame()   -- binds to term.current(), per ui/basalt/app.lua's header
-
+  local frame = basalt.createFrame() -- binds to term.current(), per ui/basalt/app.lua's header
   local nav = Nav.new("bitconfig")
   local stored = nil
   local function read(filename) return stored end
   local function write(filename, body) stored = body end
   local function delete(path) stored = nil end
+  return basalt, frame, nav, read, write, delete, function() return stored end
+end
+
+t.test("M.build: modes screen (root) has PRECISION/MAN/CRUISE buttons + '?' + '<'; apply()/render do not error", function()
+  local basalt, frame, nav, read, write, delete = newHarness()
 
   local h = M.build(basalt, frame, nil, nav, read, write, delete)
   t.eq(h.id, "tuning")
   t.truthy(type(h.apply) == "function", "apply should be a function")
-  t.truthy(h.elements ~= nil, "elements table should be exposed")
   t.truthy(h.elements.headerLabel ~= nil, "headerLabel present")
-  t.truthy(h.elements.saveBtn ~= nil, "saveBtn present")
-  t.truthy(h.elements.resetBtn ~= nil, "resetBtn present")
-  t.truthy(h.elements.backBtn ~= nil, "backBtn present")
-  t.truthy(#h.elements.rowSlots > 0, "at least one row slot present")
+
+  local region = h.elements.region
+  t.truthy(region ~= nil, "region exposed")
+  t.eq(region:top(), "modes", "region starts at the modes root")
+
+  local modesHandle = region.built.modes.handle
+  for _, mode in ipairs(M.MODES) do
+    t.truthy(modesHandle.elements.modeBtns[mode] ~= nil, "modes screen has a button for " .. mode)
+  end
+  t.eq(#modesHandle.elements.footerRow.buttons, 2, "modes footer row has exactly '?' and '<'")
 
   local ok, err = pcall(h.apply, {})
   t.truthy(ok, "apply should not error: " .. tostring(err))
@@ -388,71 +402,158 @@ t.test("M.build constructs the element tree; apply() + one render pass do not er
   t.truthy(ok3, "basalt.update should not error: " .. tostring(err3))
 end)
 
-t.test("M.build: SAVE button writes via injected write; RESET deletes via injected delete and reloads defaults", function()
-  local basalt = BasaltApp.ensureBasalt()
-  local frame = basalt.createFrame()
-
-  local nav = Nav.new("bitconfig")
-  local stored = nil
-  local deleteCalls = 0
-  local function read(filename) return stored end
-  local function write(filename, body) stored = body end
-  local function delete(path) deleteCalls = deleteCalls + 1; stored = nil end
-
+t.test("M.build: drilling PRECISION -> cat -> GAINS axis -> ALT shows KP/KI/KD steppers with -/+", function()
+  local basalt, frame, nav, read, write, delete = newHarness()
   local h = M.build(basalt, frame, nil, nav, read, write, delete)
+  local region = h.elements.region
 
-  local firstSlot = h.elements.rowSlots[1]
-  t.truthy(firstSlot ~= nil, "first row slot present")
+  region:push("cat_PRECISION"); h.apply({})
+  t.eq(region:top(), "cat_PRECISION")
+  local catHandle = region.built.cat_PRECISION.handle
+  t.truthy(catHandle.elements.catBtns.GAINS ~= nil, "cat screen has a GAINS button")
+  t.truthy(catHandle.elements.catBtns.CAPS ~= nil, "cat screen has a CAPS button")
+  t.truthy(catHandle.elements.catBtns.FEEL ~= nil, "cat screen has a FEEL button")
 
-  -- Exercise SAVE/RESET through the same intent path the buttons wire up: call the Basalt-free
-  -- seams directly with the same read/write/delete this build() was given (mirrors what the
-  -- onClick closures do internally).
-  local cfg = M.apply(cfgspec.load("tuning", read), "gains.pitch.kp", 1)
-  M._save(cfg, write)
-  t.truthy(stored ~= nil, "SAVE wrote a body")
-  local parsed = textutils.unserialise(stored)
-  t.near(parsed.gains.pitch.kp, tuningdefaults.get().gains.pitch.kp + 0.01, 1e-9)
+  region:push("gains_axis_PRECISION"); h.apply({})
+  t.eq(region:top(), "gains_axis_PRECISION")
+  local axisHandle = region.built.gains_axis_PRECISION.handle
+  t.truthy(axisHandle.elements.axisBtns.alt ~= nil, "GAINS axis screen has an ALT button")
+  t.truthy(axisHandle.elements.baseBtn ~= nil, "GAINS axis screen has a BASE button")
 
-  local reset = M._reset(delete)
-  t.eq(deleteCalls, 1)
-  t.truthy(stored == nil, "RESET deleted the stored body")
-  t.eq(reset.gains.hoverDuty, tuningdefaults.get().gains.hoverDuty)
+  region:push("edit_PRECISION_GAINS_alt"); h.apply({})
+  t.eq(region:top(), "edit_PRECISION_GAINS_alt")
+  local editHandle = region.built.edit_PRECISION_GAINS_alt.handle
+  t.eq(#editHandle.elements.rowSlots, 3, "ALT gains edit screen has exactly 3 rows (KP/KI/KD)")
+  local ids = {}
+  for _, slot in ipairs(editHandle.elements.rowSlots) do
+    ids[slot.id] = true
+    t.truthy(slot.minus ~= nil and slot.plus ~= nil, "row " .. slot.id .. " has -/+ buttons")
+  end
+  t.truthy(ids["gains.alt.kp"], "gains.alt.kp row present")
+  t.truthy(ids["gains.alt.ki"], "gains.alt.ki row present")
+  t.truthy(ids["gains.alt.kd"], "gains.alt.kd row present")
 end)
 
-t.test("M.build: BACK button pops the nav stack", function()
+t.test("M.build: GAINS axis screen's BASE button homes the 3 non-axis gains rows (hoverDuty/heaveMin/heaveMax)", function()
+  local basalt, frame, nav, read, write, delete = newHarness()
+  local h = M.build(basalt, frame, nil, nav, read, write, delete)
+  local region = h.elements.region
+
+  region:push("cat_PRECISION"); h.apply({})
+  region:push("gains_axis_PRECISION"); h.apply({})
+  region:push("edit_PRECISION_GAINS_base"); h.apply({})
+  t.eq(region:top(), "edit_PRECISION_GAINS_base")
+
+  local baseHandle = region.built.edit_PRECISION_GAINS_base.handle
+  t.eq(#baseHandle.elements.rowSlots, 3, "BASE screen has exactly the 3 non-axis gains rows")
+  local ids = {}
+  for _, slot in ipairs(baseHandle.elements.rowSlots) do ids[slot.id] = true end
+  t.truthy(ids["gains.hoverDuty"], "gains.hoverDuty present on BASE screen")
+  t.truthy(ids["gains.heaveMin"], "gains.heaveMin present on BASE screen")
+  t.truthy(ids["gains.heaveMax"], "gains.heaveMax present on BASE screen")
+end)
+
+t.test("M.build: CAPS/FEEL have no axis layer -- flat edit screens; FEEL row count matches M.rows' per-mode extras", function()
+  local basalt, frame, nav, read, write, delete = newHarness()
+  local h = M.build(basalt, frame, nil, nav, read, write, delete)
+  local region = h.elements.region
+
+  region:push("cat_PRECISION"); h.apply({})
+  region:push("edit_PRECISION_CAPS"); h.apply({})
+  t.eq(region:top(), "edit_PRECISION_CAPS")
+  t.eq(#region.built.edit_PRECISION_CAPS.handle.elements.rowSlots, 5, "5 CAPS rows")
+
+  region:pop(); h.apply({})
+  region:push("edit_PRECISION_FEEL"); h.apply({})
+  t.eq(#region.built.edit_PRECISION_FEEL.handle.elements.rowSlots, 8, "8 FEEL rows for PRECISION (no extras)")
+
+  region:pop(); region:pop() -- back to modes
+  region:push("cat_MAN"); h.apply({})
+  region:push("edit_MAN_FEEL"); h.apply({})
+  local manFeel = region.built.edit_MAN_FEEL.handle.elements.rowSlots
+  t.eq(#manFeel, 10, "10 FEEL rows for MAN (8 base + tiltRate/tiltCap)")
+  local manIds = {}
+  for _, slot in ipairs(manFeel) do manIds[slot.id] = true end
+  t.truthy(manIds["feel.tiltRate"], "MAN FEEL includes feel.tiltRate")
+  t.truthy(manIds["feel.tiltCap"], "MAN FEEL includes feel.tiltCap")
+end)
+
+t.test("M.build: '?' opens a help screen with real glossary content (help_alt, help_modes)", function()
+  local basalt, frame, nav, read, write, delete = newHarness()
+  local h = M.build(basalt, frame, nil, nav, read, write, delete)
+  local region = h.elements.region
+
+  region:push("cat_PRECISION"); h.apply({})
+  region:push("gains_axis_PRECISION"); h.apply({})
+  region:push("edit_PRECISION_GAINS_alt"); h.apply({})
+  region:push("help_alt"); h.apply({})
+  t.eq(region:top(), "help_alt")
+  local helpHandle = region.built.help_alt.handle
+  t.truthy(helpHandle.elements.lineLabels ~= nil and #helpHandle.elements.lineLabels >= 1, "help_alt has line labels")
+  t.truthy(helpHandle.elements.row ~= nil, "help_alt has its UP/DN/< action row")
+
+  -- help_modes reachable straight from the modes root.
+  region:pop(); region:pop(); region:pop(); region:pop() -- unwind back to modes
+  t.eq(region:top(), "modes")
+  region:push("help_modes"); h.apply({})
+  t.truthy(region.built.help_modes ~= nil, "help_modes screen built")
+end)
+
+t.test("M.build: cat_<mode>'s exposed doSave/doReset call M._save/M.resetMode for the active mode", function()
   local basalt = BasaltApp.ensureBasalt()
   local frame = basalt.createFrame()
-
   local nav = Nav.new("bitconfig")
+
+  -- Seed the injected read with an ALREADY-MUTATED cfg (gains.pitch.kp off its default) so
+  -- M.build's workingCfg starts mutated -- doReset's effect (M.resetMode, PRECISION-scoped) is
+  -- then directly observable through doSave's serialised output, without needing a real Basalt
+  -- click (same "exercise the seams directly" idiom the old flat-UI test used).
+  local mutated = tuningdefaults.get()
+  mutated.gains.pitch.kp = 0.999
+  local stored = textutils.serialise(mutated)
+  local function read(filename) return stored end
+  local function write(filename, body) stored = body end
+  local function delete(path) stored = nil end
+
+  local h = M.build(basalt, frame, nil, nav, read, write, delete)
+  local region = h.elements.region
+
+  region:push("cat_PRECISION"); h.apply({})
+  local catHandle = region.built.cat_PRECISION.handle
+  t.truthy(type(catHandle.elements.doSave) == "function", "doSave exposed")
+  t.truthy(type(catHandle.elements.doReset) == "function", "doReset exposed")
+
+  catHandle.elements.doSave()
+  local before = textutils.unserialise(stored)
+  t.eq(before.gains.pitch.kp, 0.999, "doSave persisted the seeded (mutated) workingCfg via M._save")
+
+  catHandle.elements.doReset()
+  t.eq(region:top(), "cat_PRECISION", "doReset repaints the still-visible cat screen (region:apply(nil)), no nav change")
+
+  catHandle.elements.doSave()
+  local after = textutils.unserialise(stored)
+  t.eq(after.gains.pitch.kp, tuningdefaults.get().gains.pitch.kp,
+    "doReset (M.resetMode(workingCfg,'PRECISION')) reverted the mutation to defaults")
+end)
+
+t.test("M.build: '<' -- modes pops the FRAME-level nav; region screens pop the REGION's own nav", function()
+  local basalt, frame, nav, read, write, delete = newHarness()
   nav:push("tuning")
   t.eq(nav:top(), "tuning")
 
-  local stored = nil
-  local function read(filename) return stored end
-  local function write(filename, body) stored = body end
-  local function delete(path) stored = nil end
-
   local h = M.build(basalt, frame, nil, nav, read, write, delete)
-  t.truthy(h.elements.backBtn ~= nil, "backBtn present")
+  local region = h.elements.region
 
-  -- Directly invoke nav:pop() the same way backBtn's onClick does (a real click needs
-  -- basalt.run(), forbidden here).
+  -- modes' "<" is wired to nav:pop() (FRAME-level) -- invoke the same effect directly.
   nav:pop()
-  t.eq(nav:top(), "bitconfig")
-end)
+  t.eq(nav:top(), "bitconfig", "modes' back pops the frame-level nav")
 
-t.test("M.build: page count matches ceil(#ROW_SPEC / rows-per-page), header shows p1/N", function()
-  local basalt = BasaltApp.ensureBasalt()
-  local frame = basalt.createFrame()
-  local nav = Nav.new("bitconfig")
-  local stored = nil
-  local function read(filename) return stored end
-  local function write(filename, body) stored = body end
-  local function delete(path) stored = nil end
-
-  local h = M.build(basalt, frame, nil, nav, read, write, delete)
-  local text = h.elements.headerLabel:getText()
-  t.truthy(text:find("p1/"), "header shows current page, got: " .. tostring(text))
+  -- cat_<mode>'s "<" is wired to region:pop() -- drilling in then backing out never touches nav.
+  region:push("cat_PRECISION"); h.apply({})
+  t.eq(region:top(), "cat_PRECISION")
+  region:pop(); h.apply({})
+  t.eq(region:top(), "modes", "cat screen's back returns to modes via region:pop()")
+  t.eq(nav:top(), "bitconfig", "frame-level nav untouched by region-internal drilldown")
 end)
 
 return true

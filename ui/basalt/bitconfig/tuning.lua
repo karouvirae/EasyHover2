@@ -3,15 +3,46 @@
 -- tuning cfg (fcs/io/tuningdefaults.lua's shape) on the UI PC. Save writes /eh2_tuning.tbl via
 -- fcs/io/cfgspec.lua -- the FCS boot loader later pulls that file when its "ui"/"own"/"disk"
 -- source is chosen (fcs/boot/loaderui.lua). This menu NEVER live-pushes tuning to a flying FCS;
--- it only edits the on-disk cfg the boot loader reads next boot. Reset deletes the file (hard
--- reset to the committed defaults in fcs/io/tuningdefaults.lua).
+-- it only edits the on-disk cfg the boot loader reads next boot. RST (per-mode, Task 8) resets
+-- ONLY the active mode's subtree to the committed defaults in fcs/io/tuningdefaults.lua -- see
+-- M.resetMode; the OLDER whole-file M._reset/delete flow stays defined (still tested) but is no
+-- longer called from M.build.
 --
 -- Follows the Task 15/17 template EXACTLY (see ui/basalt/pages/emc.lua's header comment for the
 -- full Basalt API provenance notes -- not re-derived here): module exports `M.id`, `M.title`, a
--- Basalt-free PURE view-model (M.ROW_SPEC / M.rows / M.apply), Basalt-free save/reset seams
--- (M._save / M._reset), and `M.build(basalt, frame, runtime, nav, read, write, delete) ->
--- { id, apply(state), elements }` with an idempotent apply() (repaints the current page from the
--- working cfg; this menu shows CONFIG, not live telemetry, so nothing here polls peripherals).
+-- Basalt-free PURE view-model (M.ROW_SPEC / M.rows / M.apply / M.MODES / M.pathFor / M.resetMode),
+-- Basalt-free save/reset seams (M._save / M._reset), and `M.build(basalt, frame, runtime, nav,
+-- read, write, delete) -> { id, apply(state), elements }` with an idempotent apply() (this menu
+-- shows CONFIG, not live telemetry, so nothing here polls peripherals).
+--
+-- ===== Task 8 UI SHAPE: mode -> category -> axis drilldown (ui/basalt/region.lua) =====
+-- The old flat build crammed 34 stepper rows onto ONE paged screen. M.build now hosts a
+-- region.lua drilldown (root "modes") inside this page's own frame, mirroring
+-- ui/basalt/bitconfig/mdb.lua's/senscal.lua's overview->sub-screen construction:
+--   * "modes": PRECISION/MAN/CRUISE buttons (region:push("cat_"..mode)) + "?"(help_modes) +
+--     "<" (FRAME-level nav:pop -- this is the page's own top).
+--   * "cat_<mode>" (one per M.MODES): GAINS/CAPS/FEEL buttons (region:push into the axis layer
+--     for GAINS, straight to a flat edit screen for CAPS/FEEL) + a SAVE/RST row (SAVE calls
+--     M._save(workingCfg, write); RST calls M.resetMode(workingCfg, mode) -- a MODE-SCOPED
+--     reset, replacing the old whole-file M._reset/delete flow) + a "?"(help_modes)/"<"
+--     (region:pop, back to "modes") row.
+--   * "gains_axis_<mode>": ALT/PITCH/ROLL/YAW/SWAY/SURGE buttons (one per M.rows "gains.<axis>."
+--     id prefix) PLUS a "BASE" button homing the 3 non-axis gains rows (hoverDuty/heaveMin/
+--     heaveMax -- these have no axis and would otherwise be dropped by an axis-only layer) +
+--     "?"(help_gains) + "<" (region:pop, back to "cat_<mode>"). CAPS/FEEL have NO axis layer.
+--   * "edit_<mode>_<GROUP>[_<axis>]": the actual +/- stepper rows -- built by one shared factory
+--     (buildEditScreen) parameterised by a pure filter over M.rows(workingCfg, mode), so a
+--     screen's row SET (ids) is fixed at build time (M.ROW_SPEC/the per-mode extras never change
+--     at runtime) while each row's displayed value/step is re-read live on every refresh(). Each
+--     +/- click calls M.apply(workingCfg, mode, rowId, +-1) (the UNCHANGED Task 7 pure model) and
+--     repaints just this screen's own labels. FEEL's flat list picks up MAN/CRUISE's extra
+--     tilt/throttle rows automatically (M.rows(cfg,mode) already appends them) -- no separate
+--     wiring needed. "?" pushes a context help screen (help_<axis> for a GAINS axis screen,
+--     help_gains for the BASE screen, help_caps/help_feel for the flat lists); "<" pops back to
+--     the axis layer (GAINS) or straight to "cat_<mode>" (CAPS/FEEL).
+--   * help_modes/help_gains/help_caps/help_feel/help_<axis> (alt/pitch/roll/yaw/sway/surge): each
+--     `function(b,f,r) return configkit.helpScreen(b,f,r,"<entryId>") end` -- configkit.helpScreen
+--     already wires its OWN "<" to region:pop(), so no extra back-wiring is needed for these.
 --
 -- NO peripheral/Basalt access at module LOAD -- everything lives inside M.build/the closures it
 -- returns, so `require("ui.basalt.bitconfig.tuning")` loads clean headless.
@@ -19,6 +50,9 @@
 local cfgspec        = require("fcs.io.cfgspec")
 local tuningdefaults  = require("fcs.io.tuningdefaults")
 local fsx             = require("fcs.io.fsx")
+local Region          = require("ui.basalt.region")
+local configkit       = require("ui.basalt.configkit")
+local switchbtn       = require("ui.basalt.switchbtn")
 
 local M = {}
 M.id = "tuning"
@@ -277,16 +311,67 @@ local function realDelete(path)
   fsx.delete(path)
 end
 
--- ===== M.build: construct the paged-stepper element tree =====
+-- ===== M.build: construct the mode->category->axis drilldown element tree =====
 
 local function fmtVal(v, step)
   return string.format("%." .. decimalsForStep(step) .. "f", v)
 end
 
+-- abbrev(mode): a short, fixed-width mode tag for screen titles ("PRECISION" -> "PRECIS", "MAN"
+-- -> "MAN", "CRUISE" -> "CRUISE") -- plain head-truncation (not configkit.fitLabel's tail-with-"~"
+-- behaviour, which would read oddly for a mode name), display-only.
+local function abbrev(mode)
+  return tostring(mode):sub(1, 6)
+end
+
+-- BASE_GAINS_IDS: the 3 non-axis gains.* rows (hoverDuty/heaveMin/heaveMax) that the GAINS axis
+-- layer (ALT/PITCH/ROLL/YAW/SWAY/SURGE) has no home for -- they get their own "BASE" button/screen
+-- instead so they are never dropped.
+local BASE_GAINS_IDS = { ["gains.hoverDuty"] = true, ["gains.heaveMin"] = true, ["gains.heaveMax"] = true }
+
+local function gainsAxisFilter(axis)
+  local prefix = "gains." .. axis .. "."
+  return function(rows)
+    local out = {}
+    for _, r in ipairs(rows) do
+      if r.group == "GAINS" and r.id:sub(1, #prefix) == prefix then out[#out + 1] = r end
+    end
+    return out
+  end
+end
+
+local function gainsBaseFilter(rows)
+  local out = {}
+  for _, r in ipairs(rows) do
+    if BASE_GAINS_IDS[r.id] then out[#out + 1] = r end
+  end
+  return out
+end
+
+local function groupFilter(group)
+  return function(rows)
+    local out = {}
+    for _, r in ipairs(rows) do
+      if r.group == group then out[#out + 1] = r end
+    end
+    return out
+  end
+end
+
+local capsFilter = groupFilter("CAPS")
+local feelFilter = groupFilter("FEEL")
+
+-- HELP_IDS: every configkit.GLOSSARY entry this page's "?" buttons can reach -- registered under
+-- screen ids "help_<id>" in the region's screens map below.
+local HELP_IDS = { "modes", "gains", "caps", "feel", "alt", "pitch", "roll", "yaw", "sway", "surge" }
+
 function M.build(basalt, frame, runtime, nav, read, write, delete)
   read = read or realRead
   write = write or realWrite
-  delete = delete or realDelete
+  delete = delete or realDelete -- kept for signature/API compat; the new per-mode RST (M.resetMode)
+                                 -- no longer deletes the file (see M._reset's own header note --
+                                 -- that whole-file delete/M._reset seam stays defined/tested, just
+                                 -- unused from here on).
 
   local workingCfg = (cfgspec.load("tuning", read))
 
@@ -296,118 +381,241 @@ function M.build(basalt, frame, runtime, nav, read, write, delete)
 
   local headerLabel = frame:addLabel({ x = x, y = 2, width = iw, height = 1, autoSize = false, text = M.title })
 
-  local dataTop = 3
-  local footerRows = 2
-  local dataRows = math.max(1, h - dataTop - footerRows + 1)
-  local ROWS_PER_PAGE = dataRows
+  -- A region-internal nav push/pop (drilling a mode/category/axis, or backing out of one) isn't a
+  -- FRAME-level nav change, so it wouldn't otherwise wake the dirty-gated render loop -- bump
+  -- runtime.uiRev, exactly like mdb.lua's/senscal.lua's regions do.
+  local function bump()
+    if runtime then runtime.uiRev = (runtime.uiRev or 0) + 1 end
+  end
 
-  local labelW = math.max(1, iw - 8)
-  local minusX = x + labelW + 1
-  local plusX  = minusX + 4
+  -- ===== shared stepper-list factory: one screen = a fixed row-id set (from a pure filter over =====
+  -- ===== M.rows(workingCfg, mode), evaluated once at build time -- M.ROW_SPEC/the per-mode extra =====
+  -- ===== rows never change at runtime, so the SET of ids is stable; only each row's displayed    =====
+  -- ===== value/step is re-read live on every refresh()) + a "?"/"<" footer row.                  =====
+  local function buildEditScreen(mode, filterFn, screenTitle, helpId)
+    return function(b, f, region)
+      local fw = ({ f:getSize() })[1]
+      local fx = 2
+      local fiw = math.max(1, fw - 2)
+      local y = 1
 
-  local rowSlots = {}
-  local slotRowId = {}
-  local state = { page = 1 }
+      local titleLabel = f:addLabel({ x = fx, y = y, width = fiw, height = 1, autoSize = false, text = configkit.fitLabel(screenTitle, fiw) })
+      y = y + 1
 
-  local function refreshPage()
-    local rows = M.rows(workingCfg)
-    local totalPages = math.max(1, math.ceil(#rows / ROWS_PER_PAGE))
-    if state.page > totalPages then state.page = totalPages end
-    if state.page < 1 then state.page = 1 end
-    headerLabel:setText(M.title .. "  p" .. state.page .. "/" .. totalPages)
+      local labelW = math.max(1, fiw - 8)
+      local minusX = fx + labelW + 1
+      local plusX  = minusX + 4
 
-    local startIdx = (state.page - 1) * ROWS_PER_PAGE
-    for i = 1, ROWS_PER_PAGE do
-      local row = rows[startIdx + i]
-      local slot = rowSlots[i]
-      if row then
-        slotRowId[i] = row.id
-        slot.label:setText(row.group .. " " .. row.label .. " " .. fmtVal(row.value, row.step))
-        slot.minus:setEnabled(true)
-        slot.plus:setEnabled(true)
-      else
-        slotRowId[i] = nil
-        slot.label:setText("")
-        slot.minus:setEnabled(false)
-        slot.plus:setEnabled(false)
+      local rowIds = {}
+      for _, r in ipairs(filterFn(M.rows(workingCfg, mode))) do rowIds[#rowIds + 1] = r.id end
+
+      -- Forward-declared: minus/plus onClick closures reference refresh() before it's DEFINED
+      -- (not before it's called) -- same upvalue-before-assignment discipline as
+      -- configkit.helpScreen's `row`/`render`.
+      local refresh
+
+      local rowSlots = {}
+      for i, rid in ipairs(rowIds) do
+        local yy = y + i - 1
+        local lbl   = f:addLabel({ x = fx, y = yy, width = labelW, height = 1, autoSize = false, text = "" })
+        local minus = f:addButton({ x = minusX, y = yy, width = 3, height = 1, text = "-" })
+        local plus  = f:addButton({ x = plusX,  y = yy, width = 3, height = 1, text = "+" })
+        rowSlots[i] = { id = rid, label = lbl, minus = minus, plus = plus }
+
+        minus:onClick(function()
+          workingCfg = M.apply(workingCfg, mode, rid, -1)
+          refresh()
+        end)
+        plus:onClick(function()
+          workingCfg = M.apply(workingCfg, mode, rid, 1)
+          refresh()
+        end)
       end
+      y = y + #rowIds
+
+      local footerRow = configkit.actionRow(f, { x = fx, y = y, w = fiw }, {
+        { label = "?", onClick = function() region:push("help_" .. helpId) end },
+        { label = "<", onClick = function() region:pop() end },
+      })
+
+      refresh = function()
+        local byId = {}
+        for _, r in ipairs(filterFn(M.rows(workingCfg, mode))) do byId[r.id] = r end
+        for _, slot in ipairs(rowSlots) do
+          local r = byId[slot.id]
+          if r then
+            slot.label:setText(configkit.fitLabel(r.label .. " " .. fmtVal(r.value, r.step), labelW))
+          end
+        end
+      end
+      refresh()
+
+      return {
+        apply = function(_state) refresh() end,
+        elements = { titleLabel = titleLabel, rowSlots = rowSlots, footerRow = footerRow },
+      }
     end
   end
 
-  for i = 1, ROWS_PER_PAGE do
-    local y = dataTop + i - 1
-    local lbl   = frame:addLabel({ x = x, y = y, width = labelW, height = 1, autoSize = false, text = "" })
-    local minus = frame:addButton({ x = minusX, y = y, width = 3, height = 1, text = "-" })
-    local plus  = frame:addButton({ x = plusX,  y = y, width = 3, height = 1, text = "+" })
-    rowSlots[i] = { label = lbl, minus = minus, plus = plus }
+  -- ===== gains_axis_<mode>: ALT/PITCH/ROLL/YAW/SWAY/SURGE + BASE (the 3 non-axis gains rows) =====
+  local function buildGainsAxisScreen(mode)
+    return function(b, f, region)
+      local fw = ({ f:getSize() })[1]
+      local fx = 2
+      local fiw = math.max(1, fw - 2)
+      local y = 1
 
-    local slotIdx = i
-    minus:onClick(function()
-      local rid = slotRowId[slotIdx]
-      if rid then
-        workingCfg = M.apply(workingCfg, rid, -1)
-        refreshPage()
+      local titleLabel = f:addLabel({ x = fx, y = y, width = fiw, height = 1, autoSize = false, text = configkit.fitLabel("GAINS " .. abbrev(mode), fiw) })
+      y = y + 1
+
+      local axisBtns = {}
+      for _, axis in ipairs(AXES) do
+        local sw = switchbtn.make(f, { x = fx, y = y, width = fiw, height = 1, text = configkit.fitLabel(AXIS_LABEL[axis], fiw) })
+        sw.set("off")
+        sw.button:onClick(function() region:push("edit_" .. mode .. "_GAINS_" .. axis) end)
+        axisBtns[axis] = sw
+        y = y + 1
       end
-    end)
-    plus:onClick(function()
-      local rid = slotRowId[slotIdx]
-      if rid then
-        workingCfg = M.apply(workingCfg, rid, 1)
-        refreshPage()
-      end
-    end)
+
+      local baseBtn = switchbtn.make(f, { x = fx, y = y, width = fiw, height = 1, text = configkit.fitLabel("BASE", fiw) })
+      baseBtn.set("off")
+      baseBtn.button:onClick(function() region:push("edit_" .. mode .. "_GAINS_base") end)
+      y = y + 1
+
+      local footerRow = configkit.actionRow(f, { x = fx, y = y, w = fiw }, {
+        { label = "?", onClick = function() region:push("help_gains") end },
+        { label = "<", onClick = function() region:pop() end },
+      })
+
+      return {
+        apply = function(_state) end,
+        elements = { titleLabel = titleLabel, axisBtns = axisBtns, baseBtn = baseBtn, footerRow = footerRow },
+      }
+    end
   end
 
-  local footerY1 = dataTop + ROWS_PER_PAGE
-  local footerY2 = footerY1 + 1
-  local halfW = math.max(1, math.floor(iw / 2))
+  -- ===== cat_<mode>: GAINS/CAPS/FEEL + SAVE/RST + "?"/"<" =====
+  local function buildCatScreen(mode)
+    return function(b, f, region)
+      local fw = ({ f:getSize() })[1]
+      local fx = 2
+      local fiw = math.max(1, fw - 2)
+      local y = 1
 
-  local prevBtn = frame:addButton({ x = x,            y = footerY1, width = halfW, height = 1, text = "< PAGE" })
-  local nextBtn = frame:addButton({ x = x + halfW,     y = footerY1, width = math.max(1, iw - halfW), height = 1, text = "PAGE >" })
+      local titleLabel = f:addLabel({ x = fx, y = y, width = fiw, height = 1, autoSize = false, text = configkit.fitLabel("TUNE " .. abbrev(mode), fiw) })
+      y = y + 1
 
-  local thirdW = math.max(1, math.floor(iw / 3))
-  local saveBtn  = frame:addButton({ x = x,                y = footerY2, width = thirdW, height = 1, text = "SAVE" })
-  local resetBtn = frame:addButton({ x = x + thirdW,        y = footerY2, width = thirdW, height = 1, text = "RESET" })
-  local backBtn  = frame:addButton({ x = x + 2 * thirdW,    y = footerY2, width = math.max(1, iw - 2 * thirdW), height = 1, text = "< BACK" })
+      local CATS = {
+        { id = "GAINS", target = "gains_axis_" .. mode },
+        { id = "CAPS",  target = "edit_" .. mode .. "_CAPS" },
+        { id = "FEEL",  target = "edit_" .. mode .. "_FEEL" },
+      }
+      local catBtns = {}
+      for _, c in ipairs(CATS) do
+        local sw = switchbtn.make(f, { x = fx, y = y, width = fiw, height = 1, text = configkit.fitLabel(c.id, fiw) })
+        sw.set("off")
+        sw.button:onClick(function() region:push(c.target) end)
+        catBtns[c.id] = sw
+        y = y + 1
+      end
 
-  prevBtn:onClick(function()
-    state.page = state.page - 1
-    refreshPage()
-  end)
-  nextBtn:onClick(function()
-    state.page = state.page + 1
-    refreshPage()
-  end)
-  saveBtn:onClick(function()
-    M._save(workingCfg, write)
-  end)
-  resetBtn:onClick(function()
-    workingCfg = M._reset(delete)
-    state.page = 1
-    refreshPage()
-  end)
-  backBtn:onClick(function()
-    if nav then nav:pop() end
-  end)
+      -- doSave/doReset exposed directly on `elements` (not just wired into the row) so a test can
+      -- invoke the EXACT effect SAVE/RST's onClick has, same convention as mdb.lua's exposed
+      -- `rescan`.
+      local function doSave()
+        M._save(workingCfg, write)
+      end
+      local function doReset()
+        workingCfg = M.resetMode(workingCfg, mode)
+        region:apply(nil)
+      end
 
-  refreshPage()
+      local saveRstRow = configkit.actionRow(f, { x = fx, y = y, w = fiw }, {
+        { label = "SAVE", onClick = doSave },
+        { label = "RST",  onClick = doReset },
+      })
+      y = y + 1
 
-  -- apply(state): this menu shows CONFIG, not live telemetry -- an idempotent repaint of the
-  -- current page from workingCfg is all that's needed (never polls peripherals; safe to call
-  -- repeatedly on every scheduled render pass).
-  local function apply(_state)
-    refreshPage()
+      local helpBackRow = configkit.actionRow(f, { x = fx, y = y, w = fiw }, {
+        { label = "?", onClick = function() region:push("help_modes") end },
+        { label = "<", onClick = function() region:pop() end },
+      })
+
+      return {
+        apply = function(_state) end,
+        elements = {
+          titleLabel = titleLabel, catBtns = catBtns,
+          saveRstRow = saveRstRow, helpBackRow = helpBackRow,
+          doSave = doSave, doReset = doReset,
+        },
+      }
+    end
+  end
+
+  -- ===== modes (root): PRECISION/MAN/CRUISE + "?"/"<" (FRAME-level nav:pop) =====
+  local function buildModesScreen(b, f, region)
+    local fw = ({ f:getSize() })[1]
+    local fx = 2
+    local fiw = math.max(1, fw - 2)
+    local y = 1
+
+    local modeBtns = {}
+    for _, mode in ipairs(M.MODES) do
+      local sw = switchbtn.make(f, { x = fx, y = y, width = fiw, height = 1, text = configkit.fitLabel(mode, fiw) })
+      sw.set("off")
+      sw.button:onClick(function() region:push("cat_" .. mode) end)
+      modeBtns[mode] = sw
+      y = y + 1
+    end
+
+    local footerRow = configkit.actionRow(f, { x = fx, y = y, w = fiw }, {
+      { label = "?", onClick = function() region:push("help_modes") end },
+      { label = "<", onClick = function() if nav then nav:pop() end end },
+    })
+
+    return {
+      apply = function(_state) end,
+      elements = { modeBtns = modeBtns, footerRow = footerRow },
+    }
+  end
+
+  -- ===== assemble the region's screens map =====
+  local screens = { modes = buildModesScreen }
+  for _, mode in ipairs(M.MODES) do
+    screens["cat_" .. mode] = buildCatScreen(mode)
+    screens["gains_axis_" .. mode] = buildGainsAxisScreen(mode)
+    for _, axis in ipairs(AXES) do
+      screens["edit_" .. mode .. "_GAINS_" .. axis] =
+        buildEditScreen(mode, gainsAxisFilter(axis), AXIS_LABEL[axis] .. " " .. abbrev(mode), axis)
+    end
+    screens["edit_" .. mode .. "_GAINS_base"] = buildEditScreen(mode, gainsBaseFilter, "BASE " .. abbrev(mode), "gains")
+    screens["edit_" .. mode .. "_CAPS"] = buildEditScreen(mode, capsFilter, "CAPS " .. abbrev(mode), "caps")
+    screens["edit_" .. mode .. "_FEEL"] = buildEditScreen(mode, feelFilter, "FEEL " .. abbrev(mode), "feel")
+  end
+  for _, entryId in ipairs(HELP_IDS) do
+    screens["help_" .. entryId] = function(b, f, r) return configkit.helpScreen(b, f, r, entryId) end
+  end
+
+  local region = Region.new(basalt, frame, {
+    x = 1, y = 3, width = w, height = math.max(1, h - 2),
+    root = "modes", screens = screens, onNav = bump,
+  })
+
+  -- Force the modes screen to build now (not on the first scheduled apply()), so its elements
+  -- exist as soon as M.build returns -- mirrors mdb.lua's/senscal.lua's identical eager-build call.
+  region:apply(nil)
+
+  -- apply(state): this menu shows CONFIG, not live telemetry -- forwards to the region, which
+  -- lazily builds/shows its current nav top and repaints only that screen. Never polls
+  -- peripherals on its own; +/- is the only thing that mutates workingCfg, and only on click.
+  local function apply(state)
+    region:apply(state)
   end
 
   return {
     id = M.id,
     apply = apply,
-    elements = {
-      headerLabel = headerLabel,
-      rowSlots = rowSlots,
-      prevBtn = prevBtn, nextBtn = nextBtn,
-      saveBtn = saveBtn, resetBtn = resetBtn, backBtn = backBtn,
-    },
+    elements = { headerLabel = headerLabel, region = region },
   }
 end
 
