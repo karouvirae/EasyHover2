@@ -695,9 +695,9 @@
         },
         {
           ["dst"] = "ui/basalt/bitconfig/uical.lua",
-          ["size"] = 7143,
+          ["size"] = 9367,
           ["src"] = "dist/ui/basalt/bitconfig/uical.lua",
-          ["sum"] = "4b45c728",
+          ["sum"] = "4660fadf",
         },
         {
           ["dst"] = "ui/basalt/cadence.lua",
@@ -860,5 +860,5 @@
     ["size"] = 70702,
     ["sum"] = "3dd2fb64",
   },
-  ["version"] = "841924a5",
+  ["version"] = "42ea6801",
 }

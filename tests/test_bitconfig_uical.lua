@@ -1,13 +1,19 @@
 -- tests/test_bitconfig_uical.lua
 -- UI CAL sub-menu (ui/basalt/bitconfig/uical.lua): tests M.nextSide (pure), M._applyOp (the
 -- effectful seam) with a STUB runtime + injected scan/save spies, M._onButton (ConfigPanel.action
--- dispatch -> _applyOp), and a real-CraftOS-PC Basalt construction probe -- build the element tree
--- on a frame bound to term.current() with a stub runtime + injected scan/save, apply(state), then
--- one basalt.update(...) render pass. NEVER basalt.run() (blocks on pullEventRaw).
+-- dispatch -> _applyOp), M.CATEGORIES/M.CONTROLS_BY_CATEGORY (the pure overview->category
+-- drilldown mapping -- Task 5), and a real-CraftOS-PC Basalt construction probe -- build the
+-- element tree on a frame bound to term.current() with a stub runtime + injected scan/save,
+-- push/pop the region's own nav to drill into each category screen, apply(state), then one
+-- basalt.update(...) render pass. NEVER basalt.run() (blocks on pullEventRaw).
 --
 -- DRAIN-SAFETY focus: every test that changes the bound relay or its side asserts the re-block
 -- fires (runtime.rebindRelay() called, then runtime.engine:blockNow() called) -- mirroring
--- ui/main.lua's doScan/doBind/applyConfigOp discipline exactly.
+-- ui/main.lua's doScan/doBind/applyConfigOp discipline exactly. M.build now hosts a
+-- ui/basalt/region.lua drilldown so every category screen fits the ~12-row monitor (the old flat
+-- build's BACK rendered off-screen) -- but every control still routes through the SAME
+-- _applyOp/_pickBind/_pickSide seams, so the drain-safety re-block is unaffected by WHERE a
+-- control lives on screen.
 local t = require("tests.framework")
 local M = require("ui.basalt.bitconfig.uical")
 local Nav = require("ui.basalt.nav")
@@ -531,9 +537,56 @@ t.test("_onButton: an unrecognised id returns nil and applies nothing", function
   t.eq(#saveCalls, 1)
 end)
 
+-- ===== M.CATEGORIES / M.CONTROLS_BY_CATEGORY: pure overview->category drilldown mapping =====
+
+t.test("CATEGORIES: exactly DEVICES/FUEL/TIMING, in that order", function()
+  t.eq(#M.CATEGORIES, 3)
+  t.eq(M.CATEGORIES[1], "devices")
+  t.eq(M.CATEGORIES[2], "fuel")
+  t.eq(M.CATEGORIES[3], "timing")
+end)
+
+t.test("CONTROLS_BY_CATEGORY: devices owns SCAN + the 4 bind/side pickers", function()
+  local set = {}
+  for _, c in ipairs(M.CONTROLS_BY_CATEGORY.devices) do set[c] = true end
+  t.eq(#M.CONTROLS_BY_CATEGORY.devices, 5)
+  t.truthy(set.scan and set.relay and set.pump and set.tank and set.side,
+    "devices has scan/relay/pump/tank/side")
+end)
+
+t.test("CONTROLS_BY_CATEGORY: fuel owns only CAL FUEL", function()
+  t.eq(#M.CONTROLS_BY_CATEGORY.fuel, 1)
+  t.eq(M.CONTROLS_BY_CATEGORY.fuel[1], "calFuel")
+end)
+
+t.test("CONTROLS_BY_CATEGORY: timing owns the pulse/interval/toggle sextet", function()
+  local set = {}
+  for _, c in ipairs(M.CONTROLS_BY_CATEGORY.timing) do set[c] = true end
+  t.eq(#M.CONTROLS_BY_CATEGORY.timing, 6)
+  for _, c in ipairs({ "pulseDn", "pulseUp", "intervalDn", "intervalUp", "toggleInvert", "toggleKick" }) do
+    t.truthy(set[c], c .. " present under timing")
+  end
+end)
+
+t.test("categoryOf: every control across all 3 categories resolves back to its own category, no overlap", function()
+  local total = 0
+  for _, cat in ipairs(M.CATEGORIES) do
+    for _, c in ipairs(M.CONTROLS_BY_CATEGORY[cat]) do
+      t.eq(M.categoryOf(c), cat, c .. " resolves to " .. cat)
+      total = total + 1
+    end
+  end
+  t.eq(total, 12, "5 devices + 1 fuel + 6 timing controls, no drops or duplicates")
+end)
+
+t.test("categoryOf: an unknown control returns nil", function()
+  t.eq(M.categoryOf("bogus"), nil)
+  t.eq(M.categoryOf(nil), nil)
+end)
+
 -- ===== Construction probe: real CraftOS-PC Basalt, no real peripherals =====
 
-t.test("M.build constructs the element tree; apply() + one render pass do not error", function()
+t.test("M.build: overview shows DEVICES/FUEL/TIMING + '<'; apply() + one render pass do not error", function()
   local basalt = BasaltApp.ensureBasalt()
   local frame = basalt.createFrame()   -- binds to term.current(), per ui/basalt/app.lua's header
 
@@ -547,18 +600,19 @@ t.test("M.build constructs the element tree; apply() + one render pass do not er
   t.truthy(type(h.apply) == "function", "apply should be a function")
   t.truthy(h.elements ~= nil, "elements table should be exposed")
   t.truthy(h.elements.headerLabel ~= nil, "headerLabel present")
-  t.truthy(h.elements.scanBtn ~= nil, "scanBtn present")
-  t.truthy(h.elements.relayPicker ~= nil, "relayPicker present (DROPDOWN, not a cycle button)")
-  t.truthy(h.elements.relayPicker.trigger ~= nil, "relayPicker exposes its trigger element")
-  t.truthy(h.elements.pumpPicker ~= nil, "pumpPicker present")
-  t.truthy(h.elements.tankPicker ~= nil, "tankPicker present")
-  t.truthy(h.elements.sidePicker ~= nil, "sidePicker present (RELAY SIDE dropdown)")
-  t.truthy(h.elements.calFuelBtn ~= nil, "calFuelBtn present")
-  t.truthy(h.elements.timingLabel ~= nil, "timingLabel present")
-  t.truthy(h.elements.pulseDnBtn ~= nil and h.elements.pulseUpBtn ~= nil, "pulse +/- present")
-  t.truthy(h.elements.intDnBtn ~= nil and h.elements.intUpBtn ~= nil, "interval +/- present")
-  t.truthy(h.elements.invertBtn ~= nil and h.elements.kickBtn ~= nil, "invert/kick toggles present")
-  t.truthy(h.elements.backBtn ~= nil, "backBtn present")
+
+  local region = h.elements.region
+  t.truthy(region ~= nil, "region exposed")
+  t.eq(region:top(), "overview", "region starts at the overview screen")
+
+  local overviewRec = region.built.overview
+  t.truthy(overviewRec ~= nil, "overview screen built eagerly by M.build")
+  local ov = overviewRec.handle
+  for _, cat in ipairs(M.CATEGORIES) do
+    t.truthy(ov.elements.catBtns[cat] ~= nil, "overview has a category button for " .. cat)
+  end
+  t.truthy(ov.elements.backRow ~= nil, "overview has the '<' back row")
+  t.eq(#ov.elements.backRow.buttons, 1, "overview back row has exactly one '<' button")
 
   local ok, err = pcall(h.apply, {})
   t.truthy(ok, "apply should not error: " .. tostring(err))
@@ -567,6 +621,95 @@ t.test("M.build constructs the element tree; apply() + one render pass do not er
 
   local ok3, err3 = pcall(function() basalt.update("timer", -1) end)
   t.truthy(ok3, "basalt.update should not error: " .. tostring(err3))
+end)
+
+t.test("M.build: drilling DEVICES shows SCAN + RELAY/PUMP/TANK/SIDE pickers; '<' pops back to overview", function()
+  local basalt = BasaltApp.ensureBasalt()
+  local frame = basalt.createFrame()
+  local nav = Nav.new("bitconfig")
+  local runtime = newStubRuntime()
+  local save = newSaveSpy()
+  local deps = { scan = descriptorsA, save = save }
+
+  local h = M.build(basalt, frame, runtime, nav, deps)
+  local region = h.elements.region
+
+  region:push("devices")
+  h.apply({})
+  t.eq(region:top(), "devices")
+
+  local rec = region.built.devices
+  t.truthy(rec ~= nil, "devices screen built on first visit")
+  local els = rec.handle.elements
+  t.truthy(els.scanRow ~= nil, "SCAN present")
+  t.truthy(els.relayPicker ~= nil, "relayPicker present (DROPDOWN, not a cycle button)")
+  t.truthy(els.relayPicker.trigger ~= nil, "relayPicker exposes its trigger element")
+  t.truthy(els.pumpPicker ~= nil, "pumpPicker present")
+  t.truthy(els.tankPicker ~= nil, "tankPicker present")
+  t.truthy(els.sidePicker ~= nil, "sidePicker present (RELAY SIDE dropdown)")
+  t.truthy(els.backRow ~= nil, "devices screen exposes its '<' back row")
+
+  -- '<' pops the REGION's own nav (back to overview), not the frame-level nav.
+  region:pop()
+  h.apply({})
+  t.eq(region:top(), "overview", "region back returns to the overview screen")
+  t.eq(nav:top(), "bitconfig", "frame-level nav untouched by region-internal drilldown")
+end)
+
+t.test("M.build: drilling FUEL shows CAL FUEL + the calibrated reading; '<' pops back to overview", function()
+  local basalt = BasaltApp.ensureBasalt()
+  local frame = basalt.createFrame()
+  local nav = Nav.new("bitconfig")
+  local runtime = newStubRuntime()
+  local save = newSaveSpy()
+  local deps = { scan = descriptorsA, save = save }
+
+  local h = M.build(basalt, frame, runtime, nav, deps)
+  local region = h.elements.region
+
+  region:push("fuel")
+  h.apply({})
+  t.eq(region:top(), "fuel")
+
+  local rec = region.built.fuel
+  t.truthy(rec ~= nil, "fuel screen built on first visit")
+  local els = rec.handle.elements
+  t.truthy(els.calFuelRow ~= nil, "CAL FUEL present")
+  t.truthy(els.readingLabel ~= nil, "reading label present")
+  t.truthy(els.backRow ~= nil, "fuel screen exposes its '<' back row")
+
+  region:pop()
+  h.apply({})
+  t.eq(region:top(), "overview")
+end)
+
+t.test("M.build: drilling TIMING shows PULSE/INT/INVERT/KICK + the timing summary; '<' pops back to overview", function()
+  local basalt = BasaltApp.ensureBasalt()
+  local frame = basalt.createFrame()
+  local nav = Nav.new("bitconfig")
+  local runtime = newStubRuntime()
+  local save = newSaveSpy()
+  local deps = { scan = descriptorsA, save = save }
+
+  local h = M.build(basalt, frame, runtime, nav, deps)
+  local region = h.elements.region
+
+  region:push("timing")
+  h.apply({})
+  t.eq(region:top(), "timing")
+
+  local rec = region.built.timing
+  t.truthy(rec ~= nil, "timing screen built on first visit")
+  local els = rec.handle.elements
+  t.truthy(els.pulseRow ~= nil and #els.pulseRow.buttons == 2, "PULSE -50/+50 present")
+  t.truthy(els.intRow ~= nil and #els.intRow.buttons == 2, "INT -15s/+15s present")
+  t.truthy(els.toggleRow ~= nil and #els.toggleRow.buttons == 2, "INVERT/KICK present")
+  t.truthy(els.timingLabel ~= nil, "timing summary label present")
+  t.truthy(els.backRow ~= nil, "timing screen exposes its '<' back row")
+
+  region:pop()
+  h.apply({})
+  t.eq(region:top(), "overview")
 end)
 
 t.test("M.build: pickers reflect runtime.config at build time (bound name/side selected)", function()
@@ -583,11 +726,15 @@ t.test("M.build: pickers reflect runtime.config at build time (bound name/side s
   local deps = { scan = descriptorsA, save = save }
 
   local h = M.build(basalt, frame, runtime, nav, deps)
+  local region = h.elements.region
+  region:push("devices")
+  h.apply({})
+  local els = region.built.devices.handle.elements
 
-  t.eq(h.elements.relayPicker.selectedItem().value, "relay_2", "relay name selected")
-  t.eq(h.elements.pumpPicker.selectedItem().value, "tank_1", "pump name selected")
-  t.eq(h.elements.tankPicker.selectedItem().value, "chest_1", "tank name selected")
-  t.eq(h.elements.sidePicker.selectedItem().value, "top", "relay side selected")
+  t.eq(els.relayPicker.selectedItem().value, "relay_2", "relay name selected")
+  t.eq(els.pumpPicker.selectedItem().value, "tank_1", "pump name selected")
+  t.eq(els.tankPicker.selectedItem().value, "chest_1", "tank name selected")
+  t.eq(els.sidePicker.selectedItem().value, "top", "relay side selected")
 end)
 
 t.test("M.build: picking a relay via the picker persists + re-blocks (DRAIN SAFETY end-to-end)", function()
@@ -600,6 +747,9 @@ t.test("M.build: picking a relay via the picker persists + re-blocks (DRAIN SAFE
   local deps = { scan = descriptorsA, save = save }
 
   local h = M.build(basalt, frame, runtime, nav, deps)
+  local region = h.elements.region
+  region:push("devices")
+  h.apply({})
   local before = #saveCalls
 
   -- Simulate the operator tapping "relay_2" in the RELAY picker's overlay -- drive the tested seam
@@ -612,7 +762,7 @@ t.test("M.build: picking a relay via the picker persists + re-blocks (DRAIN SAFE
   t.truthy(#saveCalls > before, "config persisted")
 end)
 
-t.test("M.build: BACK button pops the nav stack", function()
+t.test("M.build: overview's '<' pops the FRAME-level nav stack", function()
   local basalt = BasaltApp.ensureBasalt()
   local frame = basalt.createFrame()
 
@@ -625,12 +775,34 @@ t.test("M.build: BACK button pops the nav stack", function()
   local deps = { scan = descriptorsA, save = save }
 
   local h = M.build(basalt, frame, runtime, nav, deps)
-  t.truthy(h.elements.backBtn ~= nil, "backBtn present")
+  local ov = h.elements.region.built.overview.handle
+  t.truthy(ov.elements.backRow ~= nil, "overview back row present")
 
-  -- Directly invoke nav:pop() the same way backBtn's onClick does (a real click needs
+  -- Directly invoke nav:pop() the same way the '<' button's onClick does (a real click needs
   -- basalt.run(), forbidden here).
   nav:pop()
   t.eq(nav:top(), "bitconfig")
+end)
+
+t.test("M.build: DEVICES screen's SCAN re-scans descriptors + refreshes pickers", function()
+  local basalt = BasaltApp.ensureBasalt()
+  local frame = basalt.createFrame()
+  local nav = Nav.new("bitconfig")
+  local runtime = newStubRuntime()
+  local save, saveCalls = newSaveSpy()
+  local deps = { scan = descriptorsA, save = save }
+
+  local h = M.build(basalt, frame, runtime, nav, deps)
+  local region = h.elements.region
+  region:push("devices")
+  h.apply({})
+
+  -- Exercise SCAN's exact effect the same way its onClick does, without needing basalt.run():
+  -- M._onButton(runtime, "scan", ...) -- Detect proposes relay_1 (the first redstone_relay in
+  -- descriptorsA()) since nothing is bound yet.
+  M._onButton(runtime, "scan", os.epoch("utc"), deps)
+  t.eq(runtime.config.relay.name, "relay_1")
+  t.truthy(#saveCalls >= 1, "scan persisted via _applyOp")
 end)
 
 return true

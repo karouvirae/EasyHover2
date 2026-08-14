@@ -35,6 +35,9 @@ local Detect       = require("ui.detect")
 local Fuel         = require("ui.fuel")
 local ConfigPanel  = require("ui.panels.config")
 local Picker       = require("ui.basalt.picker")
+local Region       = require("ui.basalt.region")
+local configkit    = require("ui.basalt.configkit")
+local switchbtn    = require("ui.basalt.switchbtn")
 -- NOTE: ui.basalt.app is required LAZILY inside M._applyOp below, NOT at module top -- see
 -- ui/basalt/pages/config.lua's header note for the full rationale (ui/basalt/app.lua's page
 -- registry requires this module at ITS module top; a top-level require back would loop mid-load).
@@ -309,9 +312,47 @@ function M._onButton(runtime, id, now, deps)
   return effect
 end
 
+-- ===== M.CATEGORIES / M.CONTROLS_BY_CATEGORY: pure overview->category drilldown mapping =====
+-- ===== (Task 5). The old flat ~11-row build() overflowed the ~12-row monitor -- its BACK button =====
+-- ===== rendered off-screen. M.build now hosts a region.lua drilldown (root "overview") with one =====
+-- ===== screen per category below, each compact enough that its own "<" back always fits. This =====
+-- ===== table is the single source of truth for which control lives on which category screen -- =====
+-- ===== M.build's devices/fuel/timing screens are built from it, and a coverage test asserts every =====
+-- ===== control lands in exactly one category (mirrors mdb.lua's M.GROUPS/M.slotsForGroup pattern). =====
+--
+-- Control ids here are NOT all ConfigPanel action ids: "relay"/"pump"/"tank"/"side" name the four
+-- DEVICES pickers (driven by M._pickBind/M._pickSide directly, never through ConfigPanel.action --
+-- see those functions' header notes), while "scan"/"calFuel"/"pulseDn"/"pulseUp"/"intervalDn"/
+-- "intervalUp"/"toggleInvert"/"toggleKick" ARE the exact ids M._onButton/ConfigPanel.action expect.
+M.CATEGORIES = { "devices", "fuel", "timing" }
+
+M.CONTROLS_BY_CATEGORY = {
+  devices = { "scan", "relay", "pump", "tank", "side" },
+  fuel    = { "calFuel" },
+  timing  = { "pulseDn", "pulseUp", "intervalDn", "intervalUp", "toggleInvert", "toggleKick" },
+}
+
+-- M.categoryOf(control) -> the category id owning `control`, or nil if it belongs to none. PURE.
+function M.categoryOf(control)
+  for _, cat in ipairs(M.CATEGORIES) do
+    for _, c in ipairs(M.CONTROLS_BY_CATEGORY[cat] or {}) do
+      if c == control then return cat end
+    end
+  end
+  return nil
+end
+
 -- ===== M.build: construct the element tree =====
 -- deps (optional, 5th arg): { scan=, save=, Detect=, Fuel= } -- injectable exactly like
 -- tuning.lua's (read,write,delete) / mdb.lua's (read,write,scan) trailing params.
+--
+-- Hosts a ui/basalt/region.lua drilldown (root "overview") inside this page's own frame, below a
+-- static "UI CAL" headerLabel -- mirrors mdb.lua's overview->group construction EXACTLY (see that
+-- module's M.build header note): the overview screen shows the 3 category buttons (M.CATEGORIES)
+-- + a "<" that pops the FRAME-level nav, and each category screen shows only that category's
+-- controls (M.CONTROLS_BY_CATEGORY) + a "<" that pops the REGION's own nav back to the overview.
+-- Every category screen is a handful of rows -- well inside the ~12-row monitor -- so its "<" is
+-- always on screen, fixing the old flat build's off-screen BACK.
 
 local function fmtInterval(ms)
   if type(ms) ~= "number" then return "?" end
@@ -325,149 +366,277 @@ function M.build(basalt, frame, runtime, nav, deps)
   deps = deps or {}
   local scanFn = deps.scan or realScanDescriptors
 
-  -- Scanned once at build time (and again on SCAN) to populate the bind/relay pickers' candidate
-  -- lists -- see the header note on why this menu never touches peripherals outside a button click.
-  local descriptors = scanFn()
-
   local w, h = frame:getSize()
   local x = 2
   local iw = math.max(1, w - 2)
 
   local headerLabel = frame:addLabel({ x = x, y = 2, width = iw, height = 1, autoSize = false, text = M.title })
 
-  local y = 3
-  local function fullBtn(text)
-    local b = frame:addButton({ x = x, y = y, width = iw, height = 1, text = text })
-    y = y + 1
-    return b
-  end
-  local function pairBtns(leftText, rightText)
-    local halfW = math.max(1, math.floor(iw / 2))
-    local left  = frame:addButton({ x = x,          y = y, width = halfW, height = 1, text = leftText })
-    local right = frame:addButton({ x = x + halfW,  y = y, width = math.max(1, iw - halfW), height = 1, text = rightText })
-    y = y + 1
-    return left, right
+  -- A region-internal nav push/pop (drilling a category, or backing out of one) isn't a
+  -- FRAME-level nav change, so it wouldn't otherwise wake the dirty-gated render loop -- bump
+  -- runtime.uiRev, exactly like ui/basalt/bitconfig/mdb.lua's / ui/basalt/pages/flight.lua's
+  -- regions do.
+  local function bump()
+    if runtime then runtime.uiRev = (runtime.uiRev or 0) + 1 end
   end
 
-  -- Dropdown pickers replace the old click-to-cycle bind/relay-side buttons -- cycling through
-  -- abbreviated peripheral names to find the right one proved unusable in-game (see picker.lua's
-  -- header note). Label + dropdown share one row each, same vertical footprint as the old buttons.
-  local dropW = math.max(6, math.min(14, math.floor(iw * 0.5)))
-  local labelW = math.max(1, iw - dropW - 1)
-  local dropX = x + labelW + 1
+  -- Scanned once at build time (and again on SCAN, inside the devices screen) to populate the
+  -- bind/relay pickers' candidate lists -- see the header note on why this menu never touches
+  -- peripherals outside a button click. Shared upvalue: the devices screen's own refresh() always
+  -- reads this live, so a SCAN's new descriptors reach it even though Region:showTop() never
+  -- rebuilds an already-built screen (only toggles visibility) -- mirrors mdb.lua's RESCAN
+  -- convergence note.
+  local descriptors = scanFn()
 
-  local refresh -- forward-declared: picker onPick closures call this; assigned its body below.
+  -- ===== overview screen: DEVICES / FUEL / TIMING + "<" (pops the FRAME-level nav) =====
+  local function buildOverview(b, f, region)
+    local fw = ({ f:getSize() })[1]
+    local fx = 2
+    local fiw = math.max(1, fw - 2)
+    local y = 1
 
-  local function pickerRow(labelText, options, current, placeholder, dropdownHeight, onPick)
-    local lbl = frame:addLabel({ x = x, y = y, width = labelW, height = 1, autoSize = false, text = labelText })
-    local picker = Picker.make(frame, {
-      x = dropX, y = y, width = dropW, dropdownHeight = dropdownHeight or 5,
-      options = options, current = current, placeholder = placeholder,
-      onPick = onPick,
+    local LABELS = { devices = "DEVICES", fuel = "FUEL", timing = "TIMING" }
+    local catBtns = {}
+    for _, cat in ipairs(M.CATEGORIES) do
+      local sw = switchbtn.make(f, {
+        x = fx, y = y, width = fiw, height = 1, text = configkit.fitLabel(LABELS[cat] or cat, fiw),
+      })
+      sw.set("off")
+      sw.button:onClick(function() region:push(cat) end)
+      catBtns[cat] = sw
+      y = y + 1
+    end
+
+    local backRow = configkit.actionRow(f, { x = fx, y = y, w = fiw }, {
+      { label = "<", onClick = function() if nav then nav:pop() end end },
+    })
+
+    -- apply(state): overview shows only static category labels + the back row -- nothing here
+    -- tracks live cfg state, so a no-op repaint is all that's needed.
+    local function apply(_state) end
+
+    return { apply = apply, elements = { catBtns = catBtns, backRow = backRow } }
+  end
+
+  -- ===== devices screen: SCAN + RELAY/PUMP/TANK/SIDE pickers + "<" (pops the region's own nav) =====
+  -- Wires the SAME M._onButton("scan")/M._pickBind/M._pickSide seams the old flat build used --
+  -- byte-identical effect, including the relay drain-safety re-block (rebindRelay + blockNow)
+  -- those functions perform internally; only WHERE the controls live on screen changed.
+  local function buildDevices(b, f, region)
+    local fw = ({ f:getSize() })[1]
+    local fx = 2
+    local fiw = math.max(1, fw - 2)
+    local y = 1
+
+    local dropW = math.max(6, math.min(14, math.floor(fiw * 0.5)))
+    local labelW = math.max(1, fiw - dropW - 1)
+    local dropX = fx + labelW + 1
+
+    local refresh -- forward-declared: SCAN + every picker's onPick call this; assigned below.
+
+    local function pickerRow(labelText, options, current, placeholder, dropdownHeight, onPick)
+      local lbl = f:addLabel({ x = fx, y = y, width = labelW, height = 1, autoSize = false, text = labelText })
+      local picker = Picker.make(f, {
+        x = dropX, y = y, width = dropW, dropdownHeight = dropdownHeight or 5,
+        options = options, current = current, placeholder = placeholder,
+        onPick = onPick,
+      })
+      y = y + 1
+      return lbl, picker
+    end
+
+    -- SCAN both auto-detect-proposes bindings (via M._onButton -> doScan, unchanged) AND re-scans
+    -- descriptors so the pickers' candidate lists pick up any newly-connected peripherals.
+    local scanRow = configkit.actionRow(f, { x = fx, y = y, w = fiw }, {
+      { label = "SCAN", onClick = function()
+          M._onButton(runtime, "scan", os.epoch("utc"), deps)
+          descriptors = scanFn()
+          refresh()
+        end },
     })
     y = y + 1
-    return lbl, picker
-  end
 
-  local scanBtn, calFuelBtn = pairBtns("SCAN", "CAL FUEL")
+    local cfg0 = runtime.config or {}
+    local relayLabel, relayPicker = pickerRow("RELAY",
+      M._toOptions(M._relayCandidates(descriptors)), cfg0.relay and cfg0.relay.name, "(none)", 5,
+      function(value)
+        M._pickBind(runtime, "relay", value, descriptors, deps)
+        refresh()
+      end)
+    local pumpLabel, pumpPicker = pickerRow("PUMP",
+      M._toOptions(M._fuelCandidates(descriptors)), cfg0.fuel and cfg0.fuel.pump and cfg0.fuel.pump.name, "(none)", 5,
+      function(value)
+        M._pickBind(runtime, "pump", value, descriptors, deps)
+        refresh()
+      end)
+    local tankLabel, tankPicker = pickerRow("TANK",
+      M._toOptions(M._fuelCandidates(descriptors)), cfg0.fuel and cfg0.fuel.tank and cfg0.fuel.tank.name, "(none)", 5,
+      function(value)
+        M._pickBind(runtime, "tank", value, descriptors, deps)
+        refresh()
+      end)
+    local sideLabel, sidePicker = pickerRow("SIDE",
+      M._sideOptions(), (cfg0.relay and cfg0.relay.side) or "back", "back", 6,
+      function(value)
+        M._pickSide(runtime, value, deps)
+        refresh()
+      end)
 
-  local cfg0 = runtime.config or {}
-  local relayLabel, relayPicker = pickerRow("RELAY",
-    M._toOptions(M._relayCandidates(descriptors)), cfg0.relay and cfg0.relay.name, "(none)", 5,
-    function(value)
-      M._pickBind(runtime, "relay", value, descriptors, deps)
-      refresh()
-    end)
-  local pumpLabel, pumpPicker = pickerRow("PUMP",
-    M._toOptions(M._fuelCandidates(descriptors)), cfg0.fuel and cfg0.fuel.pump and cfg0.fuel.pump.name, "(none)", 5,
-    function(value)
-      M._pickBind(runtime, "pump", value, descriptors, deps)
-      refresh()
-    end)
-  local tankLabel, tankPicker = pickerRow("TANK",
-    M._toOptions(M._fuelCandidates(descriptors)), cfg0.fuel and cfg0.fuel.tank and cfg0.fuel.tank.name, "(none)", 5,
-    function(value)
-      M._pickBind(runtime, "tank", value, descriptors, deps)
-      refresh()
-    end)
-  local sideLabel, sidePicker = pickerRow("SIDE",
-    M._sideOptions(), (cfg0.relay and cfg0.relay.side) or "back", "back", 6,
-    function(value)
-      M._pickSide(runtime, value, deps)
-      refresh()
-    end)
+    local backRow = configkit.actionRow(f, { x = fx, y = y, w = fiw }, {
+      { label = "<", onClick = function() region:pop() end },
+    })
 
-  local timingLabel = frame:addLabel({ x = x, y = y, width = iw, height = 1, autoSize = false, text = "" })
-  y = y + 1
-
-  local pulseDnBtn, pulseUpBtn = pairBtns("PULSE -50", "PULSE +50")
-  local intDnBtn, intUpBtn     = pairBtns("INT -15s", "INT +15s")
-  local invertBtn, kickBtn     = pairBtns("INVERT", "KICK")
-
-  local backBtn = fullBtn("< BACK")
-
-  -- apply(state)/refresh: idempotent repaint of the picker selections + timing line from
-  -- runtime.config. Never polls peripherals -- config-only, like the terminal Config panel (the
-  -- candidate LISTS only change on SCAN; the pickers' CURRENT selection always tracks config here).
-  refresh = function()
-    local cfg = runtime.config or {}
-    relayPicker.setOptions(M._toOptions(M._relayCandidates(descriptors)), cfg.relay and cfg.relay.name)
-    pumpPicker.setOptions(M._toOptions(M._fuelCandidates(descriptors)), cfg.fuel and cfg.fuel.pump and cfg.fuel.pump.name)
-    tankPicker.setOptions(M._toOptions(M._fuelCandidates(descriptors)), cfg.fuel and cfg.fuel.tank and cfg.fuel.tank.name)
-    sidePicker.setOptions(M._sideOptions(), (cfg.relay and cfg.relay.side) or "back")
-    local e = cfg.engine or {}
-    timingLabel:setText(string.format("P %sms  I %s  inv %s  kick %s",
-      tostring(e.pulseMs or "?"), fmtInterval(e.intervalMs),
-      (e.invert and "on" or "off"), (e.kickstart and "on" or "off")))
-  end
-
-  local function onId(id)
-    return function()
-      M._onButton(runtime, id, os.epoch("utc"), deps)
-      refresh()
+    -- refresh(): idempotent repaint of the picker selections from runtime.config + the live
+    -- `descriptors` upvalue. Never polls peripherals on its own -- config-only, like the old flat
+    -- build (the candidate LISTS only change on SCAN; each picker's CURRENT selection always
+    -- tracks config here).
+    refresh = function()
+      local cfg = runtime.config or {}
+      relayPicker.setOptions(M._toOptions(M._relayCandidates(descriptors)), cfg.relay and cfg.relay.name)
+      pumpPicker.setOptions(M._toOptions(M._fuelCandidates(descriptors)), cfg.fuel and cfg.fuel.pump and cfg.fuel.pump.name)
+      tankPicker.setOptions(M._toOptions(M._fuelCandidates(descriptors)), cfg.fuel and cfg.fuel.tank and cfg.fuel.tank.name)
+      sidePicker.setOptions(M._sideOptions(), (cfg.relay and cfg.relay.side) or "back")
     end
+    refresh()
+
+    return {
+      apply = function(_state) refresh() end,
+      elements = {
+        scanRow = scanRow,
+        relayLabel = relayLabel, relayPicker = relayPicker,
+        pumpLabel = pumpLabel, pumpPicker = pumpPicker,
+        tankLabel = tankLabel, tankPicker = tankPicker,
+        sideLabel = sideLabel, sidePicker = sidePicker,
+        backRow = backRow,
+      },
+    }
   end
 
-  -- SCAN both auto-detect-proposes bindings (via M._onButton -> doScan, unchanged) AND re-scans
-  -- descriptors so the pickers' candidate lists pick up any newly-connected peripherals.
-  scanBtn:onClick(function()
-    M._onButton(runtime, "scan", os.epoch("utc"), deps)
-    descriptors = scanFn()
-    refresh()
-  end)
-  calFuelBtn:onClick(onId("calFuel"))
-  pulseDnBtn:onClick(onId("pulseDn"))
-  pulseUpBtn:onClick(onId("pulseUp"))
-  intDnBtn:onClick(onId("intervalDn"))
-  intUpBtn:onClick(onId("intervalUp"))
-  invertBtn:onClick(onId("toggleInvert"))
-  kickBtn:onClick(onId("toggleKick"))
-  backBtn:onClick(function()
-    if nav then nav:pop() end
-  end)
+  -- ===== fuel screen: CAL FUEL + the calibrated reading + "<" (pops the region's own nav) =====
+  -- "the reading" is the config-held calibrated full amount for pump/tank (what CAL FUEL just
+  -- captured via runtime.fuelReaders) -- read-only from runtime.config, so refresh() stays a pure
+  -- config readout and never itself polls a fuel reader (matches this menu's "never polls
+  -- peripherals on its own, only on a button click" discipline).
+  local function buildFuel(b, f, region)
+    local fw = ({ f:getSize() })[1]
+    local fx = 2
+    local fiw = math.max(1, fw - 2)
+    local y = 1
 
-  refresh()
+    local refresh -- forward-declared: CAL FUEL's onClick calls this; assigned below.
 
-  local function apply(_state)
+    local calFuelRow = configkit.actionRow(f, { x = fx, y = y, w = fiw }, {
+      { label = "CAL FUEL", onClick = function()
+          M._onButton(runtime, "calFuel", os.epoch("utc"), deps)
+          refresh()
+        end },
+    })
+    y = y + 1
+
+    local readingLabel = f:addLabel({ x = fx, y = y, width = fiw, height = 1, autoSize = false, text = "" })
+    y = y + 1
+
+    local backRow = configkit.actionRow(f, { x = fx, y = y, w = fiw }, {
+      { label = "<", onClick = function() region:pop() end },
+    })
+
+    refresh = function()
+      local cfg = runtime.config or {}
+      local pump = (cfg.fuel and cfg.fuel.pump) or {}
+      local tank = (cfg.fuel and cfg.fuel.tank) or {}
+      readingLabel:setText(configkit.fitLabel(
+        string.format("PMP %s  TANK %s", tostring(pump.full or 0), tostring(tank.full or 0)), fiw))
+    end
     refresh()
+
+    return {
+      apply = function(_state) refresh() end,
+      elements = { calFuelRow = calFuelRow, readingLabel = readingLabel, backRow = backRow },
+    }
+  end
+
+  -- ===== timing screen: PULSE +/-, INTERVAL +/-, INVERT/KICK + the timing summary + "<" =====
+  local function buildTiming(b, f, region)
+    local fw = ({ f:getSize() })[1]
+    local fx = 2
+    local fiw = math.max(1, fw - 2)
+    local y = 1
+
+    local refresh -- forward-declared: every row's onClick calls this; assigned below.
+
+    local function onId(id)
+      return function()
+        M._onButton(runtime, id, os.epoch("utc"), deps)
+        refresh()
+      end
+    end
+
+    local pulseRow = configkit.actionRow(f, { x = fx, y = y, w = fiw }, {
+      { label = "PULSE -50", onClick = onId("pulseDn") },
+      { label = "PULSE +50", onClick = onId("pulseUp") },
+    })
+    y = y + 1
+
+    local intRow = configkit.actionRow(f, { x = fx, y = y, w = fiw }, {
+      { label = "INT -15s", onClick = onId("intervalDn") },
+      { label = "INT +15s", onClick = onId("intervalUp") },
+    })
+    y = y + 1
+
+    local toggleRow = configkit.actionRow(f, { x = fx, y = y, w = fiw }, {
+      { label = "INVERT", onClick = onId("toggleInvert") },
+      { label = "KICK",   onClick = onId("toggleKick") },
+    })
+    y = y + 1
+
+    local timingLabel = f:addLabel({ x = fx, y = y, width = fiw, height = 1, autoSize = false, text = "" })
+    y = y + 1
+
+    local backRow = configkit.actionRow(f, { x = fx, y = y, w = fiw }, {
+      { label = "<", onClick = function() region:pop() end },
+    })
+
+    refresh = function()
+      local e = (runtime.config and runtime.config.engine) or {}
+      timingLabel:setText(configkit.fitLabel(string.format("P %sms  I %s  inv %s  kick %s",
+        tostring(e.pulseMs or "?"), fmtInterval(e.intervalMs),
+        (e.invert and "on" or "off"), (e.kickstart and "on" or "off")), fiw))
+    end
+    refresh()
+
+    return {
+      apply = function(_state) refresh() end,
+      elements = { pulseRow = pulseRow, intRow = intRow, toggleRow = toggleRow, timingLabel = timingLabel, backRow = backRow },
+    }
+  end
+
+  local region = Region.new(basalt, frame, {
+    x = 1, y = 3, width = w, height = math.max(1, h - 2),
+    root = "overview", onNav = bump,
+    screens = {
+      overview = buildOverview,
+      devices  = buildDevices,
+      fuel     = buildFuel,
+      timing   = buildTiming,
+    },
+  })
+
+  -- Force the overview screen to build now (not on the first scheduled apply()), so its elements
+  -- exist as soon as M.build returns -- mirrors mdb.lua's identical eager-build call.
+  region:apply(nil)
+
+  -- apply(state): this menu shows CONFIG, not live telemetry -- forwards to the region, which
+  -- lazily builds/shows its current nav top and repaints only that screen. Never polls
+  -- peripherals on its own; SCAN/CAL FUEL are the only things that touch peripherals, and only on
+  -- click.
+  local function apply(state)
+    region:apply(state)
   end
 
   return {
     id = M.id,
     apply = apply,
-    elements = {
-      headerLabel = headerLabel,
-      scanBtn = scanBtn, calFuelBtn = calFuelBtn,
-      relayLabel = relayLabel, relayPicker = relayPicker,
-      pumpLabel = pumpLabel, pumpPicker = pumpPicker,
-      tankLabel = tankLabel, tankPicker = tankPicker,
-      sideLabel = sideLabel, sidePicker = sidePicker,
-      timingLabel = timingLabel,
-      pulseDnBtn = pulseDnBtn, pulseUpBtn = pulseUpBtn,
-      intDnBtn = intDnBtn, intUpBtn = intUpBtn,
-      invertBtn = invertBtn, kickBtn = kickBtn,
-      backBtn = backBtn,
-    },
+    elements = { headerLabel = headerLabel, region = region },
   }
 end
 
