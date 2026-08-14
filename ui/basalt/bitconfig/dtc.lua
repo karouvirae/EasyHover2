@@ -201,18 +201,29 @@ local function indicatorText(drive)
   return "disk: " .. tostring(drive.label)
 end
 
--- fmtRow(row, width): compact per-kind status line, e.g. "tuning  L:OK D:--" -- DISPLAY-ONLY,
--- row.hasLocal/hasDisk (the underlying present/plan data) are untouched. `row.kind` (already
--- short: devbind/senscal/tuning) is run through configkit.fitLabel so the framework still governs
--- the one variable-length part of the line; the fixed "L:.."/"D:.." suffix is built directly
--- rather than piped through fitLabel too -- fitLabel unconditionally strips everything up to a
--- string's FIRST ":" (its namespace-strip contract, see listpicker.formatLabel/test_configkit.lua),
--- which would eat the kind name and the "L" the moment the suffix's own colons entered the string.
-local function fmtRow(row, width)
+-- M._fmtRow(row, width): compact per-kind status line, e.g. "tuning  L:OK D:--" -- DISPLAY-ONLY,
+-- row.hasLocal/hasDisk (the underlying present/plan data) are untouched. The GUARANTEE is that
+-- the returned string is always <= width (width nil/<=0 -> unbounded, matching fitLabel's own
+-- contract): the fixed "  L:xx D:xx" suffix is always exactly 11 chars, so `row.kind` (already
+-- short: devbind/senscal/tuning) is fit to `width - #suffix` (>= 1) via configkit.fitLabel BEFORE
+-- concatenating -- fitting the composite string as a whole afterwards is not an option, since
+-- fitLabel/listpicker.formatLabel unconditionally strips everything up to a string's FIRST ":"
+-- (its namespace-strip contract, see test_configkit.lua's own fitLabel tests), which would eat
+-- the kind name and the "L" the moment the suffix's own colons entered the string. A final hard
+-- clamp covers the pathological width < #suffix case (narrower than the suffix itself allows),
+-- so the <= width guarantee holds for every width, not just the ~14-col target.
+function M._fmtRow(row, width)
   local l = row.hasLocal and "OK" or "--"
   local d = row.hasDisk and "OK" or "--"
-  local kind = configkit.fitLabel(row.kind, width)
-  return kind .. "  L:" .. l .. " D:" .. d
+  local suffix = "  L:" .. l .. " D:" .. d -- always 11 chars regardless of l/d
+  local w = (type(width) == "number" and width > 0) and width or nil
+  local kindWidth = w and math.max(1, w - #suffix) or nil
+  local kind = configkit.fitLabel(row.kind, kindWidth)
+  local text = kind .. suffix
+  if w and #text > w then
+    text = text:sub(1, w) -- width narrower than the suffix alone can fit -- last-resort clamp
+  end
+  return text
 end
 
 function M.build(basalt, frame, runtime, nav, deps)
@@ -274,7 +285,7 @@ function M.build(basalt, frame, runtime, nav, deps)
     local scan = M._scan(drive.mount, deps)
     local plan = M.plan(scan)
     for i = 1, #M.KINDS do
-      rowSlots[i]:setText(fmtRow(plan[i], iw))
+      rowSlots[i]:setText(M._fmtRow(plan[i], iw))
     end
 
     footerRow.setState(1, drive.present and "off" or "disabled")

@@ -272,6 +272,45 @@ t.test("diskPath layout matches what fcs/boot/loaderui.lua's diskSource reads", 
   end
 end)
 
+-- ===== M._fmtRow: display-only status line, MUST fit a real ~14-col monitor =====
+
+t.test("_fmtRow: at width=14 (a real monitor's ~14 cols), every row is <= 14 chars", function()
+  local plan = M.plan({
+    localHas = { devbind = true, senscal = true, tuning = true },
+    diskHas  = { devbind = true, senscal = true, tuning = true },
+  })
+  for _, row in ipairs(plan) do
+    local s = M._fmtRow(row, 14)
+    t.truthy(#s <= 14, row.kind .. ": " .. s .. " (" .. #s .. " chars) must be <= 14")
+  end
+end)
+
+t.test("_fmtRow: kind name truncates (tail-preserving ~) rather than overflow the suffix", function()
+  local row = { kind = "devbind", hasLocal = true, hasDisk = false } -- longest kind name, 7 chars
+  local s = M._fmtRow(row, 14)
+  t.eq(#s, 14)
+  t.truthy(s:find("L:OK", 1, true) ~= nil, "local:OK status still present: " .. s)
+  t.truthy(s:find("D:%-%-") ~= nil, "disk:-- status still present: " .. s)
+end)
+
+t.test("_fmtRow: underlying present/plan data is unaffected -- display-only", function()
+  local row = { kind = "tuning", hasLocal = true, hasDisk = false }
+  M._fmtRow(row, 14)
+  t.eq(row.hasLocal, true)
+  t.eq(row.hasDisk, false)
+end)
+
+t.test("_fmtRow: wide width (no real truncation) still reads 'kind  L:.. D:..'", function()
+  local row = { kind = "tuning", hasLocal = true, hasDisk = true }
+  t.eq(M._fmtRow(row, 40), "tuning  L:OK D:OK")
+end)
+
+t.test("_fmtRow: nil/<=0 width is unbounded (matches fitLabel's own contract), never errors", function()
+  local row = { kind = "senscal", hasLocal = false, hasDisk = true }
+  t.eq(M._fmtRow(row, nil), "senscal  L:-- D:OK")
+  t.eq(M._fmtRow(row, 0), "senscal  L:-- D:OK")
+end)
+
 -- ===== Construction probe: real CraftOS-PC Basalt, no real peripherals/disk =====
 
 t.test("M.build (no disk): constructs the element tree; apply() + one render pass do not error", function()
