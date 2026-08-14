@@ -353,10 +353,16 @@ t.test("_save writes the serialised cfg.bindings under eh2_senscal.tbl via the i
 end)
 
 -- ===== Construction probe: real CraftOS-PC Basalt, no real peripherals =====
+-- M.build now hosts a ui/basalt/region.lua drilldown (root "steplist") so the old flat ~9-row
+-- build (which overran the ~12-row monitor once a page-level header/margin were accounted for)
+-- fits: the steplist screen (6 step buttons + SAVE/<) and each step_<id> screen (title/prompt/
+-- status/value + minus/plus/CAPTURE/OK/X/step-nav/< LIST, one row each) are both well inside the
+-- ~12-row budget. Controller wiring (captureStream/captureNumeric/adjustNumeric/accept/reject/
+-- nextStep/prevStep) is UNCHANGED from the old flat build -- only where the buttons live moved.
 
-t.test("M.build constructs the element tree; apply() + one render pass do not error", function()
+t.test("M.build: steplist shows all 6 M.steps() (pending marker + label) + SAVE/< footer; apply()+render don't error", function()
   local basalt = BasaltApp.ensureBasalt()
-  local frame = basalt.createFrame()
+  local frame = basalt.createFrame()   -- binds to term.current(), per ui/basalt/app.lua's header
 
   local nav = Nav.new("bitconfig")
   local stored = {}
@@ -369,11 +375,23 @@ t.test("M.build constructs the element tree; apply() + one render pass do not er
   t.truthy(type(h.apply) == "function", "apply should be a function")
   t.truthy(h.elements ~= nil, "elements table should be exposed")
   t.truthy(h.elements.headerLabel ~= nil, "headerLabel present")
-  t.truthy(h.elements.captureBtn ~= nil, "captureBtn present")
-  t.truthy(h.elements.acceptBtn ~= nil, "acceptBtn present")
-  t.truthy(h.elements.rejectBtn ~= nil, "rejectBtn present")
-  t.truthy(h.elements.saveBtn ~= nil, "saveBtn present")
-  t.truthy(h.elements.backBtn ~= nil, "backBtn present")
+
+  local region = h.elements.region
+  t.truthy(region ~= nil, "region exposed")
+  t.eq(region:top(), "steplist", "region starts at the steplist screen")
+
+  local rec = region.built.steplist
+  t.truthy(rec ~= nil, "steplist screen built eagerly by M.build")
+  local els = rec.handle.elements
+  local steps = M.steps()
+  t.eq(#els.stepBtns, 6, "one button per step")
+  for i, step in ipairs(steps) do
+    local text = els.stepBtns[i].button:getText()
+    t.truthy(text:find(step.label, 1, true), "step " .. i .. " button shows its M.steps() label, got: " .. tostring(text))
+    t.truthy(text:find("%[ %]", 1, false) ~= nil, "step " .. i .. " starts pending (nothing accepted yet), got: " .. tostring(text))
+  end
+  t.truthy(els.footerRow ~= nil, "steplist has the SAVE/< footer row")
+  t.eq(#els.footerRow.buttons, 2, "footer row has exactly SAVE and <")
 
   local ok, err = pcall(h.apply, {})
   t.truthy(ok, "apply should not error: " .. tostring(err))
@@ -384,7 +402,7 @@ t.test("M.build constructs the element tree; apply() + one render pass do not er
   t.truthy(ok3, "basalt.update should not error: " .. tostring(err3))
 end)
 
-t.test("M.build: header shows STEP 1/6 ATTITUDE on first paint", function()
+t.test("M.build: drilling the first step shows its title/prompt + CAPTURE/OK/X/step-nav; '< LIST' pops back to the steplist", function()
   local basalt = BasaltApp.ensureBasalt()
   local frame = basalt.createFrame()
   local nav = Nav.new("bitconfig")
@@ -393,9 +411,40 @@ t.test("M.build: header shows STEP 1/6 ATTITUDE on first paint", function()
   local function write(filename, body) stored[filename] = body end
 
   local h = M.build(basalt, frame, nil, nav, read, write, function() return {} end)
-  local text = h.elements.headerLabel:getText()
-  t.truthy(text:find("STEP 1/6"), "header shows step progress, got: " .. tostring(text))
-  t.truthy(text:find("ATTITUDE"), "header shows the first step's label, got: " .. tostring(text))
+  local region = h.elements.region
+
+  -- Drill into the first step the same way its steplist button's onClick does (push the matching
+  -- step_<id> screen -- the controller is already sat on step 1, so no nextStep/prevStep walk is
+  -- needed here), then let apply() lazily build + repaint it.
+  region:push("step_attitude")
+  h.apply({})
+  t.eq(region:top(), "step_attitude")
+
+  local rec = region.built.step_attitude
+  t.truthy(rec ~= nil, "step_attitude screen built on first visit")
+  local els = rec.handle.elements
+  t.truthy(els.titleLabel ~= nil, "titleLabel present")
+  local titleText = els.titleLabel:getText()
+  t.truthy(titleText:find("1/6", 1, true), "title shows step progress, got: " .. tostring(titleText))
+  t.truthy(titleText:find("ATTITUDE", 1, true), "title shows the first step's label, got: " .. tostring(titleText))
+
+  t.truthy(els.promptLabel ~= nil, "promptLabel present")
+  t.eq(els.promptLabel:getText(), M.steps()[1].prompts[1], "prompt shows the current phase's prompt")
+
+  t.truthy(els.statusLabel ~= nil, "statusLabel present")
+  t.truthy(els.valueLabel ~= nil, "valueLabel present")
+  t.truthy(els.numRow ~= nil and #els.numRow.buttons == 2, "minus/plus present")
+  t.truthy(els.captureRow ~= nil and #els.captureRow.buttons == 1, "CAPTURE present")
+  t.truthy(els.okxRow ~= nil and #els.okxRow.buttons == 2, "OK/X present")
+  t.truthy(els.navRow ~= nil and #els.navRow.buttons == 2, "STEP </> present")
+  t.truthy(els.backRow ~= nil and #els.backRow.buttons == 1, "'< LIST' present")
+
+  -- '< LIST' pops the REGION's own nav (back to the steplist), not the frame-level nav -- drilling
+  -- into/backing out of a step never touches the outer bitconfig-hub nav stack.
+  region:pop()
+  h.apply({})
+  t.eq(region:top(), "steplist", "region back returns to the steplist screen")
+  t.eq(nav:top(), "bitconfig", "frame-level nav untouched by region-internal drilldown")
 end)
 
 t.test("M.build: CAPTURE on a stream phase schedules a coroutine that samples via the injected sampler, non-blocking", function()
@@ -425,7 +474,7 @@ t.test("M.build: CAPTURE on a stream phase schedules a coroutine that samples vi
   t.eq(samplerCalls, 1)
 end)
 
-t.test("M.build: SAVE writes via injected write; BACK pops the nav stack", function()
+t.test("M.build: steplist SAVE writes via the injected write; steplist '<' pops the frame-level nav stack", function()
   local basalt = BasaltApp.ensureBasalt()
   local frame = basalt.createFrame()
   local nav = Nav.new("bitconfig")
@@ -435,12 +484,15 @@ t.test("M.build: SAVE writes via injected write; BACK pops the nav stack", funct
   local function write(filename, body) stored[filename] = body end
 
   local h = M.build(basalt, frame, nil, nav, read, write, function() return {} end)
-  t.truthy(h.elements.saveBtn ~= nil)
+  local footerRow = h.elements.region.built.steplist.handle.elements.footerRow
+  t.truthy(footerRow ~= nil, "steplist footer row (SAVE + <) present")
 
   -- Exercise the same seam SAVE's onClick calls internally.
   M._save({ bindings = cfgspec.merge("senscal", {}) }, write)
   t.truthy(stored["eh2_senscal.tbl"] ~= nil, "SAVE wrote a body")
 
+  -- Directly invoke nav:pop() the same way '<'s onClick does (a real click needs basalt.run(),
+  -- forbidden here).
   nav:pop()
   t.eq(nav:top(), "bitconfig")
 end)

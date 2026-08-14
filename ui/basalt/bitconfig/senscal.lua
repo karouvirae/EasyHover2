@@ -28,19 +28,45 @@
 -- the list one CAPTURE press at a time).
 --
 -- ===== BASALT RUNNER (M.build) =====
--- Below the pure model, M.build() wires a step-runner UI: a per-phase CAPTURE button that
--- samples the bound sensors (from eh2_devbind) over the phase's duration on a basalt.schedule
--- coroutine (non-blocking -- sleep() works inside a scheduled coroutine per ui/basalt/app.lua's
--- M.startScheduled header notes and release/basalt-full.lua's b_a.schedule/bca dispatch, verified
--- against source), reduces the raw stream into that phase's contribution to `samples`, and once
--- every phase for the current step is captured, computes `step.capture(samples)`, gates on
--- `step.accept(result)`, and shows ACCEPT/REJECT. ACCEPT calls `step.apply(cfg, result)` and
--- advances to the next step; REJECT discards the step's in-progress samples and restarts its
--- phases. SAVE calls `cfgspec.save("senscal", cfg.bindings, write)`. `< BACK` pops the nav stack.
--- Read/write/sampler are injected (5th/6th/7th M.build args) so tests drive this without real
--- peripherals; the "constants" step needs no sensors at all (operator-entered numbers) and uses
--- a +/- stepper instead of CAPTURE, matching tools/calibrate.lua's stepConstants prompt-for-a-
--- number flow.
+-- M.build() wires a step-runner UI: a per-phase CAPTURE button that samples the bound sensors
+-- (from eh2_devbind) over the phase's duration on a basalt.schedule coroutine (non-blocking --
+-- sleep() works inside a scheduled coroutine per ui/basalt/app.lua's M.startScheduled header notes
+-- and release/basalt-full.lua's b_a.schedule/bca dispatch, verified against source), reduces the
+-- raw stream into that phase's contribution to `samples`, and once every phase for the current
+-- step is captured, computes `step.capture(samples)`, gates on `step.accept(result)`, and shows
+-- OK/X (accept/reject). OK calls `step.apply(cfg, result)` and advances to the next step; X
+-- discards the step's in-progress samples and restarts its phases. SAVE calls
+-- `cfgspec.save("senscal", cfg.bindings, write)`. Read/write/sampler are injected (5th/6th/7th
+-- M.build args) so tests drive this without real peripherals; the "constants" step needs no
+-- sensors at all (operator-entered numbers) and uses a +/- stepper instead of CAPTURE, matching
+-- tools/calibrate.lua's stepConstants prompt-for-a-number flow.
+--
+-- ===== UI SHAPE: step-list overview + per-step screens (ui/basalt/region.lua) =====
+-- The old flat build crammed the header/prompt/status/value/minus/plus/CAPTURE/ACCEPT/REJECT/
+-- STEP-nav/SAVE/BACK rows onto ONE screen -- 9 rows deep, overrunning the ~12-row monitor budget
+-- once a title margin and page-level header are accounted for. M.build now hosts a region.lua
+-- drilldown (root "steplist") INSIDE this page's own frame, below a static "SENS CAL" headerLabel
+-- (mirrors mdb.lua/uical.lua's overview->sub-screen construction exactly):
+--   * "steplist": one button per M.steps() entry (a "[x]"/"[ ] " done/pending marker + its label),
+--     plus a SAVE/"<" footer row. Tapping a step button walks the controller to that step via
+--     REPEATED ctrl.nextStep()/prevStep() calls (the SAME single-step nav the old STEP </> buttons
+--     already exposed -- just composed to reach an arbitrary target step from the list) and pushes
+--     that step's screen. "<" pops the FRAME-level nav (same as the old BACK button).
+--   * "step_<id>" (one per step, all built from the SAME generic builder since there is only ever
+--     ONE active controller step at a time): the step's title (N/6 LABEL), current phase's prompt
+--     (via configkit.fitLabel), a status line, a value line, then FOUR SEPARATE rows -- minus/plus,
+--     CAPTURE (relabelled SET for the numeric "constants" step), OK/X, and "< STEP"/"STEP >" -- so
+--     no row crams more buttons than fit its width (the old single 3-button CAPTURE row clipped
+--     "CAPTURE"'s label once minus+plus ate most of a 14-col line). A final "< LIST" row pops the
+--     REGION's own nav back to the step list (never the frame-level nav). Every ctrl-mutating
+--     handler calls a shared syncAndRefresh() that (a) re-targets the region's visible screen to
+--     "step_" .. ctrl.step().id if STEP </> or OK moved the controller to a different step, then
+--     (b) forces an immediate repaint -- so the visible screen always reflects the controller's
+--     live state, exactly like the old flat UI's unconditional refresh() after every click.
+-- `completed` (a plain id->true set, UI-side only) tracks which steps have had a successful OK --
+-- the controller itself has no notion of "done" (accept() on the LAST step re-arms it for a redo,
+-- matching the OLD flat UI's behaviour byte-for-byte), so completion is derived here, not stored
+-- on `ctrl`.
 --
 -- NO peripheral/Basalt access at module LOAD -- everything lives inside M.build/the closures it
 -- returns, so `require("ui.basalt.bitconfig.senscal")` loads clean headless.
@@ -50,6 +76,9 @@ local calibrate = require("tools.calibrate")
 local cfgspec   = require("fcs.io.cfgspec")
 local shim      = require("fcs.io.shim")
 local fsx       = require("fcs.io.fsx")
+local Region    = require("ui.basalt.region")
+local configkit = require("ui.basalt.configkit")
+local switchbtn = require("ui.basalt.switchbtn")
 
 local M = {}
 M.id = "senscal"
@@ -441,7 +470,8 @@ local function realWrite(filename, body)
   return fsx.writeAtomic("/" .. filename, body)
 end
 
--- ===== M.build: construct the step-runner element tree =====
+-- ===== M.build: construct the step-list overview + per-step-screen element tree =====
+-- See the header note above ("UI SHAPE") for the full region/screen-naming rationale.
 
 function M.build(basalt, frame, runtime, nav, read, write, sampler)
   read = read or realRead
@@ -457,30 +487,24 @@ function M.build(basalt, frame, runtime, nav, read, write, sampler)
   local iw = math.max(1, w - 2)
 
   local headerLabel = frame:addLabel({ x = x, y = 2, width = iw, height = 1, autoSize = false, text = M.title })
-  local promptLabel = frame:addLabel({ x = x, y = 3, width = iw, height = 1, autoSize = false, text = "" })
-  local statusLabel = frame:addLabel({ x = x, y = 4, width = iw, height = 1, autoSize = false, text = "" })
-  local valueLabel  = frame:addLabel({ x = x, y = 5, width = iw, height = 1, autoSize = false, text = "" })
 
-  local halfW = math.max(1, math.floor(iw / 2))
-  local minusBtn   = frame:addButton({ x = x,          y = 6, width = 4, height = 1, text = "-" })
-  local plusBtn    = frame:addButton({ x = x + 4,       y = 6, width = 4, height = 1, text = "+" })
-  local captureBtn = frame:addButton({ x = x + 8,       y = 6, width = math.max(1, iw - 8), height = 1, text = "CAPTURE" })
-
-  local acceptBtn = frame:addButton({ x = x,        y = 7, width = halfW, height = 1, text = "ACCEPT" })
-  local rejectBtn = frame:addButton({ x = x + halfW, y = 7, width = math.max(1, iw - halfW), height = 1, text = "REJECT" })
-
-  local prevBtn = frame:addButton({ x = x,        y = 8, width = halfW, height = 1, text = "< STEP" })
-  local nextBtn = frame:addButton({ x = x + halfW, y = 8, width = math.max(1, iw - halfW), height = 1, text = "STEP >" })
-
-  local thirdW = math.max(1, math.floor(iw / 3))
-  local saveBtn = frame:addButton({ x = x,             y = 9, width = thirdW, height = 1, text = "SAVE" })
-  local backBtn = frame:addButton({ x = x + 2 * thirdW, y = 9, width = math.max(1, iw - 2 * thirdW), height = 1, text = "< BACK" })
+  -- A region-internal nav push/pop (drilling a step, stepping </>, or backing out of one) isn't a
+  -- FRAME-level nav change, so it wouldn't otherwise wake the dirty-gated render loop -- bump
+  -- runtime.uiRev, exactly like mdb.lua's/uical.lua's regions do.
+  local function bump()
+    if runtime then runtime.uiRev = (runtime.uiRev or 0) + 1 end
+  end
 
   -- The step-runner STATE MACHINE lives in M.newController (Basalt-free, independently
   -- TESTABLE -- see tests/test_bitconfig_senscal.lua). M.build only wires Basalt elements to
   -- its methods and owns the one Basalt-specific piece: gathering a phase's raw sensor stream
   -- on a basalt.schedule coroutine before handing it to ctrl:captureStream(raw).
   local ctrl = M.newController(cfg, steps)
+
+  -- UI-side only: which step ids have had a successful OK. The controller itself tracks no such
+  -- notion (accept() on the LAST step re-arms it for a redo rather than "finishing" -- see the
+  -- header note), so completion is derived here purely for the step-list's done/pending marker.
+  local completed = {}
 
   local function wrapSensors(keys)
     local wrapped = {}
@@ -491,92 +515,189 @@ function M.build(basalt, frame, runtime, nav, read, write, sampler)
     return wrapped
   end
 
-  local function refresh()
-    local step = ctrl.step()
-    headerLabel:setText(M.title .. "  STEP " .. ctrl.stepIdx() .. "/" .. #steps .. " " .. step.label)
-    local prompt = step.prompts[ctrl.phaseIdx()] or ""
-    promptLabel:setText(prompt)
-
-    if ctrl.result() ~= nil then
-      statusLabel:setText("captured -- ACCEPT or REJECT")
-      captureBtn:setEnabled(false)
-      minusBtn:setEnabled(false)
-      plusBtn:setEnabled(false)
-      acceptBtn:setEnabled(true)
-      rejectBtn:setEnabled(true)
-      valueLabel:setText("")
-    else
-      statusLabel:setText("phase " .. ctrl.phaseIdx() .. "/" .. #ctrl.phases())
-      captureBtn:setEnabled(true)
-      acceptBtn:setEnabled(false)
-      rejectBtn:setEnabled(false)
-      local phase = ctrl.phase()
-      if phase and phase.kind == "numeric" then
-        minusBtn:setEnabled(true)
-        plusBtn:setEnabled(true)
-        valueLabel:setText(tostring(ctrl.numericValue()))
-        captureBtn:setText("SET")
-      else
-        minusBtn:setEnabled(false)
-        plusBtn:setEnabled(false)
-        valueLabel:setText("")
-        captureBtn:setText("CAPTURE")
-      end
+  -- After any ctrl-mutating action: re-target the region's visible screen to the controller's
+  -- CURRENT step (a no-op unless STEP </> or OK just moved it) then force an immediate repaint --
+  -- mirrors the old flat UI's unconditional refresh() after every click, just region-aware.
+  local function syncAndRefresh(region)
+    local wantId = "step_" .. ctrl.step().id
+    if region:top() ~= wantId then
+      region:pop()
+      region:push(wantId)
     end
+    region:apply(nil)
   end
 
-  captureBtn:onClick(function()
-    local phase = ctrl.phase()
-    if not phase then return end
-    if phase.kind == "numeric" then
-      ctrl.captureNumeric()
-      refresh()
-      return
+  -- ===== steplist screen: one button per step (done/pending marker + label) + SAVE/"<" =====
+  local function buildStepList(b, f, region)
+    local fw = ({ f:getSize() })[1]
+    local fx = 2
+    local fiw = math.max(1, fw - 2)
+    local y = 1
+
+    local stepBtns = {}
+    for i, step in ipairs(steps) do
+      local sw = switchbtn.make(f, { x = fx, y = y, width = fiw, height = 1, text = "" })
+      sw.set("off")
+      local targetIdx = i
+      sw.button:onClick(function()
+        -- Walk the controller to the tapped step via the SAME single-step nav STEP </> uses --
+        -- just composed to reach an arbitrary target from the list.
+        while ctrl.stepIdx() < targetIdx do ctrl.nextStep() end
+        while ctrl.stepIdx() > targetIdx do ctrl.prevStep() end
+        region:push("step_" .. step.id)
+        region:apply(nil)
+      end)
+      stepBtns[i] = sw
+      y = y + 1
     end
-    local step = ctrl.step()
-    basalt.schedule(function()
-      local wrapped = wrapSensors(phase.sensors)
-      local raw = sampler(step.id, phase, wrapped, ctrl.cfg())
-      ctrl.captureStream(raw)
-      refresh()
-    end)
-  end)
 
-  minusBtn:onClick(function() ctrl.adjustNumeric(-1); refresh() end)
-  plusBtn:onClick(function() ctrl.adjustNumeric(1); refresh() end)
+    local footerRow = configkit.actionRow(f, { x = fx, y = y, w = fiw }, {
+      { label = "SAVE", onClick = function() M._save(ctrl.cfg(), write) end },
+      { label = "<",    onClick = function() if nav then nav:pop() end end },
+    })
 
-  acceptBtn:onClick(function() ctrl.accept(); refresh() end)
-  rejectBtn:onClick(function() ctrl.reject(); refresh() end)
-
-  prevBtn:onClick(function() ctrl.prevStep(); refresh() end)
-  nextBtn:onClick(function() ctrl.nextStep(); refresh() end)
-
-  saveBtn:onClick(function()
-    M._save(ctrl.cfg(), write)
-  end)
-  backBtn:onClick(function()
-    if nav then nav:pop() end
-  end)
-
-  refresh()
-
-  -- apply(state): this menu shows a guided CONFIG flow, not live telemetry -- an idempotent
-  -- repaint of the current step/phase is all that's needed (never polls peripherals on its own;
-  -- CAPTURE is the only thing that samples, and only on click, on a scheduled coroutine).
-  local function apply(_state)
+    local function refresh()
+      for i, step in ipairs(steps) do
+        local marker = completed[step.id] and "[x] " or "[ ] "
+        stepBtns[i].button:setText(configkit.fitLabel(marker .. step.label, fiw))
+      end
+    end
     refresh()
+
+    return { apply = function(_state) refresh() end, elements = { stepBtns = stepBtns, footerRow = footerRow } }
+  end
+
+  -- ===== step screen: title/prompt/status/value, minus/plus, CAPTURE, OK/X, STEP nav, "< LIST" =====
+  -- Registered under all 6 "step_<id>" ids via the SAME builder (there's only ever ONE active
+  -- controller step; see the header note) -- every row is driven live off `ctrl`, never off the
+  -- screen's own id, so whichever one is visible always matches the controller's current step.
+  local function buildStepScreen(b, f, region)
+    local fw = ({ f:getSize() })[1]
+    local fx = 2
+    local fiw = math.max(1, fw - 2)
+    local y = 1
+
+    local titleLabel  = f:addLabel({ x = fx, y = y, width = fiw, height = 1, autoSize = false, text = "" }); y = y + 1
+    local promptLabel = f:addLabel({ x = fx, y = y, width = fiw, height = 1, autoSize = false, text = "" }); y = y + 1
+    local statusLabel = f:addLabel({ x = fx, y = y, width = fiw, height = 1, autoSize = false, text = "" }); y = y + 1
+    local valueLabel  = f:addLabel({ x = fx, y = y, width = fiw, height = 1, autoSize = false, text = "" }); y = y + 1
+
+    -- minus/plus (numeric "constants" phases only) on its own row -- kept separate from CAPTURE so
+    -- CAPTURE's own row always has the full row width to fitLabel into (never clipped).
+    local numRow = configkit.actionRow(f, { x = fx, y = y, w = fiw }, {
+      { label = "-", onClick = function() ctrl.adjustNumeric(-1); syncAndRefresh(region) end },
+      { label = "+", onClick = function() ctrl.adjustNumeric(1); syncAndRefresh(region) end },
+    }); y = y + 1
+
+    local captureRow = configkit.actionRow(f, { x = fx, y = y, w = fiw }, {
+      { label = "CAPTURE", onClick = function()
+          local phase = ctrl.phase()
+          if not phase then return end
+          if phase.kind == "numeric" then
+            ctrl.captureNumeric()
+            syncAndRefresh(region)
+            return
+          end
+          local step = ctrl.step()
+          basalt.schedule(function()
+            local wrapped = wrapSensors(phase.sensors)
+            local raw = sampler(step.id, phase, wrapped, ctrl.cfg())
+            ctrl.captureStream(raw)
+            syncAndRefresh(region)
+          end)
+        end },
+    }); y = y + 1
+
+    local okxRow = configkit.actionRow(f, { x = fx, y = y, w = fiw }, {
+      { label = "OK", onClick = function()
+          local doneId = ctrl.step().id
+          if ctrl.accept() then completed[doneId] = true end
+          syncAndRefresh(region)
+        end },
+      { label = "X", onClick = function() ctrl.reject(); syncAndRefresh(region) end },
+    }); y = y + 1
+
+    local navRow = configkit.actionRow(f, { x = fx, y = y, w = fiw }, {
+      { label = "< STEP", onClick = function() ctrl.prevStep(); syncAndRefresh(region) end },
+      { label = "STEP >", onClick = function() ctrl.nextStep(); syncAndRefresh(region) end },
+    }); y = y + 1
+
+    local backRow = configkit.actionRow(f, { x = fx, y = y, w = fiw }, {
+      { label = "< LIST", onClick = function() region:pop() end },
+    }); y = y + 1
+
+    -- refresh(): idempotent repaint from `ctrl`'s live state -- byte-identical logic to the old
+    -- flat UI's refresh(), just spread across separate rows/elements.
+    local function refresh()
+      local step = ctrl.step()
+      titleLabel:setText(configkit.fitLabel(ctrl.stepIdx() .. "/" .. #steps .. " " .. step.label, fiw))
+      local prompt = step.prompts[ctrl.phaseIdx()] or ""
+      promptLabel:setText(configkit.fitLabel(prompt, fiw))
+
+      if ctrl.result() ~= nil then
+        statusLabel:setText(configkit.fitLabel("captured -- OK or X", fiw))
+        numRow.setState(1, "disabled")
+        numRow.setState(2, "disabled")
+        captureRow.setState(1, "disabled")
+        okxRow.setState(1, "off")
+        okxRow.setState(2, "off")
+        valueLabel:setText("")
+      else
+        statusLabel:setText(configkit.fitLabel("phase " .. ctrl.phaseIdx() .. "/" .. #ctrl.phases(), fiw))
+        captureRow.setState(1, "off")
+        okxRow.setState(1, "disabled")
+        okxRow.setState(2, "disabled")
+        local phase = ctrl.phase()
+        if phase and phase.kind == "numeric" then
+          numRow.setState(1, "off")
+          numRow.setState(2, "off")
+          valueLabel:setText(tostring(ctrl.numericValue()))
+          captureRow.buttons[1].button:setText(configkit.fitLabel("SET", fiw))
+        else
+          numRow.setState(1, "disabled")
+          numRow.setState(2, "disabled")
+          valueLabel:setText("")
+          captureRow.buttons[1].button:setText(configkit.fitLabel("CAPTURE", fiw))
+        end
+      end
+    end
+    refresh()
+
+    return {
+      apply = function(_state) refresh() end,
+      elements = {
+        titleLabel = titleLabel, promptLabel = promptLabel, statusLabel = statusLabel, valueLabel = valueLabel,
+        numRow = numRow, captureRow = captureRow, okxRow = okxRow, navRow = navRow, backRow = backRow,
+      },
+    }
+  end
+
+  local screens = { steplist = buildStepList }
+  for _, step in ipairs(steps) do
+    screens["step_" .. step.id] = buildStepScreen
+  end
+
+  local region = Region.new(basalt, frame, {
+    x = 1, y = 3, width = w, height = math.max(1, h - 2),
+    root = "steplist", screens = screens, onNav = bump,
+  })
+
+  -- Force the steplist screen to build now (not on the first scheduled apply()), so its elements
+  -- exist as soon as M.build returns -- mirrors mdb.lua's/uical.lua's identical eager-build call.
+  region:apply(nil)
+
+  -- apply(state): this menu shows a guided CONFIG flow, not live telemetry -- forwards to the
+  -- region, which lazily builds/shows its current nav top and repaints only that screen. Never
+  -- polls peripherals on its own; CAPTURE is the only thing that samples, and only on click, on a
+  -- scheduled coroutine.
+  local function apply(state)
+    region:apply(state)
   end
 
   return {
     id = M.id,
     apply = apply,
-    elements = {
-      headerLabel = headerLabel, promptLabel = promptLabel, statusLabel = statusLabel, valueLabel = valueLabel,
-      minusBtn = minusBtn, plusBtn = plusBtn, captureBtn = captureBtn,
-      acceptBtn = acceptBtn, rejectBtn = rejectBtn,
-      prevBtn = prevBtn, nextBtn = nextBtn,
-      saveBtn = saveBtn, backBtn = backBtn,
-    },
+    elements = { headerLabel = headerLabel, region = region },
   }
 end
 
