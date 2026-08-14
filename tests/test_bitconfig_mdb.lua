@@ -326,6 +326,99 @@ t.test("M.build: drilling a group shows that group's fitLabel'd rows + pickers; 
   t.eq(nav:top(), "bitconfig", "frame-level nav untouched by region-internal drilldown")
 end)
 
+-- ===== RESCAN convergence: descriptors updated on the overview must reach group pickers -- =====
+-- ===== BOTH a group entered for the first time AFTER rescan, and one entered BEFORE rescan =====
+-- ===== whose already-built/cached screen is simply re-shown (Region never rebuilds a cached =====
+-- ===== screen, only toggles its frame's visibility -- so this is the path that would silently =====
+-- ===== show STALE candidates if refresh() captured `descriptors` instead of reading the shared =====
+-- ===== upvalue fresh on every apply()). =====
+
+t.test("M.build: RESCAN's new descriptors reach a group entered for the FIRST TIME after the rescan", function()
+  local basalt = BasaltApp.ensureBasalt()
+  local frame = basalt.createFrame()
+  local nav = Nav.new("bitconfig")
+
+  -- FL starts bound to "thruster_1" -- a name that only becomes a valid candidate AFTER rescan.
+  local stored = textutils.serialise({ thrusters = { FL = "thruster_1" } })
+  local function read(filename) return stored end
+  local function write(filename, body) stored = body end
+
+  local scanSet = {}   -- initial scan: no candidates at all
+  local function scan() return scanSet end
+
+  local h = M.build(basalt, frame, nil, nav, read, write, scan)
+  local region = h.elements.region
+  local rescan = region.built.overview.handle.elements.rescan
+  t.truthy(rescan ~= nil, "RESCAN's handler is exposed for direct invocation (same convention as backBtn's nav:pop())")
+
+  -- RESCAN with a NEW descriptor set BEFORE ever visiting LIFT -- exactly what the RESCAN
+  -- button's onClick does (descriptors = scan()), without needing to click through Basalt.
+  scanSet = { { name = "thruster_1", type = "thruster" } }
+  rescan()
+
+  -- First-ever visit to LIFT: buildGroupScreen runs now, with the RESCANNED descriptors live.
+  region:push("LIFT")
+  h.apply({})
+  local liftRec = region.built.LIFT
+  t.truthy(liftRec ~= nil, "LIFT built on first visit")
+  local flRow
+  for _, row in ipairs(liftRec.handle.elements.rowSlots) do
+    if row.slotKind == "thruster" and row.slot == "FL" then flRow = row end
+  end
+  t.truthy(flRow ~= nil, "FL row present")
+
+  local sel = flRow.picker.selectedItem()
+  t.truthy(sel ~= nil, "FL's picker resolves against the rescanned candidate list on its first build")
+  t.eq(sel.value, "thruster_1")
+end)
+
+t.test("M.build: RESCAN's new descriptors reach a group's ALREADY-BUILT/cached screen on re-entry", function()
+  local basalt = BasaltApp.ensureBasalt()
+  local frame = basalt.createFrame()
+  local nav = Nav.new("bitconfig")
+
+  -- FL starts bound to "thruster_X" -- a name that is NOT a candidate in the initial scan, only
+  -- in the post-RESCAN one, so the picker's resolved selection is a direct probe of which
+  -- descriptors set it's reading from.
+  local stored = textutils.serialise({ thrusters = { FL = "thruster_X" } })
+  local function read(filename) return stored end
+  local function write(filename, body) stored = body end
+
+  local scanSet = { { name = "thruster_OTHER", type = "thruster" } }  -- no thruster_X yet
+  local function scan() return scanSet end
+
+  local h = M.build(basalt, frame, nil, nav, read, write, scan)
+  local region = h.elements.region
+  local rescan = region.built.overview.handle.elements.rescan
+
+  -- Enter LIFT BEFORE the rescan -- this is what builds + CACHES the screen with the ORIGINAL
+  -- (stale) descriptors baked into its already-constructed Picker rows.
+  region:push("LIFT")
+  h.apply({})
+  local liftRec = region.built.LIFT
+  local flRow
+  for _, row in ipairs(liftRec.handle.elements.rowSlots) do
+    if row.slotKind == "thruster" and row.slot == "FL" then flRow = row end
+  end
+  t.truthy(flRow ~= nil, "FL row present")
+  t.eq(flRow.picker.selectedItem(), nil,
+    "FL's bound thruster_X isn't offered yet -- not a candidate in the initial scan")
+
+  -- Back to overview, RESCAN with a set that DOES include thruster_X, then re-enter the SAME
+  -- group -- Region:showTop() reuses region.built.LIFT (never rebuilds it), so this only passes
+  -- if refresh() re-reads the live `descriptors` upvalue rather than a stale build-time snapshot.
+  region:pop()
+  scanSet = { { name = "thruster_X", type = "thruster" }, { name = "thruster_Y", type = "thruster" } }
+  rescan()
+
+  region:push("LIFT")
+  h.apply({})
+  t.truthy(region.built.LIFT == liftRec, "re-entering LIFT reuses the SAME cached screen record, not a rebuild")
+  local sel = flRow.picker.selectedItem()
+  t.truthy(sel ~= nil, "the CACHED LIFT screen's FL picker converged to the rescanned candidates")
+  t.eq(sel.value, "thruster_X", "FL resolves to its bound thruster_X now that it's a live candidate")
+end)
+
 t.test("M.build: overview's BACK button pops the FRAME-level nav stack (unchanged from before)", function()
   local basalt = BasaltApp.ensureBasalt()
   local frame = basalt.createFrame()

@@ -677,9 +677,9 @@
         },
         {
           ["dst"] = "ui/basalt/bitconfig/mdb.lua",
-          ["size"] = 4642,
+          ["size"] = 4664,
           ["src"] = "dist/ui/basalt/bitconfig/mdb.lua",
-          ["sum"] = "099f89ed",
+          ["sum"] = "7202e9c0",
         },
         {
           ["dst"] = "ui/basalt/bitconfig/senscal.lua",
@@ -860,5 +860,5 @@
     ["size"] = 70702,
     ["sum"] = "3dd2fb64",
   },
-  ["version"] = "27ed8451",
+  ["version"] = "841924a5",
 }

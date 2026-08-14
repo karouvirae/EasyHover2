@@ -256,9 +256,17 @@ function M.build(basalt, frame, runtime, nav, read, write, scan)
       y = y + 1
     end
 
+    -- Named (not inline) so a test can invoke the EXACT effect RESCAN's onClick has --
+    -- reassign the `descriptors` upvalue every group screen's refresh() reads -- without needing
+    -- to click through Basalt (mirrors every other sub-menu's established test convention of
+    -- "directly invoke nav:pop() the same way backBtn's onClick does", just for RESCAN).
+    local function doRescan()
+      descriptors = scan()
+    end
+
     local footerRow = configkit.actionRow(f, { x = fx, y = y, w = fiw }, {
       { label = "SAVE",   onClick = function() M._save(workingCfg, write) end },
-      { label = "RESCAN", onClick = function() descriptors = scan() end },
+      { label = "RESCAN", onClick = doRescan },
       { label = "< BACK", onClick = function() if nav then nav:pop() end end },
     })
 
@@ -266,7 +274,7 @@ function M.build(basalt, frame, runtime, nav, read, write, scan)
     -- tracks live cfg state, so a no-op repaint is all that's needed.
     local function apply(_state) end
 
-    return { apply = apply, elements = { groupBtns = groupBtns, footerRow = footerRow } }
+    return { apply = apply, elements = { groupBtns = groupBtns, footerRow = footerRow, rescan = doRescan } }
   end
 
   -- ===== group screen: that group's bind rows (fitLabel'd slot label + picker) + a "<" back =====
