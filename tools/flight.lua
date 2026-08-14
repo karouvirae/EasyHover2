@@ -179,7 +179,7 @@ end
 local function inputTask()
   while true do
     if typewriter and typewriter.getPressedKeyCodes then
-      heldRef.held = keymap.resolve(keymap.default, typewriter.getPressedKeyCodes() or {})
+      heldRef.held = keymap.resolve(keymap.forMode(flight.flightMode), typewriter.getPressedKeyCodes() or {})
     end
     sleep(0.05)
   end
