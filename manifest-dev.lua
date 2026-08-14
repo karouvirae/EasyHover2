@@ -221,9 +221,9 @@
         },
         {
           ["dst"] = "fcs/mixer/level_flight.lua",
-          ["size"] = 2437,
+          ["size"] = 2618,
           ["src"] = "fcs/mixer/level_flight.lua",
-          ["sum"] = "502fe29d",
+          ["sum"] = "9d81a0ab",
         },
         {
           ["dst"] = "fcs/modes/registry.lua",
@@ -533,9 +533,9 @@
         },
         {
           ["dst"] = "fcs/mixer/level_flight.lua",
-          ["size"] = 2437,
+          ["size"] = 2618,
           ["src"] = "fcs/mixer/level_flight.lua",
-          ["sum"] = "502fe29d",
+          ["sum"] = "9d81a0ab",
         },
         {
           ["dst"] = "fcs/modes/registry.lua",
@@ -860,5 +860,5 @@
     ["size"] = 70702,
     ["sum"] = "3dd2fb64",
   },
-  ["version"] = "95d15c64",
+  ["version"] = "143f0ab0",
 }

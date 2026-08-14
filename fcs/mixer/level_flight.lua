@@ -4,10 +4,13 @@ function Mixer.new() return setmetatable({}, Mixer) end
 local function clamp(v) if v < 0 then return 0 elseif v > 1 then return 1 else return v end end
 local YAW_DIR = { YFL = 1, YFR = -1, YRL = -1, YRR = 1 }
 local SWAY_DIR = { YFL = 1, YFR = -1, YRL = 1, YRR = -1 }
-function Mixer:mixLateral(sway, yaw)
+local YAWREAR_DIR = { YRL = -1, YRR = 1 }   -- rear pair only; YFL/YFR absent => 0
+function Mixer:mixLateral(sway, yaw, yawRear)
   local out = {}
   for id, ydir in pairs(YAW_DIR) do
-    out[id] = clamp((SWAY_DIR[id] or 0) * (sway or 0) + ydir * (yaw or 0))
+    out[id] = clamp((SWAY_DIR[id] or 0) * (sway or 0)
+                  + ydir * (yaw or 0)
+                  + (YAWREAR_DIR[id] or 0) * (yawRear or 0))
   end
   return out
 end
@@ -46,7 +49,7 @@ end
 function Mixer:mix(d)
   local FL, FR, RL, RR = mixLift(d.heave or 0, d.pitch or 0, d.roll or 0)
   local out = { FL = FL, FR = FR, RL = RL, RR = RR }
-  for id, duty in pairs(self:mixLateral(d.sway, d.yaw)) do out[id] = duty end
+  for id, duty in pairs(self:mixLateral(d.sway, d.yaw, d.yawRear)) do out[id] = duty end
   for id, duty in pairs(self:mixSurge(d.surge)) do out[id] = duty end
   return out
 end
