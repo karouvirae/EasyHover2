@@ -79,14 +79,14 @@ PRECISION/MAN/CRUISE. Keep the scheme/policy boundaries clean so that split is c
   ramps up while held, **decays to idle on release** (a CRUISE-style throttle that bleeds down
   instead of latching). Feel: `throttleRate`, `throttleDecay`.
 - **Cushioned brake (Space)** — decel demand `∝ max(0, surgeVel)`, floored at 0 so it tapers
-  to a stop and can never push backward. Feel: `brakeGain`, `brakeMax`.
+  to a stop and can never push backward, capped at a fixed `brakeMax`=1.0. Feel: `brakeGain`.
 - **Fine translate (arrows)** — slow surge (↑↓) + strafe (←→), lower rate than throttle/brake.
   Feel: `slowSurgeRate`, `strafeRate`.
 - **Yaw** — Q/E → rear-only route (rudder feel); `,`/`.` → existing symmetric differential
   (pure torque). Both drive the heading loop.
 - **Rampable climb (R/F)** — add hold-duration state (`climbHeld`): tap = small altitude
-  nudge, sustained hold accelerates the rate. Feel: `climbRateMin/Max`, `climbRampTime`,
-  `climbStep`.
+  nudge at the base `climbRate`, sustained hold ramps up to `climbRate*(1+climbBoost)` over
+  `climbRampTime`. Feel: `climbRampTime`, `climbBoost`.
 - **Auto-trim coupling** — as forward thrust ramps, feed a gradual pitch offset to keep the
   nose straight against accel-induced pitch; direction from the UP/DN child button, **clamped
   inside the attitude limit**. Feel: `trimGain`, `trimDir` (default **DN** = nose-down
@@ -148,9 +148,13 @@ CPL/DCPL exist in the registry. Boot default stays **PRECISION**.
 ## Config — per-mode tuning, shared calibration
 
 - `fcs/io/tuningdefaults.lua` — add `DEFAULTS.modes.CPL` and `.DCPL`, each seeded from base
-  `gains`/`caps`/`feel` (MAN/CRUISE pattern), then the new feel params: `throttleRate`,
-  `throttleDecay`, `brakeGain`, `brakeMax`, `slowSurgeRate`, `strafeRate`, `climbRateMin`,
-  `climbRateMax`, `climbRampTime`, `climbStep`, `trimGain`, `trimDir`.
+  `gains`/`caps`/`feel` (MAN/CRUISE pattern), then the new feel params. Eight user-tunable
+  numeric extras (sized to fit the FEEL-extra screen's ~8-row budget): `throttleRate`,
+  `throttleDecay`, `brakeGain`, `slowSurgeRate`, `strafeRate`, `climbRampTime`, `climbBoost`,
+  `trimGain`. Rampable climb reuses the base `feel.climbRate` as its floor and ramps to
+  `climbRate*(1+climbBoost)` over `climbRampTime`; `brakeMax` is a fixed 1.0 in the pilot.
+  `trimDir` (UP/DN enum) is stored per-mode too but is toggled by the FCS-page child button
+  (below), not a stepper.
 - Rides the existing additive `cfgspec` merge → **no schema change, zero calibration loss,
   PRECISION records untouched**. `fcs/tuning.lua` `forMode()` resolves the new ids generically.
 - **Stays single / shared (NOT per-mode):** hardware bindings (`eh2_devbind`) and sensor
