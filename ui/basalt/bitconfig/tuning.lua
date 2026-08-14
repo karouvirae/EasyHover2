@@ -22,27 +22,41 @@
 --   * "modes": PRECISION/MAN/CRUISE buttons (region:push("cat_"..mode)) + "?"(help_modes) +
 --     "<" (FRAME-level nav:pop -- this is the page's own top).
 --   * "cat_<mode>" (one per M.MODES): GAINS/CAPS/FEEL buttons (region:push into the axis layer
---     for GAINS, straight to a flat edit screen for CAPS/FEEL) + a SAVE/RST row (SAVE calls
+--     for GAINS, straight to a flat edit screen for CAPS, into the axis layer for GAINS or FEEL's
+--     own small menu for MAN/CRUISE -- see below) + a SAVE/RST row (SAVE calls
 --     M._save(workingCfg, write); RST calls M.resetMode(workingCfg, mode) -- a MODE-SCOPED
 --     reset, replacing the old whole-file M._reset/delete flow) + a "?"(help_modes)/"<"
 --     (region:pop, back to "modes") row.
 --   * "gains_axis_<mode>": ALT/PITCH/ROLL/YAW/SWAY/SURGE buttons (one per M.rows "gains.<axis>."
 --     id prefix) PLUS a "BASE" button homing the 3 non-axis gains rows (hoverDuty/heaveMin/
 --     heaveMax -- these have no axis and would otherwise be dropped by an axis-only layer) +
---     "?"(help_gains) + "<" (region:pop, back to "cat_<mode>"). CAPS/FEEL have NO axis layer.
---   * "edit_<mode>_<GROUP>[_<axis>]": the actual +/- stepper rows -- built by one shared factory
---     (buildEditScreen) parameterised by a pure filter over M.rows(workingCfg, mode), so a
---     screen's row SET (ids) is fixed at build time (M.ROW_SPEC/the per-mode extras never change
---     at runtime) while each row's displayed value/step is re-read live on every refresh(). Each
---     +/- click calls M.apply(workingCfg, mode, rowId, +-1) (the UNCHANGED Task 7 pure model) and
---     repaints just this screen's own labels. FEEL's flat list picks up MAN/CRUISE's extra
---     tilt/throttle rows automatically (M.rows(cfg,mode) already appends them) -- no separate
---     wiring needed. "?" pushes a context help screen (help_<axis> for a GAINS axis screen,
---     help_gains for the BASE screen, help_caps/help_feel for the flat lists); "<" pops back to
---     the axis layer (GAINS) or straight to "cat_<mode>" (CAPS/FEEL).
+--     "?"(help_gains) + "<" (region:pop, back to "cat_<mode>"). CAPS has NO axis layer.
+--   * FEEL fit fix (post-review): PRECISION's FEEL is flat (8 rows, title+8+footer=10 fits the
+--     ~12-row monitor's region budget EXACTLY) and goes straight to "edit_PRECISION_FEEL". MAN/
+--     CRUISE each carry 2 extra per-mode FEEL rows on top of the same 8 base ones (10 total) --
+--     title+10+footer=12 overflows that SAME budget by 2 rows, clipping the footer/"<" off-screen
+--     (a user trap: no way back). So MAN/CRUISE's FEEL button instead opens "feel_menu_<mode>" (a
+--     small BASE FEEL / MODE FEEL chooser, mirroring the GAINS axis/BASE split above), which fans
+--     out to "edit_<mode>_FEEL_base" (the 8 base rows, filtered via FEEL_BASE_IDS) and
+--     "edit_<mode>_FEEL_extra" (just that mode's 2 extras) -- each fits comfortably on its own.
+--   * "edit_<mode>_<GROUP>[_<axis>]"/"edit_<mode>_FEEL_base"/"edit_<mode>_FEEL_extra": the actual
+--     +/- stepper rows -- built by one shared factory (buildEditScreen) parameterised by a pure
+--     filter over M.rows(workingCfg, mode), so a screen's row SET (ids) is fixed at build time
+--     (M.ROW_SPEC/the per-mode extras never change at runtime) while each row's displayed
+--     value/step is re-read live on every refresh(). Each +/- click calls
+--     M.apply(workingCfg, mode, rowId, +-1) (the UNCHANGED Task 7 pure model) and repaints just
+--     this screen's own labels. "?" pushes a context help screen (help_<axis> for a GAINS axis
+--     screen, help_gains for the BASE screen, help_caps/help_feel for CAPS/FEEL); "<" pops back to
+--     the axis/menu layer (GAINS/FEEL on MAN,CRUISE) or straight to "cat_<mode>" (CAPS, PRECISION
+--     FEEL).
 --   * help_modes/help_gains/help_caps/help_feel/help_<axis> (alt/pitch/roll/yaw/sway/surge): each
 --     `function(b,f,r) return configkit.helpScreen(b,f,r,"<entryId>") end` -- configkit.helpScreen
 --     already wires its OWN "<" to region:pop(), so no extra back-wiring is needed for these.
+--   * Every screen builder exposes `elements.lastRowY` -- the y its deepest row (the footer) was
+--     placed at -- a generic, layout-derived fit signal a regression test in
+--     tests/test_bitconfig_tuning.lua asserts against the SAME `height - 2` region budget M.build
+--     itself computes, at a REALISTIC ~12-row monitor size (not the wide headless terminal, which
+--     is what let the MAN/CRUISE FEEL overflow ship in the first place).
 --
 -- NO peripheral/Basalt access at module LOAD -- everything lives inside M.build/the closures it
 -- returns, so `require("ui.basalt.bitconfig.tuning")` loads clean headless.
@@ -359,7 +373,36 @@ local function groupFilter(group)
 end
 
 local capsFilter = groupFilter("CAPS")
-local feelFilter = groupFilter("FEEL")
+local feelFilter = groupFilter("FEEL") -- PRECISION only (see FEEL split below): flat, 8 rows, fits.
+
+-- FEEL_BASE_IDS: the 8 base feel.* ids from M.ROW_SPEC (shared by every mode). MAN/CRUISE's own
+-- extra FEEL rows (feel.tiltRate/tiltCap, feel.cruiseThrottleRate/cruiseThrottleMax) are NOT in
+-- this set -- M.rows(cfg,mode) appends them after the 8 base ones, with the same "FEEL" group, so
+-- filtering on "group==FEEL and not in FEEL_BASE_IDS" cleanly isolates just the per-mode extras.
+-- title(1) + 8 base rows + footer(1) = 10 == the ~12-row monitor's region budget (h-2) EXACTLY --
+-- adding the 2 extras to that same flat screen for MAN/CRUISE would push it to 12, 2 rows past the
+-- frame (the bug this split fixes: see "gains_axis_<mode>"'s ALT/PITCH/.../BASE split for the
+-- established precedent of splitting a group that doesn't fit one screen).
+local FEEL_BASE_IDS = {}
+for _, spec in ipairs(ROW_SPEC) do
+  if spec.group == "FEEL" then FEEL_BASE_IDS[spec.id] = true end
+end
+
+local function feelBaseFilter(rows)
+  local out = {}
+  for _, r in ipairs(rows) do
+    if r.group == "FEEL" and FEEL_BASE_IDS[r.id] then out[#out + 1] = r end
+  end
+  return out
+end
+
+local function feelExtraFilter(rows)
+  local out = {}
+  for _, r in ipairs(rows) do
+    if r.group == "FEEL" and not FEEL_BASE_IDS[r.id] then out[#out + 1] = r end
+  end
+  return out
+end
 
 -- HELP_IDS: every configkit.GLOSSARY entry this page's "?" buttons can reach -- registered under
 -- screen ids "help_<id>" in the region's screens map below.
@@ -452,7 +495,11 @@ function M.build(basalt, frame, runtime, nav, read, write, delete)
 
       return {
         apply = function(_state) refresh() end,
-        elements = { titleLabel = titleLabel, rowSlots = rowSlots, footerRow = footerRow },
+        -- lastRowY: the y this screen's DEEPEST row (the footer) was placed at -- a generic,
+        -- layout-derived fit signal every screen builder exposes (see the fit-regression test in
+        -- tests/test_bitconfig_tuning.lua, which asserts lastRowY <= the region's own height for
+        -- every registered screen at a REALISTIC ~12-row monitor size).
+        elements = { titleLabel = titleLabel, rowSlots = rowSlots, footerRow = footerRow, lastRowY = y },
       }
     end
   end
@@ -489,7 +536,45 @@ function M.build(basalt, frame, runtime, nav, read, write, delete)
 
       return {
         apply = function(_state) end,
-        elements = { titleLabel = titleLabel, axisBtns = axisBtns, baseBtn = baseBtn, footerRow = footerRow },
+        elements = { titleLabel = titleLabel, axisBtns = axisBtns, baseBtn = baseBtn, footerRow = footerRow, lastRowY = y },
+      }
+    end
+  end
+
+  -- ===== feel_menu_<mode> (MAN/CRUISE only): BASE FEEL / MODE FEEL -- FEEL's own axis-less =====
+  -- ===== split (mirrors gains_axis_<mode>'s ALT/../BASE split): MAN/CRUISE's 10 FEEL rows    =====
+  -- ===== (8 base + 2 per-mode extras) don't fit ONE ~10-row screen budget (title+10+footer = =====
+  -- ===== 12), so this menu fans out to two screens that each do (8+2 and 2+2 = 10 and 4).     =====
+  -- ===== PRECISION has no extras (8 rows fits its flat screen exactly) so it skips this menu  =====
+  -- ===== entirely -- see the screens-map assembly below.                                      =====
+  local function buildFeelMenuScreen(mode)
+    return function(b, f, region)
+      local fw = ({ f:getSize() })[1]
+      local fx = 2
+      local fiw = math.max(1, fw - 2)
+      local y = 1
+
+      local titleLabel = f:addLabel({ x = fx, y = y, width = fiw, height = 1, autoSize = false, text = configkit.fitLabel("FEEL " .. abbrev(mode), fiw) })
+      y = y + 1
+
+      local baseBtn = switchbtn.make(f, { x = fx, y = y, width = fiw, height = 1, text = configkit.fitLabel("BASE FEEL", fiw) })
+      baseBtn.set("off")
+      baseBtn.button:onClick(function() region:push("edit_" .. mode .. "_FEEL_base") end)
+      y = y + 1
+
+      local extraBtn = switchbtn.make(f, { x = fx, y = y, width = fiw, height = 1, text = configkit.fitLabel("MODE FEEL", fiw) })
+      extraBtn.set("off")
+      extraBtn.button:onClick(function() region:push("edit_" .. mode .. "_FEEL_extra") end)
+      y = y + 1
+
+      local footerRow = configkit.actionRow(f, { x = fx, y = y, w = fiw }, {
+        { label = "?", onClick = function() region:push("help_feel") end },
+        { label = "<", onClick = function() region:pop() end },
+      })
+
+      return {
+        apply = function(_state) end,
+        elements = { titleLabel = titleLabel, baseBtn = baseBtn, extraBtn = extraBtn, footerRow = footerRow, lastRowY = y },
       }
     end
   end
@@ -505,10 +590,14 @@ function M.build(basalt, frame, runtime, nav, read, write, delete)
       local titleLabel = f:addLabel({ x = fx, y = y, width = fiw, height = 1, autoSize = false, text = configkit.fitLabel("TUNE " .. abbrev(mode), fiw) })
       y = y + 1
 
+      -- FEEL's target depends on the mode: PRECISION's flat 8-row screen fits the region budget
+      -- exactly, so it stays a direct edit screen; MAN/CRUISE's 10 rows do not (see
+      -- buildFeelMenuScreen's header note), so they route through the small BASE/MODE FEEL menu.
+      local feelTarget = (mode == "PRECISION") and ("edit_" .. mode .. "_FEEL") or ("feel_menu_" .. mode)
       local CATS = {
         { id = "GAINS", target = "gains_axis_" .. mode },
         { id = "CAPS",  target = "edit_" .. mode .. "_CAPS" },
-        { id = "FEEL",  target = "edit_" .. mode .. "_FEEL" },
+        { id = "FEEL",  target = feelTarget },
       }
       local catBtns = {}
       for _, c in ipairs(CATS) do
@@ -547,6 +636,7 @@ function M.build(basalt, frame, runtime, nav, read, write, delete)
           titleLabel = titleLabel, catBtns = catBtns,
           saveRstRow = saveRstRow, helpBackRow = helpBackRow,
           doSave = doSave, doReset = doReset,
+          lastRowY = y,
         },
       }
     end
@@ -575,7 +665,7 @@ function M.build(basalt, frame, runtime, nav, read, write, delete)
 
     return {
       apply = function(_state) end,
-      elements = { modeBtns = modeBtns, footerRow = footerRow },
+      elements = { modeBtns = modeBtns, footerRow = footerRow, lastRowY = y },
     }
   end
 
@@ -590,7 +680,15 @@ function M.build(basalt, frame, runtime, nav, read, write, delete)
     end
     screens["edit_" .. mode .. "_GAINS_base"] = buildEditScreen(mode, gainsBaseFilter, "BASE " .. abbrev(mode), "gains")
     screens["edit_" .. mode .. "_CAPS"] = buildEditScreen(mode, capsFilter, "CAPS " .. abbrev(mode), "caps")
-    screens["edit_" .. mode .. "_FEEL"] = buildEditScreen(mode, feelFilter, "FEEL " .. abbrev(mode), "feel")
+    if mode == "PRECISION" then
+      -- PRECISION has no per-mode FEEL extras: 8 base rows fits the flat screen exactly (see
+      -- FEEL_BASE_IDS's header note) -- no need for the BASE/MODE FEEL split MAN/CRUISE get.
+      screens["edit_" .. mode .. "_FEEL"] = buildEditScreen(mode, feelFilter, "FEEL " .. abbrev(mode), "feel")
+    else
+      screens["feel_menu_" .. mode] = buildFeelMenuScreen(mode)
+      screens["edit_" .. mode .. "_FEEL_base"] = buildEditScreen(mode, feelBaseFilter, "FEEL " .. abbrev(mode), "feel")
+      screens["edit_" .. mode .. "_FEEL_extra"] = buildEditScreen(mode, feelExtraFilter, "MODE FEEL " .. abbrev(mode), "feel")
+    end
   end
   for _, entryId in ipairs(HELP_IDS) do
     screens["help_" .. entryId] = function(b, f, r) return configkit.helpScreen(b, f, r, entryId) end

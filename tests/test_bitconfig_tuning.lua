@@ -453,7 +453,7 @@ t.test("M.build: GAINS axis screen's BASE button homes the 3 non-axis gains rows
   t.truthy(ids["gains.heaveMax"], "gains.heaveMax present on BASE screen")
 end)
 
-t.test("M.build: CAPS/FEEL have no axis layer -- flat edit screens; FEEL row count matches M.rows' per-mode extras", function()
+t.test("M.build: CAPS/FEEL have no axis layer -- CAPS is flat; PRECISION FEEL is flat; MAN/CRUISE FEEL splits into BASE/MODE FEEL (fit fix)", function()
   local basalt, frame, nav, read, write, delete = newHarness()
   local h = M.build(basalt, frame, nil, nav, read, write, delete)
   local region = h.elements.region
@@ -465,17 +465,53 @@ t.test("M.build: CAPS/FEEL have no axis layer -- flat edit screens; FEEL row cou
 
   region:pop(); h.apply({})
   region:push("edit_PRECISION_FEEL"); h.apply({})
-  t.eq(#region.built.edit_PRECISION_FEEL.handle.elements.rowSlots, 8, "8 FEEL rows for PRECISION (no extras)")
+  t.eq(#region.built.edit_PRECISION_FEEL.handle.elements.rowSlots, 8, "8 FEEL rows for PRECISION (no extras) -- stays flat")
 
   region:pop(); region:pop() -- back to modes
   region:push("cat_MAN"); h.apply({})
-  region:push("edit_MAN_FEEL"); h.apply({})
-  local manFeel = region.built.edit_MAN_FEEL.handle.elements.rowSlots
-  t.eq(#manFeel, 10, "10 FEEL rows for MAN (8 base + tiltRate/tiltCap)")
-  local manIds = {}
-  for _, slot in ipairs(manFeel) do manIds[slot.id] = true end
-  t.truthy(manIds["feel.tiltRate"], "MAN FEEL includes feel.tiltRate")
-  t.truthy(manIds["feel.tiltCap"], "MAN FEEL includes feel.tiltCap")
+  local catMan = region.built.cat_MAN.handle
+  t.truthy(catMan.elements.catBtns.FEEL ~= nil, "cat_MAN has a FEEL button")
+
+  -- MAN's FEEL button routes to the small feel_menu_MAN (BASE FEEL / MODE FEEL), NOT a flat
+  -- 10-row edit screen -- that flat screen would overflow a realistic ~12-row monitor's region
+  -- budget (title 1 + 10 rows + footer 1 = 12 > 10; see the fit-regression test below).
+  region:push("feel_menu_MAN"); h.apply({})
+  t.eq(region:top(), "feel_menu_MAN")
+  local feelMenu = region.built.feel_menu_MAN.handle
+  t.truthy(feelMenu.elements.baseBtn ~= nil, "feel_menu_MAN has a BASE FEEL button")
+  t.truthy(feelMenu.elements.extraBtn ~= nil, "feel_menu_MAN has a MODE FEEL button")
+
+  region:push("edit_MAN_FEEL_base"); h.apply({})
+  local manFeelBase = region.built.edit_MAN_FEEL_base.handle.elements.rowSlots
+  t.eq(#manFeelBase, 8, "BASE FEEL has the 8 base feel rows, no per-mode extras")
+  for _, slot in ipairs(manFeelBase) do
+    t.truthy(slot.id ~= "feel.tiltRate" and slot.id ~= "feel.tiltCap", "BASE FEEL excludes MAN's own extras: " .. slot.id)
+  end
+
+  region:pop(); h.apply({})
+  region:push("edit_MAN_FEEL_extra"); h.apply({})
+  local manFeelExtra = region.built.edit_MAN_FEEL_extra.handle.elements.rowSlots
+  t.eq(#manFeelExtra, 2, "MODE FEEL has exactly MAN's 2 per-mode extras")
+  local extraIds = {}
+  for _, slot in ipairs(manFeelExtra) do extraIds[slot.id] = true end
+  t.truthy(extraIds["feel.tiltRate"], "MODE FEEL includes feel.tiltRate")
+  t.truthy(extraIds["feel.tiltCap"], "MODE FEEL includes feel.tiltCap")
+end)
+
+t.test("M.build: CRUISE FEEL also splits into BASE/MODE FEEL, with CRUISE's own throttle extras", function()
+  local basalt, frame, nav, read, write, delete = newHarness()
+  local h = M.build(basalt, frame, nil, nav, read, write, delete)
+  local region = h.elements.region
+
+  region:push("cat_CRUISE"); h.apply({})
+  region:push("feel_menu_CRUISE"); h.apply({})
+  region:push("edit_CRUISE_FEEL_extra"); h.apply({})
+  local extra = region.built.edit_CRUISE_FEEL_extra.handle.elements.rowSlots
+  t.eq(#extra, 2, "MODE FEEL has exactly CRUISE's 2 per-mode extras")
+  local ids = {}
+  for _, slot in ipairs(extra) do ids[slot.id] = true end
+  t.truthy(ids["feel.cruiseThrottleRate"], "MODE FEEL includes feel.cruiseThrottleRate")
+  t.truthy(ids["feel.cruiseThrottleMax"], "MODE FEEL includes feel.cruiseThrottleMax")
 end)
 
 t.test("M.build: '?' opens a help screen with real glossary content (help_alt, help_modes)", function()
@@ -554,6 +590,57 @@ t.test("M.build: '<' -- modes pops the FRAME-level nav; region screens pop the R
   region:pop(); h.apply({})
   t.eq(region:top(), "modes", "cat screen's back returns to modes via region:pop()")
   t.eq(nav:top(), "bitconfig", "frame-level nav untouched by region-internal drilldown")
+end)
+
+-- ===== REGRESSION: every screen must fit a REALISTIC monitor, not the wide headless terminal =====
+-- The old flat MAN/CRUISE FEEL edit screen (10 rows: 8 base + 2 per-mode extras) rendered its
+-- footer/"<" row ~2 rows past a realistic ~12-row monitor's region budget (title 1 + 10 rows +
+-- footer 1 = 12 > budget 10) -- a genuine user trap (no way back). The wide term.current() frame
+-- every other construction-probe test above builds on (see newHarness()) never exercises this: it
+-- has plenty of headroom regardless of row count. This test builds on an EXPLICIT short/narrow
+-- child frame (14x12, mirroring test_region.lua's own convention of an explicit small
+-- width/height rather than the parent's inherited term size) so `frame:getSize()` inside M.build
+-- really does return a realistic monitor size, and walks EVERY registered screen (skipping the
+-- help_* ones, which have their own established scrollable-content contract via
+-- configkit.helpScreen) asserting its deepest row (lastRowY, exposed by every screen builder)
+-- fits the SAME `height - 2` region budget M.build itself computes.
+t.test("REGRESSION: every tuning screen's deepest row fits a realistic ~12-row monitor's region budget", function()
+  local basalt = BasaltApp.ensureBasalt()
+  local root = basalt.createFrame()
+  -- Explicit short/narrow child frame -- NOT term.current()'s wide default -- mirrors
+  -- tests/test_region.lua's Region.new({width=14,height=8,...}) convention of passing an explicit
+  -- small size, applied here to the PAGE frame M.build itself measures via frame:getSize().
+  local frame = root:addFrame({ x = 1, y = 1, width = 14, height = 12 })
+  local nav = Nav.new("bitconfig")
+  local stored = nil
+  local function read(filename) return stored end
+  local function write(filename, body) stored = body end
+  local function delete(path) stored = nil end
+
+  local h = M.build(basalt, frame, nil, nav, read, write, delete)
+  local region = h.elements.region
+
+  local frameW, frameH = frame:getSize()
+  t.eq(frameH, 12, "sanity: the page frame really is the short/realistic size, not the wide headless default")
+  local regionBudget = frameH - 2 -- mirrors M.build's own `height = math.max(1, h - 2)` exactly
+
+  local checked = 0
+  for id, _ in pairs(region.screens) do
+    if id:sub(1, 5) ~= "help_" then
+      region:push(id)
+      h.apply({})
+      local rec = region.built[id]
+      t.truthy(rec ~= nil, id .. " built")
+      local handle = rec.handle
+      t.truthy(handle.elements.lastRowY ~= nil, id .. " exposes lastRowY")
+      t.truthy(handle.elements.lastRowY <= regionBudget,
+        id .. ": lastRowY=" .. tostring(handle.elements.lastRowY) .. " exceeds region budget " .. tostring(regionBudget))
+      checked = checked + 1
+    end
+  end
+  -- Sanity floor: modes(1) + cat*3 + gains_axis*3 + edit GAINS axis(18) + GAINS base*3 + CAPS*3 +
+  -- (PRECISION FEEL flat*1 + feel_menu*2 + FEEL base*2 + FEEL extra*2) = 1+3+3+18+3+3+7 = 38.
+  t.truthy(checked >= 38, "walked all non-help screens across every mode, got " .. checked)
 end)
 
 return true
