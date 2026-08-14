@@ -90,3 +90,42 @@ t.test("scrollWindow reports atBottom at the tail and mid-scroll neither", funct
   t.eq(#tail.visible, 2, "two rows at tail")
   t.truthy(not tail.atTop and tail.atBottom, "at bottom not top")
 end)
+
+-- ===== Basalt chrome: actionRow + helpScreen construction probe =====
+
+t.test("actionRow + helpScreen construction probe: builds, one render pass does not error", function()
+  local BasaltApp = require("ui.basalt.app")
+  local Region = require("ui.basalt.region")
+  local basalt = BasaltApp.ensureBasalt()
+  local frame = basalt.createFrame()
+
+  local clicked = {}
+  local row = ck.actionRow(frame, { x = 1, y = 1, w = 15 }, {
+    { label = "ONE",   onClick = function() clicked[1] = true end },
+    { label = "TWO",   onClick = function() clicked[2] = true end },
+    { label = "THREE", onClick = function() clicked[3] = true end },
+  })
+  t.eq(#row.buttons, 3, "three buttons built")
+  t.truthy(row.buttons[1].button ~= nil, "button 1 present")
+  t.truthy(type(row.buttons[1].set) == "function", "button 1 has a set()")
+  t.truthy(type(row.setState) == "function", "setState is a function")
+  row.setState(1, "on")
+
+  local parent = basalt.createFrame()
+  local region = Region.new(basalt, parent, {
+    x = 1, y = 1, width = 20, height = 15, root = "help_gains",
+    screens = {
+      help_gains = function(b, f, rg) return ck.helpScreen(b, f, rg, "gains") end,
+    },
+  })
+  region:apply({})
+  t.truthy(region.built.help_gains ~= nil, "help screen built")
+  local handle = region.built.help_gains.handle
+  t.truthy(handle.elements ~= nil, "help screen exposes elements")
+  t.truthy(handle.elements.lineLabels ~= nil and #handle.elements.lineLabels >= 1, "at least one line label")
+  t.truthy(handle.elements.row ~= nil, "help screen action row present")
+  t.truthy(type(handle.apply) == "function", "apply is a function")
+
+  local ok, err = pcall(function() basalt.update("timer", -1) end)
+  t.truthy(ok, "basalt.update should not error: " .. tostring(err))
+end)

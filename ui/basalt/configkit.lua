@@ -1,8 +1,13 @@
 -- ui/basalt/configkit.lua
--- Shared PURE helpers for the BIT/CONFIG page overhaul: label fitting, button-width splitting,
--- a plain-language tuning glossary, and paging math for the help scroll. NO Basalt access here --
--- every page's chrome (buttons/frames/region wiring) is built on top of this in later tasks, but
--- this module itself must be requirable and fully testable headless, with no peripheral access.
+-- Shared helpers for the BIT/CONFIG page overhaul: label fitting, button-width splitting, a
+-- plain-language tuning glossary, paging math for the help scroll (all PURE, Task 1) -- PLUS
+-- (Task 2) the Basalt CHROME built on top: a shared action-button row and a scrollable help
+-- screen, which the restructured config pages reuse. Requiring switchbtn is load-safe (it does no
+-- Basalt/peripheral work at module load, same discipline as this module), so `require
+-- ("ui.basalt.configkit")` still loads clean headless -- Basalt objects only ever flow through
+-- M.actionRow/M.helpScreen's own parameters, never touched at module load.
+local switchbtn = require("ui.basalt.switchbtn")
+
 local M = {}
 
 -- fitLabel(text, width): same behaviour as listpicker.formatLabel (strip one leading
@@ -179,6 +184,95 @@ function M.scrollWindow(lines, offset, rows)
     visible = visible,
     atTop = offset <= 0,
     atBottom = (offset + rows) >= n,
+  }
+end
+
+-- ===== Basalt chrome (Task 2) =====
+
+-- M.actionRow(frame, {x, y, w}, specs) -> { buttons = {...}, setState(i, state) }
+-- One horizontal row of switch-styled buttons whose widths come from splitWidths(w, #specs),
+-- placed left-to-right starting at x. Each spec = { label, onClick, state? }; the label is passed
+-- through fitLabel(label, cellWidth) so it never overruns its cell. Built with switchbtn.make for
+-- consistent styling and a per-button set(state) -- default state is "off" unless spec.state is
+-- given. setState(i, state) forwards to the i-th button's set().
+function M.actionRow(frame, pos, specs)
+  local widths = M.splitWidths(pos.w, #specs)
+  local buttons = {}
+  local px = pos.x
+  for i, spec in ipairs(specs) do
+    local width = widths[i] or 1
+    local sw = switchbtn.make(frame, {
+      x = px, y = pos.y, width = width, height = 1,
+      text = M.fitLabel(spec.label, width),
+    })
+    local onClick = spec.onClick
+    sw.button:onClick(function() if onClick then onClick() end end)
+    sw.set(spec.state or "off")
+    buttons[i] = sw
+    px = px + width
+  end
+  local function setState(i, state)
+    if buttons[i] then buttons[i].set(state) end
+  end
+  return { buttons = buttons, setState = setState }
+end
+
+-- M.helpScreen(basalt, frame, region, entryId) -> { apply = function(state) end }
+-- A region screen (matches ui/basalt/region.lua's builder contract): stacks helpLines(entryId, w)
+-- as labels, paged through scrollWindow, with a bottom actionRow of [UP][DN][<]. UP/DN adjust a
+-- local scroll offset (clamped to the content, then re-render); "<" pops the region's nav. UP is
+-- disabled at the top of the content and DN at the bottom (scrollWindow's atTop/atBottom), via
+-- setState(..., "disabled"). apply() is a no-op -- like the other non-telemetry BIT/CONFIG
+-- sub-menus (e.g. dtc.lua), this screen shows static help text, not live state.
+function M.helpScreen(basalt, frame, region, entryId)
+  local w, h = frame:getSize()
+  local rowsAvailable = math.max(1, h - 1) -- bottom row reserved for the action row
+  local lines = M.helpLines(entryId, w)
+  local maxOffset = math.max(0, #lines - rowsAvailable)
+  local offset = 0
+
+  local lineLabels = {}
+  for i = 1, rowsAvailable do
+    lineLabels[i] = frame:addLabel({ x = 1, y = i, width = w, height = 1, autoSize = false, text = "" })
+  end
+
+  -- Forward-declared: render() closes over `row` (assigned below) and up()/down() (assigned
+  -- below) close over render() -- all fine as upvalues once every local exists, but `row` itself
+  -- must be declared before render() is DEFINED (not just before it's CALLED), or the reference
+  -- inside render() would resolve to a global instead of this local.
+  local row
+
+  local function render()
+    local win = M.scrollWindow(lines, offset, rowsAvailable)
+    for i = 1, rowsAvailable do
+      lineLabels[i]:setText(win.visible[i] or "")
+    end
+    row.setState(1, win.atTop and "disabled" or "off")
+    row.setState(2, win.atBottom and "disabled" or "off")
+  end
+
+  local function up()
+    offset = math.max(0, offset - 1)
+    render()
+  end
+  local function down()
+    offset = math.min(maxOffset, offset + 1)
+    render()
+  end
+
+  row = M.actionRow(frame, { x = 1, y = h, w = w }, {
+    { label = "UP", onClick = up },
+    { label = "DN", onClick = down },
+    { label = "<",  onClick = function() region:pop() end },
+  })
+
+  render()
+
+  local function apply(_state) end
+
+  return {
+    apply = apply,
+    elements = { lineLabels = lineLabels, row = row },
   }
 end
 
