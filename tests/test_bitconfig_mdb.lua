@@ -31,6 +31,69 @@ t.test("SLOTS: covers every thruster + sensor key plus one relay slot, none drop
   t.eq(relayCount, 1)
 end)
 
+-- ===== M.GROUPS / M.slotsForGroup: pure grouping for the overview->group drilldown =====
+
+t.test("slotsForGroup: every M.SLOTS entry belongs to exactly one of the 5 groups", function()
+  t.eq(#M.GROUPS, 5)
+  local seenIn = {}
+  local total = 0
+  for _, g in ipairs(M.GROUPS) do
+    for _, s in ipairs(M.slotsForGroup(g)) do
+      local key = s.slotKind .. ":" .. tostring(s.slot)
+      t.truthy(seenIn[key] == nil, "slot claimed by only one group: " .. key .. " (already in " .. tostring(seenIn[key]) .. ")")
+      seenIn[key] = g
+      total = total + 1
+    end
+  end
+  t.eq(total, #M.SLOTS, "every group's slots sum to exactly #M.SLOTS (no drops, no duplicates)")
+  for _, s in ipairs(M.SLOTS) do
+    local key = s.slotKind .. ":" .. tostring(s.slot)
+    t.truthy(seenIn[key] ~= nil, "every M.SLOTS entry is covered by some group: " .. key)
+  end
+end)
+
+t.test("slotsForGroup: LIFT/LATERAL/MAIN-FR/SENSORS/RELAY map to the expected slot subsets", function()
+  local function keysOf(rows)
+    local out = {}
+    for _, r in ipairs(rows) do out[r.slot] = true end
+    return out
+  end
+
+  local lift = M.slotsForGroup("LIFT")
+  t.eq(#lift, 4)
+  local liftKeys = keysOf(lift)
+  for _, k in ipairs({ "FL", "FR", "RL", "RR" }) do t.truthy(liftKeys[k], "LIFT includes " .. k) end
+  for _, s in ipairs(lift) do t.eq(s.slotKind, "thruster") end
+
+  local lateral = M.slotsForGroup("LATERAL")
+  t.eq(#lateral, 4)
+  local latKeys = keysOf(lateral)
+  for _, k in ipairs({ "YFL", "YFR", "YRL", "YRR" }) do t.truthy(latKeys[k], "LATERAL includes " .. k) end
+  for _, s in ipairs(lateral) do t.eq(s.slotKind, "thruster") end
+
+  local mainfr = M.slotsForGroup("MAIN/FR")
+  t.eq(#mainfr, 3)
+  local mfKeys = keysOf(mainfr)
+  for _, k in ipairs({ "MAIN", "FRL", "FRR" }) do t.truthy(mfKeys[k], "MAIN/FR includes " .. k) end
+  for _, s in ipairs(mainfr) do t.eq(s.slotKind, "thruster") end
+
+  local sensors = M.slotsForGroup("SENSORS")
+  t.eq(#sensors, 7)
+  for _, s in ipairs(sensors) do t.eq(s.slotKind, "sensor") end
+
+  local relay = M.slotsForGroup("RELAY")
+  t.eq(#relay, 1)
+  t.eq(relay[1].slotKind, "relay")
+  t.eq(relay[1].slot, nil)
+
+  t.eq(#lift + #lateral + #mainfr, 11, "the 3 thruster groups sum to all 11 thruster slots")
+end)
+
+t.test("slotsForGroup: unknown group returns no slots", function()
+  t.eq(#M.slotsForGroup("NOPE"), 0)
+  t.eq(#M.slotsForGroup(nil), 0)
+end)
+
 -- ===== M.view: pure, reads cfg + classifies descriptors via binddevices.candidates =====
 
 t.test("view: thruster row reflects cfg.thrusters[slot] and candidates are thruster-typed descriptor names", function()
@@ -182,7 +245,7 @@ end)
 
 -- ===== Construction probe: real CraftOS-PC Basalt, no real peripherals =====
 
-t.test("M.build constructs the element tree; apply() + one render pass do not error", function()
+t.test("M.build: overview shows the 5 group buttons + SAVE/RESCAN/BACK; apply() + one render pass do not error", function()
   local basalt = BasaltApp.ensureBasalt()
   local frame = basalt.createFrame()   -- binds to term.current(), per ui/basalt/app.lua's header
 
@@ -201,12 +264,19 @@ t.test("M.build constructs the element tree; apply() + one render pass do not er
   t.truthy(type(h.apply) == "function", "apply should be a function")
   t.truthy(h.elements ~= nil, "elements table should be exposed")
   t.truthy(h.elements.headerLabel ~= nil, "headerLabel present")
-  t.truthy(h.elements.saveBtn ~= nil, "saveBtn present")
-  t.truthy(h.elements.rescanBtn ~= nil, "rescanBtn present")
-  t.truthy(h.elements.backBtn ~= nil, "backBtn present")
-  t.truthy(#h.elements.rowSlots > 0, "at least one row slot present")
-  t.truthy(h.elements.rowSlots[1].picker ~= nil, "row slot exposes a picker, not a cycle button")
-  t.truthy(h.elements.rowSlots[1].picker.trigger ~= nil, "picker exposes its trigger element")
+
+  local region = h.elements.region
+  t.truthy(region ~= nil, "region exposed")
+  t.eq(region:top(), "overview", "region starts at the overview screen")
+
+  local overviewRec = region.built.overview
+  t.truthy(overviewRec ~= nil, "overview screen built eagerly by M.build")
+  local ov = overviewRec.handle
+  for _, g in ipairs(M.GROUPS) do
+    t.truthy(ov.elements.groupBtns[g] ~= nil, "overview has a group button for " .. g)
+  end
+  t.truthy(ov.elements.footerRow ~= nil, "overview has the SAVE/RESCAN/BACK footer row")
+  t.eq(#ov.elements.footerRow.buttons, 3, "footer row has exactly SAVE/RESCAN/BACK")
 
   local ok, err = pcall(h.apply, {})
   t.truthy(ok, "apply should not error: " .. tostring(err))
@@ -217,18 +287,65 @@ t.test("M.build constructs the element tree; apply() + one render pass do not er
   t.truthy(ok3, "basalt.update should not error: " .. tostring(err3))
 end)
 
-t.test("M.build: page count matches ceil(#SLOTS / rows-per-page), header shows p1/N", function()
+t.test("M.build: drilling a group shows that group's fitLabel'd rows + pickers; '<' pops back to overview", function()
   local basalt = BasaltApp.ensureBasalt()
   local frame = basalt.createFrame()
   local nav = Nav.new("bitconfig")
   local stored = nil
   local function read(filename) return stored end
   local function write(filename, body) stored = body end
+  local descriptors = {
+    { name = "thruster_1", type = "thruster" },
+    { name = "gimbal_0", type = "gimbal_sensor" },
+  }
+  local function scan() return descriptors end
+
+  local h = M.build(basalt, frame, nil, nav, read, write, scan)
+  local region = h.elements.region
+
+  -- Drill into LIFT the same way its group button's onClick does (region:push), then let apply()
+  -- lazily build + repaint it (mirrors what a real render-gate tick does after the nav bump).
+  region:push("LIFT")
+  h.apply({})
+  t.eq(region:top(), "LIFT")
+
+  local liftRec = region.built.LIFT
+  t.truthy(liftRec ~= nil, "LIFT group screen built on first visit")
+  local rowSlots = liftRec.handle.elements.rowSlots
+  t.eq(#rowSlots, #M.slotsForGroup("LIFT"), "one row per LIFT slot, no more no less")
+  t.truthy(rowSlots[1].label ~= nil, "row exposes a fitLabel'd slot label")
+  t.truthy(rowSlots[1].picker ~= nil, "row exposes a picker, not a cycle button")
+  t.truthy(rowSlots[1].picker.trigger ~= nil, "picker exposes its trigger element")
+  t.truthy(liftRec.handle.elements.backRow ~= nil, "group screen exposes its '<' back row")
+
+  -- '<' pops the REGION's own nav (back to overview), not the frame-level nav -- drilling/backing
+  -- out of a group never touches the outer bitconfig-hub nav stack.
+  region:pop()
+  h.apply({})
+  t.eq(region:top(), "overview", "region back returns to the overview screen")
+  t.eq(nav:top(), "bitconfig", "frame-level nav untouched by region-internal drilldown")
+end)
+
+t.test("M.build: overview's BACK button pops the FRAME-level nav stack (unchanged from before)", function()
+  local basalt = BasaltApp.ensureBasalt()
+  local frame = basalt.createFrame()
+  local nav = Nav.new("bitconfig")
+  nav:push("mdb")
+  t.eq(nav:top(), "mdb")
+
+  local stored = nil
+  local function read(filename) return stored end
+  local function write(filename, body) stored = body end
   local function scan() return {} end
 
   local h = M.build(basalt, frame, nil, nav, read, write, scan)
-  local text = h.elements.headerLabel:getText()
-  t.truthy(text:find("p1/"), "header shows current page, got: " .. tostring(text))
+  local ov = h.elements.region.built.overview.handle
+  t.truthy(ov.elements.footerRow ~= nil, "overview footer row (incl. BACK) present")
+
+  -- Directly invoke nav:pop() the same way the BACK button's onClick does (a real click needs
+  -- basalt.run(), forbidden here).
+  nav:pop()
+  t.eq(nav:top(), "bitconfig")
 end)
 
 t.test("M.build: scans once via injected scan at build time; SAVE writes via injected write", function()
@@ -254,28 +371,6 @@ t.test("M.build: scans once via injected scan at build time; SAVE writes via inj
   t.truthy(stored ~= nil, "SAVE wrote a body")
   local parsed = textutils.unserialise(stored)
   t.eq(parsed.fuelRelay, "relay_1")
-end)
-
-t.test("M.build: BACK button pops the nav stack", function()
-  local basalt = BasaltApp.ensureBasalt()
-  local frame = basalt.createFrame()
-
-  local nav = Nav.new("bitconfig")
-  nav:push("mdb")
-  t.eq(nav:top(), "mdb")
-
-  local stored = nil
-  local function read(filename) return stored end
-  local function write(filename, body) stored = body end
-  local function scan() return {} end
-
-  local h = M.build(basalt, frame, nil, nav, read, write, scan)
-  t.truthy(h.elements.backBtn ~= nil, "backBtn present")
-
-  -- Directly invoke nav:pop() the same way backBtn's onClick does (a real click needs
-  -- basalt.run(), forbidden here).
-  nav:pop()
-  t.eq(nav:top(), "bitconfig")
 end)
 
 return true

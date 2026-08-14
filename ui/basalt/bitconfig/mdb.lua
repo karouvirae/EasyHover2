@@ -22,6 +22,9 @@ local cfgspec      = require("fcs.io.cfgspec")
 local binddevices   = require("tools.binddevices")
 local fsx           = require("fcs.io.fsx")
 local Picker        = require("ui.basalt.picker")
+local configkit      = require("ui.basalt.configkit")
+local switchbtn      = require("ui.basalt.switchbtn")
+local Region         = require("ui.basalt.region")
 
 local M = {}
 M.id = "mdb"
@@ -51,6 +54,41 @@ local function buildSlots()
 end
 
 M.SLOTS = buildSlots()
+
+-- ===== M.GROUPS / M.slotsForGroup: pure grouping of M.SLOTS for the overview->group drilldown. =====
+-- Thruster slots are grouped by mixer role, per fcs/frame.lua's own LIFT/LATERAL/MAIN/FRONTAL
+-- split (fcs/mixer/level_flight.lua mixes them accordingly): LIFT = the 4 vertical-lift thrusters
+-- (FL/FR/RL/RR, mixed from heave+pitch/roll), LATERAL = the 4 lateral thrusters (YFL/YFR/YRL/YRR,
+-- mixed from sway+yaw), MAIN/FR = the main + frontal surge thrusters (MAIN forward, FRL/FRR
+-- reverse pair) -- combined into one screen since together they're only 3 slots. All sensor slots
+-- share one SENSORS screen; the single relay slot gets its own RELAY screen. Every M.SLOTS entry
+-- belongs to EXACTLY one group (asserted by a test).
+M.GROUPS = { "LIFT", "LATERAL", "MAIN/FR", "SENSORS", "RELAY" }
+
+local THRUSTER_GROUP_KEYS = {
+  LIFT        = { FL = true, FR = true, RL = true, RR = true },
+  LATERAL     = { YFL = true, YFR = true, YRL = true, YRR = true },
+  ["MAIN/FR"] = { MAIN = true, FRL = true, FRR = true },
+}
+
+-- M.slotsForGroup(group) -> the subset of M.SLOTS (same {slotKind,slot} row shape, in M.SLOTS'
+-- own order) belonging to `group`. Unknown group -> {} (no slots). PURE.
+function M.slotsForGroup(group)
+  local thrusterKeys = THRUSTER_GROUP_KEYS[group]
+  local out = {}
+  for _, s in ipairs(M.SLOTS) do
+    local belongs
+    if s.slotKind == "thruster" then
+      belongs = thrusterKeys ~= nil and thrusterKeys[s.slot] == true
+    elseif s.slotKind == "sensor" then
+      belongs = (group == "SENSORS")
+    else -- "relay"
+      belongs = (group == "RELAY")
+    end
+    if belongs then out[#out + 1] = s end
+  end
+  return out
+end
 
 -- Read the current binding for a slot out of a devbind cfg. Nil-safe: an absent/unbound slot
 -- reads as `false` (matches cfgspec.defaults("devbind")'s own unbound representation).
@@ -160,10 +198,13 @@ local function realScan()
   return out
 end
 
--- ===== M.build: construct the paged per-slot DROPDOWN element tree =====
--- Each of the 19 slots gets a Picker (ui/basalt/picker.lua) instead of a CYCLE button: the
--- operator opens the dropdown, sees every candidate name at once, and taps the one they want
--- (plus a "(none)" entry to unbind) -- no more hunting through an abbreviated-name cycle.
+-- ===== M.build: construct the overview->group drilldown element tree =====
+-- Each of the 19 slots still gets a Picker (ui/basalt/picker.lua) instead of a CYCLE button (see
+-- the header note), but they're no longer one long paged list: ui/basalt/region.lua hosts a
+-- 5-group drilldown (M.GROUPS) inside this screen's own nav stack, root "overview" -- the
+-- overview screen shows the 5 group buttons + SAVE/RESCAN/BACK, and each group screen shows only
+-- that group's bind rows (at most 7, for SENSORS), which is short enough that an open picker
+-- overlay always has headroom (fixes the old paged-list's open-dropdown-past-bottom clip).
 
 function M.build(basalt, frame, runtime, nav, read, write, scan)
   read = read or realRead
@@ -181,117 +222,133 @@ function M.build(basalt, frame, runtime, nav, read, write, scan)
 
   local headerLabel = frame:addLabel({ x = x, y = 2, width = iw, height = 1, autoSize = false, text = M.title })
 
-  local dataTop = 3
-  local footerRows = 2
-  local dataRows = math.max(1, h - dataTop - footerRows + 1)
-  local ROWS_PER_PAGE = dataRows
+  -- A region-internal nav push/pop (drilling a group, or backing out of one) isn't a FRAME-level
+  -- nav change, so it wouldn't otherwise wake the dirty-gated render loop (ui/basalt/app.lua's
+  -- navChanged() only watches frameRec.nav) -- bump runtime.uiRev so the next render-gate tick
+  -- picks it up, exactly like ui/basalt/pages/flight.lua's regions do.
+  local function bump()
+    if runtime then runtime.uiRev = (runtime.uiRev or 0) + 1 end
+  end
 
-  -- Give the dropdown a usable width for peripheral names; DropDown truncates ("...") anything
-  -- longer than fits, per release/basalt-full.lua's List:render. dropdownHeight is kept modest
-  -- (see DROPDOWN_HEIGHT below) -- a slot near the page bottom can still have its OPEN dropdown
-  -- extend past the frame's bottom edge; that's an accepted tradeoff, not solved by shrinking
-  -- rows-per-page (see the dropdown-mdb-report.md concerns section).
+  -- Give the picker a usable width for peripheral names; the trigger truncates ("~tail") anything
+  -- longer than fits, per ui/basalt/picker.lua. dropdownHeight is kept modest -- with each group
+  -- screen now at most 7 rows tall, an open overlay always has room below it.
   local dropW = math.max(6, math.min(12, math.floor(iw * 0.5)))
   local labelW = math.max(1, iw - dropW - 1)
   local dropX = x + labelW + 1
   local DROPDOWN_HEIGHT = 5
 
-  local rowSlots = {}
-  local slotRowInfo = {}
-  local state = { page = 1 }
+  -- ===== overview screen: 5 stacked group buttons + a SAVE/RESCAN/BACK footer row =====
+  local function buildOverview(b, f, region)
+    local fw = f:getSize()
+    local fx = 2
+    local fiw = math.max(1, fw - 2)
 
-  local function refreshPage()
-    local rows = M.view(workingCfg, descriptors)
-    local totalPages = math.max(1, math.ceil(#rows / ROWS_PER_PAGE))
-    if state.page > totalPages then state.page = totalPages end
-    if state.page < 1 then state.page = 1 end
-    headerLabel:setText(M.title .. "  p" .. state.page .. "/" .. totalPages)
+    local groupBtns = {}
+    local y = 1
+    for _, g in ipairs(M.GROUPS) do
+      local sw = switchbtn.make(f, {
+        x = fx, y = y, width = fiw, height = 1, text = configkit.fitLabel(g, fiw),
+      })
+      sw.set("off")
+      sw.button:onClick(function() region:push(g) end)
+      groupBtns[g] = sw
+      y = y + 1
+    end
 
-    local startIdx = (state.page - 1) * ROWS_PER_PAGE
-    for i = 1, ROWS_PER_PAGE do
-      local row = rows[startIdx + i]
-      local slot = rowSlots[i]
-      if row then
-        slotRowInfo[i] = { slotKind = row.slotKind, slot = row.slot }
-        slot.label:setText(row.label)
-        slot.picker.setEnabled(true)
-        slot.picker.setOptions(M.pickerOptions(row.candidates), row.current)
-      else
-        slotRowInfo[i] = nil
-        slot.label:setText("")
-        slot.picker.setEnabled(false)
-        slot.picker.setOptions({}, false)
+    local footerRow = configkit.actionRow(f, { x = fx, y = y, w = fiw }, {
+      { label = "SAVE",   onClick = function() M._save(workingCfg, write) end },
+      { label = "RESCAN", onClick = function() descriptors = scan() end },
+      { label = "< BACK", onClick = function() if nav then nav:pop() end end },
+    })
+
+    -- apply(state): the overview shows only static group labels + action buttons -- nothing here
+    -- tracks live cfg state, so a no-op repaint is all that's needed.
+    local function apply(_state) end
+
+    return { apply = apply, elements = { groupBtns = groupBtns, footerRow = footerRow } }
+  end
+
+  -- ===== group screen: that group's bind rows (fitLabel'd slot label + picker) + a "<" back =====
+  local function buildGroupScreen(groupId)
+    return function(b, f, region)
+      local fw = f:getSize()
+      local fx = 2
+      local fiw = math.max(1, fw - 2)
+
+      local slots = M.slotsForGroup(groupId)
+      local wanted = {}
+      for _, s in ipairs(slots) do wanted[s.slotKind .. ":" .. tostring(s.slot)] = true end
+
+      local rowSlots = {}
+      local y = 1
+      for i, s in ipairs(slots) do
+        local lbl = f:addLabel({ x = fx, y = y, width = labelW, height = 1, autoSize = false, text = "" })
+        local picker = Picker.make(f, {
+          x = dropX, y = y, width = dropW, dropdownHeight = DROPDOWN_HEIGHT,
+          options = {}, current = false, placeholder = "(none)",
+          onPick = function(value)
+            workingCfg = M.applyBinding(workingCfg, s.slotKind, s.slot, value)
+          end,
+        })
+        rowSlots[i] = { slotKind = s.slotKind, slot = s.slot, label = lbl, picker = picker }
+        y = y + 1
       end
+
+      local backRow = configkit.actionRow(f, { x = fx, y = y, w = fiw }, {
+        { label = "<", onClick = function() region:pop() end },
+      })
+
+      -- refresh(): idempotent repaint of this group's rows from workingCfg/descriptors, via the
+      -- UNCHANGED M.view (filtered down to this group's slots) -- so a group screen's rows are
+      -- always exactly what the old flat M.view(workingCfg, descriptors) would have shown for the
+      -- same slots, just scoped to one group.
+      local function refresh()
+        for _, row in ipairs(M.view(workingCfg, descriptors)) do
+          if wanted[row.slotKind .. ":" .. tostring(row.slot)] then
+            for _, slot in ipairs(rowSlots) do
+              if slot.slotKind == row.slotKind and slot.slot == row.slot then
+                slot.label:setText(configkit.fitLabel(row.label, labelW))
+                slot.picker.setOptions(M.pickerOptions(row.candidates), row.current)
+              end
+            end
+          end
+        end
+      end
+
+      refresh()
+
+      return { apply = function(_state) refresh() end, elements = { rowSlots = rowSlots, backRow = backRow } }
     end
   end
 
-  for i = 1, ROWS_PER_PAGE do
-    local y = dataTop + i - 1
-    local lbl = frame:addLabel({ x = x, y = y, width = labelW, height = 1, autoSize = false, text = "" })
-
-    local slotIdx = i
-    local picker = Picker.make(frame, {
-      x = dropX, y = y, width = dropW, dropdownHeight = DROPDOWN_HEIGHT,
-      options = {}, current = false, placeholder = "(none)",
-      onPick = function(value)
-        local info = slotRowInfo[slotIdx]
-        if info then
-          workingCfg = M.applyBinding(workingCfg, info.slotKind, info.slot, value)
-        end
-      end,
-    })
-    rowSlots[i] = { label = lbl, picker = picker }
+  local screens = { overview = buildOverview }
+  for _, g in ipairs(M.GROUPS) do
+    screens[g] = buildGroupScreen(g)
   end
 
-  local footerY1 = dataTop + ROWS_PER_PAGE
-  local footerY2 = footerY1 + 1
-  local halfW = math.max(1, math.floor(iw / 2))
+  local region = Region.new(basalt, frame, {
+    x = 1, y = 3, width = w, height = math.max(1, h - 2),
+    root = "overview", screens = screens, onNav = bump,
+  })
 
-  local prevBtn = frame:addButton({ x = x,        y = footerY1, width = halfW, height = 1, text = "< PAGE" })
-  local nextBtn = frame:addButton({ x = x + halfW, y = footerY1, width = math.max(1, iw - halfW), height = 1, text = "PAGE >" })
+  -- Force the overview screen to build now (not on the first scheduled apply()), so its elements
+  -- (SAVE/RESCAN/BACK, the group buttons) exist as soon as M.build returns -- mirrors the old
+  -- code's unconditional refreshPage() call before return.
+  region:apply(nil)
 
-  local thirdW = math.max(1, math.floor(iw / 3))
-  local saveBtn   = frame:addButton({ x = x,             y = footerY2, width = thirdW, height = 1, text = "SAVE" })
-  local rescanBtn = frame:addButton({ x = x + thirdW,     y = footerY2, width = thirdW, height = 1, text = "RESCAN" })
-  local backBtn   = frame:addButton({ x = x + 2 * thirdW, y = footerY2, width = math.max(1, iw - 2 * thirdW), height = 1, text = "< BACK" })
-
-  prevBtn:onClick(function()
-    state.page = state.page - 1
-    refreshPage()
-  end)
-  nextBtn:onClick(function()
-    state.page = state.page + 1
-    refreshPage()
-  end)
-  saveBtn:onClick(function()
-    M._save(workingCfg, write)
-  end)
-  rescanBtn:onClick(function()
-    descriptors = scan()
-    refreshPage()
-  end)
-  backBtn:onClick(function()
-    if nav then nav:pop() end
-  end)
-
-  refreshPage()
-
-  -- apply(state): this menu shows CONFIG, not live telemetry -- an idempotent repaint of the
-  -- current page from workingCfg/descriptors is all that's needed (never polls peripherals on
-  -- its own; RESCAN is the only thing that re-reads the peripheral list, and only on click).
-  local function apply(_state)
-    refreshPage()
+  -- apply(state): this menu shows CONFIG, not live telemetry -- forwards to the region, which
+  -- lazily builds/shows its current nav top and repaints only that screen. Never polls
+  -- peripherals on its own; RESCAN is the only thing that re-reads the peripheral list, and only
+  -- on click.
+  local function apply(state)
+    region:apply(state)
   end
 
   return {
     id = M.id,
     apply = apply,
-    elements = {
-      headerLabel = headerLabel,
-      rowSlots = rowSlots,
-      prevBtn = prevBtn, nextBtn = nextBtn,
-      saveBtn = saveBtn, rescanBtn = rescanBtn, backBtn = backBtn,
-    },
+    elements = { headerLabel = headerLabel, region = region },
   }
 end
 
