@@ -92,6 +92,11 @@ end
 -- at the point of use, exactly like ui/basalt/pages/emc.lua's own relayBound() does (config edits
 -- bump uiRev, which forces a repaint through the cadence gate, so this stays fresh).
 local function relayBound(runtime)
+  -- Prefer the real wrapped-relay flag when app.lua wires it (honest ENG SW: config.relay.name
+  -- alone must not green the switch / allow master-on -- the peripheral has to have actually
+  -- resolved; isRelayReady() is a pure read, no peripheral call). Fall back to the config name for
+  -- headless construction/tests that don't provide isRelayReady.
+  if runtime.isRelayReady ~= nil then return runtime.isRelayReady() and true or false end
   local r = runtime.config.relay
   return r ~= nil and r.name ~= nil
 end

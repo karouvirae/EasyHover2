@@ -58,6 +58,37 @@ t.test("_onEngine: engSw toggles master once a relay is bound", function()
   t.truthy(result ~= nil and result.op == "toggleMaster", "returns the action taken")
 end)
 
+t.test("_onEngine: engSw is gated when the relay NAME is set but the relay is not actually wrapped", function()
+  -- Honest-switch fix: config.relay.name alone must not green the switch / allow master-on. The
+  -- relay must have actually wrapped -- runtime.isRelayReady() reflects that (a pure read of the
+  -- bound relay in ui/basalt/app.lua, no peripheral call).
+  local engine, calls = newEngineStub(false)
+  local runtime = {
+    engine = engine,
+    config = { relay = { name = "relay_1", side = "back" }, fuel = newFuelCfg() },
+    isRelayReady = function() return false end,
+  }
+
+  local result = M._onEngine(runtime, "engSw", 1000)
+
+  t.eq(result, nil, "name set but not wrapped -> gated inert")
+  t.eq(calls.toggleMaster, 0)
+end)
+
+t.test("_onEngine: engSw toggles when the relay is actually wrapped (isRelayReady true)", function()
+  local engine, calls = newEngineStub(false)
+  local runtime = {
+    engine = engine,
+    config = { relay = { name = "relay_1", side = "back" }, fuel = newFuelCfg() },
+    isRelayReady = function() return true end,
+  }
+
+  local result = M._onEngine(runtime, "engSw", 1000)
+
+  t.eq(calls.toggleMaster, 1)
+  t.truthy(result ~= nil and result.op == "toggleMaster")
+end)
+
 t.test("_onEngine: prime does nothing when no relay is bound (even if master reads on)", function()
   local engine, calls = newEngineStub(true)
   local runtime = { engine = engine, config = { relay = { name = nil, side = nil }, fuel = newFuelCfg() } }

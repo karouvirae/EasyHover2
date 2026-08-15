@@ -42,6 +42,10 @@ M.title = "EMC"
 -- derive it from runtime.config.relay at the point of use (config edits bump uiRev, which forces
 -- a repaint through the cadence gate, so this stays fresh).
 local function relayBound(runtime)
+  -- Prefer the real wrapped-relay flag when app.lua wires it (honest indicator: name+side configured
+  -- is not the same as the peripheral having resolved; isRelayReady() is a pure read, no peripheral
+  -- call). Fall back to the config name+side for headless construction/tests without isRelayReady.
+  if runtime.isRelayReady ~= nil then return runtime.isRelayReady() and true or false end
   local r = runtime.config.relay
   return (r.name ~= nil and r.side ~= nil)
 end

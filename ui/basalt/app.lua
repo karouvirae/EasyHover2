@@ -39,6 +39,7 @@ local fnv1a = require("tools.fnv1a")
 
 local Config    = require("ui.config")
 local Engine    = require("ui.engine")
+local RelayWriter = require("ui.relaywriter")
 local Fuel      = require("ui.fuel")
 local CfgServer = require("ui.cfgserver")
 local cadence   = require("ui.basalt.cadence")
@@ -326,11 +327,15 @@ function M.buildRuntime(deps)
   end
   rebindRelay()
 
-  local function writer(signal)
-    if not relay then return false end
-    local ok = pcall(relay.setOutput, config.relay.side, signal)
-    return ok
-  end
+  -- True only when the relay actually WRAPPED (name + side present and the peripheral resolved) --
+  -- a pure read of the already-bound upvalue, NO peripheral call, so the ENG SW indicator can
+  -- reflect real writability without polling. rebindRelay() refreshes `relay` on every bind/side/
+  -- name change, so this stays current without a render-path cost.
+  local function isRelayReady() return relay ~= nil end
+
+  -- Physical write edge (ui/relaywriter.lua): drives config.relay.side and releases the previously
+  -- driven side when the side changes, so a re-picked side can't leave the old one latched HIGH.
+  local writer = RelayWriter.make(function() return relay end, function() return config.relay.side end)
 
   local engine = Engine.new(config.engine, writer)
 
@@ -391,6 +396,7 @@ function M.buildRuntime(deps)
     cfgserver = cfgserver,
     config = config,
     rebindRelay = rebindRelay,
+    isRelayReady = isRelayReady,
     uiRev = 0,
     state = { pumpFrac = 0, tankFrac = 0, pumpAmount = 0, tankMb = 0 },
     CH = CH,

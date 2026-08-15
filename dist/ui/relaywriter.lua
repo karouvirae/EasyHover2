@@ -1,0 +1,1 @@
+local a={}function a.make(b,c)local d=nil;return function(e)local f=b()if not f then return false end;local g=c()if d~=nil and d~=g then pcall(f.setOutput,d,false)end;local h=pcall(f.setOutput,g,e)if h then d=g end;return h end end;return a

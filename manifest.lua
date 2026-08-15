@@ -677,9 +677,9 @@
         },
         {
           ["dst"] = "ui/basalt/app.lua",
-          ["size"] = 8236,
+          ["size"] = 8298,
           ["src"] = "dist/ui/basalt/app.lua",
-          ["sum"] = "a8384359",
+          ["sum"] = "6b0c7571",
         },
         {
           ["dst"] = "ui/basalt/bitconfig/dtc.lua",
@@ -767,9 +767,9 @@
         },
         {
           ["dst"] = "ui/basalt/pages/emc.lua",
-          ["size"] = 2778,
+          ["size"] = 2851,
           ["src"] = "dist/ui/basalt/pages/emc.lua",
-          ["sum"] = "b17925a8",
+          ["sum"] = "052776e2",
         },
         {
           ["dst"] = "ui/basalt/pages/fcs.lua",
@@ -803,9 +803,9 @@
         },
         {
           ["dst"] = "ui/basalt/regions/emc.lua",
-          ["size"] = 8719,
+          ["size"] = 8792,
           ["src"] = "dist/ui/basalt/regions/emc.lua",
-          ["sum"] = "a815a4f5",
+          ["sum"] = "32c28727",
         },
         {
           ["dst"] = "ui/basalt/regions/fcs.lua",
@@ -874,6 +874,12 @@
           ["sum"] = "21fe64b1",
         },
         {
+          ["dst"] = "ui/relaywriter.lua",
+          ["size"] = 240,
+          ["src"] = "dist/ui/relaywriter.lua",
+          ["sum"] = "a42bd44d",
+        },
+        {
           ["dst"] = "ui/toolkit.lua",
           ["size"] = 2557,
           ["src"] = "dist/ui/toolkit.lua",
@@ -890,5 +896,5 @@
     ["size"] = 70702,
     ["sum"] = "3dd2fb64",
   },
-  ["version"] = "52245a3a",
+  ["version"] = "390fff71",
 }
