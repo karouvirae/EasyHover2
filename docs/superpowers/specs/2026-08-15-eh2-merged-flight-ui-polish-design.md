@@ -60,10 +60,10 @@ Groups on the merged page use it: `[FCS·GND·PARM]`, the 5 mode buttons (perRow
 
 ```
  1  (blank top margin)
- 2  Solid Pump                       label row (fit to width)
- 3  <bar x=2 ..>  <count> BZC        bar (green fill / gray empty) + integer + abbrev
- 4  Liquid Main
- 5  <bar x=2 ..>  <buckets> BDSL
+ 2  Solid Pump BZC                   label row = topic + fuel-type abbrev
+ 3  <bar x=2 .........>  128x        longer bar (green/gray) + integer + 1-char unit
+ 4  Liquid Main BDSL
+ 5  <bar x=2 .........>  180B
  6  [ ENG SW ][ PRIME ]              height 1 (was 3), centered via btnfit
  7  (blank)
  8  <block> ENG ON/OFF               MASTER light (unchanged)
@@ -71,23 +71,19 @@ Groups on the merged page use it: `[FCS·GND·PARM]`, the 5 mode buttons (perRow
 10  CONFIG                           full-width drill (unchanged)
 ```
 
+- **Labels (topic + fuel abbrev):** `"Solid Pump " .. SOLID_ABBR` → `"Solid Pump BZC"` (14);
+  `"Liquid Main " .. LIQUID_ABBR` → `"Liquid Main BDSL"` (16). Fit to the region width via the
+  existing `fit()`; if `"Liquid Main BDSL"` clips the ~14–15-col monitor it shortens to
+  `"Liq Main BDSL"` (13). `SOLID_ABBR="BZC"` / `LIQUID_ABBR="BDSL"` are module constants the
+  later fuel-type feature swaps.
+- **Values (compact unit, NO space):** solid = `tostring(state.pumpAmount) .. "x"` (e.g.
+  `128x`, x = item count); liquid = `tostring(floor((state.tankMb or 0)/1000)) .. "B"` (e.g.
+  `180B`, B = Buckets). Right-justified in a ~5-col value field.
 - **Bars:** native `ProgressBar`, `setProgressColor(colors.green)` (fill) +
   `setBackground(colors.gray)` (empty), height 1, start at x=2 (1 off the left border),
-  width = row minus the value field. `setProgress(round(manualFrac(amount,max)*100))`
-  unchanged. **Honest length note:** the bar's left edge gains ~3 cols (label gone from the
-  row, bar now starts at x=2), but the value field grows to fit `integer + abbrev` (~8 cols),
-  so net bar length is roughly the same as before — NOT dramatically longer. If a genuinely
-  long bar matters more than the inline abbrev, the abbrev moves into the label row
-  (`"Liquid Main (BDSL)"`) and the value row is just `bar + integer`, freeing ~5 cols for the
-  bar. Decision deferred to spec review; default keeps the abbrev on the value row per the
-  request.
-- **Values (integer only):** solid = raw `state.pumpAmount` (item count) `.. " BZC"`;
-  liquid = `floor((state.tankMb or 0)/1000)` buckets `.. " BDSL"`. Right-justified in a
-  value field wide enough for the largest expected integer + abbrev (e.g. 8 cols).
-- **Labels:** `"Solid Pump"` / `"Liquid Main"` (fit to width; full "…Fuel" clips ~15 cols;
-  the abbrev on the value row already conveys "fuel").
-- Fuel-type abbrevs are module constants (`M.SOLID_ABBR="BZC"`, `M.LIQUID_ABBR="BDSL"`) so
-  the later fuel-type feature can swap them.
+  width = row minus the ~5-col value field. Because the fuel label moved to its own row AND
+  the value shrank to `<int><unit>`, the bar is now **genuinely longer** than before.
+  `setProgress(round(manualFrac(amount,max)*100))` unchanged.
 
 ## C. FCS region redesign — `ui/basalt/regions/fcs.lua` `M.main` (~13 rows)
 
