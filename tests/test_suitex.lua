@@ -102,6 +102,20 @@ t.test("checkDriver steps to completion and reports like a one-shot check", func
   t.eq(#r.corrupt, 1); t.eq(#r.missing, 1); t.eq(r.present, 3); t.eq(r.total, 4); t.eq(r.ok, false)
 end)
 
+t.test("shouldArmCheck: skip a redundant same-target re-arm; arm on change, force, or first check", function()
+  -- The check-freeze fix. While a check for the SAME target (role+channel) is already in flight, a
+  -- non-forced re-arm must be SKIPPED: re-arming reassigns ctx.check, which orphans the running
+  -- driveCheck coroutine (its `ctx.check == myCheck` guard makes it exit before finishCheck, leaving
+  -- the bar frozen at the first step with the buttons disabled). A burst of such re-arms (from UI
+  -- callbacks fired by queued events after a running program is stopped) is what wedged SuiteX.
+  t.eq(SuiteX.shouldArmCheck(true, "min|fcs", "min|fcs", false), false, "same target, in flight, not forced -> skip")
+  -- Legitimate re-checks still arm:
+  t.eq(SuiteX.shouldArmCheck(false, nil, "min|fcs", false), true, "first check (no prior) -> arm")
+  t.eq(SuiteX.shouldArmCheck(true, "min|fcs", "min|ui", false), true, "role change -> arm")
+  t.eq(SuiteX.shouldArmCheck(true, "min|fcs", "dev|fcs", false), true, "channel change -> arm")
+  t.eq(SuiteX.shouldArmCheck(true, "min|fcs", "min|fcs", true), true, "forced (Verify / post-op) -> arm even for same target")
+end)
+
 t.test("logo is a rectangular ASCII block", function()
   t.truthy(#SuiteX.logo >= 1, "has rows")
   local w = #SuiteX.logo[1]

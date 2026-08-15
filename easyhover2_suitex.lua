@@ -126,6 +126,18 @@ function SuiteX.checkDriver(files, checkOne)
   return self
 end
 
+--- Should startCheck arm a NEW check driver, or is the request redundant? Arming reassigns ctx.check,
+--- which orphans any in-flight driveCheck coroutine (its `ctx.check == myCheck` guard makes it exit
+--- before finishCheck -- leaving the bar stuck at the first step with the buttons disabled). So a
+--- NON-forced re-arm for a target already under check (same role+channel) must be a no-op; a burst of
+--- those -- UI callbacks re-firing from events queued after a running program is stopped -- is what
+--- wedged SuiteX. Forced re-checks (Verify, post-install) and any target CHANGE always (re)arm.
+function SuiteX.shouldArmCheck(hasCheck, prevTarget, newTarget, force)
+  if force then return true end
+  if not hasCheck then return true end
+  return prevTarget ~= newTarget
+end
+
 SuiteX.logo = {
   "  ___ _  _ ___    ___ ",
   " | __| || |_  )  |__ \\",
@@ -357,16 +369,31 @@ local function driveCheck(ctx, myCheck)
   end)
 end
 
+--- A stable identity for what a check examines: role + channel. Two non-forced startCheck calls with
+--- the same target are redundant (SuiteX.shouldArmCheck) -- the running/completed one already covers
+--- it. nil when no role is resolved (the no-spec branch below).
+local function checkTarget(ctx)
+  if not ctx.spec then return nil end
+  return (ctx.channel or "?") .. "|" .. (ctx.role or "?")
+end
+
 --- (Re)arms the incremental checkDriver and kicks off the coroutine that drives it, greying the
---- buttons out until it completes.
-local function startCheck(ctx)
-  ctx.checkDone = false
+--- buttons out until it completes. `force` (Verify / post-install) always re-arms; otherwise a
+--- redundant re-arm for the SAME target is skipped so we never orphan the in-flight driveCheck
+--- coroutine -- the freeze bug (see SuiteX.shouldArmCheck).
+local function startCheck(ctx, force)
   if not ctx.spec then
+    ctx.checkDone = false
     ctx.check = nil
+    ctx.checkTarget = nil
     ctx.ui.progress:setProgress(0)
     setButtonsEnabled(ctx, false)
     return
   end
+  local target = checkTarget(ctx)
+  if not SuiteX.shouldArmCheck(ctx.check ~= nil, ctx.checkTarget, target, force) then return end
+  ctx.checkDone = false
+  ctx.checkTarget = target
   ctx.check = SuiteX.checkDriver(ctx.spec.files, function(e) return ctx.Suite.checkFile(e, ctx.Suite.readFile) end)
   ctx.ui.progress:setProgress(0)
   setButtonsEnabled(ctx, false)
@@ -466,7 +493,7 @@ local function runEngineOp(ctx, fn)
     end
     ctx.state = ctx.Suite.parseState(ctx.Suite.readFile(ctx.Suite.STATE_FILE))
     ctx.hasFiles = fs.exists("/startup.lua")
-    startCheck(ctx)
+    startCheck(ctx, true)   -- post-op: force a fresh check so findings reflect the new on-disk state
   end)
 end
 
@@ -592,7 +619,7 @@ local function buildUI(ctx)
   end)
   ui.buttons.verify:onClick(function()
     if ctx.opInFlight then return end
-    startCheck(ctx)
+    startCheck(ctx, true)   -- explicit user re-check: always re-arm, even for the same target
   end)
   ui.buttons.repair:onClick(function()
     if ctx.opInFlight or not ctx.spec then return end
@@ -737,7 +764,7 @@ function SuiteX.run()
     mode = "dark", pal = SuiteX.theme.get("dark"),
     Suite = Suite, basalt = basalt, manifest = manifest, order = buildOrder(manifest),
     role = role, spec = spec, state = state, hasFiles = hasFiles, tab = "main",
-    plan = nil, report = nil, diffLabel = nil, checkDone = false, opInFlight = false,
+    plan = nil, report = nil, diffLabel = nil, checkDone = false, checkTarget = nil, opInFlight = false,
     channel = channel, manifests = { [channel] = manifest }, suppressDevBox = false,
   }
 
