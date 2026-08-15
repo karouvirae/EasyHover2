@@ -5,10 +5,12 @@ local Flight = require("fcs.runtime.flight")
 local function fakeReg()
   local made = {}
   local function d(id, policy) return { id = id, scheme = {}, mixer = {}, caps = {}, feel = { id = id }, policy = policy } end
-  return { order = {"PRECISION","MAN","CRUISE"}, default = "PRECISION",
+  return { order = {"PRECISION","MAN","CRUISE","CPL","DCPL"}, default = "PRECISION",
     byId = { PRECISION = d("PRECISION", { tilt=false, surge="position" }),
              MAN = d("MAN", { tilt=true, surge="position" }),
-             CRUISE = d("CRUISE", { tilt=false, surge="throttle" }) } }, made
+             CRUISE = d("CRUISE", { tilt=false, surge="throttle" }),
+             CPL = d("CPL", { tilt=true, surge="coupled" }),
+             DCPL = d("DCPL", { tilt=true, surge="coupled" }) } }, made
 end
 
 t.test("flightMode command selects a mode via loop+pilot; unknown id stays", function()
@@ -24,6 +26,32 @@ t.test("flightMode command selects a mode via loop+pilot; unknown id stays", fun
   t.eq(pil.p.tilt, true, "pilot got MAN policy")
   fl:handleCommand({ k = "flightMode", id = "BOGUS" })
   t.eq(fl.flightMode, "MAN", "unknown id leaves mode unchanged")
+end)
+
+t.test("integration: flightMode CPL then DCPL follow in snapshot(); UNKNOWN id ignored", function()
+  local reg = fakeReg()
+  local active = { setActive = function(self, d) self.d = d end, arm = function() end,
+    getMode = function() return "NORMAL" end }
+  local pil = { setMode = function(self, p, f) self.p, self.f = p, f end,
+    setPositionHold = function() end }
+  local fl = Flight.new({ loop = active, pilot = pil, registry = reg })
+  t.eq(fl:snapshot(nil, {}).flightMode, "PRECISION", "boot snapshot starts PRECISION")
+
+  t.truthy(fl:handleCommand({ k = "flightMode", id = "CPL" }), "accepts CPL")
+  t.eq(fl:snapshot(nil, {}).flightMode, "CPL", "snapshot() follows to CPL")
+  t.eq(active.d, reg.byId.CPL, "loop switched to CPL descriptor")
+  t.eq(pil.p.tilt, true, "pilot got CPL policy (tilt)")
+  t.eq(pil.p.surge, "coupled", "pilot got CPL policy (coupled surge)")
+
+  t.truthy(fl:handleCommand({ k = "flightMode", id = "DCPL" }), "accepts DCPL")
+  t.eq(fl:snapshot(nil, {}).flightMode, "DCPL", "snapshot() follows to DCPL")
+  t.eq(active.d, reg.byId.DCPL, "loop switched to DCPL descriptor")
+  t.eq(pil.p.tilt, true, "pilot got DCPL policy (tilt)")
+
+  local ok = fl:handleCommand({ k = "flightMode", id = "UNKNOWN" })
+  t.truthy(ok, "unknown id command still handled (no crash/false)")
+  t.eq(fl:snapshot(nil, {}).flightMode, "DCPL", "unknown id leaves flightMode/snapshot at DCPL (stays put)")
+  t.eq(active.d, reg.byId.DCPL, "loop stays on DCPL descriptor after unknown id")
 end)
 
 t.test("flightTrim command sets pilot trim direction and telemetry echoes it", function()
