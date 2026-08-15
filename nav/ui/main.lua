@@ -36,9 +36,19 @@ function M.viewModel(status)
     vm.headingTone = "dim"
   end
 
+  -- Quality reflects the GDOP-aware fix confidence, NOT just host count, so poor geometry reads
+  -- POOR with an estimated error radius instead of a misleading "USABLE" (honest-UI house rule).
   local g = status.grade or {}
-  vm.quality = ("%s  %d of 4"):format(g.usable and "USABLE" or "UNUSABLE", g.usableHosts or 0)
-  vm.qualityTone = g.usable and "good" or "bad"
+  if not f then
+    vm.quality = ("NO FIX  %d of 4 hosts"):format(g.usableHosts or 0)
+    vm.qualityTone = "bad"
+  else
+    local q = f.quality or 0
+    local label = (q >= 0.75 and "GOOD") or (q >= 0.4 and "FAIR") or "POOR"
+    local err = f.errorEst and ("  ~%d blk"):format(math.floor(f.errorEst + 0.5)) or ""
+    vm.quality = ("%s  %d of 4%s"):format(label, g.usableHosts or 0, err)
+    vm.qualityTone = (q >= 0.75 and "good") or (q >= 0.4 and "normal") or "bad"
+  end
 
   vm.beacons = {}
   local beacons = status.beacons or {}

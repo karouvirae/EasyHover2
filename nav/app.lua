@@ -54,10 +54,28 @@ function M.buildRuntime(deps)
   if not wiredModem then wiredModem = find("modem", function(_, m) return not (m.isWireless and m.isWireless()) end) end
   if gpsModem and gpsModem.open then gpsModem.open(cfg.channel) end
 
+  -- Bind the navigation_table: explicit injection wins (tests), then a configured name, then
+  -- AUTO-DETECT. Without auto-detect a fresh NAV install has no bound table (the config UI has no
+  -- name setter) so heading silently reads nil -- the in-game "--- --" heading bug.
   local navtable = deps.navtable
   if not navtable and cfg.navtable and cfg.navtable.name then
     local ok, p = pcall(wrap, cfg.navtable.name)
     if ok then navtable = p end
+  end
+  if not navtable then
+    local ok, p = pcall(find, "navigation_table")
+    if ok and p then navtable = p end
+  end
+  if not navtable then
+    -- Fallback: any peripheral exposing getRelativeAngle (in case the type string differs).
+    local getNames = deps.getNames or peripheral.getNames
+    local ok, names = pcall(getNames)
+    if ok and names then
+      for _, n in ipairs(names) do
+        local okw, p = pcall(wrap, n)
+        if okw and p and type(p.getRelativeAngle) == "function" then navtable = p; break end
+      end
+    end
   end
 
   local rt = NavRuntime.new({ config = cfg, navtable = navtable, gpsModem = gpsModem,

@@ -23,6 +23,7 @@ function M.make(pos, meta)
     source = meta.source or "gps",
     nBeacons = meta.nBeacons or 0,
     quality = meta.quality,
+    errorEst = meta.errorEst,   -- estimated position error radius (blocks), from geometry dilution
   }
 end
 

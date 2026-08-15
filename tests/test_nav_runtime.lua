@@ -44,6 +44,22 @@ t.test("a 4-beacon stream trilaterates to the known position with a usable quali
   t.truthy(fix.quality >= 0.5, "usable geometry -> quality above the threshold")
 end)
 
+t.test("a distant, clustered constellation yields a LOW-quality fix despite gradeable geometry", function()
+  local c, now = clockAt(1000)
+  local rt = newRuntime(now, fakeDev(), { getRelativeAngle = function() return 0 end })
+  local B = { { id = "67", x = -34, y = 89, z = 2753 }, { id = "68", x = 66, y = 95, z = 2654 },
+              { id = "69", x = 41, y = 98, z = 2741 }, { id = "70", x = 99, y = -45, z = 2768 } }
+  local target = { x = 825, y = 79, z = 2928 }
+  for _, b in ipairs(B) do
+    local dx, dy, dz = target.x - b.x, target.y - b.y, target.z - b.z
+    rt:onModemMessage(65000, 65000, gpsproto.encode(b), math.sqrt(dx * dx + dy * dy + dz * dz))
+  end
+  local fix = rt:computeFix()
+  t.truthy(fix ~= nil, "a fix is still produced")
+  t.truthy(fix.quality < 0.5, "poor (high-GDOP) geometry -> low quality (" .. tostring(fix.quality) .. ")")
+  t.truthy(fix.errorEst and fix.errorEst > 4, "and a large error estimate (" .. tostring(fix.errorEst) .. ")")
+end)
+
 t.test("fewer than 4 beacons yields no fix", function()
   local c, now = clockAt(1000)
   local rt = newRuntime(now, fakeDev(), { getRelativeAngle = function() return 0 end })

@@ -78,9 +78,9 @@
         },
         {
           ["dst"] = "nav/lib/geometry.lua",
-          ["size"] = 2530,
+          ["size"] = 5341,
           ["src"] = "nav/lib/geometry.lua",
-          ["sum"] = "6183c6db",
+          ["sum"] = "b2adaecc",
         },
         {
           ["dst"] = "startup.lua",
@@ -472,9 +472,9 @@
         },
         {
           ["dst"] = "nav/app.lua",
-          ["size"] = 6397,
+          ["size"] = 7219,
           ["src"] = "nav/app.lua",
-          ["sum"] = "8d7a41bc",
+          ["sum"] = "82ee7572",
         },
         {
           ["dst"] = "nav/comms/gpsproto.lua",
@@ -496,15 +496,15 @@
         },
         {
           ["dst"] = "nav/lib/fix.lua",
-          ["size"] = 1205,
+          ["size"] = 1305,
           ["src"] = "nav/lib/fix.lua",
-          ["sum"] = "83722490",
+          ["sum"] = "ae099f38",
         },
         {
           ["dst"] = "nav/lib/geometry.lua",
-          ["size"] = 2530,
+          ["size"] = 5341,
           ["src"] = "nav/lib/geometry.lua",
-          ["sum"] = "6183c6db",
+          ["sum"] = "b2adaecc",
         },
         {
           ["dst"] = "nav/lib/heading.lua",
@@ -520,9 +520,9 @@
         },
         {
           ["dst"] = "nav/runtime.lua",
-          ["size"] = 5061,
+          ["size"] = 5203,
           ["src"] = "nav/runtime.lua",
-          ["sum"] = "c00c08bd",
+          ["sum"] = "8c6c1402",
         },
         {
           ["dst"] = "nav/ui/config.lua",
@@ -532,9 +532,9 @@
         },
         {
           ["dst"] = "nav/ui/main.lua",
-          ["size"] = 3692,
+          ["size"] = 4217,
           ["src"] = "nav/ui/main.lua",
-          ["sum"] = "e1681091",
+          ["sum"] = "ee9904ca",
         },
         {
           ["dst"] = "startup.lua",
@@ -1075,5 +1075,5 @@
     ["size"] = 70702,
     ["sum"] = "3dd2fb64",
   },
-  ["version"] = "0b4452ee",
+  ["version"] = "5e3974bc",
 }

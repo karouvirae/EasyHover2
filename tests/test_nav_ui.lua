@@ -19,10 +19,18 @@ t.test("main.viewModel shows a fix as position + heading + quality", function()
   t.eq(vm.position, "3 4 5")
   t.eq(vm.positionTone, "good")
   t.truthy(vm.heading:find("090", 1, true) and vm.heading:find("E", 1, true))
-  t.truthy(vm.quality:find("USABLE", 1, true))
+  t.truthy(vm.quality:find("GOOD", 1, true), "high quality reads GOOD")
   t.eq(vm.qualityTone, "good")
   t.eq(#vm.beacons, 1)
   t.truthy(vm.beacons[1].text:find("A", 1, true))
+end)
+
+t.test("main.viewModel warns on a poor-geometry fix (POOR + block error estimate)", function()
+  local vm = Main.viewModel({ fix = { x = 1, y = 2, z = 3, nBeacons = 4, age = 0, quality = 0.1, errorEst = 13 },
+    grade = { usable = true, usableHosts = 4, reasons = {} }, beacons = {} })
+  t.truthy(vm.quality:find("POOR", 1, true), "low quality reads POOR")
+  t.truthy(vm.quality:find("13", 1, true), "shows the ~error estimate in blocks")
+  t.eq(vm.qualityTone, "bad")
 end)
 
 t.test("main.viewModel is honest when there is no fix", function()
@@ -104,6 +112,16 @@ t.test("app.buildRuntime wires the nav runtime from injected peripherals (no rea
   t.truthy(rt.nav ~= nil, "nav runtime present")
   t.eq(rt.config.channel, 65000)
   t.eq(rt.nav:heading(), 47)
+end)
+
+t.test("app.buildRuntime auto-detects the navigation_table when none is configured (heading works)", function()
+  local navt = { getRelativeAngle = function() return 47 end }
+  local find = function(kind, _filter)
+    if kind == "navigation_table" then return navt end
+    return nil   -- no modems in this unit test
+  end
+  local rt = App.buildRuntime({ find = find, configPath = "/no_such_nav.tbl", now = function() return 1 end })
+  t.eq(rt.nav:heading(), 47, "an auto-detected navtable drives the heading (no name configured)")
 end)
 
 t.test("app.routeModem feeds only GPS-channel messages into the receiver, then buildState reflects the fix", function()

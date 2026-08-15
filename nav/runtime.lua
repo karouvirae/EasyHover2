@@ -50,15 +50,8 @@ function R:onModemMessage(channel, replyChannel, msg, distance)
   return self.receiver:onMessage(channel, replyChannel, msg, distance)
 end
 
--- Quality from the constellation grade: usable 4-host geometry -> 1.0, otherwise 0.0 (Batch 1 keeps
--- it coarse; the coplanarity/host-count gating already lives in geometry.grade).
-local function qualityOf(grade)
-  if grade and grade.usable then return 1.0 end
-  return 0.0
-end
-
 --- computeFix(now) -> fix record | nil, grade. Builds observations from the fresh heard beacons,
---- trilaterates, and tags age (the oldest contributing observation) + quality.
+--- trilaterates, and tags age (the oldest contributing observation) + a GDOP-aware quality.
 function R:computeFix(now)
   now = now or self.now()
   local bmap = self.receiver:beacons(now)
@@ -77,7 +70,13 @@ function R:computeFix(now)
   local pos = trilaterate.solve(obs)
   local grade = geometry.grade(positions)
   if not pos then return nil, grade end
-  return fix.make(pos, { age = maxAge, source = "gps", nBeacons = #obs, quality = qualityOf(grade) }), grade
+  -- Trust the fix only if the constellation is valid AND well-conditioned AT this position: a
+  -- distant/clustered constellation grades usable but has huge dilution, so quality must reflect
+  -- the GDOP, not just host count (the in-game "q 1.00 but 11 blocks off" bug).
+  local dq = geometry.dopQuality(geometry.pdop(positions, pos))
+  local quality = grade.usable and dq.quality or 0.0
+  return fix.make(pos, { age = maxAge, source = "gps", nBeacons = #obs,
+    quality = quality, errorEst = dq.errorEst }), grade
 end
 
 --- The absolute heading from this NAV pc's own navigation_table, sign-corrected -- or nil if the

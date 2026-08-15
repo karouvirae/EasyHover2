@@ -29,6 +29,11 @@ t.test("make() refuses to build a fix without a complete position", function()
   t.eq(Fix.make({ x = 1, y = 2 }, {}), nil)   -- missing z
 end)
 
+t.test("make() carries an error estimate when provided", function()
+  local f = Fix.make({ x = 1, y = 2, z = 3 }, { errorEst = 12.5 })
+  t.eq(f.errorEst, 12.5)
+end)
+
 t.test("make() copies the position so later mutation cannot corrupt the fix", function()
   local pos = { x = 5, y = 6, z = 7 }
   local f = Fix.make(pos, {})
