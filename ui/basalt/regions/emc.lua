@@ -59,9 +59,13 @@ local M = {}
 
 -- Manual-max stepper sizes: a stack (64) for the solid pump max, one bucket (1000 mB) for the
 -- liquid tank max -- pinned constants so M.calfuel's onClick wiring and tests agree on the exact
--- delta without duplicating the literal.
+-- delta without duplicating the literal. Task 4 adds fine (+/-1) and larger liquid batches
+-- (50/100 buckets) so the calfuel screen can reach any max quickly without hundreds of taps.
 M.SOLID_STEP  = 64
 M.LIQUID_STEP = 1000
+M.SOLID_FINE  = 1
+M.LIQUID_50   = 50000
+M.LIQUID_100  = 100000
 
 -- Abbreviated fuel-source names for M.main's two gauge labels (Task 3 fuel-panel redesign).
 M.SOLID_ABBR  = "BZC"
@@ -293,7 +297,7 @@ function M.config(basalt, frame, region, runtime, deps)
   local w = ({ frame:getSize() })[1]
   local half = math.max(1, math.floor(w / 2))
   local rest = math.max(1, w - half)
-  local y = 1
+  local y = 2 -- row 1 is a blank top margin, matching M.main's convention (Task 3/4).
 
   local backBtn = frame:addButton({ x = 1, y = y, width = w, height = 1, text = "< BACK" })
   y = y + 1
@@ -414,43 +418,78 @@ function M.config(basalt, frame, region, runtime, deps)
   }
 end
 
--- ===== M.calfuel ("emc_calfuel"): manual max steppers, ~8 rows, room to grow =====
-
+-- ===== M.calfuel ("emc_calfuel"): manual max steppers, expanded (Task 4) =====
+--
+-- Top-margin convention (row 1 blank, content starts y=2 -- matches M.main/M.config):
+--   y2  < BACK
+--   y3  "SOLID <n>x" label
+--   y4  solid decrements, centered via btnfit.grid: -64  -1
+--   y5  solid increments, centered via btnfit.grid: +1  +64
+--   y6  blank spacer
+--   y7  "LIQ <n>B" label (n == buckets, i.e. mB/1000)
+--   y8  liquid decrements, centered: -100  -50  -1   (captions are BUCKETS)
+--   y9  liquid increments, centered: +1  +50  +100
+-- 8 content rows total (y2..y9), well inside the ~11-row region.
 function M.calfuel(basalt, frame, region, runtime)
   local w = ({ frame:getSize() })[1]
-  local half = math.max(1, math.floor(w / 2))
-  local rest = math.max(1, w - half)
-  local y = 1
+  local y = 2
 
   local backBtn = frame:addButton({ x = 1, y = y, width = w, height = 1, text = "< BACK" })
   y = y + 1
+
+  -- SOLID group: label, then a decrements row and an increments row (fine +/-1, stack +/-64).
+  local solidLabel = frame:addLabel({ x = 1, y = y, width = w, height = 1, autoSize = false, text = "" })
+  y = y + 1
+
+  local solidDnGeo = btnfit.grid({ "-64", "-1" }, { x0 = 1, availW = w, y0 = y, gap = 1, align = "center" })
+  local solidDn64 = frame:addButton({ x = solidDnGeo[1].x, y = solidDnGeo[1].y, width = solidDnGeo[1].w, height = 1, text = "-64" })
+  local solidDn1  = frame:addButton({ x = solidDnGeo[2].x, y = solidDnGeo[2].y, width = solidDnGeo[2].w, height = 1, text = "-1" })
+  y = y + 1
+
+  local solidUpGeo = btnfit.grid({ "+1", "+64" }, { x0 = 1, availW = w, y0 = y, gap = 1, align = "center" })
+  local solidUp1  = frame:addButton({ x = solidUpGeo[1].x, y = solidUpGeo[1].y, width = solidUpGeo[1].w, height = 1, text = "+1" })
+  local solidUp64 = frame:addButton({ x = solidUpGeo[2].x, y = solidUpGeo[2].y, width = solidUpGeo[2].w, height = 1, text = "+64" })
+  y = y + 1
+
   y = y + 1 -- spacer
 
-  local solidLabel = frame:addLabel({ x = 1, y = y, width = w, height = 1, autoSize = false, text = "SOLID 0" })
-  y = y + 1
-  local solidDnBtn = frame:addButton({ x = 1, y = y, width = half, height = 1, text = "[-]" })
-  local solidUpBtn = frame:addButton({ x = 1 + half, y = y, width = rest, height = 1, text = "[+]" })
+  -- LIQUID group: label, then a decrements row and an increments row. Captions are BUCKETS
+  -- (matching the label's unit) but the wired deltas are mB -- 1 bucket == 1000 mB == M.LIQUID_STEP.
+  local liqLabel = frame:addLabel({ x = 1, y = y, width = w, height = 1, autoSize = false, text = "" })
   y = y + 1
 
-  y = y + 1 -- spacer
-
-  local liqLabel = frame:addLabel({ x = 1, y = y, width = w, height = 1, autoSize = false, text = "LIQ 0B" })
+  local liqDnGeo = btnfit.grid({ "-100", "-50", "-1" }, { x0 = 1, availW = w, y0 = y, gap = 1, align = "center" })
+  local liqDn100 = frame:addButton({ x = liqDnGeo[1].x, y = liqDnGeo[1].y, width = liqDnGeo[1].w, height = 1, text = "-100" })
+  local liqDn50  = frame:addButton({ x = liqDnGeo[2].x, y = liqDnGeo[2].y, width = liqDnGeo[2].w, height = 1, text = "-50" })
+  local liqDn1   = frame:addButton({ x = liqDnGeo[3].x, y = liqDnGeo[3].y, width = liqDnGeo[3].w, height = 1, text = "-1" })
   y = y + 1
-  local liqDnBtn = frame:addButton({ x = 1, y = y, width = half, height = 1, text = "[-]" })
-  local liqUpBtn = frame:addButton({ x = 1 + half, y = y, width = rest, height = 1, text = "[+]" })
+
+  local liqUpGeo = btnfit.grid({ "+1", "+50", "+100" }, { x0 = 1, availW = w, y0 = y, gap = 1, align = "center" })
+  local liqUp1   = frame:addButton({ x = liqUpGeo[1].x, y = liqUpGeo[1].y, width = liqUpGeo[1].w, height = 1, text = "+1" })
+  local liqUp50  = frame:addButton({ x = liqUpGeo[2].x, y = liqUpGeo[2].y, width = liqUpGeo[2].w, height = 1, text = "+50" })
+  local liqUp100 = frame:addButton({ x = liqUpGeo[3].x, y = liqUpGeo[3].y, width = liqUpGeo[3].w, height = 1, text = "+100" })
   y = y + 1
 
   backBtn:onClick(function() region:pop() end)
-  solidDnBtn:onClick(function() M._setMax(runtime, "pump", -M.SOLID_STEP) end)
-  solidUpBtn:onClick(function() M._setMax(runtime, "pump", M.SOLID_STEP) end)
-  liqDnBtn:onClick(function() M._setMax(runtime, "tank", -M.LIQUID_STEP) end)
-  liqUpBtn:onClick(function() M._setMax(runtime, "tank", M.LIQUID_STEP) end)
+
+  solidDn64:onClick(function() M._setMax(runtime, "pump", -M.SOLID_STEP) end)
+  solidDn1:onClick(function() M._setMax(runtime, "pump", -M.SOLID_FINE) end)
+  solidUp1:onClick(function() M._setMax(runtime, "pump", M.SOLID_FINE) end)
+  solidUp64:onClick(function() M._setMax(runtime, "pump", M.SOLID_STEP) end)
+
+  liqDn100:onClick(function() M._setMax(runtime, "tank", -M.LIQUID_100) end)
+  liqDn50:onClick(function() M._setMax(runtime, "tank", -M.LIQUID_50) end)
+  liqDn1:onClick(function() M._setMax(runtime, "tank", -M.LIQUID_STEP) end)
+  liqUp1:onClick(function() M._setMax(runtime, "tank", M.LIQUID_STEP) end)
+  liqUp50:onClick(function() M._setMax(runtime, "tank", M.LIQUID_50) end)
+  liqUp100:onClick(function() M._setMax(runtime, "tank", M.LIQUID_100) end)
 
   -- apply(state): shows the current manual maxes from runtime.config ONLY.
   local function apply(_state)
     local cfg = runtime.config
-    solidLabel:setText(fit("SOLID " .. tostring(cfg.fuel.pump.full or 0), w))
-    local buckets = math.floor((cfg.fuel.tank.full or 0) / 1000 + 0.5)
+    local count = cfg.fuel.pump.full or 0
+    solidLabel:setText(fit("SOLID " .. count .. "x", w))
+    local buckets = math.floor((cfg.fuel.tank.full or 0) / 1000)
     liqLabel:setText(fit("LIQ " .. buckets .. "B", w))
   end
 
@@ -460,8 +499,11 @@ function M.calfuel(basalt, frame, region, runtime)
     apply = apply,
     elements = {
       backBtn = backBtn,
-      solidLabel = solidLabel, solidDnBtn = solidDnBtn, solidUpBtn = solidUpBtn,
-      liqLabel = liqLabel, liqDnBtn = liqDnBtn, liqUpBtn = liqUpBtn,
+      solidLabel = solidLabel,
+      solidDn64 = solidDn64, solidDn1 = solidDn1, solidUp1 = solidUp1, solidUp64 = solidUp64,
+      liqLabel = liqLabel,
+      liqDn100 = liqDn100, liqDn50 = liqDn50, liqDn1 = liqDn1,
+      liqUp1 = liqUp1, liqUp50 = liqUp50, liqUp100 = liqUp100,
     },
   }
 end

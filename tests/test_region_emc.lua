@@ -553,4 +553,103 @@ t.test("M.main (Task 3 redesign): fuel panel geometry, colors, and int+unit valu
   t.truthy(ok, "basalt.update should not error: " .. tostring(err))
 end)
 
+-- ===== Task 4: M.calfuel expanded steppers (solid +-1/+-64, liquid +-1000/+-50000/+-100000) + =====
+-- ===== M.config top margin. Construction probe on the same 14x11 fake frame as Task 3's M.main =====
+-- ===== test above -- clicks each button by firing its registered "mouse_click" callback directly =====
+-- ===== (bypasses screen-position/bounds checks -- this is the exact channel :onClick(fn) wires =====
+-- ===== into, per release/basalt-full.lua's registerEventCallback/registerCallback/fireEvent). =====
+
+t.test("M.calfuel (Task 4): expanded steppers -- exact deltas, clamps at 0, centered layout within 14x11", function()
+  local basalt = BasaltApp.ensureBasalt()
+  local frame = basalt.createFrame()
+  frame:setSize(14, 11)
+
+  local runtime = {
+    uiRev = 0,
+    config = {
+      fuel = {
+        pump = { name = "chest_1", kind = "inventory", empty = 0, full = 1000 },
+        tank = { name = "tank_1",  kind = "fluid",     empty = 0, full = 500000 },
+      },
+    },
+  }
+  local region = { push = function() end, pop = function() end }
+
+  local handle = M.calfuel(basalt, frame, region, runtime)
+  local el = handle.elements
+
+  -- Labels: "SOLID <n>x" (n == pump.full) / "LIQ <n>B" (n == buckets == floor(tank.full/1000)).
+  t.eq(el.solidLabel:getText(), "SOLID 1000x")
+  t.eq(el.liqLabel:getText(), "LIQ 500B")
+
+  -- Every element: y >= 2 (row 1 is the blank top margin), x + width - 1 <= 14 (frame width).
+  local probe = {
+    el.backBtn, el.solidLabel,
+    el.solidDn64, el.solidDn1, el.solidUp1, el.solidUp64,
+    el.liqLabel,
+    el.liqDn100, el.liqDn50, el.liqDn1, el.liqUp1, el.liqUp50, el.liqUp100,
+  }
+  for i, e in ipairs(probe) do
+    t.truthy(e:getY() >= 2, "element #" .. i .. " y >= 2 (got " .. tostring(e:getY()) .. ")")
+    local right = e:getX() + e:getWidth() - 1
+    t.truthy(right <= 14, "element #" .. i .. " x+width-1 <= 14 (got " .. tostring(right) .. ")")
+  end
+
+  -- Click == fire the same "mouse_click" event :onClick(fn) registered a listener under.
+  local function click(btn) btn:fireEvent("mouse_click", 1, 1, 1) end
+
+  local function assertDelta(btn, role, delta, startFull)
+    runtime.config.fuel[role].full = startFull
+    click(btn)
+    t.eq(runtime.config.fuel[role].full, math.max(0, startFull + delta),
+      "delta " .. tostring(delta) .. " on " .. role .. " (from " .. startFull .. ")")
+  end
+
+  -- Solid: {-64,-1,+1,+64} -> pump.full, exact deltas.
+  assertDelta(el.solidDn64, "pump", -M.SOLID_STEP, 1000)
+  assertDelta(el.solidDn1,  "pump", -M.SOLID_FINE, 1000)
+  assertDelta(el.solidUp1,  "pump",  M.SOLID_FINE, 1000)
+  assertDelta(el.solidUp64, "pump",  M.SOLID_STEP, 1000)
+
+  -- Liquid: {-100000,-50000,-1000,+1000,+50000,+100000} -> tank.full, exact deltas (captions are
+  -- buckets, e.g. "-100" -> -M.LIQUID_100 mB).
+  assertDelta(el.liqDn100, "tank", -M.LIQUID_100, 500000)
+  assertDelta(el.liqDn50,  "tank", -M.LIQUID_50,  500000)
+  assertDelta(el.liqDn1,   "tank", -M.LIQUID_STEP, 500000)
+  assertDelta(el.liqUp1,   "tank",  M.LIQUID_STEP, 500000)
+  assertDelta(el.liqUp50,  "tank",  M.LIQUID_50,  500000)
+  assertDelta(el.liqUp100, "tank",  M.LIQUID_100, 500000)
+
+  -- Clamp at 0: a decrement larger than the current max never goes negative (assertDelta's own
+  -- math.max(0, ...) expectation already covers this, exercised explicitly here too).
+  assertDelta(el.solidDn64, "pump", -M.SOLID_STEP, 30)
+  assertDelta(el.liqDn100,  "tank", -M.LIQUID_100, 5000)
+
+  local ok, err = pcall(function() basalt.update("timer", -1) end)
+  t.truthy(ok, "basalt.update should not error: " .. tostring(err))
+end)
+
+t.test("M.config (Task 4): top-margin -- BACK / first control at y >= 2", function()
+  local basalt = BasaltApp.ensureBasalt()
+  local frame = basalt.createFrame()
+  local region = { push = function() end, pop = function() end }
+
+  local runtime = {
+    uiRev = 0,
+    config = {
+      relay = { name = nil, side = nil },
+      fuel = newFuelCfg(),
+      engine = { pulseMs = 250, intervalMs = 330000, invert = false, kickstart = true, masterDefault = false },
+    },
+  }
+  local function scan() return {} end
+
+  local h = M.config(basalt, frame, region, runtime, { scan = scan })
+
+  t.truthy(h.elements.backBtn:getY() >= 2, "BACK button at y >= 2 (got " .. tostring(h.elements.backBtn:getY()) .. ")")
+
+  local ok, err = pcall(function() basalt.update("timer", -1) end)
+  t.truthy(ok, "basalt.update should not error: " .. tostring(err))
+end)
+
 return true
