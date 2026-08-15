@@ -53,6 +53,7 @@ local Uical  = require("ui.basalt.bitconfig.uical")
 local Config = require("ui.config")
 local ConfigPanel = require("ui.panels.config")
 local Picker = require("ui.basalt.picker")
+local btnfit = require("ui.basalt.btnfit")
 
 local M = {}
 
@@ -61,6 +62,10 @@ local M = {}
 -- delta without duplicating the literal.
 M.SOLID_STEP  = 64
 M.LIQUID_STEP = 1000
+
+-- Abbreviated fuel-source names for M.main's two gauge labels (Task 3 fuel-panel redesign).
+M.SOLID_ABBR  = "BZC"
+M.LIQUID_ABBR = "BDSL"
 
 -- Truncate (never wrap) a Label's text to its element width -- see the header note on
 -- Label.autoSize=false's wrap-at-width behaviour. Buttons don't need this (Button:render() already
@@ -71,6 +76,12 @@ local function fit(s, w)
     return s:sub(1, w)
   end
   return s
+end
+
+-- Standard round-half-up, used for the gauge bars' 0..100 progress value (Basalt's ProgressBar
+-- clamps/floors internally, but we round here so e.g. 79.6% shows as 80 not 79).
+local function round(x)
+  return math.floor((x or 0) + 0.5)
 end
 
 -- relayBound: NOT part of the canonical flat cadence state -- derive it from runtime.config.relay
@@ -134,47 +145,74 @@ function M._setMax(runtime, role, delta, saveFn)
   return newFull
 end
 
--- ===== M.main ("emc_main"): flight-glance view, ~10 rows =====
-
+-- ===== M.main ("emc_main"): flight-glance view, ~10 rows (Task 3 fuel-panel redesign) =====
+--
+-- Row 1 is a blank top margin (matches the merged page's other regions -- ui/basalt/regions/
+-- fcs.lua's M.main); all content starts at internal y=2:
+--   y2  "Solid Pump BZC"   label over the solid gauge (fit to width)
+--   y3  <bar x=2..>  128x  green/gray ProgressBar (height 1) + right-justified int+unit value
+--   y4  "Liquid Main BDSL" label (fit; falls back to "Liq Main BDSL" if the full text clips)
+--   y5  <bar x=2..>  180B  same bar/value treatment, liquid units
+--   y6  [ENG SW][PRIME]    height 1 (was 3), common width via ui.basalt.btnfit.grid
+--   y7  blank
+--   y8  MASTER light (1-char colored block + text) -- logic unchanged, shifted down
+--   y9  FEED light -- unchanged, shifted
+--   y10 CONFIG full-width drill -- unchanged, shifted
 function M.main(basalt, frame, region, runtime)
   local w = ({ frame:getSize() })[1]
 
-  -- Row 1: PMP gauge (solid fuel, %). Widths: "PMP" label(3) + bar(rest) + pct label(4, fits "100%").
-  local pmpLabelW, pctW = 3, 4
-  local pmpBarW = math.max(1, w - pmpLabelW - pctW)
-  frame:addLabel({ x = 1, y = 1, width = pmpLabelW, height = 1, autoSize = false, text = "PMP" })
-  local pmpBar = frame:addProgressBar({ x = 1 + pmpLabelW, y = 1, width = pmpBarW, height = 1 })
-  local pmpPctLabel = frame:addLabel({ x = 1 + pmpLabelW + pmpBarW, y = 1, width = pctW, height = 1, autoSize = false, text = "0%" })
+  -- Bar/value geometry, shared by both gauge rows: bar starts one column off the left border
+  -- (x=2), a right-side value field (~5 cols: fits "9999x"/"9999B" etc) sits flush against the
+  -- frame's right edge, with a 1-col gap between them. valLabel is built at this field's fixed
+  -- width/x but apply() below re-sizes/re-positions it to the EXACT text length each call so the
+  -- rendered text is genuinely right-justified against `valRight` (getText() itself stays
+  -- unpadded -- easier to assert in tests and consistent with every other label in this module).
+  local barX, gap, valW = 2, 1, 5
+  local barW = math.max(1, w - (barX - 1) - gap - valW)
+  local valX = barX + barW + gap
+  local valRight = valX + valW - 1
 
-  -- Row 2: MAIN gauge (liquid fuel, raw mB). "MAIN" label(4) + bar(rest) + mB label(5).
-  local mainLabelW, mbW = 4, 5
-  local mainBarW = math.max(1, w - mainLabelW - mbW)
-  frame:addLabel({ x = 1, y = 2, width = mainLabelW, height = 1, autoSize = false, text = "MAIN" })
-  local mainBar = frame:addProgressBar({ x = 1 + mainLabelW, y = 2, width = mainBarW, height = 1 })
-  local mainMbLabel = frame:addLabel({ x = 1 + mainLabelW + mainBarW, y = 2, width = mbW, height = 1, autoSize = false, text = "0" })
+  -- y2: solid gauge label.
+  local pmpLabel = frame:addLabel({ x = 1, y = 2, width = w, height = 1, autoSize = false, text = fit("Solid Pump " .. M.SOLID_ABBR, w) })
 
-  -- Row 3: spacer.
+  -- y3: solid gauge bar + value.
+  local pmpBar = frame:addProgressBar({ x = barX, y = 3, width = barW, height = 1 })
+  pmpBar:setProgressColor(colors.green)
+  pmpBar:setBackground(colors.gray)
+  local pmpValLabel = frame:addLabel({ x = valX, y = 3, width = valW, height = 1, autoSize = false, text = "" })
 
-  -- Rows 4-6: ENG SW / PRIME, side by side, 3 rows tall.
-  local ctrlY = 4
-  local halfW = math.max(1, math.floor(w / 2))
-  local restW = math.max(1, w - halfW)
-  local engSw = Switch.make(frame, { x = 1, y = ctrlY, width = halfW, height = 3, text = "ENG SW" })
-  local primeBtn = frame:addButton({ x = 1 + halfW, y = ctrlY, width = restW, height = 3, text = "PRIME" })
+  -- y4: liquid gauge label -- fall back to the shorter "Liq Main" form if "Liquid Main <ABBR>"
+  -- would clip against the frame width.
+  local liquidFull  = "Liquid Main " .. M.LIQUID_ABBR
+  local liquidShort = "Liq Main " .. M.LIQUID_ABBR
+  local liquidText  = (#liquidFull > w) and liquidShort or liquidFull
+  local mainLabel = frame:addLabel({ x = 1, y = 4, width = w, height = 1, autoSize = false, text = fit(liquidText, w) })
 
-  -- Row 7: spacer.
+  -- y5: liquid gauge bar + value.
+  local mainBar = frame:addProgressBar({ x = barX, y = 5, width = barW, height = 1 })
+  mainBar:setProgressColor(colors.green)
+  mainBar:setBackground(colors.gray)
+  local mainValLabel = frame:addLabel({ x = valX, y = 5, width = valW, height = 1, autoSize = false, text = "" })
 
-  -- Row 8: MASTER light (1-char colored block + short label).
-  local lightY = ctrlY + 3 + 1
+  -- y6: ENG SW / PRIME, height 1 (was 3), common width via btnfit.grid -- mirrors
+  -- ui/basalt/regions/fcs.lua's M.main control-group geometry (Task 2).
+  local ctrlGeo = btnfit.grid({ "ENG SW", "PRIME" }, { x0 = 1, availW = w, y0 = 6, gap = 1, align = "center" })
+  local engSw = Switch.make(frame, { x = ctrlGeo[1].x, y = ctrlGeo[1].y, width = ctrlGeo[1].w, height = 1, text = "ENG SW" })
+  local primeBtn = frame:addButton({ x = ctrlGeo[2].x, y = ctrlGeo[2].y, width = ctrlGeo[2].w, height = 1, text = "PRIME" })
+
+  -- y7: spacer.
+
+  -- y8: MASTER light (1-char colored block + short label).
+  local lightY = 8
   local masterBlock = frame:addLabel({ x = 1, y = lightY, width = 1, height = 1, autoSize = false, text = " " })
   local masterText  = frame:addLabel({ x = 2, y = lightY, width = math.max(1, w - 1), height = 1, autoSize = false, text = "ENG OFF" })
 
-  -- Row 9: FEED light.
+  -- y9: FEED light.
   local feedY = lightY + 1
   local feedBlock = frame:addLabel({ x = 1, y = feedY, width = 1, height = 1, autoSize = false, text = " " })
   local feedText  = frame:addLabel({ x = 2, y = feedY, width = math.max(1, w - 1), height = 1, autoSize = false, text = "FEED no" })
 
-  -- Row 10: CONFIG drill-in.
+  -- y10: CONFIG drill-in.
   local configY = feedY + 1
   local configBtn = frame:addButton({ x = 1, y = configY, width = w, height = 1, text = "CONFIG" })
 
@@ -188,18 +226,26 @@ function M.main(basalt, frame, region, runtime)
     region:push("emc_config")
   end)
 
+  -- Right-justify `text` (already fit to valW) against `valRight` by resizing/repositioning the
+  -- label to the text's exact length -- see the geometry comment above.
+  local function setVal(label, text)
+    text = fit(text, valW)
+    local tw = math.max(1, #text)
+    label:setWidth(tw)
+    label:setX(valRight - tw + 1)
+    label:setText(text)
+  end
+
   -- apply(state): idempotent repaint from `state` + runtime.config ONLY -- no peripheral polling.
   local function apply(state)
     state = state or {}
     local cfg = runtime.config
 
-    local pumpPct = math.floor(Fuel.manualFrac(state.pumpAmount, cfg.fuel.pump.full) * 100 + 0.5)
-    pmpBar:setProgress(pumpPct)
-    pmpPctLabel:setText(fit(pumpPct .. "%", pctW))
+    pmpBar:setProgress(round(Fuel.manualFrac(state.pumpAmount, cfg.fuel.pump.full) * 100))
+    setVal(pmpValLabel, tostring(state.pumpAmount or 0) .. "x")
 
-    local mainFrac = Fuel.manualFrac(state.tankMb, cfg.fuel.tank.full)
-    mainBar:setProgress(math.floor(mainFrac * 100 + 0.5))
-    mainMbLabel:setText(fit(state.tankMb or 0, mbW))
+    mainBar:setProgress(round(Fuel.manualFrac(state.tankMb, cfg.fuel.tank.full) * 100))
+    setVal(mainValLabel, tostring(math.floor((state.tankMb or 0) / 1000)) .. "B")
 
     local bound = relayBound(runtime)
     engSw.set(bound and (state.engineMaster and "on" or "off") or "disabled")
@@ -221,8 +267,8 @@ function M.main(basalt, frame, region, runtime)
   return {
     apply = apply,
     elements = {
-      pmpBar = pmpBar, pmpPctLabel = pmpPctLabel,
-      mainBar = mainBar, mainMbLabel = mainMbLabel,
+      pmpLabel = pmpLabel, pmpBar = pmpBar, pmpValLabel = pmpValLabel,
+      mainLabel = mainLabel, mainBar = mainBar, mainValLabel = mainValLabel,
       engSw = engSw, primeBtn = primeBtn,
       masterBlock = masterBlock, masterText = masterText,
       feedBlock = feedBlock, feedText = feedText,

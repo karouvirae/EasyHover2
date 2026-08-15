@@ -472,9 +472,82 @@ t.test("emc_main: apply() reflects state.pumpAmount/tankMb via manual-max fracti
   handle.apply({ pumpAmount = 800, tankMb = 4000, engineMaster = true, feeding = true })
 
   t.eq(handle.elements.pmpBar:getProgress(), 80, "800/1000 -> 80%")
-  t.eq(handle.elements.pmpPctLabel:getText(), "80%")
+  t.eq(handle.elements.pmpValLabel:getText(), "800x", "int amount + 'x' unit, no space")
   t.eq(handle.elements.mainBar:getProgress(), 100, "4000/4000 -> 100%")
-  t.eq(handle.elements.mainMbLabel:getText(), "4000")
+  t.eq(handle.elements.mainValLabel:getText(), "4B", "floor(mB/1000) + 'B' unit, no space")
+
+  local ok, err = pcall(function() basalt.update("timer", -1) end)
+  t.truthy(ok, "basalt.update should not error: " .. tostring(err))
+end)
+
+-- ===== Task 3: fuel-panel redesign -- label-over-bar, colored bars, int+unit values, compact =====
+-- ===== ENG SW/PRIME controls. Construction probe on a 14x11 fake frame (the merged page's real =====
+-- ===== EMC region size), asserting the FULL geometry/content contract from the design spec. =====
+
+t.test("M.main (Task 3 redesign): fuel panel geometry, colors, and int+unit values", function()
+  local basalt = BasaltApp.ensureBasalt()
+  local frame = basalt.createFrame()
+  frame:setSize(14, 11)
+
+  local engine = newEngineStub(true)
+  local runtime = {
+    engine = engine,
+    config = {
+      relay = { name = "relay_1", side = "back" },
+      fuel = {
+        pump = { name = "chest_1", kind = "inventory", empty = 0, full = 1000 },
+        tank = { name = "tank_1",  kind = "fluid",     empty = 0, full = 500000 },
+      },
+    },
+  }
+  local region = { push = function() end, pop = function() end }
+
+  local handle = M.main(basalt, frame, region, runtime)
+  handle.apply({ pumpAmount = 128, tankMb = 180350, engineMaster = true, feeding = false })
+
+  local el = handle.elements
+
+  -- Values: exact, no space, no percent.
+  t.eq(el.pmpValLabel:getText(), "128x", "solid value == pumpAmount .. 'x'")
+  t.eq(el.mainValLabel:getText(), "180B", "liquid value == floor(tankMb/1000) .. 'B'")
+
+  -- Labels: solid reads exactly "Solid Pump BZC"; liquid starts with "Liq"/"Liquid Main" and
+  -- contains the liquid abbreviation (fit-to-width may pick the short fallback).
+  t.eq(el.pmpLabel:getText(), "Solid Pump " .. M.SOLID_ABBR)
+  local liquidText = el.mainLabel:getText()
+  t.truthy(liquidText:find("^Liq"), "liquid label starts with 'Liq'")
+  t.truthy(liquidText:find(M.LIQUID_ABBR, 1, true), "liquid label contains the liquid abbreviation")
+
+  -- Bars: present, colored (not the black default), sitting at x=2.
+  t.truthy(el.pmpBar ~= nil, "pmpBar exists")
+  t.truthy(el.mainBar ~= nil, "mainBar exists")
+  t.eq(el.pmpBar:getX(), 2, "pmpBar starts at x=2")
+  t.eq(el.mainBar:getX(), 2, "mainBar starts at x=2")
+  t.eq(el.pmpBar:getProgressColor(), colors.green, "pmpBar filled color is green, not the black default")
+  t.eq(el.pmpBar:getBackground(), colors.gray, "pmpBar empty color is gray")
+  t.eq(el.mainBar:getProgressColor(), colors.green, "mainBar filled color is green")
+  t.eq(el.mainBar:getBackground(), colors.gray, "mainBar empty color is gray")
+
+  -- ENG SW / PRIME: height 1 (was 3), common (btnfit) width.
+  t.eq(el.engSw.button:getHeight(), 1, "ENG SW height 1")
+  t.eq(el.primeBtn:getHeight(), 1, "PRIME height 1")
+  t.eq(el.engSw.button:getWidth(), el.primeBtn:getWidth(), "ENG SW / PRIME share a common btnfit width")
+
+  -- Every element: y >= 2 (row 1 is the blank top margin), x + width - 1 <= 14 (frameW convention
+  -- from Task 2 -- an element may reach column w, never past it).
+  local probe = {
+    el.pmpLabel, el.pmpBar, el.pmpValLabel,
+    el.mainLabel, el.mainBar, el.mainValLabel,
+    el.engSw.button, el.primeBtn,
+    el.masterBlock, el.masterText,
+    el.feedBlock, el.feedText,
+    el.configBtn,
+  }
+  for i, e in ipairs(probe) do
+    t.truthy(e:getY() >= 2, "element #" .. i .. " y >= 2 (got " .. tostring(e:getY()) .. ")")
+    local right = e:getX() + e:getWidth() - 1
+    t.truthy(right <= 14, "element #" .. i .. " x+width-1 <= 14 (got " .. tostring(right) .. ")")
+  end
 
   local ok, err = pcall(function() basalt.update("timer", -1) end)
   t.truthy(ok, "basalt.update should not error: " .. tostring(err))
