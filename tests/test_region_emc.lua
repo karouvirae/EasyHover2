@@ -629,9 +629,13 @@ t.test("M.calfuel (Task 4): expanded steppers -- exact deltas, clamps at 0, cent
   t.truthy(ok, "basalt.update should not error: " .. tostring(err))
 end)
 
-t.test("M.config (Task 4): top-margin -- BACK / first control at y >= 2", function()
+t.test("M.config (Task 4): top-margin -- BACK at y >= 2, and every control (incl. CAL FUEL, the " ..
+  "LAST one) still fits the real 11-row EMC region -- REGRESSION: the +1 shift must not push " ..
+  "content past the region's actual height (ui/basalt/pages/flight.lua's M.split gives EMC " ..
+  "topH=11 on the target ~24-row monitor)", function()
   local basalt = BasaltApp.ensureBasalt()
   local frame = basalt.createFrame()
+  frame:setSize(14, 11) -- the real EMC region size (matches M.main/M.calfuel's construction probes)
   local region = { push = function() end, pop = function() end }
 
   local runtime = {
@@ -645,8 +649,23 @@ t.test("M.config (Task 4): top-margin -- BACK / first control at y >= 2", functi
   local function scan() return {} end
 
   local h = M.config(basalt, frame, region, runtime, { scan = scan })
+  local el = h.elements
 
-  t.truthy(h.elements.backBtn:getY() >= 2, "BACK button at y >= 2 (got " .. tostring(h.elements.backBtn:getY()) .. ")")
+  t.truthy(el.backBtn:getY() >= 2, "BACK button at y >= 2 (got " .. tostring(el.backBtn:getY()) .. ")")
+
+  -- Every element (not just BACK) must fit within the region's actual 11 rows -- CAL FUEL is the
+  -- LAST control and the one the prior (unfixed) +1 shift pushed to y=12, one row past the region.
+  local probe = {
+    backBtn = el.backBtn, sideLabel = el.sideLabel, timingLabel = el.timingLabel,
+    pulseDnBtn = el.pulseDnBtn, pulseUpBtn = el.pulseUpBtn,
+    intDnBtn = el.intDnBtn, intUpBtn = el.intUpBtn,
+    pumpLabel = el.pumpLabel, tankLabel = el.tankLabel, relayLabel = el.relayLabel,
+    calFuelBtn = el.calFuelBtn,
+  }
+  for name, e in pairs(probe) do
+    t.truthy(e:getY() <= 11, name .. " y <= 11 (got " .. tostring(e:getY()) .. ")")
+  end
+  t.eq(el.calFuelBtn:getY(), 11, "CAL FUEL (the last control) lands exactly at the region's last row")
 
   local ok, err = pcall(function() basalt.update("timer", -1) end)
   t.truthy(ok, "basalt.update should not error: " .. tostring(err))

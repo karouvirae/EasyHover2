@@ -375,8 +375,6 @@ function M.config(basalt, frame, region, runtime, deps)
       bump()
     end)
 
-  y = y + 1 -- spacer
-
   local calFuelBtn = frame:addButton({ x = 1, y = y, width = w, height = 1, text = "CAL FUEL" })
   y = y + 1
 
