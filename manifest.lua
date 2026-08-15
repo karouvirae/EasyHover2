@@ -731,9 +731,9 @@
         },
         {
           ["dst"] = "ui/basalt/configkit.lua",
-          ["size"] = 3867,
+          ["size"] = 3714,
           ["src"] = "dist/ui/basalt/configkit.lua",
-          ["sum"] = "b6626419",
+          ["sum"] = "44d0eedc",
         },
         {
           ["dst"] = "ui/basalt/listpicker.lua",
@@ -884,5 +884,5 @@
     ["size"] = 70702,
     ["sum"] = "3dd2fb64",
   },
-  ["version"] = "983cf717",
+  ["version"] = "c346a139",
 }

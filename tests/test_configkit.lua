@@ -50,7 +50,7 @@ end)
 
 t.test("helpLines covers every required glossary entry", function()
   local ids = { "gains", "caps", "feel", "hoverduty", "heave", "modes",
-                "alt", "pitch", "roll", "yaw", "sway", "surge", "cpl", "dcpl" }
+                "alt", "pitch", "roll", "yaw", "sway", "surge" }
   for _, id in ipairs(ids) do
     t.truthy(ck.GLOSSARY[id], "entry exists: " .. id)
     local L = ck.helpLines(id, 14)
@@ -59,17 +59,34 @@ t.test("helpLines covers every required glossary entry", function()
   end
 end)
 
-t.test("GLOSSARY.cpl and GLOSSARY.dcpl exist with non-empty lines and ASCII content", function()
-  for _, id in ipairs({ "cpl", "dcpl" }) do
-    local entry = ck.GLOSSARY[id]
-    t.truthy(entry, "entry exists: " .. id)
-    t.truthy(type(entry.title) == "string" and #entry.title > 0, "title present: " .. id)
-    t.truthy(type(entry.lines) == "table" and #entry.lines > 0, "lines non-empty: " .. id)
-    for _, line in ipairs(entry.lines) do
-      t.truthy(#line <= 14, "line <= 14 cols (" .. id .. "): " .. line)
-      t.truthy(line:match("^[\32-\126]*$") ~= nil, "ASCII-only (" .. id .. "): " .. line)
-    end
+-- CPL/DCPL have NO standalone GLOSSARY entries (unlike MAN/CRUISE, no screen's "?" routes to a
+-- per-mode help id -- every mode's FEEL screens share "help_feel", every mode's cat/root screens
+-- share "help_modes"; see tuning.lua's HELP_IDS, unextended by design). Their content instead
+-- lives in the ALREADY-REACHABLE `modes` entry (reached via help_modes from every mode's cat
+-- screen, including CPL's/DCPL's own), so this guards the REACHABLE content, not a dead entry.
+t.test("GLOSSARY.cpl / .dcpl standalone entries do NOT exist (no reachable help_cpl/help_dcpl screen)", function()
+  t.truthy(ck.GLOSSARY.cpl == nil, "no dead standalone cpl entry")
+  t.truthy(ck.GLOSSARY.dcpl == nil, "no dead standalone dcpl entry")
+end)
+
+t.test("GLOSSARY.modes (reachable via help_modes) explains the CPL vs DCPL distinction", function()
+  local joined = table.concat(ck.GLOSSARY.modes.lines, " ")
+  t.truthy(joined:match("CPL"), "mentions CPL")
+  t.truthy(joined:match("DCPL"), "mentions DCPL")
+  t.truthy(joined:match("[Cc]oupled"), "explains CPL is coupled")
+  t.truthy(joined:match("[Aa]rrests"), "explains CPL arrests drift")
+  t.truthy(joined:match("release"), "explains the drift arrest triggers on release")
+  t.truthy(joined:match("coasts"), "explains DCPL's drift coasts")
+  t.truthy(joined:match("held"), "explains DCPL still holds alt/att")
+  for _, line in ipairs(ck.GLOSSARY.modes.lines) do
+    t.truthy(#line <= 14, "line <= 14 cols: " .. line)
+    t.truthy(line:match("^[\32-\126]*$") ~= nil, "ASCII-only: " .. line)
   end
+  -- the SAME id every mode's (incl. CPL/DCPL) cat screen "?" already routes to -- content survives
+  -- helpLines' word-wrap re-flow too, not just the raw GLOSSARY table.
+  local wrapped = table.concat(ck.helpLines("modes", 14), " ")
+  t.truthy(wrapped:match("CPL"), "helpLines('modes') still mentions CPL after wrapping")
+  t.truthy(wrapped:match("DCPL"), "helpLines('modes') still mentions DCPL after wrapping")
 end)
 
 t.test("helpLines guarantees every line fits a narrow width (title + hard-broken words)", function()
