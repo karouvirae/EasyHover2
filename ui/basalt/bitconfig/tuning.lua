@@ -19,11 +19,11 @@
 -- The old flat build crammed 34 stepper rows onto ONE paged screen. M.build now hosts a
 -- region.lua drilldown (root "modes") inside this page's own frame, mirroring
 -- ui/basalt/bitconfig/mdb.lua's/senscal.lua's overview->sub-screen construction:
---   * "modes": PRECISION/MAN/CRUISE buttons (region:push("cat_"..mode)) + "?"(help_modes) +
---     "<" (FRAME-level nav:pop -- this is the page's own top).
+--   * "modes": PRECISION/MAN/CRUISE/CPL/DCPL buttons (one per M.MODES, region:push("cat_"..mode))
+--     + "?"(help_modes) + "<" (FRAME-level nav:pop -- this is the page's own top).
 --   * "cat_<mode>" (one per M.MODES): GAINS/CAPS/FEEL buttons (region:push into the axis layer
 --     for GAINS, straight to a flat edit screen for CAPS, into the axis layer for GAINS or FEEL's
---     own small menu for MAN/CRUISE -- see below) + a SAVE/RST row (SAVE calls
+--     own small menu for MAN/CRUISE/CPL/DCPL -- see below) + a SAVE/RST row (SAVE calls
 --     M._save(workingCfg, write); RST calls M.resetMode(workingCfg, mode) -- a MODE-SCOPED
 --     reset, replacing the old whole-file M._reset/delete flow) + a "?"(help_modes)/"<"
 --     (region:pop, back to "modes") row.
@@ -32,13 +32,15 @@
 --     heaveMax -- these have no axis and would otherwise be dropped by an axis-only layer) +
 --     "?"(help_gains) + "<" (region:pop, back to "cat_<mode>"). CAPS has NO axis layer.
 --   * FEEL fit fix (post-review): PRECISION's FEEL is flat (8 rows, title+8+footer=10 fits the
---     ~12-row monitor's region budget EXACTLY) and goes straight to "edit_PRECISION_FEEL". MAN/
---     CRUISE each carry 2 extra per-mode FEEL rows on top of the same 8 base ones (10 total) --
---     title+10+footer=12 overflows that SAME budget by 2 rows, clipping the footer/"<" off-screen
---     (a user trap: no way back). So MAN/CRUISE's FEEL button instead opens "feel_menu_<mode>" (a
---     small BASE FEEL / MODE FEEL chooser, mirroring the GAINS axis/BASE split above), which fans
---     out to "edit_<mode>_FEEL_base" (the 8 base rows, filtered via FEEL_BASE_IDS) and
---     "edit_<mode>_FEEL_extra" (just that mode's 2 extras) -- each fits comfortably on its own.
+--     ~12-row monitor's region budget EXACTLY) and goes straight to "edit_PRECISION_FEEL". Every
+--     other mode carries its own extra per-mode FEEL rows on top of the same 8 base ones (MAN/
+--     CRUISE: 2 extras, 10 total; CPL/DCPL: 8 extras, 16 total) -- title+10(or 16)+footer overflows
+--     that SAME budget, clipping the footer/"<" off-screen (a user trap: no way back). So every
+--     non-PRECISION mode's FEEL button instead opens "feel_menu_<mode>" (a small BASE FEEL / MODE
+--     FEEL chooser, mirroring the GAINS axis/BASE split above), which fans out to
+--     "edit_<mode>_FEEL_base" (the 8 base rows, filtered via FEEL_BASE_IDS) and
+--     "edit_<mode>_FEEL_extra" (just that mode's own extras -- 2 for MAN/CRUISE, 8 for CPL/DCPL,
+--     the max that still fits: title+8+footer=10) -- each fits comfortably on its own.
 --   * "edit_<mode>_<GROUP>[_<axis>]"/"edit_<mode>_FEEL_base"/"edit_<mode>_FEEL_extra": the actual
 --     +/- stepper rows -- built by one shared factory (buildEditScreen) parameterised by a pure
 --     filter over M.rows(workingCfg, mode), so a screen's row SET (ids) is fixed at build time
@@ -47,8 +49,8 @@
 --     M.apply(workingCfg, mode, rowId, +-1) (the UNCHANGED Task 7 pure model) and repaints just
 --     this screen's own labels. "?" pushes a context help screen (help_<axis> for a GAINS axis
 --     screen, help_gains for the BASE screen, help_caps/help_feel for CAPS/FEEL); "<" pops back to
---     the axis/menu layer (GAINS/FEEL on MAN,CRUISE) or straight to "cat_<mode>" (CAPS, PRECISION
---     FEEL).
+--     the axis/menu layer (GAINS/FEEL on non-PRECISION modes) or straight to "cat_<mode>" (CAPS,
+--     PRECISION FEEL).
 --   * help_modes/help_gains/help_caps/help_feel/help_<axis> (alt/pitch/roll/yaw/sway/surge): each
 --     `function(b,f,r) return configkit.helpScreen(b,f,r,"<entryId>") end` -- configkit.helpScreen
 --     already wires its OWN "<" to region:pop(), so no extra back-wiring is needed for these.
@@ -172,7 +174,7 @@ for _, spec in ipairs(ROW_SPEC) do SPEC_BY_ID[spec.id] = spec end
 -- ===== live under modes.MAN / modes.CRUISE and carry their own extra FEEL rows on top      =====
 -- ===== of the 34 base rows (see fcs/io/tuningdefaults.lua's DEFAULTS.modes).                =====
 
-M.MODES = { "PRECISION", "MAN", "CRUISE" }
+M.MODES = { "PRECISION", "MAN", "CRUISE", "CPL", "DCPL" }
 
 -- M.pathFor(mode, dotted) -> dotted path into the cfg tree for that mode. PRECISION (or a nil
 -- mode) is the top-level path as-is; MAN/CRUISE are prefixed under modes.<mode>. PURE.
@@ -182,8 +184,15 @@ function M.pathFor(mode, dotted)
 end
 
 -- Per-mode EXTRA rows, on top of the 34 base ROW_SPEC rows -- MAN gets arrow-key tilt feel,
--- CRUISE gets surge-throttle feel (see tuningdefaults.lua's DEFAULTS.modes.MAN/.CRUISE.feel).
--- PRECISION has none: the top level has no tilt/throttle feel to tune.
+-- CRUISE gets surge-throttle feel, CPL/DCPL (plane-style coupled/decoupled) each get their own 8
+-- throttle/brake/strafe/climb/trim feel rows (see tuningdefaults.lua's
+-- DEFAULTS.modes.MAN/.CRUISE/.CPL/.DCPL.feel -- CPL/DCPL share the same coupledFeel() shape/
+-- defaults there, so their specs below are identical). PRECISION has none: the top level has no
+-- tilt/throttle feel to tune.
+-- CPL/DCPL's 8 rows (not 2, like MAN/CRUISE) is the max this fits: title(1) + 8 rows + footer(1)
+-- = 10 == the same ~12-row monitor's region budget (h-2) the flat PRECISION FEEL screen and MAN/
+-- CRUISE's BASE FEEL screen both already hit exactly -- see FEEL_BASE_IDS's header note below and
+-- the fit-regression test in tests/test_bitconfig_tuning.lua.
 local MODE_EXTRA_ROWS = {
   MAN = {
     { id = "feel.tiltRate", label = "TILT RATE", group = "FEEL", step = 0.1,  min = 0.1, max = 2.0 },
@@ -192,6 +201,26 @@ local MODE_EXTRA_ROWS = {
   CRUISE = {
     { id = "feel.cruiseThrottleRate", label = "THROTTLE RATE", group = "FEEL", step = 0.1,  min = 0.1, max = 2.0 },
     { id = "feel.cruiseThrottleMax",  label = "THROTTLE MAX",  group = "FEEL", step = 0.05, min = 0,   max = 1.0 },
+  },
+  CPL = {
+    { id = "feel.throttleRate",  label = "THROTTLE RATE",   group = "FEEL", step = 0.1,  min = 0.1, max = 2.0 },
+    { id = "feel.throttleDecay", label = "THROTTLE DECAY",  group = "FEEL", step = 0.1,  min = 0.1, max = 2.0 },
+    { id = "feel.brakeGain",     label = "BRAKE GAIN",      group = "FEEL", step = 0.05, min = 0,   max = 1.0 },
+    { id = "feel.slowSurgeRate", label = "SLOW SURGE RATE", group = "FEEL", step = 0.05, min = 0,   max = 1.0 },
+    { id = "feel.strafeRate",    label = "STRAFE RATE",     group = "FEEL", step = 0.05, min = 0,   max = 1.0 },
+    { id = "feel.climbRampTime", label = "CLIMB RAMP TIME", group = "FEEL", step = 0.1,  min = 0.1, max = 5.0 },
+    { id = "feel.climbBoost",    label = "CLIMB BOOST",     group = "FEEL", step = 0.1,  min = 0.5, max = 5.0 },
+    { id = "feel.trimGain",      label = "TRIM GAIN",       group = "FEEL", step = 0.01, min = 0,   max = 1.0 },
+  },
+  DCPL = {
+    { id = "feel.throttleRate",  label = "THROTTLE RATE",   group = "FEEL", step = 0.1,  min = 0.1, max = 2.0 },
+    { id = "feel.throttleDecay", label = "THROTTLE DECAY",  group = "FEEL", step = 0.1,  min = 0.1, max = 2.0 },
+    { id = "feel.brakeGain",     label = "BRAKE GAIN",      group = "FEEL", step = 0.05, min = 0,   max = 1.0 },
+    { id = "feel.slowSurgeRate", label = "SLOW SURGE RATE", group = "FEEL", step = 0.05, min = 0,   max = 1.0 },
+    { id = "feel.strafeRate",    label = "STRAFE RATE",     group = "FEEL", step = 0.05, min = 0,   max = 1.0 },
+    { id = "feel.climbRampTime", label = "CLIMB RAMP TIME", group = "FEEL", step = 0.1,  min = 0.1, max = 5.0 },
+    { id = "feel.climbBoost",    label = "CLIMB BOOST",     group = "FEEL", step = 0.1,  min = 0.5, max = 5.0 },
+    { id = "feel.trimGain",      label = "TRIM GAIN",       group = "FEEL", step = 0.01, min = 0,   max = 1.0 },
   },
 }
 
@@ -541,12 +570,13 @@ function M.build(basalt, frame, runtime, nav, read, write, delete)
     end
   end
 
-  -- ===== feel_menu_<mode> (MAN/CRUISE only): BASE FEEL / MODE FEEL -- FEEL's own axis-less =====
-  -- ===== split (mirrors gains_axis_<mode>'s ALT/../BASE split): MAN/CRUISE's 10 FEEL rows    =====
-  -- ===== (8 base + 2 per-mode extras) don't fit ONE ~10-row screen budget (title+10+footer = =====
-  -- ===== 12), so this menu fans out to two screens that each do (8+2 and 2+2 = 10 and 4).     =====
-  -- ===== PRECISION has no extras (8 rows fits its flat screen exactly) so it skips this menu  =====
-  -- ===== entirely -- see the screens-map assembly below.                                      =====
+  -- ===== feel_menu_<mode> (every mode but PRECISION): BASE FEEL / MODE FEEL -- FEEL's own      =====
+  -- ===== axis-less split (mirrors gains_axis_<mode>'s ALT/../BASE split): MAN/CRUISE's 10 FEEL  =====
+  -- ===== rows (8 base + 2 per-mode extras) and CPL/DCPL's 16 (8 base + 8 per-mode extras) don't =====
+  -- ===== fit ONE ~10-row screen budget (title+10(or 16)+footer overflows it), so this menu fans =====
+  -- ===== out to two screens that each fit on their own (8 base -> 10 rows; extras -> 4 or 10).  =====
+  -- ===== PRECISION has no extras (8 rows fits its flat screen exactly) so it skips this menu    =====
+  -- ===== entirely -- see the screens-map assembly below.                                        =====
   local function buildFeelMenuScreen(mode)
     return function(b, f, region)
       local fw = ({ f:getSize() })[1]

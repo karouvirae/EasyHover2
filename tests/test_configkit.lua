@@ -50,12 +50,25 @@ end)
 
 t.test("helpLines covers every required glossary entry", function()
   local ids = { "gains", "caps", "feel", "hoverduty", "heave", "modes",
-                "alt", "pitch", "roll", "yaw", "sway", "surge" }
+                "alt", "pitch", "roll", "yaw", "sway", "surge", "cpl", "dcpl" }
   for _, id in ipairs(ids) do
     t.truthy(ck.GLOSSARY[id], "entry exists: " .. id)
     local L = ck.helpLines(id, 14)
     t.truthy(#L >= 2, "has content: " .. id)
     for _, ln in ipairs(L) do t.truthy(#ln <= 14, "fits (" .. id .. "): " .. ln) end
+  end
+end)
+
+t.test("GLOSSARY.cpl and GLOSSARY.dcpl exist with non-empty lines and ASCII content", function()
+  for _, id in ipairs({ "cpl", "dcpl" }) do
+    local entry = ck.GLOSSARY[id]
+    t.truthy(entry, "entry exists: " .. id)
+    t.truthy(type(entry.title) == "string" and #entry.title > 0, "title present: " .. id)
+    t.truthy(type(entry.lines) == "table" and #entry.lines > 0, "lines non-empty: " .. id)
+    for _, line in ipairs(entry.lines) do
+      t.truthy(#line <= 14, "line <= 14 cols (" .. id .. "): " .. line)
+      t.truthy(line:match("^[\32-\126]*$") ~= nil, "ASCII-only (" .. id .. "): " .. line)
+    end
   end
 end)
 

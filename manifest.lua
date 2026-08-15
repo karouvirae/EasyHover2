@@ -713,9 +713,9 @@
         },
         {
           ["dst"] = "ui/basalt/bitconfig/tuning.lua",
-          ["size"] = 10793,
+          ["size"] = 12143,
           ["src"] = "dist/ui/basalt/bitconfig/tuning.lua",
-          ["sum"] = "a553c646",
+          ["sum"] = "812a662e",
         },
         {
           ["dst"] = "ui/basalt/bitconfig/uical.lua",
@@ -731,9 +731,9 @@
         },
         {
           ["dst"] = "ui/basalt/configkit.lua",
-          ["size"] = 3586,
+          ["size"] = 3867,
           ["src"] = "dist/ui/basalt/configkit.lua",
-          ["sum"] = "47b5a327",
+          ["sum"] = "b6626419",
         },
         {
           ["dst"] = "ui/basalt/listpicker.lua",
@@ -884,5 +884,5 @@
     ["size"] = 70702,
     ["sum"] = "3dd2fb64",
   },
-  ["version"] = "ae1d9bfb",
+  ["version"] = "983cf717",
 }

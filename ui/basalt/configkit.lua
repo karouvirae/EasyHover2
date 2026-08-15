@@ -89,6 +89,8 @@ M.GLOSSARY = {
       "PRECISION:", "flat-stable", "default.",
       "MAN: manual", "arrow-key", "tilt input.",
       "CRUISE: held", "forward", "throttle.",
+      "CPL: coupled", "plane, drift", "cushion.",
+      "DCPL: no drift", "cushion",
     },
   },
   alt = {
@@ -114,6 +116,21 @@ M.GLOSSARY = {
   surge = {
     title = "SURGE",
     lines = { "Forward/back", "drift", "correction." },
+  },
+  cpl = {
+    title = "CPL",
+    lines = {
+      "Coupled plane-", "style mode.",
+      "Arrests side-", "ways drift",
+      "when you let", "go (cushion).",
+    },
+  },
+  dcpl = {
+    title = "DCPL",
+    lines = {
+      "Like CPL but", "drift coasts",
+      "(no lateral", "cushion) when", "idle.",
+    },
   },
 }
 
