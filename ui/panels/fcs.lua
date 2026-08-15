@@ -157,8 +157,23 @@ function M.action(id, ctx)
     return { kind = "command", cmd = { k = "positionHold", on = not ctx.positionHold } }
   elseif id == "clearDamped" then
     return { kind = "command", cmd = { k = "clearDamped" } }
+  elseif id == "trimUp" then
+    return { kind = "command", cmd = { k = "flightTrim", dir = 1 } }
+  elseif id == "trimDn" then
+    return { kind = "command", cmd = { k = "flightTrim", dir = -1 } }
   end
   return nil
+end
+
+-- ===== Live auto-trim child button (CPL/DCPL only) =====
+-- No-optimistic-UI: label/active state are driven purely by the reported ctx.trimDir/flightMode,
+-- never by the tap itself -- mirrors M.modeActive's contract above.
+function M.trimLabel(ctx)
+  return ((ctx and ctx.trimDir and ctx.trimDir > 0) and "TRIM UP") or "TRIM DN"
+end
+
+function M.trimActive(ctx)  -- child button only meaningful in a coupled mode
+  return ctx and (ctx.flightMode == "CPL" or ctx.flightMode == "DCPL")
 end
 
 -- ===== Exports for the Basalt cockpit page (ui/basalt/pages/fcs.lua) =====

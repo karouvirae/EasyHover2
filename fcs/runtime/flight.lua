@@ -2,12 +2,21 @@
 local Flight = {}
 Flight.__index = Flight
 
+-- Default trimDir at boot: the default mode's own feel.trimDir when the registry descriptor
+-- carries one (real fcs.io.tuningdefaults-built feels do), else -1 (nose-down trim convention).
+local function defaultTrimDir(reg)
+  local d = reg and reg.byId and reg.default and reg.byId[reg.default]
+  local t = d and d.feel and d.feel.trimDir
+  return t or -1
+end
+
 function Flight.new(deps)
   return setmetatable({
     loop = deps.loop, pilot = deps.pilot, registry = deps.registry,
     moveEps = deps.moveEps or 0.5,   -- ground-idle motion gate (blocks/s)
     engaged = false, gndSafety = true, positionHold = false,
     fuelPump = false, flightMode = (deps.registry and deps.registry.default) or "PRECISION", parked = false,
+    trimDir = defaultTrimDir(deps.registry),
     _needReset = false, _loopHz = 0,
   }, Flight)
 end
@@ -38,6 +47,11 @@ function Flight:handleCommand(cmd)
     self.loop:setActive(d)
     self.pilot:setMode(d.policy, d.feel)
     self.flightMode = cmd.id
+    return true
+  elseif k == "flightTrim" then
+    local dir = (cmd.dir and cmd.dir < 0) and -1 or 1
+    self.trimDir = dir
+    if self.pilot.setTrimDir then self.pilot:setTrimDir(dir) end
     return true
   end
   return false
@@ -87,6 +101,7 @@ function Flight:snapshot(r, meas)
     positionHold = self.positionHold, fuelPump = self.fuelPump, parked = self.parked,
     mode = self.parked and "PARKED" or ((r and r.mode) or self.loop:getMode()),
     flightMode = self.flightMode,
+    trimDir = self.trimDir,
     altitude = m.altitude, vSpeed = m.vSpeed, heading = m.heading,
     yawRate = m.yawRate, swayPos = m.swayPos, surgePos = m.surgePos,
     onGround = m.onGround, loopHz = self._loopHz,

@@ -77,6 +77,24 @@ t.test("_onButton: gndSafety currently on -> cmd.on==false (request off)", funct
   t.eq(effect.cmd.on, false)
 end)
 
+t.test("_onButton: trimUp -> cmd.k==\"flightTrim\", cmd.dir==1", function()
+  local runtime, sent = newRuntime({ engaged = true, gndSafety = false, positionHold = false, mode = "FLIGHT" })
+  local effect = M._onButton(runtime, "trimUp", 4500)
+  t.eq(effect.kind, "command")
+  t.eq(effect.cmd.k, "flightTrim")
+  t.eq(effect.cmd.dir, 1)
+  t.eq(#sent, 1)
+  t.eq(sent[1].k, "flightTrim")
+  t.eq(sent[1].dir, 1)
+end)
+
+t.test("_onButton: trimDn -> cmd.k==\"flightTrim\", cmd.dir==-1", function()
+  local runtime, sent = newRuntime({ engaged = true, gndSafety = false, positionHold = false, mode = "FLIGHT" })
+  local effect = M._onButton(runtime, "trimDn", 4600)
+  t.eq(effect.cmd.k, "flightTrim")
+  t.eq(effect.cmd.dir, -1)
+end)
+
 -- ===== Construction probe: real CraftOS-PC Basalt, no real peripherals =====
 
 t.test("M.build constructs the element tree; apply() + one render pass do not error", function()
@@ -98,6 +116,7 @@ t.test("M.build constructs the element tree; apply() + one render pass do not er
   t.truthy(h.elements.modeBtns.CRUISE ~= nil, "CRUISE mode switch present")
   t.truthy(h.elements.modeBtns.CPL ~= nil, "CPL mode switch present")
   t.truthy(h.elements.modeBtns.DCPL ~= nil, "DCPL mode switch present")
+  t.truthy(h.elements.trimBtn ~= nil, "trimBtn element present")
 
   local sampleState = {
     engaged = true, gndSafety = false, positionHold = false, mode = "FLIGHT",
@@ -111,6 +130,10 @@ t.test("M.build constructs the element tree; apply() + one render pass do not er
   -- only the reported mode is enabled/"on" (green), the others are "off" (red).
   t.eq(h.elements.modeBtns.MAN:getEnabled(), true, "MAN switch enabled once apply() has run")
   t.eq(h.elements.modeBtns.PRECISION:getEnabled(), true, "PRECISION switch enabled once apply() has run")
+
+  -- flightMode == "MAN" is not CPL/DCPL, so the trim button reads disabled/"TRIM --".
+  t.eq(h.elements.trimBtn:getEnabled(), false, "trim button disabled outside CPL/DCPL")
+  t.eq(h.elements.trimBtn:getText(), "TRIM --", "trim button shows placeholder outside CPL/DCPL")
 
   -- Idempotent: calling apply() again with the same/changed state must not error either.
   local ok2, err2 = pcall(h.apply, sampleState)
@@ -168,6 +191,32 @@ t.test("M.build's apply() reflects gndSafety-on: engage disabled", function()
   })
   t.truthy(ok, "apply should not error with gndSafety on: " .. tostring(err))
   t.eq(h.elements.engageBtn:getEnabled(), false, "engage disabled when gndSafety on")
+end)
+
+t.test("M.build's apply() reflects trimDir while in CPL/DCPL", function()
+  local basalt = BasaltApp.ensureBasalt()
+  local frame = basalt.createFrame()
+
+  local runtime = newRuntime({ engaged = true, gndSafety = false, positionHold = false, mode = "FLIGHT" })
+  local h = M.build(basalt, frame, runtime)
+
+  local ok, err = pcall(h.apply, {
+    engaged = true, gndSafety = false, positionHold = false, mode = "FLIGHT",
+    altitude = 10, vSpeed = 0, heading = 0, loopHz = 20, linkUp = true, uiRev = 1,
+    flightMode = "CPL", trimDir = 1,
+  })
+  t.truthy(ok, "apply should not error with flightMode CPL: " .. tostring(err))
+  t.eq(h.elements.trimBtn:getEnabled(), true, "trim button enabled in CPL")
+  t.eq(h.elements.trimBtn:getText(), "TRIM UP", "trim button shows TRIM UP when trimDir==1")
+
+  local ok2, err2 = pcall(h.apply, {
+    engaged = true, gndSafety = false, positionHold = false, mode = "FLIGHT",
+    altitude = 10, vSpeed = 0, heading = 0, loopHz = 20, linkUp = true, uiRev = 1,
+    flightMode = "DCPL", trimDir = -1,
+  })
+  t.truthy(ok2, "apply should not error with flightMode DCPL: " .. tostring(err2))
+  t.eq(h.elements.trimBtn:getEnabled(), true, "trim button enabled in DCPL")
+  t.eq(h.elements.trimBtn:getText(), "TRIM DN", "trim button shows TRIM DN when trimDir==-1")
 end)
 
 return true

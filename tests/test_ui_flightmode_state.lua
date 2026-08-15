@@ -32,3 +32,24 @@ t.test("cadence.sig changes when the reported flightMode changes", function()
   local b = cadence.sig({ flightMode = "MAN", mode = "NORMAL" })
   t.truthy(a ~= b, "signature reflects mode change")
 end)
+
+t.test("buildState carries trimDir from telemetry", function()
+  local runtime = app.buildRuntime({
+    modem = { open = function() end, isWireless = function() return false end,
+              transmit = function() end },
+    wrap = function() return {} end,
+    read = function() return nil end,
+  })
+  local tx = telemetry.Tx.new()
+  local frame = tx:frame({ flightMode = "CPL", mode = "NORMAL", trimDir = 1 })
+  app.routeModem(runtime, app.CH.telemetry, protocol.encode(frame))
+
+  local st = app.buildState(runtime, os.epoch("utc"))
+  t.eq(st.trimDir, 1, "trimDir copied into state")
+end)
+
+t.test("cadence.sig changes when the reported trimDir changes", function()
+  local a = cadence.sig({ flightMode = "CPL", mode = "NORMAL", trimDir = -1 })
+  local b = cadence.sig({ flightMode = "CPL", mode = "NORMAL", trimDir = 1 })
+  t.truthy(a ~= b, "signature reflects trimDir change")
+end)

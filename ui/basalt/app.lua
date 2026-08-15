@@ -449,6 +449,7 @@ function M.buildState(runtime, now)
     positionHold = latest.positionHold,
     mode         = latest.mode,
     flightMode   = latest.flightMode,
+    trimDir      = latest.trimDir,
     linkUp       = runtime.hbRx:up(now / 1000),
     altitude     = latest.altitude,
     vSpeed       = latest.vSpeed,

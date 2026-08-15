@@ -233,9 +233,9 @@
         },
         {
           ["dst"] = "fcs/runtime/flight.lua",
-          ["size"] = 4066,
+          ["size"] = 4691,
           ["src"] = "fcs/runtime/flight.lua",
-          ["sum"] = "8ff6219f",
+          ["sum"] = "2f2e0277",
         },
         {
           ["dst"] = "fcs/runtime/loop.lua",
@@ -677,9 +677,9 @@
         },
         {
           ["dst"] = "ui/basalt/app.lua",
-          ["size"] = 27205,
+          ["size"] = 27240,
           ["src"] = "ui/basalt/app.lua",
-          ["sum"] = "89b93913",
+          ["sum"] = "0df3471d",
         },
         {
           ["dst"] = "ui/basalt/bitconfig/dtc.lua",
@@ -725,9 +725,9 @@
         },
         {
           ["dst"] = "ui/basalt/cadence.lua",
-          ["size"] = 1494,
+          ["size"] = 1519,
           ["src"] = "ui/basalt/cadence.lua",
-          ["sum"] = "0c332b95",
+          ["sum"] = "e5634660",
         },
         {
           ["dst"] = "ui/basalt/configkit.lua",
@@ -767,9 +767,9 @@
         },
         {
           ["dst"] = "ui/basalt/pages/fcs.lua",
-          ["size"] = 9522,
+          ["size"] = 10755,
           ["src"] = "ui/basalt/pages/fcs.lua",
-          ["sum"] = "138a03d6",
+          ["sum"] = "81ef2954",
         },
         {
           ["dst"] = "ui/basalt/pages/flight.lua",
@@ -863,9 +863,9 @@
         },
         {
           ["dst"] = "ui/panels/fcs.lua",
-          ["size"] = 5766,
+          ["size"] = 6454,
           ["src"] = "ui/panels/fcs.lua",
-          ["sum"] = "2c3a0415",
+          ["sum"] = "1f303767",
         },
         {
           ["dst"] = "ui/toolkit.lua",
@@ -884,5 +884,5 @@
     ["size"] = 70702,
     ["sum"] = "3dd2fb64",
   },
-  ["version"] = "31f69ae2",
+  ["version"] = "9dc4d336",
 }

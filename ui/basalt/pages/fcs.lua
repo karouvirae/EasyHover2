@@ -130,8 +130,20 @@ function M.build(basalt, frame, runtime)
     px = px + width
   end
 
-  local statusTop = phTop + 2
-  if statusTop + statusWant - 1 > h then statusTop = math.max(phTop + 1, h - statusWant + 1) end
+  -- Live auto-trim UP/DN child button (Task 7): permanently visible, one row below the mode
+  -- selector. Enabled/meaningful only in CPL/DCPL (FcsPanel.trimActive) -- disabled/"TRIM --"
+  -- otherwise. onClick sends the OPPOSITE of the currently-reported trimDir (toggle); no
+  -- optimistic UI -- apply(state) below is the only thing that ever flips its color/text.
+  local trimBtn = Switch.make(frame, { x = x, y = phTop + 1, width = iw, height = 1, text = "TRIM --" })
+  trimBtn.button:onClick(function()
+    local latest = runtime.rx:latest() or {}
+    local nextId = ((latest.trimDir or -1) > 0) and "trimDn" or "trimUp"
+    M._onButton(runtime, nextId, os.epoch("utc"))
+  end)
+
+  -- statusTop shifted down one row (bumped from phTop+2) to make room for the trim button above.
+  local statusTop = phTop + 3
+  if statusTop + statusWant - 1 > h then statusTop = math.max(phTop + 2, h - statusWant + 1) end
 
   local labels = {}
   for i, name in ipairs(FIELD_ORDER) do
@@ -186,6 +198,16 @@ function M.build(basalt, frame, runtime)
     for _, id in ipairs(MODE_ORDER) do
       modeSwitches[id].set(FcsPanel.modeActive(state, id) and "on" or "off")
     end
+
+    -- Live auto-trim child button: only meaningful in CPL/DCPL. No-optimistic-UI -- reflects
+    -- ONLY the reported state.trimDir, never the tap that sent the command.
+    if FcsPanel.trimActive(state) then
+      trimBtn.set((state.trimDir or -1) > 0 and "on" or "off")
+      trimBtn.button:setText(FcsPanel.trimLabel(state))
+    else
+      trimBtn.set("disabled")
+      trimBtn.button:setText("TRIM --")
+    end
   end
 
   return {
@@ -198,6 +220,7 @@ function M.build(basalt, frame, runtime)
         for _, id in ipairs(MODE_ORDER) do m[id] = modeSwitches[id] and modeSwitches[id].button end
         return m
       end)(),
+      trimBtn = trimBtn.button,
       stateLabel = labels.MODE, altLabel = labels.ALT, vspdLabel = labels.VSPD,
       hdgLabel = labels.HDG, loopLabel = labels.LOOP, linkLabel = labels.LINK,
     },

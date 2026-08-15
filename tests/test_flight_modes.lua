@@ -25,3 +25,17 @@ t.test("flightMode command selects a mode via loop+pilot; unknown id stays", fun
   fl:handleCommand({ k = "flightMode", id = "BOGUS" })
   t.eq(fl.flightMode, "MAN", "unknown id leaves mode unchanged")
 end)
+
+t.test("flightTrim command sets pilot trim direction and telemetry echoes it", function()
+  local reg = fakeReg()
+  local active = { setActive = function(self, d) self.d = d end, arm = function() end,
+    getMode = function() return "NORMAL" end }
+  local trimSeen
+  local pil = { setMode = function(self, p, f) self.p, self.f = p, f end,
+    setPositionHold = function() end,
+    setTrimDir = function(self, d) trimSeen = d end }
+  local fl = Flight.new({ loop = active, pilot = pil, registry = reg })
+  fl:handleCommand({ k = "flightTrim", dir = 1 })
+  t.eq(trimSeen, 1, "pilot trim dir updated")
+  t.eq(fl:snapshot(nil, {}).trimDir, 1, "telemetry echoes trimDir")
+end)
