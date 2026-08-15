@@ -124,7 +124,7 @@ M.MODES = { "PRECISION", "MAN", "CRUISE", "CPL", "DCPL" }
 
 -- Short ASCII display labels (CC:T font, no unicode) for the narrow selector surfaces -- the
 -- merged region's ~14-col width can't fit the full mode ids side-by-side once there are 5 of them.
-M.MODE_LABEL = { PRECISION = "PRE", MAN = "MAN", CRUISE = "CRU", CPL = "CPL", DCPL = "DCP" }
+M.MODE_LABEL = { PRECISION = "PRE", MAN = "MAN", CRUISE = "CRU", CPL = "CPL", DCPL = "DCPL" }
 
 local MODE_SET = {}
 for _, id in ipairs(M.MODES) do MODE_SET[id] = true end

@@ -724,6 +724,12 @@
           ["sum"] = "db14822f",
         },
         {
+          ["dst"] = "ui/basalt/btnfit.lua",
+          ["size"] = 1777,
+          ["src"] = "ui/basalt/btnfit.lua",
+          ["sum"] = "1d1b8533",
+        },
+        {
           ["dst"] = "ui/basalt/cadence.lua",
           ["size"] = 1519,
           ["src"] = "ui/basalt/cadence.lua",
@@ -803,9 +809,9 @@
         },
         {
           ["dst"] = "ui/basalt/regions/fcs.lua",
-          ["size"] = 5981,
+          ["size"] = 7701,
           ["src"] = "ui/basalt/regions/fcs.lua",
-          ["sum"] = "fde0b3e2",
+          ["sum"] = "3850ebdc",
         },
         {
           ["dst"] = "ui/basalt/switchbtn.lua",
@@ -863,9 +869,9 @@
         },
         {
           ["dst"] = "ui/panels/fcs.lua",
-          ["size"] = 6454,
+          ["size"] = 6455,
           ["src"] = "ui/panels/fcs.lua",
-          ["sum"] = "1f303767",
+          ["sum"] = "85b1273b",
         },
         {
           ["dst"] = "ui/toolkit.lua",
@@ -884,5 +890,5 @@
     ["size"] = 70702,
     ["sum"] = "3dd2fb64",
   },
-  ["version"] = "434ac4f3",
+  ["version"] = "093ada0b",
 }
