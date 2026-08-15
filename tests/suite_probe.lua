@@ -430,6 +430,48 @@ elseif phase == "switch" then
   runSuite()
   check(stateField("version") == versionBefore, "an up-to-date re-run after switching changes nothing")
 
+elseif phase == "nav" then
+  -- A FRESH install of the NAV role on a bare computer: its own nav/ source tree, it ships Basalt
+  -- (like ui) and boots nav.app -- but must NOT drag in the fcs flight stack or the ui cockpit.
+  runSuite("nav")
+  check(stateField("role") == "nav", "install record names the role", tostring(stateField("role")))
+  check(stateField("version") == manifestVersion(), "install record matches the release")
+  check(fs.exists("/startup.lua"), "launcher installed as /startup.lua")
+  check(fs.exists("/nav/app.lua"), "nav role files installed")
+  check(fs.exists("/nav/lib/trilaterate.lua"), "nested nav files installed")
+  check(fs.exists("/nav/comms/receiver.lua"), "nav comms installed")
+  check(fs.exists("/basalt-full.lua"), "the nav role ships Basalt")
+  local launcher = read("/startup.lua") or ""
+  check(launcher:find('require%("nav%.app"%)') ~= nil, "the launcher starts the nav role", launcher)
+  check(#noStagingLeftBehind() == 0, "no .eh2new staging files left behind")
+  -- Closure hygiene: nav reuses fcs.comms.modem but must not ship the flight stack or the cockpit.
+  check(fs.exists("/fcs/comms/modem.lua"), "nav ships the reused comms link")
+  check(not fs.exists("/tools/flight.lua"), "no fcs flight entry point on a nav computer")
+  check(not fs.exists("/fcs/runtime/flight.lua"), "no fcs runtime on a nav computer")
+  check(not fs.exists("/ui/basalt/pages/emc.lua"), "no cockpit pages dragged onto a nav computer")
+  check(not fs.exists("/calibrate"), "no fcs diagnostic launchers on a nav computer")
+  local versionBefore = stateField("version")
+  runSuite()
+  check(stateField("version") == versionBefore, "an up-to-date re-run changes nothing")
+
+elseif phase == "beacon" then
+  -- A FRESH install of the BEACON role on a bare computer: keyboard-UI role for a BASIC computer,
+  -- so it ships NO Basalt. It reuses nav.comms + nav.lib.geometry but nothing else.
+  runSuite("beacon")
+  check(stateField("role") == "beacon", "install record names the role", tostring(stateField("role")))
+  check(stateField("version") == manifestVersion(), "install record matches the release")
+  check(fs.exists("/beacon/app.lua"), "beacon role files installed")
+  check(fs.exists("/beacon/console.lua"), "beacon console installed")
+  check(fs.exists("/nav/comms/gpsproto.lua"), "beacon reuses the nav broadcast frame")
+  check(fs.exists("/nav/lib/geometry.lua"), "beacon reuses nav geometry grading")
+  local launcher = read("/startup.lua") or ""
+  check(launcher:find('require%("beacon%.app"%)') ~= nil, "the launcher starts the beacon role", launcher)
+  check(#noStagingLeftBehind() == 0, "no .eh2new staging files left behind")
+  -- A basic computer must not carry Basalt, the cockpit, or the flight stack.
+  check(not fs.exists("/basalt-full.lua"), "no Basalt on a basic-computer beacon")
+  check(not fs.exists("/nav/app.lua"), "no NAV Basalt app on a beacon")
+  check(not fs.exists("/tools/flight.lua"), "no fcs flight entry point on a beacon")
+
 else
   fail("unknown phase: " .. tostring(phase))
 end

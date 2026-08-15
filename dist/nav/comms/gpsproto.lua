@@ -1,0 +1,1 @@
+local a=require("fcs.comms.protocol")local b={}function b.encode(c)return a.encode({id=c.id,x=c.x,y=c.y,z=c.z,seq=c.seq})end;function b.decode(d)local c=a.decode(d)if type(c)~="table"then return nil end;if c.id==nil then return nil end;if type(c.x)~="number"or type(c.y)~="number"or type(c.z)~="number"then return nil end;return{id=c.id,x=c.x,y=c.y,z=c.z,seq=c.seq}end;return b

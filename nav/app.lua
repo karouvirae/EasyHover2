@@ -8,12 +8,35 @@
 -- IN-GAME ONLY (it calls basalt.run(), which blocks forever).
 local navconfig  = require("nav.config")
 local NavRuntime = require("nav.runtime")
-local BasaltApp  = require("ui.basalt.app")
 local Main       = require("nav.ui.main")
 local ConfigPage = require("nav.ui.config")
 
 local M = {}
 M.CONFIG_PATH = navconfig.PATH
+
+-- Basalt loader (mirrors ui/basalt/app.lua's ensureBasalt -- deliberately NOT required from there,
+-- so the nav role's dependency closure stays lean and never pulls in the whole cockpit page
+-- registry). loadfile(path,nil,_ENV), never dofile(): CC:Tweaked's dofile loads with the BIOS's
+-- bare _G (no require/package), and the vendored bundle needs package.path for its module loader.
+-- The nav role ships release/basalt-full.lua (extraFiles), so a candidate path always exists.
+M.BASALT_PATHS = { "/basalt-full.lua", "/release/basalt-full.lua" }
+
+function M.ensureBasalt(opts)
+  opts = opts or {}
+  local paths = opts.paths or M.BASALT_PATHS
+  local exists = opts.exists or fs.exists
+  local doLoadfile = opts.loadfile or loadfile
+  for _, path in ipairs(paths) do
+    if exists(path) then
+      local chunk, err = doLoadfile(path, nil, _ENV)
+      if not chunk then error("Basalt did not parse: " .. tostring(err)) end
+      local ok, basalt = pcall(chunk)
+      if not ok or type(basalt) ~= "table" then error("Basalt failed to load: " .. tostring(basalt)) end
+      return basalt
+    end
+  end
+  error("Basalt not found -- reinstall the nav role via the Suite")
+end
 
 -- M.buildRuntime(deps): loads config and wires the nav runtime. deps (all optional/injectable):
 --   gpsModem, wiredModem (raw modems), navtable (peripheral), find/wrap (peripheral API overrides),
@@ -71,7 +94,7 @@ end
 -- ===== run(): in-game only =====
 function M.run(deps)
   deps = deps or {}
-  local basalt = BasaltApp.ensureBasalt(deps.basaltOpts)
+  local basalt = M.ensureBasalt(deps.basaltOpts)
   local runtime = M.buildRuntime(deps)
 
   local root = basalt.getMainFrame()

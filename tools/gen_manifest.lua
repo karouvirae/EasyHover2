@@ -21,7 +21,7 @@ local SCHEMA = 1 -- bump ONLY when persisted config layout changes incompatibly
 local REPO = "https://raw.githubusercontent.com/maar-10/EasyHover2/main"
 
 -- Which source files are minified into dist/ (mirror of tools/build.mjs MINIFY_DIRS).
-local MINIFY_PREFIXES = { "fcs/", "ui/", "launchers/", "tools/" }
+local MINIFY_PREFIXES = { "fcs/", "ui/", "launchers/", "tools/", "nav/", "beacon/" }
 local function isMinifiable(src)
   if not src:match("%.lua$") then return false end
   for _, p in ipairs(MINIFY_PREFIXES) do
@@ -56,6 +56,7 @@ local ROLES = {
     startup = { src = "launchers/fcs.lua", dst = "startup.lua" },
     roots   = { { src = "launchers/flight.lua", dst = "flight" },
                 { src = "launchers/fcslog.lua", dst = "fcslog" } }, -- + SHARED_DIAG + config module
+    sharedDiag = true,
   },
   ui = {
     title = "Cockpit display", status = "released",
@@ -63,11 +64,31 @@ local ROLES = {
     configs = { "/eh2_hw_config.tbl" }, configModule = CONFIG_MODULE, luaPath = "/",
     startup = { src = "launchers/ui.lua", dst = "startup.lua" },
     roots   = { { src = "launchers/cockpit.lua", dst = "cockpit" } },
+    sharedDiag = true,
     -- Basalt is loadfile()'d at RUNTIME by ui/basalt/app.lua's M.ensureBasalt (never require()'d
     -- -- see that file's header comment), so tools/closure.lua's require()-following discovery
     -- can never find it. extraFiles ships it alongside the closure anyway, at exactly
     -- "/basalt-full.lua" -- M.BASALT_PATHS' first (installed-location) candidate.
     extraFiles = { { src = "release/basalt-full.lua", dst = "basalt-full.lua" } },
+  },
+  -- NAV + beacon roles (Batch 1). NO sharedDiag: the FCS diagnostic launchers (calibrate/hovertest/
+  -- probe*) pull the whole flight stack through their require() closure, which nav/beacon must never
+  -- ship. Each declares its own configModule so launcherEntries ships the right config file.
+  nav = {
+    title = "Navigation computer", status = "released",
+    blurb = "Broadcast-GPS position fix + heading; relays to the craft wire. Boots the NAV UI.",
+    configs = { "/eh2_nav.tbl" }, configModule = "nav.config", luaPath = "/",
+    startup = { src = "launchers/nav.lua", dst = "startup.lua" },
+    roots   = {},
+    -- Like the ui role: nav ships Basalt (loadfile'd at runtime by nav/app.lua's own ensureBasalt).
+    extraFiles = { { src = "release/basalt-full.lua", dst = "basalt-full.lua" } },
+  },
+  beacon = {
+    title = "GPS beacon", status = "released",
+    blurb = "Broadcasts its surveyed position on the GPS channel; hears the mesh; self-checks. Basic computer, keyboard UI.",
+    configs = { "/eh2_beacon.tbl" }, configModule = "beacon.config", luaPath = "/",
+    startup = { src = "launchers/beacon.lua", dst = "startup.lua" },
+    roots   = {},   -- no Basalt: a beacon runs on a basic computer
   },
 }
 
@@ -151,9 +172,16 @@ end
 -- The closure roots are the `src` of every one of these.
 local function launcherEntries(spec)
   local entries = { spec.startup }
-  for _, e in ipairs(spec.roots) do entries[#entries + 1] = e end
-  for _, e in ipairs(SHARED_DIAG) do entries[#entries + 1] = e end
-  entries[#entries + 1] = { src = "fcs/io/config.lua", dst = "fcs/io/config.lua" }
+  for _, e in ipairs(spec.roots or {}) do entries[#entries + 1] = e end
+  -- SHARED_DIAG only for roles that opt in (fcs/ui): these launchers require() the whole flight
+  -- stack, so shipping them into nav/beacon would drag the entire FCS into those roles.
+  if spec.sharedDiag then
+    for _, e in ipairs(SHARED_DIAG) do entries[#entries + 1] = e end
+  end
+  -- Ship the role's OWN config module file (fcs/ui -> fcs/io/config.lua, unchanged; nav/beacon ->
+  -- their own), so the Suite's extendConfig can require it.
+  local cfgFile = spec.configModule:gsub("%.", "/") .. ".lua"
+  entries[#entries + 1] = { src = cfgFile, dst = cfgFile }
   return entries
 end
 

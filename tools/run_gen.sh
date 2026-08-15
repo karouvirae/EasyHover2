@@ -13,6 +13,8 @@ rm -rf "$WORK"; mkdir -p "$C0"
 [ -d "$ROOT/fcs" ] && cp -r "$ROOT/fcs" "$C0"/
 [ -d "$ROOT/ui" ] && cp -r "$ROOT/ui" "$C0"/
 [ -d "$ROOT/launchers" ] && cp -r "$ROOT/launchers" "$C0"/
+[ -d "$ROOT/nav" ] && cp -r "$ROOT/nav" "$C0"/
+[ -d "$ROOT/beacon" ] && cp -r "$ROOT/beacon" "$C0"/
 [ -d "$ROOT/release" ] && cp -r "$ROOT/release" "$C0"/
 [ -d "$ROOT/dist" ] && cp -r "$ROOT/dist" "$C0"/
 [ -f "$ROOT/manifest-dev.lua" ] && cp "$ROOT/manifest-dev.lua" "$C0"/

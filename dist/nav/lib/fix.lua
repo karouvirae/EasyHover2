@@ -1,0 +1,1 @@
+local a={}function a.make(b,c)if type(b)~="table"or type(b.x)~="number"or type(b.y)~="number"or type(b.z)~="number"then return nil end;c=c or{}return{x=b.x,y=b.y,z=b.z,age=c.age or 0,source=c.source or"gps",nBeacons=c.nBeacons or 0,quality=c.quality}end;return a
