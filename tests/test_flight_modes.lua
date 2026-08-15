@@ -54,6 +54,31 @@ t.test("integration: flightMode CPL then DCPL follow in snapshot(); UNKNOWN id i
   t.eq(active.d, reg.byId.DCPL, "loop stays on DCPL descriptor after unknown id")
 end)
 
+t.test("flightMode switch re-syncs trimDir to the newly-active mode's own feel", function()
+  local function dWithTrim(id, policy, trimDir)
+    return { id = id, scheme = {}, mixer = {}, caps = {}, feel = { id = id, trimDir = trimDir }, policy = policy }
+  end
+  local reg = { order = {"PRECISION","CPL","DCPL"}, default = "PRECISION",
+    byId = { PRECISION = { id = "PRECISION", scheme = {}, mixer = {}, caps = {}, feel = { id = "PRECISION" },
+                policy = { tilt=false, surge="position" } },
+             CPL = dWithTrim("CPL", { tilt=true, surge="coupled" }, 1),
+             DCPL = dWithTrim("DCPL", { tilt=true, surge="coupled" }, -1) } }
+  local active = { setActive = function(self, d) self.d = d end, arm = function() end,
+    getMode = function() return "NORMAL" end }
+  local pil = { setMode = function(self, p, f) self.p, self.f = p, f end,
+    setPositionHold = function() end }
+  local fl = Flight.new({ loop = active, pilot = pil, registry = reg })
+
+  fl:handleCommand({ k = "flightMode", id = "CPL" })
+  t.eq(fl:snapshot(nil, {}).trimDir, 1, "trimDir follows CPL feel.trimDir")
+
+  fl:handleCommand({ k = "flightMode", id = "DCPL" })
+  t.eq(fl:snapshot(nil, {}).trimDir, -1, "trimDir follows DCPL feel.trimDir")
+
+  fl:handleCommand({ k = "flightMode", id = "PRECISION" })
+  t.eq(fl:snapshot(nil, {}).trimDir, -1, "mode with no feel.trimDir leaves prior trimDir unchanged")
+end)
+
 t.test("flightTrim command sets pilot trim direction and telemetry echoes it", function()
   local reg = fakeReg()
   local active = { setActive = function(self, d) self.d = d end, arm = function() end,

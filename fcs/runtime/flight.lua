@@ -47,6 +47,7 @@ function Flight:handleCommand(cmd)
     self.loop:setActive(d)
     self.pilot:setMode(d.policy, d.feel)
     self.flightMode = cmd.id
+    self.trimDir = (d.feel and d.feel.trimDir) or self.trimDir
     return true
   elseif k == "flightTrim" then
     local dir = (cmd.dir and cmd.dir < 0) and -1 or 1
