@@ -292,6 +292,30 @@ function M._scanDisk(mount, deps)
   return out
 end
 
+-- ===== M._cleanDisk(mount, deps) -> { deleted={paths…} }: delete ONLY foreign+invalid (never a =====
+-- ===== valid EH2 config). Set computed via M._scanDisk so scan and clean can never disagree.
+function M._cleanDisk(mount, deps)
+  deps = resolveDeps(deps)
+  local deleted = {}
+  if mount == nil then return { deleted = deleted } end
+  local scan = M._scanDisk(mount, deps)
+  for _, path in ipairs(scan.foreign) do deps.delete(path); deleted[#deleted + 1] = path end
+  for _, path in ipairs(scan.invalid) do deps.delete(path); deleted[#deleted + 1] = path end
+  return { deleted = deleted }
+end
+
+-- ===== M._scanSummary(scan) -> "valid N · foreign M · invalid K" (+ " · CLEAN ADVISED" when there =====
+-- ===== is no valid EH2 config but foreign/invalid junk is present). PURE, display-only.
+function M._scanSummary(scan)
+  scan = scan or {}
+  local nv = #(scan.valid or {})
+  local nf = #(scan.foreign or {})
+  local ni = #(scan.invalid or {})
+  local s = "valid " .. nv .. " \183 foreign " .. nf .. " \183 invalid " .. ni
+  if nv == 0 and (nf + ni) > 0 then s = s .. " \183 CLEAN ADVISED" end
+  return s
+end
+
 -- Atomically copy `body` (already read from `from`) into `to` via deps.write/exists/delete/move:
 -- write to `to..".tmp"`, delete an existing `to` if present, then move the tmp into place --
 -- mirrors fcs/boot/loaderui.lua's realWrite / other bitconfig menus' realWrite exactly, just

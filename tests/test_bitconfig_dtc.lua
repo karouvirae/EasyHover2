@@ -765,6 +765,38 @@ t.test("_scanDisk: mount=nil -> everything empty", function()
   t.eq(#s.valid, 0); t.eq(#s.invalid, 0); t.eq(#s.foreign, 0)
 end)
 
+-- ===== Task C2: M._cleanDisk(mount, deps) + M._scanSummary(scan) -- pure delete-junk / display =====
+-- ===== summary, no UI (SCAN/CLEAN buttons themselves are Task C3). =====
+
+t.test("_cleanDisk: deletes only foreign+invalid, keeps valid EH2 configs", function()
+  local good = textutils.serialise({ gains = {}, caps = {}, feel = {} })
+  local byName = { ["eh2_tuning.tbl"] = good, ["eh2_senscal.tbl"] = "bad {{{", ["notes.txt"] = "x" }
+  local files = {}
+  for name, body in pairs(byName) do files["/disk/" .. name] = body end
+  local names = {}; for name in pairs(byName) do names[#names + 1] = name end
+  local deps = {
+    list   = function(p) return (p == "disk") and names or {} end,
+    exists = function(p) return files[p] ~= nil end,
+    read   = function(p) return files[p] end,
+    delete = function(p) files[p] = nil end,
+  }
+  local r = M._cleanDisk("disk", deps)
+  t.eq(#r.deleted, 2, "two junk files deleted")
+  t.truthy(files["/disk/eh2_tuning.tbl"] ~= nil, "valid config kept")
+  t.eq(files["/disk/eh2_senscal.tbl"], nil, "invalid EH2 file deleted")
+  t.eq(files["/disk/notes.txt"], nil, "foreign file deleted")
+end)
+
+t.test("_cleanDisk: mount=nil -> nothing deleted", function()
+  t.eq(#M._cleanDisk(nil, { list = function() return {} end }).deleted, 0)
+end)
+
+t.test("_scanSummary: counts and flags clean-advised when only junk present", function()
+  t.eq(M._scanSummary({ valid = { "tuning" }, foreign = {}, invalid = {} }), "valid 1 \183 foreign 0 \183 invalid 0")
+  local s = M._scanSummary({ valid = {}, foreign = { "/disk/x" }, invalid = { "/disk/eh2_senscal.tbl" } })
+  t.truthy(s:find("CLEAN ADVISED", 1, true), "clean advised when no valid config but junk present: " .. s)
+end)
+
 -- ===== Task 12: construction probe -- generic "no error" smoke test (works against any M.build =====
 -- ===== shape, old or new; the point of this probe is just to prove build/apply/render never error). =====
 
