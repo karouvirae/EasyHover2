@@ -55,6 +55,21 @@ function SuiteX.toolsToInstall(flags)
   return out
 end
 
+--- checkboxLabels(label) -> uncheckedText, checkedText: the two static strings for one Advanced-tab
+--- checkbox. The description is folded INTO the CheckBox element's own text/checkedText behind a
+--- visible "[ ]"/"[x]" box (rather than sitting in a separate addLabel beside a bare 1-char box).
+--- A Basalt CheckBox is clickable across its whole autoSize width (== the string length) and toggles
+--- on any click inside that width, so folding the label in makes the ENTIRE visible line the tick
+--- target. The old shape -- text=" " (an invisible space) with the description in a plain,
+--- non-interactive addLabel four columns to the right -- rendered no visible box and only accepted
+--- clicks on a single blank cell nowhere near the words, so clicking the description did nothing.
+--- Both returned strings are the same length, so autoSize width is identical checked/unchecked and
+--- the full line stays clickable in either state. Pure/nil-safe -> unit-testable headless.
+function SuiteX.checkboxLabels(label)
+  label = label or ""
+  return "[ ] " .. label, "[x] " .. label
+end
+
 --- The primary-button label for a plan: fresh Install, Update, or Repair; a neutral "Go" while
 --- the plan is still unknown (mid-check) or the install is already current.
 function SuiteX.goLabel(plan)
@@ -323,12 +338,9 @@ local function applyTheme(ctx)
   ui.pickerLabels[1]:setForeground(pal.dim); ui.pickerLabels[2]:setForeground(pal.dim)
   ui.advancedLabel:setForeground(pal.dim)
   ui.devCheck:setBackground(pal.bg); ui.devCheck:setForeground(pal.text)
-  ui.devCheckLabel:setForeground(pal.text)
   ui.toolLabel:setForeground(pal.dim)
   ui.beaconUpdCheck:setBackground(pal.bg); ui.beaconUpdCheck:setForeground(pal.text)
-  ui.beaconUpdCheckLabel:setForeground(pal.text)
   ui.splitCfgCheck:setBackground(pal.bg); ui.splitCfgCheck:setForeground(pal.text)
-  ui.splitCfgCheckLabel:setForeground(pal.text)
   paintTabButtons(ctx)
   refreshStatus(ctx)
   -- Repaint the palette even mid-op, but don't let a theme toggle re-enable the action buttons
@@ -661,10 +673,9 @@ local function buildUI(ctx)
   -- The choice re-checks the dashboard immediately; it is persisted to /eh2_channel.txt only on a
   -- real install (runEngineOp), never on the toggle itself.
   ui.advancedLabel = ui.frameAdv:addLabel({ x = 2, y = 2, text = "Install channel", foreground = pal.dim })
+  local devOff, devOn = SuiteX.checkboxLabels("Dev version (readable source)")
   ui.devCheck = ui.frameAdv:addCheckBox({ x = 2, y = 3, checked = (ctx.channel == "dev"),
-    text = " ", checkedText = "x", background = pal.bg, foreground = pal.text })
-  ui.devCheckLabel = ui.frameAdv:addLabel({ x = 6, y = 3,
-    text = "Dev version (readable source)", foreground = pal.text })
+    text = devOff, checkedText = devOn, background = pal.bg, foreground = pal.text })
   ui.devCheck:onChange("checked", function(_, checked)
     if ctx.suppressDevBox then return end               -- ignore our own programmatic reverts
     local desired = checked and "dev" or "min"
@@ -689,20 +700,18 @@ local function buildUI(ctx)
   -- "update + reboot" to every beacon over the GPS channel. Just a flag here; installToolIfRequested
   -- does the work after the role install, in the same engine op.
   ui.toolLabel = ui.frameAdv:addLabel({ x = 2, y = 5, text = "Optional tools", foreground = pal.dim })
+  local beaconOff, beaconOn = SuiteX.checkboxLabels("Beacon updater (push updates to beacons)")
   ui.beaconUpdCheck = ui.frameAdv:addCheckBox({ x = 2, y = 6, checked = (ctx.installBeaconUpdater == true),
-    text = " ", checkedText = "x", background = pal.bg, foreground = pal.text })
-  ui.beaconUpdCheckLabel = ui.frameAdv:addLabel({ x = 6, y = 6,
-    text = "Beacon updater (push updates to beacons)", foreground = pal.text })
+    text = beaconOff, checkedText = beaconOn, background = pal.bg, foreground = pal.text })
   ui.beaconUpdCheck:onChange("checked", function(_, checked) ctx.installBeaconUpdater = checked end)
 
   -- Advanced tab: optionally install the standalone Split-config tool alongside the role. Ticked,
   -- a successful install/update also lays down `splitconfig` (+ its closure) so this PC can split
   -- a legacy fused config into the new per-role files. Same flag-then-installToolIfRequested flow
   -- as the Beacon-updater checkbox above.
+  local splitOff, splitOn = SuiteX.checkboxLabels("Split config (split legacy FCS config)")
   ui.splitCfgCheck = ui.frameAdv:addCheckBox({ x = 2, y = 7, checked = (ctx.installSplitConfig == true),
-    text = " ", checkedText = "x", background = pal.bg, foreground = pal.text })
-  ui.splitCfgCheckLabel = ui.frameAdv:addLabel({ x = 6, y = 7,
-    text = "Split config (split legacy FCS config)", foreground = pal.text })
+    text = splitOff, checkedText = splitOn, background = pal.bg, foreground = pal.text })
   ui.splitCfgCheck:onChange("checked", function(_, checked) ctx.installSplitConfig = checked end)
 
   ui.buttons.go:onClick(function()

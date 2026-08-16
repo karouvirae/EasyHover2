@@ -44,6 +44,21 @@ t.test("toolsToInstall returns the ticked tools in order", function()
   t.eq(#only, 1); t.eq(only[1], "splitconfig")
 end)
 
+t.test("checkboxLabels renders a visible box and a full-width (clickable) line in both states", function()
+  local off, on = SuiteX.checkboxLabels("Split config (split legacy FCS config)")
+  t.truthy(off:find("[ ]", 1, true), "unchecked shows an EMPTY box, not an invisible space")
+  t.truthy(on:find("[x]", 1, true), "checked shows a TICKED box")
+  t.truthy(off:find("Split config", 1, true), "label text folded into the unchecked box")
+  t.truthy(on:find("Split config", 1, true), "label text folded into the checked box")
+  -- Same length in both states so the CheckBox's autoSize width (== #text) is stable and the WHOLE
+  -- visible line stays the click target -- the old bare 1-char " " box was invisible AND its click
+  -- target was a single cell nowhere near the description label.
+  t.eq(#off, #on, "unchecked and checked lines are the same width")
+  t.eq(off, "[ ] Split config (split legacy FCS config)")
+  t.eq(on,  "[x] Split config (split legacy FCS config)")
+  t.eq(SuiteX.checkboxLabels(nil), "[ ] ", "nil label is safe")
+end)
+
 t.test("buttonStates: Go disabled only when already current", function()
   t.eq(SuiteX.buttonStates("update").go, "active")
   t.eq(SuiteX.buttonStates("current").go, "disabled")
