@@ -530,13 +530,14 @@ end
 -- runEngineOp's coroutine (Suite.sink is live, so logLine shows progress) right after a successful
 -- role install. NOTE: a later role repair/switch may prune the tool's files (they are not part of
 -- that role's manifest); reinstall the tool if that happens.
-local function installOneTool(ctx, key, doneMsg)
+local function installOneTool(ctx, key, doneMsg, displayName)
+  displayName = displayName or key
   local tool = ctx.manifest.tools and ctx.manifest.tools[key]
   if not tool or not tool.files then
-    logLine(ctx, key .. " not in this manifest -- skipped", ctx.pal.error)
+    logLine(ctx, displayName .. " not in this manifest -- skipped", ctx.pal.error)
     return
   end
-  logLine(ctx, ("installing tool: %s (%d file(s))..."):format(tool.title or key, #tool.files), ctx.pal.install)
+  logLine(ctx, ("installing tool: %s (%d file(s))..."):format(tool.title or displayName, #tool.files), ctx.pal.install)
   for _, entry in ipairs(tool.files) do
     local content, err = ctx.Suite.fetch(("%s/%s"):format(ctx.Suite.base, entry.src))
     if not content then
@@ -564,8 +565,12 @@ local function installToolIfRequested(ctx)
     beaconupdate = "beacon updater installed -- run 'beaconupdate' to push updates to the beacons",
     splitconfig = "split-config tool installed -- run 'splitconfig' on the FCS to split a legacy fused config",
   }
+  local displayName = {
+    beaconupdate = "beacon updater",
+    splitconfig = "split-config tool",
+  }
   for _, key in ipairs(keys) do
-    installOneTool(ctx, key, doneMsg[key])
+    installOneTool(ctx, key, doneMsg[key], displayName[key])
   end
 end
 
