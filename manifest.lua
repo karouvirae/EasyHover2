@@ -103,6 +103,9 @@
       ["blurb"] = "Thrusters, sensors, pilot input, control loops. Boots the flight app.",
       ["configModule"] = "fcs.io.config",
       ["configs"] = {
+        "/eh2_devbind.tbl",
+        "/eh2_senscal.tbl",
+        "/eh2_tuning.tbl",
         "/eh2_hw_config.tbl",
       },
       ["dirs"] = {
@@ -137,9 +140,9 @@
         },
         {
           ["dst"] = "fcs/boot/loaderui.lua",
-          ["size"] = 4253,
+          ["size"] = 4696,
           ["src"] = "dist/fcs/boot/loaderui.lua",
-          ["sum"] = "968c0457",
+          ["sum"] = "850b332a",
         },
         {
           ["dst"] = "fcs/bringup/instrument.lua",
@@ -425,9 +428,9 @@
         },
         {
           ["dst"] = "tools/probe.lua",
-          ["size"] = 2727,
+          ["size"] = 2929,
           ["src"] = "dist/tools/probe.lua",
-          ["sum"] = "9992917e",
+          ["sum"] = "91cb360d",
         },
         {
           ["dst"] = "tools/probe_batch.lua",
@@ -557,7 +560,10 @@
       ["blurb"] = "Receives telemetry, renders reported state, sends commands on touch. Boots the cockpit.",
       ["configModule"] = "fcs.io.config",
       ["configs"] = {
-        "/eh2_hw_config.tbl",
+        "/eh2_devbind.tbl",
+        "/eh2_senscal.tbl",
+        "/eh2_tuning.tbl",
+        "/eh2_ui_config.tbl",
       },
       ["dirs"] = {
         "fcs",
@@ -844,9 +850,9 @@
         },
         {
           ["dst"] = "tools/probe.lua",
-          ["size"] = 2727,
+          ["size"] = 2929,
           ["src"] = "dist/tools/probe.lua",
-          ["sum"] = "9992917e",
+          ["sum"] = "91cb360d",
         },
         {
           ["dst"] = "tools/probe_batch.lua",
@@ -868,9 +874,9 @@
         },
         {
           ["dst"] = "ui/basalt/bitconfig/dtc.lua",
-          ["size"] = 3817,
+          ["size"] = 9004,
           ["src"] = "dist/ui/basalt/bitconfig/dtc.lua",
-          ["sum"] = "af684cf0",
+          ["sum"] = "79f63a27",
         },
         {
           ["dst"] = "ui/basalt/bitconfig/fcssync.lua",
@@ -1161,10 +1167,56 @@
       },
       ["title"] = "Beacon updater",
     },
+    ["splitconfig"] = {
+      ["dirs"] = {
+        "fcs",
+        "tools",
+      },
+      ["entry"] = "splitconfig",
+      ["files"] = {
+        {
+          ["dst"] = "fcs/io/cfgspec.lua",
+          ["size"] = 1311,
+          ["src"] = "dist/fcs/io/cfgspec.lua",
+          ["sum"] = "81702592",
+        },
+        {
+          ["dst"] = "fcs/io/fsx.lua",
+          ["size"] = 457,
+          ["src"] = "dist/fcs/io/fsx.lua",
+          ["sum"] = "716ef21a",
+        },
+        {
+          ["dst"] = "fcs/io/hwconfig.lua",
+          ["size"] = 856,
+          ["src"] = "dist/fcs/io/hwconfig.lua",
+          ["sum"] = "e7584e5f",
+        },
+        {
+          ["dst"] = "fcs/io/tuningdefaults.lua",
+          ["size"] = 1566,
+          ["src"] = "dist/fcs/io/tuningdefaults.lua",
+          ["sum"] = "561214ff",
+        },
+        {
+          ["dst"] = "splitconfig",
+          ["size"] = 130,
+          ["src"] = "dist/launchers/splitconfig.lua",
+          ["sum"] = "3ce98312",
+        },
+        {
+          ["dst"] = "tools/splitconfig.lua",
+          ["size"] = 1609,
+          ["src"] = "dist/tools/splitconfig.lua",
+          ["sum"] = "4ba636d6",
+        },
+      },
+      ["title"] = "Split legacy config",
+    },
   },
   ["updater"] = {
-    ["size"] = 71382,
-    ["sum"] = "b509c1c3",
+    ["size"] = 71434,
+    ["sum"] = "57671ad7",
   },
-  ["version"] = "e9208342",
+  ["version"] = "db13e2b6",
 }

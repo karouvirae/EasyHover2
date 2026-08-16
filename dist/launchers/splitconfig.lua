@@ -1,0 +1,1 @@
+package.path="/?.lua;/?/init.lua;"..package.path;local a=require("tools.splitconfig")print("== EH2 SPLIT CONFIG ==")print(a.run())
