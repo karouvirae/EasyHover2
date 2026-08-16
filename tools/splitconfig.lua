@@ -28,4 +28,30 @@ function M.plan(existing)
   return out
 end
 
+-- ---- in-game run (non-destructive; non-destructive: never writes/deletes the fused file) ----
+local fsx = require("fcs.io.fsx")
+local FUSED = "/eh2_hw_config.tbl"
+
+local function realExists(path) return fs.exists(path) and not fs.isDir(path) end
+
+-- In-game only. Non-destructive: never writes/deletes the fused file. Returns a human summary string.
+function M.run(deps)
+  deps = deps or {}
+  local read   = deps.read   or fsx.read
+  local write  = deps.write  or fsx.writeAtomic
+  local exists = deps.exists or realExists
+  local hasDevbind = exists("/" .. cfgspec.FILES.devbind)
+  local hasSenscal = exists("/" .. cfgspec.FILES.senscal)
+  local fusedBody = read(FUSED)
+  local fused = fusedBody and textutils.unserialise(fusedBody) or nil
+  local r = M.plan({ fused = fused, hasDevbind = hasDevbind, hasSenscal = hasSenscal })
+  if r.action == "already-split" then return "Already split -- eh2_devbind.tbl + eh2_senscal.tbl present. No change." end
+  if r.action == "abort" then return "ABORT: " .. tostring(r.err) .. " (nothing written; fused file untouched)." end
+  local wrote = {}
+  if r.devbind then cfgspec.save("devbind", r.devbind, write); wrote[#wrote + 1] = cfgspec.FILES.devbind end
+  if r.senscal then cfgspec.save("senscal", r.senscal, write); wrote[#wrote + 1] = cfgspec.FILES.senscal end
+  if deps.backup then for _, fn in ipairs(wrote) do deps.backup("/" .. fn) end end
+  return "Split OK -- wrote " .. table.concat(wrote, ", ") .. " (fused file left intact as fallback)."
+end
+
 return M
