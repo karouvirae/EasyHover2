@@ -82,6 +82,7 @@ M.PAGES = {
   mdb       = require("ui.basalt.bitconfig.mdb"),
   uical     = require("ui.basalt.bitconfig.uical"),
   senscal   = require("ui.basalt.bitconfig.senscal"),
+  senssource = require("ui.basalt.bitconfig.senssource"),
   dtc       = require("ui.basalt.bitconfig.dtc"),
   fcssync   = require("ui.basalt.bitconfig.fcssync"),
 }

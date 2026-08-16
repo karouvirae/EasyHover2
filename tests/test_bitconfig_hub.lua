@@ -101,6 +101,7 @@ t.test("M.build constructs the element tree; apply() + one render pass do not er
   t.eq(h.elements.mdb:getEnabled(), true, "mdb button enabled")
   t.eq(h.elements.uical:getEnabled(), true, "uical button enabled")
   t.eq(h.elements.senscal:getEnabled(), true, "senscal button enabled")
+  t.eq(h.elements.senssource:getEnabled(), true, "senssource button enabled")
   t.eq(h.elements.dtc:getEnabled(), true, "dtc button enabled")
   t.eq(h.elements.fcssync:getEnabled(), true, "fcssync button enabled")
   t.eq(h.elements.backBtn:getEnabled(), true, "backBtn enabled")
@@ -132,7 +133,7 @@ t.test("M.build: seven buttons total (six items + back)", function()
       buttonCount = buttonCount + 1
     end
   end
-  t.eq(buttonCount, 7, "should have 7 buttons (6 items + 1 back)")
+  t.eq(buttonCount, 8, "should have 8 buttons (7 items + 1 back)")
 end)
 
 t.test("M.build: clicking each menu item button invokes M._onButton correctly", function()
@@ -153,10 +154,10 @@ end)
 
 t.test("M.ITEMS canonical definition is present and has correct structure", function()
   t.truthy(M.ITEMS ~= nil, "M.ITEMS should be defined")
-  t.eq(#M.ITEMS, 6, "M.ITEMS should have 6 entries")
+  t.eq(#M.ITEMS, 7, "M.ITEMS should have 7 entries")
 
   -- Check each expected item
-  local expectedIds = { "tuning", "mdb", "uical", "senscal", "dtc", "fcssync" }
+  local expectedIds = { "tuning", "mdb", "uical", "senscal", "senssource", "dtc", "fcssync" }
   for i, expectedId in ipairs(expectedIds) do
     t.eq(M.ITEMS[i].id, expectedId, "M.ITEMS[" .. i .. "].id should be " .. expectedId)
     t.truthy(M.ITEMS[i].label ~= nil, "M.ITEMS[" .. i .. "] should have a label")

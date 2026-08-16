@@ -23,6 +23,7 @@ M.ITEMS = {
   { id = "mdb",     label = "MDB-CONF" },
   { id = "uical",   label = "UI CAL" },
   { id = "senscal", label = "SENS CAL" },
+  { id = "senssource", label = "SENS SOURCE" },
   { id = "dtc",     label = "DTC" },
   { id = "fcssync", label = "FCS SYNC" },
 }
