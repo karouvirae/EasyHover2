@@ -1,0 +1,1 @@
+local a={}a.STYLE={ascii={pair="- "},subpixel={pair="\140 "}}function a.row(b,c)if type(b)~="number"or b<1 then return""end;local d=a.STYLE[c]or a.STYLE.ascii;local e=d.pair;local f=e:rep(math.ceil(b/#e))return f:sub(1,b)end;return a

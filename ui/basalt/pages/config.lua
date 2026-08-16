@@ -41,7 +41,7 @@ M.title = "CONFIG"
 -- it's the terminal frame's own content, never assignable to a monitor. NOTE: the final
 -- assignable-page set is confirmed in the assembly task (T27); this is the working default (nav
 -- and ap are reserved ids -- their pages land in Tasks 18/19).
-M.ASSIGN_CYCLE = { "emc", "fcs", "flight", "nav", "ap" }
+M.ASSIGN_CYCLE = { "emc", "fcs", "flight", "nav", "ap", "pfd" }
 
 -- M.nextAssign(cur) -> nextPageId|nil
 -- Mirrors ui/main.lua's nextAssign (lines 222-231) exactly: nil -> first entry; the last entry ->

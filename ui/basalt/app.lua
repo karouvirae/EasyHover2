@@ -75,6 +75,7 @@ M.PAGES = {
   config    = require("ui.basalt.pages.config"),
   ap        = require("ui.basalt.pages.ap"),
   nav       = require("ui.basalt.pages.nav"),
+  pfd       = require("ui.basalt.pages.pfd"),      -- PFD: heading tape + attitude + ALT/SPD
   bitconfig = require("ui.basalt.bitconfig.hub"),
   tuning    = require("ui.basalt.bitconfig.tuning"),
   mdb       = require("ui.basalt.bitconfig.mdb"),

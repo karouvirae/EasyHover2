@@ -18,9 +18,10 @@ t.test("nextAssign: emc -> fcs", function()
   t.eq(M.nextAssign("emc"), "fcs")
 end)
 
-t.test("nextAssign: last entry (ap) -> nil (wrap past the end, unassigned)", function()
-  t.eq(M.ASSIGN_CYCLE[#M.ASSIGN_CYCLE], "ap")
-  t.eq(M.nextAssign("ap"), nil)
+t.test("nextAssign: last entry (pfd) -> nil (wrap past the end, unassigned)", function()
+  t.eq(M.ASSIGN_CYCLE[#M.ASSIGN_CYCLE], "pfd")
+  t.eq(M.nextAssign("pfd"), nil)
+  t.eq(M.nextAssign("ap"), "pfd", "pfd was appended after ap")
 end)
 
 t.test("nextAssign: unrecognised current value -> falls back to the first entry", function()

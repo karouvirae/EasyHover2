@@ -862,9 +862,9 @@
         },
         {
           ["dst"] = "ui/basalt/app.lua",
-          ["size"] = 27884,
+          ["size"] = 27977,
           ["src"] = "ui/basalt/app.lua",
-          ["sum"] = "1b20ca3d",
+          ["sum"] = "310b0bf0",
         },
         {
           ["dst"] = "ui/basalt/bitconfig/dtc.lua",
@@ -927,6 +927,30 @@
           ["sum"] = "bb27c040",
         },
         {
+          ["dst"] = "ui/basalt/instruments/attitude.lua",
+          ["size"] = 2148,
+          ["src"] = "ui/basalt/instruments/attitude.lua",
+          ["sum"] = "568bb365",
+        },
+        {
+          ["dst"] = "ui/basalt/instruments/horizon.lua",
+          ["size"] = 880,
+          ["src"] = "ui/basalt/instruments/horizon.lua",
+          ["sum"] = "22403e70",
+        },
+        {
+          ["dst"] = "ui/basalt/instruments/readout.lua",
+          ["size"] = 1111,
+          ["src"] = "ui/basalt/instruments/readout.lua",
+          ["sum"] = "bc973dd0",
+        },
+        {
+          ["dst"] = "ui/basalt/instruments/tape.lua",
+          ["size"] = 2305,
+          ["src"] = "ui/basalt/instruments/tape.lua",
+          ["sum"] = "7e01fcaf",
+        },
+        {
           ["dst"] = "ui/basalt/listpicker.lua",
           ["size"] = 4534,
           ["src"] = "ui/basalt/listpicker.lua",
@@ -946,9 +970,9 @@
         },
         {
           ["dst"] = "ui/basalt/pages/config.lua",
-          ["size"] = 9074,
+          ["size"] = 9081,
           ["src"] = "ui/basalt/pages/config.lua",
-          ["sum"] = "580d19a4",
+          ["sum"] = "0345a680",
         },
         {
           ["dst"] = "ui/basalt/pages/emc.lua",
@@ -973,6 +997,12 @@
           ["size"] = 3444,
           ["src"] = "ui/basalt/pages/nav.lua",
           ["sum"] = "3ae88e51",
+        },
+        {
+          ["dst"] = "ui/basalt/pages/pfd.lua",
+          ["size"] = 4408,
+          ["src"] = "ui/basalt/pages/pfd.lua",
+          ["sum"] = "efb991eb",
         },
         {
           ["dst"] = "ui/basalt/picker.lua",
@@ -1118,5 +1148,5 @@
     ["size"] = 71382,
     ["sum"] = "b509c1c3",
   },
-  ["version"] = "566d07eb",
+  ["version"] = "fc74e09d",
 }
