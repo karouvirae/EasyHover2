@@ -102,6 +102,11 @@ local TOOLS = {
     entry = "beaconupdate",
     root  = "launchers/beaconupdate.lua",
   },
+  splitconfig = {
+    title = "Split legacy config",
+    entry = "splitconfig",
+    root  = "launchers/splitconfig.lua",
+  },
 }
 
 -- ---------------------------------------------------------------- pure helpers (unit-tested)

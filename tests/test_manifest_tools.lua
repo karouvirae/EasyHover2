@@ -27,3 +27,23 @@ t.test("both manifests carry a beaconupdate tool with a non-empty file closure",
     t.truthy(hasCore, path .. ": ships tools/beaconupdate.lua in the closure")
   end
 end)
+
+t.test("both manifests carry a splitconfig tool with a non-empty file closure", function()
+  for _, path in ipairs({ "/manifest.lua", "/manifest-dev.lua" }) do
+    local m = readManifest(path)
+    t.truthy(type(m.tools) == "table", path .. ": has a tools section")
+    local tool = m.tools and m.tools.splitconfig
+    t.truthy(type(tool) == "table", path .. ": has splitconfig")
+    t.eq(tool.entry, "splitconfig", path .. ": entry")
+    t.truthy(tool.files and #tool.files > 0, path .. ": non-empty closure")
+    -- the launcher ships at its command name, and the pure core is part of the closure
+    local hasEntry, hasCore = false, false
+    for _, e in ipairs(tool.files) do
+      if e.dst == "splitconfig" then hasEntry = true end
+      if e.dst:find("splitconfig", 1, true) and e.dst:find("tools/", 1, true) then hasCore = true end
+      t.truthy(type(e.sum) == "string" and type(e.size) == "number", path .. ": every file has sum+size")
+    end
+    t.truthy(hasEntry, path .. ": ships the launcher at 'splitconfig'")
+    t.truthy(hasCore, path .. ": ships tools/splitconfig.lua in the closure")
+  end
+end)
