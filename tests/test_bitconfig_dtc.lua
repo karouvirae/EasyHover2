@@ -732,6 +732,39 @@ t.test("_confirmText uses M.FILE (never a hardcoded filename) and covers all fou
   end
 end)
 
+-- ===== Task C1: M._scanDisk(mount, deps) -- pure classify (valid/invalid/foreign), no UI (SCAN =====
+-- ===== button itself is Task C3). =====
+
+local function scanDeps(mount, byName)
+  -- byName: { ["eh2_tuning.tbl"] = "<body>", ["foo.txt"] = "x", ... }
+  local files = {}
+  for name, body in pairs(byName) do files["/" .. mount .. "/" .. name] = body end
+  local names = {}; for name in pairs(byName) do names[#names + 1] = name end
+  return {
+    list   = function(p) return (p == mount or p == "/" .. mount) and names or {} end,
+    exists = function(p) return files[p] ~= nil end,
+    read   = function(p) return files[p] end,
+  }
+end
+
+t.test("_scanDisk: classifies valid EH2 config, invalid EH2 file, and foreign file", function()
+  local good = textutils.serialise({ gains = {}, caps = {}, feel = {} })  -- valid tuning
+  local deps = scanDeps("disk", {
+    ["eh2_tuning.tbl"]  = good,           -- valid
+    ["eh2_senscal.tbl"] = "corrupt {{{",  -- EH2-named but invalid
+    ["notes.txt"]       = "hello",        -- foreign
+  })
+  local s = M._scanDisk("disk", deps)
+  t.eq(#s.valid, 1); t.eq(s.valid[1], "tuning")
+  t.eq(#s.invalid, 1); t.truthy(s.invalid[1]:find("eh2_senscal.tbl", 1, true), s.invalid[1])
+  t.eq(#s.foreign, 1); t.truthy(s.foreign[1]:find("notes.txt", 1, true), s.foreign[1])
+end)
+
+t.test("_scanDisk: mount=nil -> everything empty", function()
+  local s = M._scanDisk(nil, { list = function() return { "x" } end })
+  t.eq(#s.valid, 0); t.eq(#s.invalid, 0); t.eq(#s.foreign, 0)
+end)
+
 -- ===== Task 12: construction probe -- generic "no error" smoke test (works against any M.build =====
 -- ===== shape, old or new; the point of this probe is just to prove build/apply/render never error). =====
 

@@ -182,6 +182,12 @@ local function realFind(kind)
   return peripheral.find(kind)
 end
 
+-- realList(path) -> array of filenames in a dir (nil/absence-safe: missing/invalid path -> {}).
+local function realList(path)
+  if not path or not fs.exists(path) or not fs.isDir(path) then return {} end
+  return fs.list(path)
+end
+
 -- realAttributes(path) -> {modified=...}|nil. CC:Tweaked's fs.attributes ERRORS on a nonexistent
 -- path, so this guards with fs.exists first (unlike realRead/realExists's fsx delegates, which are
 -- already nil-safe) rather than letting that propagate to callers expecting a plain nil.
@@ -203,6 +209,21 @@ local function realBackup(path)
   local body = realRead(path)
   if body == nil then return end
   fsx.writeAtomic("/easyhover2_backup/" .. name, body)
+end
+
+local function resolveDeps(deps)
+  deps = deps or {}
+  return {
+    find = deps.find or realFind,
+    exists = deps.exists or realExists,
+    read = deps.read or realRead,
+    write = deps.write or realWriteFile,
+    delete = deps.delete or realDelete,
+    move = deps.move or realMove,
+    attributes = deps.attributes or realAttributes,
+    backup = deps.backup or realBackup,
+    list = deps.list or realList,
+  }
 end
 
 -- ===== M._detect(deps): drive presence/mount/label, gated on isDiskPresent(). =====
@@ -242,6 +263,35 @@ function M._scan(mount, deps)
   return { localHas = localHas, diskHas = diskHas }
 end
 
+-- M.FILE reverse lookup: filename -> kind (built once from M.FILE). EH2-named iff FILE_KIND[name].
+local FILE_KIND = {}
+for kind, name in pairs(M.FILE) do FILE_KIND[name] = kind end
+
+-- ===== M._scanDisk(mount, deps) -> { valid={kinds…}, foreign={paths…}, invalid={paths…} }. =====
+-- Classify every file on the disk: valid EH2 config (collect the KIND), invalid EH2-named file
+-- (collect the PATH), or foreign (collect the PATH). mount == nil -> all empty. Feature 3 SCAN.
+function M._scanDisk(mount, deps)
+  deps = resolveDeps(deps)
+  local out = { valid = {}, foreign = {}, invalid = {} }
+  if mount == nil then return out end
+  for _, name in ipairs(deps.list(mount) or {}) do
+    local kind = FILE_KIND[name]
+    local path = "/" .. mount .. "/" .. name
+    if kind then
+      local body = deps.read(path)
+      local parsed = body and textutils.unserialise(body) or nil
+      if M.validateKind(kind, parsed) then
+        out.valid[#out.valid + 1] = kind
+      else
+        out.invalid[#out.invalid + 1] = path
+      end
+    else
+      out.foreign[#out.foreign + 1] = path
+    end
+  end
+  return out
+end
+
 -- Atomically copy `body` (already read from `from`) into `to` via deps.write/exists/delete/move:
 -- write to `to..".tmp"`, delete an existing `to` if present, then move the tmp into place --
 -- mirrors fcs/boot/loaderui.lua's realWrite / other bitconfig menus' realWrite exactly, just
@@ -254,20 +304,6 @@ local function atomicCopy(from, to, deps)
   if deps.exists(to) then deps.delete(to) end
   deps.move(tmp, to)
   return true
-end
-
-local function resolveDeps(deps)
-  deps = deps or {}
-  return {
-    find = deps.find or realFind,
-    exists = deps.exists or realExists,
-    read = deps.read or realRead,
-    write = deps.write or realWriteFile,
-    delete = deps.delete or realDelete,
-    move = deps.move or realMove,
-    attributes = deps.attributes or realAttributes,
-    backup = deps.backup or realBackup,
-  }
 end
 
 -- ===== M._export(mount, deps): local -> disk, ONLY for locally-present kinds. Atomic per file. =====
