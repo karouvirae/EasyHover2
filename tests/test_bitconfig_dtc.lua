@@ -438,6 +438,120 @@ t.test("validateKind uses cfgspec for FCS kinds and table-shape for uicfg", func
   t.eq(M.validateKind("devbind", { thrusters = {} }), false)  -- missing sensors
 end)
 
+-- ===== Task 11: per-kind IO (_scanKind/_exportKind/_importKind) + backup-before-import =====
+
+t.test("_importKind backs up the local file before overwriting it", function()
+  local store = { ["/disk/eh2_tuning.tbl"] = "NEW", ["/eh2_tuning.tbl"] = "OLD" }
+  local backedUp = {}
+  local deps = {
+    exists = function(p) return store[p] ~= nil end,
+    read = function(p) return store[p] end,
+    write = function(p, b) store[p] = b end,   -- atomic write shim
+    delete = function(p) store[p] = nil end,
+    move = function(a,b) store[b] = store[a]; store[a] = nil end,
+    attributes = function(p) return store[p] and { modified = 1 } or nil end,
+    backup = function(p) backedUp[#backedUp+1] = p end,
+  }
+  local ok = M._importKind("disk", "tuning", deps)
+  t.eq(ok, true)
+  t.eq(store["/eh2_tuning.tbl"], "NEW", "local overwritten from disk")
+  t.eq(backedUp[1], "/eh2_tuning.tbl", "local backed up before overwrite")
+end)
+
+t.test("_importKind: local file absent -> no backup call, still imports", function()
+  local store = { ["/disk/eh2_tuning.tbl"] = "NEW" }
+  local backedUp = {}
+  local deps = {
+    exists = function(p) return store[p] ~= nil end,
+    read = function(p) return store[p] end,
+    write = function(p, b) store[p] = b end,
+    delete = function(p) store[p] = nil end,
+    move = function(a,b) store[b] = store[a]; store[a] = nil end,
+    backup = function(p) backedUp[#backedUp+1] = p end,
+  }
+  local ok = M._importKind("disk", "tuning", deps)
+  t.eq(ok, true)
+  t.eq(#backedUp, 0, "no local file existed, so no backup call")
+  t.eq(store["/eh2_tuning.tbl"], "NEW")
+end)
+
+t.test("_importKind: disk file absent -> false, no backup, no copy", function()
+  local store = { ["/eh2_tuning.tbl"] = "OLD" }
+  local backedUp = {}
+  local deps = {
+    exists = function(p) return store[p] ~= nil end,
+    read = function(p) return store[p] end,
+    write = function(p, b) store[p] = b end,
+    delete = function(p) store[p] = nil end,
+    move = function(a,b) store[b] = store[a]; store[a] = nil end,
+    backup = function(p) backedUp[#backedUp+1] = p end,
+  }
+  t.eq(M._importKind("disk", "tuning", deps), false)
+  t.eq(#backedUp, 0)
+  t.eq(store["/eh2_tuning.tbl"], "OLD", "local untouched")
+end)
+
+t.test("_importKind: mount=nil -> false, no-op", function()
+  local deps = { exists = function() return true end, read = function() return "X" end }
+  t.eq(M._importKind(nil, "tuning", deps), false)
+end)
+
+t.test("_exportKind copies local to disk", function()
+  local store = { ["/eh2_tuning.tbl"] = "L" }
+  local deps = { exists=function(p) return store[p]~=nil end, read=function(p) return store[p] end,
+    write=function(p,b) store[p]=b end, delete=function(p) store[p]=nil end, move=function(a,b) store[b]=store[a]; store[a]=nil end }
+  t.eq(M._exportKind("disk", "tuning", deps), true)
+  t.eq(store["/disk/eh2_tuning.tbl"], "L")
+end)
+
+t.test("_exportKind: local file absent -> false, no copy", function()
+  local store = {}
+  local deps = { exists=function(p) return store[p]~=nil end, read=function(p) return store[p] end,
+    write=function(p,b) store[p]=b end, delete=function(p) store[p]=nil end, move=function(a,b) store[b]=store[a]; store[a]=nil end }
+  t.eq(M._exportKind("disk", "tuning", deps), false)
+end)
+
+t.test("_exportKind: mount=nil -> false, no-op", function()
+  local deps = { exists = function() return true end, read = function() return "X" end }
+  t.eq(M._exportKind(nil, "tuning", deps), false)
+end)
+
+t.test("_scanKind reports presence, mtime and disk validity", function()
+  local store = { ["/eh2_tuning.tbl"] = textutils.serialise({ gains={}, caps={}, feel={} }) }
+  local deps = { exists=function(p) return store[p]~=nil end, read=function(p) return store[p] end,
+    attributes=function(p) return store[p] and { modified = 5 } or nil end }
+  local s = M._scanKind(nil, "tuning", deps)
+  t.eq(s.localHas, true); t.eq(s.localMs, 5); t.eq(s.diskHas, false)
+end)
+
+t.test("_scanKind: disk file present and valid -> diskHas true, diskValid true, diskMs surfaced", function()
+  local store = {
+    ["/disk/eh2_tuning.tbl"] = textutils.serialise({ gains={}, caps={}, feel={} }),
+  }
+  local deps = { exists=function(p) return store[p]~=nil end, read=function(p) return store[p] end,
+    attributes=function(p) return store[p] and { modified = 9 } or nil end }
+  local s = M._scanKind("disk", "tuning", deps)
+  t.eq(s.localHas, false); t.eq(s.localMs, nil)
+  t.eq(s.diskHas, true); t.eq(s.diskMs, 9)
+  t.eq(s.diskValid, true)
+end)
+
+t.test("_scanKind: disk file present but invalid/corrupt -> diskValid false", function()
+  local store = { ["/disk/eh2_tuning.tbl"] = "not valid lua {{{" }
+  local deps = { exists=function(p) return store[p]~=nil end, read=function(p) return store[p] end,
+    attributes=function(p) return store[p] and { modified = 9 } or nil end }
+  local s = M._scanKind("disk", "tuning", deps)
+  t.eq(s.diskHas, true)
+  t.eq(s.diskValid, false)
+end)
+
+t.test("_scanKind: honors resolveDeps real defaults when deps omit fields (no crash)", function()
+  -- exists/read/attributes provided; write/delete/move/find/backup fall back to real fs/peripheral
+  -- defaults but are never invoked by _scanKind, so this must not error.
+  local ok, err = pcall(M._scanKind, nil, "tuning", { exists = function() return false end })
+  t.truthy(ok, "should not error: " .. tostring(err))
+end)
+
 -- ===== Task 10: fmtTime + row =====
 
 t.test("fmtTime formats ms epoch and handles nil", function()

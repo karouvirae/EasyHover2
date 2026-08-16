@@ -181,6 +181,29 @@ local function realFind(kind)
   return peripheral.find(kind)
 end
 
+-- realAttributes(path) -> {modified=...}|nil. CC:Tweaked's fs.attributes ERRORS on a nonexistent
+-- path, so this guards with fs.exists first (unlike realRead/realExists's fsx delegates, which are
+-- already nil-safe) rather than letting that propagate to callers expecting a plain nil.
+local function realAttributes(path)
+  if not fs.exists(path) then return nil end
+  return fs.attributes(path)
+end
+
+-- realBackup(path): self-contained single-latest-per-file backup, copying `path` to
+-- /easyhover2_backup/<name> (name = path with "/" -> "_", leading "/" stripped) -- mirrors
+-- easyhover2_suite.lua's Suite.backupConfig, but the UI role does not ship that file at runtime,
+-- so this is a standalone reimplementation using this module's own fs seams. Only backs up when
+-- the source exists; overwrites (not appends to) any prior backup of the same name via
+-- fsx.writeAtomic's tmp-then-delete-then-move dance.
+local function realBackup(path)
+  if not realExists(path) then return end
+  if not fs.exists("/easyhover2_backup") then fs.makeDir("/easyhover2_backup") end
+  local name = path:gsub("^/", ""):gsub("/", "_")
+  local body = realRead(path)
+  if body == nil then return end
+  fsx.writeAtomic("/easyhover2_backup/" .. name, body)
+end
+
 -- ===== M._detect(deps): drive presence/mount/label, gated on isDiskPresent(). =====
 -- deps.find(kind) defaults to peripheral.find. Returns:
 --   { present=bool, driveFound=bool, mount=<getMountPath() or nil>, label=<getDiskLabel() or
@@ -241,6 +264,8 @@ local function resolveDeps(deps)
     write = deps.write or realWriteFile,
     delete = deps.delete or realDelete,
     move = deps.move or realMove,
+    attributes = deps.attributes or realAttributes,
+    backup = deps.backup or realBackup,
   }
 end
 
@@ -272,6 +297,68 @@ function M._import(mount, deps)
     end
   end
   return imported
+end
+
+-- ===== M._scanKind(mount, kind, deps): per-kind presence/mtime/disk-validity -- feeds the T12 =====
+-- ===== per-row confirm-gating UI. Always resolveDeps(deps) first (a caller may hand in only a
+-- subset of seams, e.g. just `exists`, and this must never crash on the missing rest). Returns
+-- { localHas, localMs, diskHas, diskMs, diskValid }: localMs/diskMs come from
+-- deps.attributes(path).modified (nil-safe: nil whenever the file or its attributes are absent).
+-- diskValid = M.validateKind(kind, <unserialised disk body>), computed ONLY when the disk file
+-- exists (nil body or a parse failure -> diskValid false, never an error). mount == nil treats the
+-- disk side as entirely absent -- no disk exists/read/attributes calls are made at all.
+function M._scanKind(mount, kind, deps)
+  deps = resolveDeps(deps)
+
+  local localPath = M.localPath(kind)
+  local localHas = deps.exists(localPath) and true or false
+  local localMs = nil
+  if localHas then
+    local attrs = deps.attributes(localPath)
+    localMs = attrs and attrs.modified or nil
+  end
+
+  local diskHas, diskMs, diskValid = false, nil, false
+  if mount ~= nil then
+    local diskPath = M.diskPath(mount, kind)
+    diskHas = deps.exists(diskPath) and true or false
+    if diskHas then
+      local attrs = deps.attributes(diskPath)
+      diskMs = attrs and attrs.modified or nil
+      local body = deps.read(diskPath)
+      local parsed = body and textutils.unserialise(body) or nil
+      diskValid = M.validateKind(kind, parsed)
+    end
+  end
+
+  return { localHas = localHas, localMs = localMs, diskHas = diskHas, diskMs = diskMs, diskValid = diskValid }
+end
+
+-- ===== M._exportKind(mount, kind, deps) -> ok: atomic local->disk copy of ONE kind. =====
+-- mount == nil, or the local file absent, -> false (no-op); mirrors M._export's per-kind atomicCopy
+-- call but for a single kind instead of looping M.KINDS.
+function M._exportKind(mount, kind, deps)
+  if mount == nil then return false end
+  deps = resolveDeps(deps)
+  return atomicCopy(M.localPath(kind), M.diskPath(mount, kind), deps)
+end
+
+-- ===== M._importKind(mount, kind, deps) -> ok: backs up the local file (deps.backup) FIRST -- =====
+-- ===== ONLY if it currently exists -- then atomic-copies disk->local for ONE kind. EXISTS-gated
+-- only: unlike a possible reading of the brief, this does NOT validate the disk body before
+-- importing (M._scanKind's diskValid is the surfaced validity signal; the T12 UI gates its confirm
+-- on that, not on a silent refusal buried here). mount == nil, or the disk file absent, -> false
+-- with no backup call and no copy.
+function M._importKind(mount, kind, deps)
+  if mount == nil then return false end
+  deps = resolveDeps(deps)
+  local diskPath = M.diskPath(mount, kind)
+  if not deps.exists(diskPath) then return false end
+  local localPath = M.localPath(kind)
+  if deps.exists(localPath) then
+    deps.backup(localPath)
+  end
+  return atomicCopy(diskPath, localPath, deps)
 end
 
 -- ===== M.build: construct the disk-courier element tree =====
