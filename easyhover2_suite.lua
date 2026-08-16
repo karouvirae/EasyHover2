@@ -1315,6 +1315,7 @@ function Suite.main(args)
   local wantRole, checkOnly, forceRepair, listOnly, fastPath =
     nil, false, false, false, false
   local wantChannel = nil
+  local noUI = false   -- --yes/--go: force the non-interactive install even on a colour terminal
 
   for _, arg in ipairs(args) do
     local a = tostring(arg):lower()
@@ -1325,6 +1326,7 @@ function Suite.main(args)
     elseif a == "--list" then listOnly = true
     elseif a == "--dev" then wantChannel = "dev"
     elseif a == "--min" then wantChannel = "min"
+    elseif a == "--yes" or a == "--go" then noUI = true
     elseif a == "--help" or a == "-h" then
       say("EasyHover 2 Suite", colours.cyan)
       dim("  easyhover2_suite.lua              install or update, as appropriate")
@@ -1332,6 +1334,7 @@ function Suite.main(args)
       dim("  easyhover2_suite.lua --repair     clear the role's files and reinstall")
       dim("  easyhover2_suite.lua --fast       trust the version stamp, skip checksums")
       dim("  easyhover2_suite.lua --list       list every role")
+      dim("  easyhover2_suite.lua --yes        install non-interactively (no dashboard; for remote/unattended installs)")
       dim("  easyhover2_suite.lua <role>       install or switch to a role")
       dim("  easyhover2_suite.lua --dev        install the readable (un-minified) channel")
       dim("  easyhover2_suite.lua --min        force back to the minified channel (default)")
@@ -1539,8 +1542,11 @@ function Suite.main(args)
   -- self-staleness check at its end; a current dashboard never calls it, so run that check here
   -- first -- ONLY when current, so an update/install/repair still gets its single check inside
   -- performPlan and it is never run twice.
+  -- --yes/--go forces the non-interactive text install even on a colour terminal: an unattended
+  -- remote install (a beacon reinstalling itself over the air) must never block in the graphical
+  -- dashboard waiting for a human "Go" click. Basic computers already take the text path.
   local advanced = term.isColour and term.isColour()
-  if advanced and not checkOnly and not listOnly then
+  if advanced and not checkOnly and not listOnly and not noUI then
     if plan == "current" then Suite.selfUpdateNotice(base, manifest) end
     return Suite.runUI({
       base = base, manifest = manifest, order = order,

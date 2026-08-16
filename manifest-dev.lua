@@ -36,9 +36,9 @@
       ["files"] = {
         {
           ["dst"] = "beacon/app.lua",
-          ["size"] = 5059,
+          ["size"] = 5642,
           ["src"] = "beacon/app.lua",
-          ["sum"] = "860aa9ed",
+          ["sum"] = "20b80666",
         },
         {
           ["dst"] = "beacon/config.lua",
@@ -1115,8 +1115,8 @@
     },
   },
   ["updater"] = {
-    ["size"] = 70807,
-    ["sum"] = "311b4a9c",
+    ["size"] = 71382,
+    ["sum"] = "b509c1c3",
   },
-  ["version"] = "759029d5",
+  ["version"] = "566d07eb",
 }

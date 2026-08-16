@@ -522,6 +522,8 @@ local function installToolIfRequested(ctx)
     toolChecked = ctx.installBeaconUpdater, devChecked = (ctx.channel == "dev"),
   })
   if not plan.install then return end
+  -- plan.channel (min/dev) is informational here: the dev checkbox drives the whole install, so
+  -- ctx.manifest is ALREADY the matching channel's manifest. We install straight from it.
   local tool = ctx.manifest.tools and ctx.manifest.tools.beaconupdate
   if not tool or not tool.files then
     logLine(ctx, "beacon updater not in this manifest -- skipped", ctx.pal.error)

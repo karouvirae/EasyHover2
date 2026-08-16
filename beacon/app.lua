@@ -89,8 +89,17 @@ function M.run()
         modem.transmit(cfg.channel, cfg.channel, Update.encode(Update.ack(cfg.id)))
         term.setCursorPos(1, 1); term.clear()
         print("remote update received -- reinstalling + rebooting...")
-        local ok = pcall(function() return shell.run("wget", "run", SUITE_URL) end)
-        if ok then os.reboot() else print("update failed; staying on current version"); os.sleep(2); repaint() end
+        -- "--yes" forces a NON-INTERACTIVE install: without it, an advanced (colour) beacon computer
+        -- would open the Suite's graphical dashboard and block forever on a human "Go" click -- an
+        -- unattended beacon would sit in the installer UI, no longer broadcasting GPS. shell.run
+        -- returns false if the Suite errored out, so only reboot on success and stay on the working
+        -- version otherwise. (Caveat: `wget run` reports success even when the DOWNLOAD failed, so a
+        -- dropped fetch simply reboots into the unchanged old code -- harmless.)
+        if shell.run("wget", "run", SUITE_URL, "--yes") then
+          os.reboot()
+        else
+          print("update failed; staying on the current version"); os.sleep(2); repaint()
+        end
       end
     elseif name == "char" then
       local action = Console.actionFor(ev[2])
