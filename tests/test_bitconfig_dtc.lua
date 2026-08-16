@@ -797,6 +797,50 @@ t.test("_scanSummary: counts and flags clean-advised when only junk present", fu
   t.truthy(s:find("CLEAN ADVISED", 1, true), "clean advised when no valid config but junk present: " .. s)
 end)
 
+-- ===== Task C3: SCAN + CLEAN UI (buttons + screens) =====
+
+t.test("M.build: SCAN screen summarizes disk; CLEAN confirm deletes only junk and pops", function()
+  local basalt = BasaltApp.ensureBasalt()
+  local frame = basalt.createFrame()
+  local nav = Nav.new("bitconfig")
+  local good = textutils.serialise({ gains = {}, caps = {}, feel = {} })
+  local files = {
+    ["/disk/eh2_tuning.tbl"] = good, ["/disk/junk.dat"] = "x", ["/disk/eh2_senscal.tbl"] = "bad {{{",
+  }
+  local fakeDrive = {
+    isDiskPresent = function() return true end,
+    getMountPath  = function() return "disk" end,
+    getDiskLabel  = function() return "CART1" end,
+  }
+  local deps = {
+    find = function(k) return k == "drive" and fakeDrive or nil end,
+    list = function(p) return (p == "disk") and { "eh2_tuning.tbl", "junk.dat", "eh2_senscal.tbl" } or {} end,
+    exists = function(p) return files[p] ~= nil end,
+    read = function(p) return files[p] end,
+    write = function(p, b) files[p] = b end,
+    delete = function(p) files[p] = nil end,
+    move = function(a, b) files[b] = files[a]; files[a] = nil end,
+    attributes = function(p) return files[p] and { modified = 1 } or nil end,
+    backup = function(p) end,
+  }
+  local h = M.build(basalt, frame, nil, nav, deps)
+  local region = h.elements.region
+  local top = region.built.top.handle.elements
+  t.truthy(top.scanRow ~= nil and #top.scanRow.buttons == 1, "SCAN button present")
+
+  region:push("scan"); h.apply({})
+  local sEls = region.built.scan.handle.elements
+  t.truthy(sEls.summaryLabel:getText():find("valid 1", 1, true), "scan summary reads valid 1: " .. sEls.summaryLabel:getText())
+
+  region:push("confirm_clean"); h.apply({})
+  local cEls = region.built.confirm_clean.handle.elements
+  cEls.confirmRow.buttons[1].button:fireEvent("mouse_click", 1, 1, 1)
+  h.apply({})
+  t.truthy(files["/disk/eh2_tuning.tbl"] ~= nil, "valid config kept after CLEAN")
+  t.eq(files["/disk/junk.dat"], nil, "foreign deleted")
+  t.eq(files["/disk/eh2_senscal.tbl"], nil, "invalid deleted")
+end)
+
 -- ===== Task 12: construction probe -- generic "no error" smoke test (works against any M.build =====
 -- ===== shape, old or new; the point of this probe is just to prove build/apply/render never error). =====
 
