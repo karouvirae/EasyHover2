@@ -238,7 +238,7 @@ function M.build(basalt, frame, runtime, nav, read, write, scan)
   local dropX = x + labelW + 1
   local DROPDOWN_HEIGHT = 5
 
-  -- ===== overview screen: 5 stacked group buttons + a SAVE/RESCAN/BACK footer row =====
+  -- ===== overview screen: 5 stacked group buttons + a full-width SAVE row, then a RESCAN/BACK row =====
   local function buildOverview(b, f, region)
     local fw = f:getSize()
     local fx = 2
@@ -264,17 +264,21 @@ function M.build(basalt, frame, runtime, nav, read, write, scan)
       descriptors = scan()
     end
 
+    local configkitGlyph = configkit.GLYPH
+    local saveRow = configkit.actionRow(f, { x = fx, y = y, w = fiw }, {
+      { label = "SAVE", onClick = function() M._save(workingCfg, write) end },
+    })
+    y = y + 1
     local footerRow = configkit.actionRow(f, { x = fx, y = y, w = fiw }, {
-      { label = "SAVE",   onClick = function() M._save(workingCfg, write) end },
-      { label = "RESCAN", onClick = doRescan },
-      { label = "< BACK", onClick = function() if nav then nav:pop() end end },
+      { label = configkitGlyph.RESCAN, onClick = doRescan },
+      { label = configkitGlyph.BACK,   onClick = function() if nav then nav:pop() end end },
     })
 
     -- apply(state): the overview shows only static group labels + action buttons -- nothing here
     -- tracks live cfg state, so a no-op repaint is all that's needed.
     local function apply(_state) end
 
-    return { apply = apply, elements = { groupBtns = groupBtns, footerRow = footerRow, rescan = doRescan } }
+    return { apply = apply, elements = { groupBtns = groupBtns, saveRow = saveRow, footerRow = footerRow, rescan = doRescan } }
   end
 
   -- ===== group screen: that group's bind rows (fitLabel'd slot label + picker) + a "<" back =====

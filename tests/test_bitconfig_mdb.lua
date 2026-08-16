@@ -275,8 +275,8 @@ t.test("M.build: overview shows the 5 group buttons + SAVE/RESCAN/BACK; apply() 
   for _, g in ipairs(M.GROUPS) do
     t.truthy(ov.elements.groupBtns[g] ~= nil, "overview has a group button for " .. g)
   end
-  t.truthy(ov.elements.footerRow ~= nil, "overview has the SAVE/RESCAN/BACK footer row")
-  t.eq(#ov.elements.footerRow.buttons, 3, "footer row has exactly SAVE/RESCAN/BACK")
+  t.truthy(ov.elements.saveRow ~= nil, "overview has a dedicated SAVE row")
+  t.truthy(ov.elements.footerRow ~= nil, "overview has the RESCAN/BACK footer row")
 
   local ok, err = pcall(h.apply, {})
   t.truthy(ok, "apply should not error: " .. tostring(err))
@@ -285,6 +285,22 @@ t.test("M.build: overview shows the 5 group buttons + SAVE/RESCAN/BACK; apply() 
 
   local ok3, err3 = pcall(function() basalt.update("timer", -1) end)
   t.truthy(ok3, "basalt.update should not error: " .. tostring(err3))
+end)
+
+t.test("overview footer: SAVE on its own full-width row, then RESCAN + BACK on a second row", function()
+  local basalt = BasaltApp.ensureBasalt()
+  local frame = basalt.createFrame()
+  local nav = Nav.new("bitconfig")
+  local h = M.build(basalt, frame, nil, nav,
+    function() return nil end,          -- read: no saved cfg
+    function() end,                     -- write
+    function() return {} end)           -- scan: no descriptors
+  local els = h.elements.region.built.overview.handle.elements
+  t.truthy(els.saveRow ~= nil and #els.saveRow.buttons == 1, "SAVE alone on its own row")
+  t.eq(els.saveRow.buttons[1].button:getText(), "SAVE")
+  t.truthy(els.footerRow ~= nil and #els.footerRow.buttons == 2, "RESCAN + BACK share the second row")
+  t.eq(els.footerRow.buttons[2].button:getText(), "\27", "BACK is the CC-native left arrow")
+  t.truthy(type(els.rescan) == "function", "doRescan still exposed for direct-invoke tests")
 end)
 
 t.test("M.build: drilling a group shows that group's fitLabel'd rows + pickers; '<' pops back to overview", function()
