@@ -362,6 +362,24 @@ function M._importKind(mount, kind, deps)
   return atomicCopy(diskPath, localPath, deps)
 end
 
+-- ===== M._importAll(mount, deps) -> { imported={kinds…}, skipped={kinds…} }: import every kind =====
+-- ===== whose disk copy exists AND validates (reusing M._importKind's backup-then-copy); skip the
+-- rest. M.KINDS order. mount == nil -> both empty. Feature 2's one-shot "IMPORT ALL".
+function M._importAll(mount, deps)
+  deps = resolveDeps(deps)
+  local imported, skipped = {}, {}
+  if mount == nil then return { imported = imported, skipped = skipped } end
+  for _, kind in ipairs(M.KINDS) do
+    local sk = M._scanKind(mount, kind, deps)
+    if sk.diskHas and sk.diskValid and M._importKind(mount, kind, deps) then
+      imported[#imported + 1] = kind
+    else
+      skipped[#skipped + 1] = kind
+    end
+  end
+  return { imported = imported, skipped = skipped }
+end
+
 -- ===== M._confirmText(dir, kind) -> string: PURE per-row confirm question text (T12). =====
 -- dir == "export" (UI PC -> disk) or "import" (disk -> UI PC); any other dir returns "". Always
 -- names the file via M.FILE[kind] -- never a hardcoded filename.

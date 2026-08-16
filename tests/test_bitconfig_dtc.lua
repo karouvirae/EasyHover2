@@ -574,6 +574,40 @@ t.test("_importKind: mount=nil -> false, no-op", function()
   t.eq(M._importKind(nil, "tuning", deps), false)
 end)
 
+-- ===== Task B5: M._importAll(mount, deps) -- one-shot import of all valid disk kinds =====
+
+t.test("_importAll: imports only valid disk kinds, backs up locals, skips the rest", function()
+  local good = textutils.serialise({ gains = {}, caps = {}, feel = {} })   -- valid tuning
+  local store = {
+    ["/disk/eh2_tuning.tbl"]  = good,
+    ["/disk/eh2_senscal.tbl"] = "corrupt {{{",   -- present but invalid
+    ["/eh2_tuning.tbl"]       = "OLD-TUNING",
+  }
+  local backedUp = {}
+  local deps = {
+    exists = function(p) return store[p] ~= nil end,
+    read   = function(p) return store[p] end,
+    write  = function(p, b) store[p] = b end,
+    delete = function(p) store[p] = nil end,
+    move   = function(a, b) store[b] = store[a]; store[a] = nil end,
+    attributes = function(p) return store[p] and { modified = 1 } or nil end,
+    backup = function(p) backedUp[#backedUp + 1] = p end,
+  }
+  local r = M._importAll("disk", deps)
+  t.eq(#r.imported, 1); t.eq(r.imported[1], "tuning")
+  t.eq(store["/eh2_tuning.tbl"], good, "valid disk tuning imported over local")
+  t.eq(backedUp[1], "/eh2_tuning.tbl", "local tuning backed up first")
+  -- senscal present-but-invalid, devbind/uicfg absent -> all skipped
+  local skippedSet = {}; for _, k in ipairs(r.skipped) do skippedSet[k] = true end
+  t.truthy(skippedSet.senscal, "invalid senscal skipped")
+  t.truthy(skippedSet.devbind and skippedSet.uicfg, "absent kinds skipped")
+end)
+
+t.test("_importAll: mount=nil -> nothing imported, nothing skipped-with-error", function()
+  local r = M._importAll(nil, { exists = function() return true end })
+  t.eq(#r.imported, 0)
+end)
+
 t.test("_exportKind copies local to disk", function()
   local store = { ["/eh2_tuning.tbl"] = "L" }
   local deps = { exists=function(p) return store[p]~=nil end, read=function(p) return store[p] end,
