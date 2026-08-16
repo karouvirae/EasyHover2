@@ -733,8 +733,12 @@ local function buildUI(ctx)
   ui.buttons.repair:onClick(function()
     if ctx.opInFlight or not ctx.spec then return end
     runEngineOp(ctx, function()
-      return ctx.Suite.performPlan(ctx.Suite.base, ctx.manifest, ctx.spec, ctx.role, "repair",
+      local r = ctx.Suite.performPlan(ctx.Suite.base, ctx.manifest, ctx.spec, ctx.role, "repair",
         ctx.report and ctx.report.present == 0)
+      installToolIfRequested(ctx)   -- also lay down any ticked Advanced-tab optional tool; Repair is
+      -- the only always-enabled engine op, so it's the path to add a tool when the role is up-to-date
+      -- (Go is disabled at "current"). Mirrors the go handler's post-install tool step.
+      return r
     end)
   end)
   ui.buttons.switch:onClick(function() ui.roleDropdown:setState("opened") end)

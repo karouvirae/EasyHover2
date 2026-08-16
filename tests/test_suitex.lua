@@ -63,6 +63,11 @@ t.test("buttonStates: Go disabled only when already current", function()
   t.eq(SuiteX.buttonStates("update").go, "active")
   t.eq(SuiteX.buttonStates("current").go, "disabled")
   t.eq(SuiteX.buttonStates("current").verify, "active")
+  -- Repair MUST stay available when already up-to-date: with Go disabled, Repair is the only engine
+  -- op that installs the ticked Advanced-tab optional tools (beacon updater / config splitter) --
+  -- see the repair handler's installToolIfRequested call. If this ever flips to "disabled", there's
+  -- no way to add an optional tool without a version bump.
+  t.eq(SuiteX.buttonStates("current").repair, "active")
 end)
 
 t.test("overallState resolves role/plan/files into a state", function()
