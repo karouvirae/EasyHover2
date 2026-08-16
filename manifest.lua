@@ -874,9 +874,9 @@
         },
         {
           ["dst"] = "ui/basalt/bitconfig/dtc.lua",
-          ["size"] = 9030,
+          ["size"] = 13171,
           ["src"] = "dist/ui/basalt/bitconfig/dtc.lua",
-          ["sum"] = "678369bc",
+          ["sum"] = "493ae474",
         },
         {
           ["dst"] = "ui/basalt/bitconfig/fcssync.lua",
@@ -892,9 +892,9 @@
         },
         {
           ["dst"] = "ui/basalt/bitconfig/mdb.lua",
-          ["size"] = 4664,
+          ["size"] = 4743,
           ["src"] = "dist/ui/basalt/bitconfig/mdb.lua",
-          ["sum"] = "7202e9c0",
+          ["sum"] = "df74b3b6",
         },
         {
           ["dst"] = "ui/basalt/bitconfig/senscal.lua",
@@ -934,9 +934,9 @@
         },
         {
           ["dst"] = "ui/basalt/configkit.lua",
-          ["size"] = 3714,
+          ["size"] = 3806,
           ["src"] = "dist/ui/basalt/configkit.lua",
-          ["sum"] = "44d0eedc",
+          ["sum"] = "cfd1dd64",
         },
         {
           ["dst"] = "ui/basalt/instruments/attitude.lua",
@@ -1167,6 +1167,52 @@
       },
       ["title"] = "Beacon updater",
     },
+    ["fcs2disk"] = {
+      ["dirs"] = {
+        "fcs",
+        "tools",
+      },
+      ["entry"] = "fcs2disk",
+      ["files"] = {
+        {
+          ["dst"] = "fcs/io/cfgspec.lua",
+          ["size"] = 1311,
+          ["src"] = "dist/fcs/io/cfgspec.lua",
+          ["sum"] = "81702592",
+        },
+        {
+          ["dst"] = "fcs/io/fsx.lua",
+          ["size"] = 457,
+          ["src"] = "dist/fcs/io/fsx.lua",
+          ["sum"] = "716ef21a",
+        },
+        {
+          ["dst"] = "fcs/io/hwconfig.lua",
+          ["size"] = 856,
+          ["src"] = "dist/fcs/io/hwconfig.lua",
+          ["sum"] = "e7584e5f",
+        },
+        {
+          ["dst"] = "fcs/io/tuningdefaults.lua",
+          ["size"] = 1566,
+          ["src"] = "dist/fcs/io/tuningdefaults.lua",
+          ["sum"] = "561214ff",
+        },
+        {
+          ["dst"] = "fcs2disk",
+          ["size"] = 126,
+          ["src"] = "dist/launchers/fcs2disk.lua",
+          ["sum"] = "fca3e077",
+        },
+        {
+          ["dst"] = "tools/fcs2disk.lua",
+          ["size"] = 1360,
+          ["src"] = "dist/tools/fcs2disk.lua",
+          ["sum"] = "715a5f59",
+        },
+      },
+      ["title"] = "FCS config dump",
+    },
     ["splitconfig"] = {
       ["dirs"] = {
         "fcs",
@@ -1218,5 +1264,5 @@
     ["size"] = 71434,
     ["sum"] = "57671ad7",
   },
-  ["version"] = "0ea26820",
+  ["version"] = "8d4a5637",
 }

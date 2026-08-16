@@ -1,0 +1,1 @@
+package.path="/?.lua;/?/init.lua;"..package.path;local a=require("tools.fcs2disk")print("== EH2 FCS -> DISK ==")print(a.run())
