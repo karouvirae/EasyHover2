@@ -107,6 +107,11 @@ local TOOLS = {
     entry = "splitconfig",
     root  = "launchers/splitconfig.lua",
   },
+  fcs2disk = {
+    title = "FCS config dump",
+    entry = "fcs2disk",
+    root  = "launchers/fcs2disk.lua",
+  },
 }
 
 -- ---------------------------------------------------------------- pure helpers (unit-tested)
