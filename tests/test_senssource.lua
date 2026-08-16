@@ -38,3 +38,15 @@ t.test("readAttitude wraps names, reads, applies cal; nil when a name is missing
   t.eq(a.pitch, 2); t.eq(a.roll, 9); t.eq(a.sas, 3)
   t.eq(SS.readAttitude({}, { gimbal = nil, velMedial = "v" }, wrap), nil, "missing gimbal name -> nil")
 end)
+
+t.test("selfApply classifies pitch/roll axes + surge sign from captures", function()
+  local cal = SS.selfApply({
+    level     = { angles = { 0, 0 }, vel = 0 },
+    pitchFwd  = { angles = { 5, 0 }, vel = 0 },   -- axis 1 moved -> pitch idx 1
+    rollRight = { angles = { 0, 6 }, vel = 0 },   -- axis 2 moved -> roll idx 2
+    surgeFwd  = { angles = { 0, 0 }, vel = 4 },   -- +vel forward -> surge sign +1
+  })
+  t.eq(cal.gimbalPitchIdx, 1); t.eq(cal.gimbalRollIdx, 2)
+  t.eq(cal.signVelMedial, 1)
+  t.truthy(cal.signPitch == 1 or cal.signPitch == -1, "pitch sign set")
+end)

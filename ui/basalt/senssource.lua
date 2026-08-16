@@ -3,8 +3,9 @@
 -- FCS source = the UI PC's own eh2_senscal.tbl (cal) + eh2_devbind.tbl (names), loaded via
 -- fcs.io.cfgspec (LOCAL files -- NOT cfgsync). SELF source = config.sens.self. OFF = nothing.
 -- The INACTIVE source is never touched. No peripheral/Basalt access at load; wrap/read are injected.
-local cfgspec  = require("fcs.io.cfgspec")
-local sensread = require("ui.basalt.instruments.sensread")
+local cfgspec      = require("fcs.io.cfgspec")
+local sensread     = require("ui.basalt.instruments.sensread")
+local calibration  = require("fcs.io.calibration")
 
 local M = {}
 
@@ -36,6 +37,26 @@ function M.readAttitude(cal, sensors, wrapFn)
   local pitch, roll = sensread.attitude(okA and angles or nil, cal)
   local sas = sensread.surge(okV and vel or nil, cal)
   return { pitch = pitch, roll = roll, sas = sas }
+end
+
+function M.selfSteps()
+  return {
+    { id = "level",     label = "Level",       prompt = "Hold the craft LEVEL, then CAPTURE." },
+    { id = "pitchFwd",  label = "Pitch fwd",   prompt = "Pitch the NOSE DOWN, then CAPTURE." },
+    { id = "rollRight", label = "Roll right",  prompt = "Roll RIGHT wing down, then CAPTURE." },
+    { id = "surgeFwd",  label = "Surge fwd",   prompt = "Move FORWARD steadily, then CAPTURE." },
+  }
+end
+
+function M.selfApply(s)
+  local pitch = calibration.classifyGimbalAxis(s.level.angles, s.pitchFwd.angles)
+  local roll  = calibration.classifyGimbalAxis(s.level.angles, s.rollRight.angles)
+  local surge = calibration.classifyScalarSign(s.level.vel, s.surgeFwd.vel)
+  return {
+    gimbalPitchIdx = pitch.idx, signPitch = pitch.sign, gimbalScale = pitch.scale,
+    gimbalRollIdx  = roll.idx,  signRoll  = roll.sign,
+    signVelMedial  = surge.sign,
+  }
 end
 
 return M
