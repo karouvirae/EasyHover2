@@ -25,3 +25,39 @@ end)
 t.test("plan: mount present but nothing local -> abort", function()
   t.eq(F.plan({ present = {}, mount = "disk" }).action, "abort")
 end)
+
+-- in-memory deps store (mirrors test_splitconfig / test_bitconfig_dtc conventions)
+local function fakeDeps(localFiles, mount)
+  local files = {}
+  for k, v in pairs(localFiles or {}) do files[k] = v end
+  local drive = mount and {
+    isDiskPresent = function() return true end,
+    getMountPath  = function() return mount end,
+  } or nil
+  local deps = {
+    find   = function(kind) return (kind == "drive") and drive or nil end,
+    exists = function(p) return files[p] ~= nil end,
+    read   = function(p) return files[p] end,
+    write  = function(p, body) files[p] = body end,
+  }
+  return files, deps
+end
+
+t.test("run: dumps every present local kind to <mount>/<cfgspec.FILES[kind]>", function()
+  local files, deps = fakeDeps({
+    ["/eh2_devbind.tbl"] = "DB", ["/eh2_tuning.tbl"] = "TN",
+  }, "disk")
+  local summary = F.run(deps)
+  t.eq(files["/disk/eh2_devbind.tbl"], "DB")
+  t.eq(files["/disk/eh2_tuning.tbl"], "TN")
+  t.eq(files["/disk/eh2_senscal.tbl"], nil, "senscal absent locally -> not written")
+  t.truthy(summary:find("devbind", 1, true) and summary:find("senscal", 1, true),
+    "summary names dumped + missing kinds: " .. summary)
+end)
+
+t.test("run: no drive found -> writes nothing, reports no-mount", function()
+  local files, deps = fakeDeps({ ["/eh2_devbind.tbl"] = "DB" }, nil)
+  local summary = F.run(deps)
+  t.eq(files["/disk/eh2_devbind.tbl"], nil)
+  t.truthy(summary:lower():find("disk", 1, true), "summary mentions the missing disk: " .. summary)
+end)
