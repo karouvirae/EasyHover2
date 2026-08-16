@@ -318,7 +318,8 @@ end)
 
 -- ===== Construction probe: real CraftOS-PC Basalt, no real peripherals/disk =====
 
-t.test("M.build (no disk): constructs the element tree; apply() + one render pass do not error", function()
+t.test("M.build (no disk): 'top' screen constructs; disk summary is 'no disk'; EXPORT/IMPORT "
+  .. "disabled, REFRESH enabled; apply() + one render pass do not error", function()
   local basalt = BasaltApp.ensureBasalt()
   local frame = basalt.createFrame()
   local nav = Nav.new("bitconfig")
@@ -337,27 +338,28 @@ t.test("M.build (no disk): constructs the element tree; apply() + one render pas
   t.truthy(type(h.apply) == "function", "apply should be a function")
   t.truthy(h.elements ~= nil, "elements table should be exposed")
   t.truthy(h.elements.headerLabel ~= nil, "headerLabel present")
-  t.truthy(h.elements.diskLabel ~= nil, "diskLabel present")
+
+  local region = h.elements.region
+  t.truthy(region ~= nil, "region exposed")
+  t.eq(region:top(), "top", "region starts at the top screen")
+
+  local rec = region.built.top
+  t.truthy(rec ~= nil, "top screen built eagerly by M.build")
+  local els = rec.handle.elements
+  t.truthy(els.diskLabel ~= nil, "diskLabel present")
 
   -- EXPORT/IMPORT/REFRESH are one configkit.actionRow; BACK ("<") is its own full-width row.
-  t.truthy(h.elements.footerRow ~= nil, "footerRow (EXPORT/IMPORT/REFRESH) present")
-  t.eq(#h.elements.footerRow.buttons, 3, "footerRow has exactly EXPORT/IMPORT/REFRESH")
-  t.truthy(h.elements.footerRow.buttons[1].button ~= nil, "EXPORT button present")
-  t.truthy(h.elements.footerRow.buttons[2].button ~= nil, "IMPORT button present")
-  t.truthy(h.elements.footerRow.buttons[3].button ~= nil, "REFRESH button present")
-  t.truthy(type(h.elements.footerRow.setState) == "function", "footerRow.setState present")
+  t.truthy(els.topRow ~= nil, "topRow (EXPORT/IMPORT/REFRESH) present")
+  t.eq(#els.topRow.buttons, 3, "topRow has exactly EXPORT/IMPORT/REFRESH")
+  t.truthy(type(els.topRow.setState) == "function", "topRow.setState present")
+  t.truthy(els.backRow ~= nil and #els.backRow.buttons == 1, "backRow (<) present")
 
-  t.truthy(h.elements.backRow ~= nil, "backRow (<) present")
-  t.eq(#h.elements.backRow.buttons, 1, "backRow has exactly one button")
-  t.truthy(h.elements.backRow.buttons[1].button ~= nil, "back button present")
+  -- No disk detected -> EXPORT/IMPORT start disabled (gray, not clickable); REFRESH stays "off".
+  t.eq(els.topRow.buttons[1].button:getEnabled(), false, "EXPORT disabled: no disk")
+  t.eq(els.topRow.buttons[2].button:getEnabled(), false, "IMPORT disabled: no disk")
+  t.eq(els.topRow.buttons[3].button:getEnabled(), true, "REFRESH always enabled")
 
-  -- No disk detected -> EXPORT/IMPORT start disabled (gray, not clickable); REFRESH stays "off"
-  -- (usable) -- mirrors the old exportBtn/importBtn:setEnabled(drive.present) gating exactly.
-  t.eq(h.elements.footerRow.buttons[1].button:getEnabled(), false, "EXPORT disabled: no disk")
-  t.eq(h.elements.footerRow.buttons[2].button:getEnabled(), false, "IMPORT disabled: no disk")
-  t.eq(h.elements.footerRow.buttons[3].button:getEnabled(), true, "REFRESH always enabled")
-
-  t.eq(h.elements.diskLabel:getText(), "no disk drive")
+  t.eq(els.diskLabel:getText(), "no disk")
 
   local ok, err = pcall(h.apply, {})
   t.truthy(ok, "apply should not error: " .. tostring(err))
@@ -368,7 +370,8 @@ t.test("M.build (no disk): constructs the element tree; apply() + one render pas
   t.truthy(ok3, "basalt.update should not error: " .. tostring(err3))
 end)
 
-t.test("M.build (stub disk present): shows disk label; EXPORT/IMPORT wired to injected deps", function()
+t.test("M.build (stub disk present): disk summary shows label + valid count; EXPORT/IMPORT enabled",
+function()
   local basalt = BasaltApp.ensureBasalt()
   local frame = basalt.createFrame()
   local nav = Nav.new("bitconfig")
@@ -386,26 +389,25 @@ t.test("M.build (stub disk present): shows disk label; EXPORT/IMPORT wired to in
     write  = function(p, body) files[p] = body end,
     delete = function(p) files[p] = nil end,
     move   = function(from, to) files[to] = files[from]; files[from] = nil end,
+    attributes = function(p) return files[p] and { modified = 1 } or nil end,
   }
 
   local h = M.build(basalt, frame, nil, nav, deps)
-  t.eq(h.elements.diskLabel:getText(), "disk: CART1")
+  local els = h.elements.region.built.top.handle.elements
 
-  -- Disk present -> EXPORT/IMPORT are enabled (mirrors the old exportBtn/importBtn:setEnabled
-  -- (drive.present) gating, now expressed as footerRow's switchbtn "off" state).
-  t.eq(h.elements.footerRow.buttons[1].button:getEnabled(), true, "EXPORT enabled: disk present")
-  t.eq(h.elements.footerRow.buttons[2].button:getEnabled(), true, "IMPORT enabled: disk present")
+  -- Disk present, no valid disk files yet -> "disk: CART1 . valid 0/4".
+  t.eq(els.diskLabel:getText(), "disk: CART1 . valid 0/4")
 
-  -- Exercise the same seam EXPORT's onClick calls internally.
-  local exported = M._export("disk", deps)
-  t.eq(#exported, 1); t.eq(exported[1], "devbind")
-  t.truthy(files["/disk/eh2_devbind.tbl"] ~= nil, "EXPORT wrote the disk copy")
+  -- Disk present -> EXPORT/IMPORT are enabled (mirrors the old drive.present gating, now expressed
+  -- as topRow's switchbtn "off" state).
+  t.eq(els.topRow.buttons[1].button:getEnabled(), true, "EXPORT enabled: disk present")
+  t.eq(els.topRow.buttons[2].button:getEnabled(), true, "IMPORT enabled: disk present")
 
   local ok3, err3 = pcall(function() basalt.update("timer", -1) end)
   t.truthy(ok3, "basalt.update should not error: " .. tostring(err3))
 end)
 
-t.test("M.build: BACK pops the nav stack", function()
+t.test("M.build: top screen's BACK pops the FRAME nav stack", function()
   local basalt = BasaltApp.ensureBasalt()
   local frame = basalt.createFrame()
   local nav = Nav.new("bitconfig")
@@ -414,13 +416,71 @@ t.test("M.build: BACK pops the nav stack", function()
 
   local deps = { find = function() return nil end, exists = function() return false end }
   local h = M.build(basalt, frame, nil, nav, deps)
-  t.truthy(h.elements.backRow ~= nil, "backRow present")
-  t.truthy(h.elements.backRow.buttons[1].button ~= nil, "back button present")
+  local els = h.elements.region.built.top.handle.elements
+  t.truthy(els.backRow ~= nil, "backRow present")
+  t.truthy(els.backRow.buttons[1].button ~= nil, "back button present")
 
   -- Directly invoke nav:pop() the same way the "<" button's onClick does (a real click needs
   -- basalt.run(), forbidden here).
   nav:pop()
   t.eq(nav:top(), "bitconfig")
+end)
+
+t.test("M.build: EXPORT drilldown -- devbind row enabled (local present), CONFIRM runs "
+  .. "M._exportKind, pops back, and leaves a status line", function()
+  local basalt = BasaltApp.ensureBasalt()
+  local frame = basalt.createFrame()
+  local nav = Nav.new("bitconfig")
+
+  local files = { ["/eh2_devbind.tbl"] = "BODY1" }
+  local fakeDrive = {
+    isDiskPresent = function() return true end,
+    getMountPath  = function() return "disk" end,
+    getDiskLabel  = function() return "CART1" end,
+  }
+  local deps = {
+    find   = function(kind) if kind == "drive" then return fakeDrive end return nil end,
+    exists = function(p) return files[p] ~= nil end,
+    read   = function(p) return files[p] end,
+    write  = function(p, body) files[p] = body end,
+    delete = function(p) files[p] = nil end,
+    move   = function(from, to) files[to] = files[from]; files[from] = nil end,
+    attributes = function(p) return files[p] and { modified = 1 } or nil end,
+    backup = function(p) end,
+  }
+
+  local h = M.build(basalt, frame, nil, nav, deps)
+  local region = h.elements.region
+
+  region:push("export")
+  h.apply({})
+  t.eq(region:top(), "export")
+
+  local listEls = region.built.export.handle.elements
+  t.eq(#listEls.kindRows, 4, "one row per M.KINDS kind")
+  -- devbind is KINDS[1] and exists locally -> row 1 enabled; senscal/tuning/uicfg absent locally.
+  t.eq(listEls.kindRows[1].buttons[1].button:getEnabled(), true, "devbind export row enabled")
+  t.eq(listEls.kindRows[2].buttons[1].button:getEnabled(), false, "senscal export row disabled")
+
+  -- Drill into the confirm screen the same way the enabled row's onClick does.
+  region:push("confirm_export_devbind")
+  h.apply({})
+  t.eq(region:top(), "confirm_export_devbind")
+
+  local confirmEls = region.built.confirm_export_devbind.handle.elements
+  t.truthy(confirmEls.questionLabel:getText():find(M.FILE.devbind, 1, true),
+    "confirm question names the devbind filename")
+  t.truthy(confirmEls.confirmRow ~= nil and #confirmEls.confirmRow.buttons == 1, "CONFIRM present")
+  t.truthy(confirmEls.backRow ~= nil and #confirmEls.backRow.buttons == 1, "'<' cancel present")
+
+  -- Fire CONFIRM's registered click directly (mirrors test_bitconfig_senssource.lua's established
+  -- btn:fireEvent("mouse_click", 1, 1, 1) pattern -- a real click needs basalt.run()).
+  confirmEls.confirmRow.buttons[1].button:fireEvent("mouse_click", 1, 1, 1)
+  h.apply({})
+
+  t.eq(region:top(), "export", "CONFIRM pops back to the export list")
+  t.truthy(files["/disk/eh2_devbind.tbl"] ~= nil, "CONFIRM wrote the disk copy via M._exportKind")
+  t.truthy(listEls.statusLabel:getText():find("OK", 1, true), "status line shows the export result")
 end)
 
 -- ===== Task 9: registry (M.KINDS/M.FILE/M.LABEL) + M.validateKind =====
@@ -564,6 +624,56 @@ t.test("row computes the local-vs-disk relation", function()
   t.eq(M.row("tuning", { localHas=true, diskHas=false }).rel, "local-only")
   t.eq(M.row("tuning", { localHas=false, diskHas=true, diskValid=true }).rel, "disk-only")
   t.eq(M.row("tuning", { localHas=false, diskHas=false }).rel, "none")
+end)
+
+-- ===== Task 12: M._confirmText (pure per-row confirm question seam) =====
+
+t.test("_confirmText names the direction and file", function()
+  local e = M._confirmText("export", "tuning")
+  t.truthy(e:find("disk", 1, true), "export mentions disk")
+  local i = M._confirmText("import", "tuning")
+  t.truthy(i:find("UI", 1, true) or i:find("local", 1, true), "import mentions local/UI")
+end)
+
+t.test("_confirmText uses M.FILE (never a hardcoded filename) and covers all four kinds", function()
+  for _, kind in ipairs(M.KINDS) do
+    t.truthy(M._confirmText("export", kind):find(M.FILE[kind], 1, true), "export text names " .. M.FILE[kind])
+    t.truthy(M._confirmText("import", kind):find(M.FILE[kind], 1, true), "import text names " .. M.FILE[kind])
+  end
+end)
+
+-- ===== Task 12: construction probe -- generic "no error" smoke test (works against any M.build =====
+-- ===== shape, old or new; the point of this probe is just to prove build/apply/render never error). =====
+
+t.test("T12 M.build: constructs headless with injected in-memory deps, apply+render do not error", function()
+  local basalt = BasaltApp.ensureBasalt()
+  local frame = basalt.createFrame()
+  local nav = Nav.new("bitconfig")
+
+  local files = {}
+  local deps = {
+    find = function(kind) return nil end,
+    exists = function(p) return files[p] ~= nil end,
+    read = function(p) return files[p] end,
+    write = function(p, b) files[p] = b end,
+    delete = function(p) files[p] = nil end,
+    move = function(a, b) files[b] = files[a]; files[a] = nil end,
+    attributes = function(p) return files[p] and { modified = 1 } or nil end,
+    backup = function(p) end,
+  }
+
+  local h = M.build(basalt, frame, nil, nav, deps)
+  t.eq(h.id, "dtc")
+  t.truthy(type(h.apply) == "function", "apply should be a function")
+  t.truthy(h.elements ~= nil, "elements table should be exposed")
+
+  local ok, err = pcall(h.apply, {})
+  t.truthy(ok, "apply should not error: " .. tostring(err))
+  local ok2, err2 = pcall(h.apply, {})
+  t.truthy(ok2, "apply should be safe to call repeatedly: " .. tostring(err2))
+
+  local ok3, err3 = pcall(function() basalt.update("timer", -1) end)
+  t.truthy(ok3, "basalt.update should not error: " .. tostring(err3))
 end)
 
 return true

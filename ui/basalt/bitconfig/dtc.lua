@@ -27,6 +27,7 @@
 local cfgspec = require("fcs.io.cfgspec")
 local fsx = require("fcs.io.fsx")
 local configkit = require("ui.basalt.configkit")
+local Region = require("ui.basalt.region")
 
 local M = {}
 M.id = "dtc"
@@ -361,12 +362,16 @@ function M._importKind(mount, kind, deps)
   return atomicCopy(diskPath, localPath, deps)
 end
 
--- ===== M.build: construct the disk-courier element tree =====
-
-local function indicatorText(drive)
-  if not drive.driveFound then return "no disk drive" end
-  if not drive.present then return "no disk inserted" end
-  return "disk: " .. tostring(drive.label)
+-- ===== M._confirmText(dir, kind) -> string: PURE per-row confirm question text (T12). =====
+-- dir == "export" (UI PC -> disk) or "import" (disk -> UI PC); any other dir returns "". Always
+-- names the file via M.FILE[kind] -- never a hardcoded filename.
+function M._confirmText(dir, kind)
+  if dir == "export" then
+    return "Overwrite " .. M.FILE[kind] .. " on the disk?"
+  elseif dir == "import" then
+    return "Overwrite " .. M.FILE[kind] .. " on this UI PC?"
+  end
+  return ""
 end
 
 -- M._fmtRow(row, width): compact per-kind status line, e.g. "tuning  L:OK D:--" -- DISPLAY-ONLY,
@@ -394,85 +399,260 @@ function M._fmtRow(row, width)
   return text
 end
 
+-- RELCHAR: rel -> one-char indicator glyph for a kind-list row's selector button. PURE/display-only.
+local RELCHAR = { newer = ">", older = "<", same = "=", ["local-only"] = "L", ["disk-only"] = "D", none = "-" }
+
+-- rowSelectorText(row): "<label> <relChar> <OK|BAD|-->" for a kind-list row's clickable selector
+-- button -- row comes from M.row(kind, info). "--" when the disk copy doesn't exist at all (never
+-- validated); "OK"/"BAD" once it does, from row.diskValid.
+local function rowSelectorText(row)
+  local valid = row.diskHas and (row.diskValid and "OK" or "BAD") or "--"
+  return row.label .. " " .. (RELCHAR[row.rel] or "-") .. " " .. valid
+end
+
+-- clampText(text, width): plain right-truncate to `width` chars, width nil/<=0 -> unbounded.
+-- DELIBERATELY not configkit.fitLabel here: fitLabel's namespace-strip contract (strip everything
+-- up to the FIRST ":") would eat a leading "disk:"/"L:"/"local:" label prefix the instant one
+-- appears anywhere in the string -- every string this module builds below (disk summary, row
+-- detail lines, confirm-screen local/disk lines, status lines) deliberately contains a literal
+-- colon, so fitLabel is the wrong tool for them (see M._fmtRow's header note for the same trap).
+local function clampText(text, width)
+  local w = (type(width) == "number" and width > 0) and width or nil
+  if not w or #text <= w then return text end
+  return text:sub(1, w)
+end
+
+-- M.build: hosts a region.lua drilldown (root "top") below a static headerLabel -- mirrors
+-- senssource.lua's/senscal.lua's shape:
+--   * "top": disk summary label ("disk: <label> . valid N/4" / "no disk", from M._detect + counting
+--     M._scanKind(...).diskValid across M.KINDS) + EXPORT/IMPORT/REFRESH actionRow (EXPORT/IMPORT
+--     push "export"/"import"; REFRESH re-detects+re-scans and repaints) + "<" (pops the FRAME nav).
+--   * "export"/"import": one row per M.KINDS kind -- a single-button actionRow selector (so
+--     setState(1,...) gates it individually) showing rowSelectorText(M.row(kind,info)), plus a
+--     static detail line ("L:<fmtTime> D:<fmtTime>") below it. Export rows enable iff the kind
+--     exists locally; import rows enable iff the disk copy exists AND validates (never import a
+--     corrupt/unreadable disk file over a good local one). An enabled row pushes
+--     "confirm_<dir>_<kind>"; a status line (last CONFIRM's result) + "<" (region:pop()) sit below
+--     the rows.
+--   * "confirm_<dir>_<kind>" (one per dir x kind -- 8 screens, each independent, mirroring
+--     senssource.lua's per-step "cal_<id>" screens): M._confirmText(dir,kind) + local/disk
+--     M.fmtTime detail + a CONFIRM row that runs M._exportKind/M._importKind, records a one-line
+--     status on the list screen, re-detects/re-scans, then region:pop()s back to the list (which
+--     repaints via region:apply(nil)) -- plus its own "<" that pops WITHOUT acting (cancel).
+--
+-- apply(state): disk-courier CONFIG status, not live telemetry -- forwards to the region, which
+-- lazily builds/shows its current nav top and repaints only that screen. REFRESH and a completed
+-- CONFIRM are the only things that ever call deps.find/exists/read/attributes; apply() never polls
+-- peripherals on its own (same "UI subordinate to FCS" cadence rule the old flat build followed).
 function M.build(basalt, frame, runtime, nav, deps)
   deps = resolveDeps(deps)
 
   local w, h = frame:getSize()
-  local x = 2
-  local iw = math.max(1, w - 2)
 
-  local headerLabel = frame:addLabel({ x = x, y = 2, width = iw, height = 1, autoSize = false, text = M.title })
-  local diskLabel   = frame:addLabel({ x = x, y = 3, width = iw, height = 1, autoSize = false, text = "" })
+  local headerLabel = frame:addLabel({
+    x = 2, y = 2, width = math.max(1, w - 2), height = 1, autoSize = false, text = M.title,
+  })
 
-  local dataTop = 4
-  local rowSlots = {}
-  for i = 1, #M.KINDS do
-    local y = dataTop + i - 1
-    rowSlots[i] = frame:addLabel({ x = x, y = y, width = iw, height = 1, autoSize = false, text = "" })
+  -- A region-internal nav push/pop isn't a FRAME-level nav change, so it wouldn't otherwise wake
+  -- the dirty-gated render loop -- bump runtime.uiRev, exactly like senssource.lua's/senscal.lua's
+  -- regions do.
+  local function bump()
+    if runtime then runtime.uiRev = (runtime.uiRev or 0) + 1 end
   end
 
-  local footerY1 = dataTop + #M.KINDS
-  local footerY2 = footerY1 + 1
-
+  -- ===== shared disk-courier state: drive detection + per-kind scan + last CONFIRM's status =====
   local drive = { present = false, driveFound = false, mount = nil, label = nil }
-
-  -- Forward-declared so doExport/doImport/REFRESH's onClick closures can call it: they're only
-  -- CALLED after the actionRow buttons below have been constructed and `refresh` assigned (same
-  -- upvalue-before-assignment discipline as configkit.helpScreen's `row`/`render`).
-  local refresh
-
-  local function doExport()
-    if drive.present and drive.mount then
-      M._export(drive.mount, deps)
-      refresh()
-    end
+  local scanKindResults = {}
+  for _, kind in ipairs(M.KINDS) do
+    scanKindResults[kind] = { localHas = false, localMs = nil, diskHas = false, diskMs = nil, diskValid = false }
   end
-  local function doImport()
-    if drive.present and drive.mount then
-      M._import(drive.mount, deps)
-      refresh()
-    end
-  end
+  local dirStatus = { export = "", import = "" }
 
-  -- EXPORT/IMPORT/REFRESH share one actionRow; `<` gets its own full-width row below (four
-  -- buttons across ~14 cols reads too cramped once fitLabel starts ellipsizing every label).
-  local footerRow = configkit.actionRow(frame, { x = x, y = footerY1, w = iw }, {
-    { label = "EXPORT",  onClick = doExport },
-    { label = "IMPORT",  onClick = doImport },
-    { label = "REFRESH", onClick = function() refresh() end },
-  })
-
-  local backRow = configkit.actionRow(frame, { x = x, y = footerY2, w = iw }, {
-    { label = "<", onClick = function() if nav then nav:pop() end end },
-  })
-
-  refresh = function()
+  local function doDetect()
     drive = M._detect(deps)
-    diskLabel:setText(indicatorText(drive))
-
-    local scan = M._scan(drive.mount, deps)
-    local plan = M.plan(scan)
-    for i = 1, #M.KINDS do
-      rowSlots[i]:setText(M._fmtRow(plan[i], iw))
+    local sk = {}
+    for _, kind in ipairs(M.KINDS) do
+      sk[kind] = M._scanKind(drive.mount, kind, deps)
     end
+    scanKindResults = sk
+  end
+  doDetect()
 
-    footerRow.setState(1, drive.present and "off" or "disabled")
-    footerRow.setState(2, drive.present and "off" or "disabled")
+  local function summaryText()
+    if not drive.present then return "no disk" end
+    local n = 0
+    for _, kind in ipairs(M.KINDS) do
+      if scanKindResults[kind].diskValid then n = n + 1 end
+    end
+    return "disk: " .. tostring(drive.label) .. " . valid " .. n .. "/4"
   end
 
-  refresh()
+  -- ===== "top" screen: disk summary + EXPORT/IMPORT/REFRESH + "<" =====
+  local function buildTop(b, f, region)
+    local fw = ({ f:getSize() })[1]
+    local fx = 2
+    local fiw = math.max(1, fw - 2)
+    local y = 1
 
-  -- apply(state): disk-courier CONFIG status, not live telemetry -- no-op/idempotent. REFRESH is
-  -- the only thing that re-detects the drive / re-scans files, and only on click.
-  local function apply(_state) end
+    local diskLabel = f:addLabel({ x = fx, y = y, width = fiw, height = 1, autoSize = false, text = "" })
+    y = y + 1
+
+    local topRow = configkit.actionRow(f, { x = fx, y = y, w = fiw }, {
+      { label = "EXPORT",  onClick = function() region:push("export") end },
+      { label = "IMPORT",  onClick = function() region:push("import") end },
+      { label = "REFRESH", onClick = function() doDetect(); region:apply(nil) end },
+    })
+    y = y + 1
+
+    local backRow = configkit.actionRow(f, { x = fx, y = y, w = fiw }, {
+      { label = "<", onClick = function() if nav then nav:pop() end end },
+    })
+
+    local function refreshTop()
+      diskLabel:setText(clampText(summaryText(), fiw))
+      topRow.setState(1, drive.present and "off" or "disabled")
+      topRow.setState(2, drive.present and "off" or "disabled")
+    end
+    refreshTop()
+
+    return {
+      apply = function(_state) refreshTop() end,
+      elements = { diskLabel = diskLabel, topRow = topRow, backRow = backRow },
+    }
+  end
+
+  -- ===== "export"/"import" screens: one selector+detail row per kind + status + "<" =====
+  local function buildKindList(dir)
+    return function(b, f, region)
+      local fw = ({ f:getSize() })[1]
+      local fx = 2
+      local fiw = math.max(1, fw - 2)
+      local y = 1
+
+      local kindRows, detailLabels = {}, {}
+      for i, kind in ipairs(M.KINDS) do
+        local row = configkit.actionRow(f, { x = fx, y = y, w = fiw }, {
+          { label = "", onClick = function() region:push("confirm_" .. dir .. "_" .. kind) end },
+        })
+        y = y + 1
+        local detail = f:addLabel({ x = fx, y = y, width = fiw, height = 1, autoSize = false, text = "" })
+        y = y + 1
+        kindRows[i] = row
+        detailLabels[i] = detail
+      end
+
+      local statusLabel = f:addLabel({ x = fx, y = y, width = fiw, height = 1, autoSize = false, text = "" })
+      y = y + 1
+
+      local backRow = configkit.actionRow(f, { x = fx, y = y, w = fiw }, {
+        { label = "<", onClick = function() region:pop() end },
+      })
+
+      local function refreshList()
+        for i, kind in ipairs(M.KINDS) do
+          local info = scanKindResults[kind]
+          local row = M.row(kind, info)
+          kindRows[i].buttons[1].button:setText(clampText(rowSelectorText(row), fiw))
+          local enabled = (dir == "export") and info.localHas or (info.diskHas and info.diskValid)
+          kindRows[i].setState(1, enabled and "off" or "disabled")
+          detailLabels[i]:setText(clampText(
+            "L:" .. M.fmtTime(info.localMs) .. " D:" .. M.fmtTime(info.diskMs), fiw))
+        end
+        statusLabel:setText(clampText(dirStatus[dir] or "", fiw))
+      end
+      refreshList()
+
+      return {
+        apply = function(_state) refreshList() end,
+        elements = {
+          kindRows = kindRows, detailLabels = detailLabels, statusLabel = statusLabel, backRow = backRow,
+        },
+      }
+    end
+  end
+
+  -- ===== "confirm_<dir>_<kind>" screens: M._confirmText + local/disk times + CONFIRM/"<" =====
+  local function buildConfirm(dir, kind)
+    return function(b, f, region)
+      local fw = ({ f:getSize() })[1]
+      local fx = 2
+      local fiw = math.max(1, fw - 2)
+      local y = 1
+
+      local questionLabel = f:addLabel({
+        x = fx, y = y, width = fiw, height = 1, autoSize = false,
+        text = clampText(M._confirmText(dir, kind), fiw),
+      })
+      y = y + 1
+      local localLabel = f:addLabel({ x = fx, y = y, width = fiw, height = 1, autoSize = false, text = "" })
+      y = y + 1
+      local diskLabel = f:addLabel({ x = fx, y = y, width = fiw, height = 1, autoSize = false, text = "" })
+      y = y + 1
+      local statusLabel = f:addLabel({ x = fx, y = y, width = fiw, height = 1, autoSize = false, text = "" })
+      y = y + 1
+
+      local confirmRow = configkit.actionRow(f, { x = fx, y = y, w = fiw }, {
+        { label = "CONFIRM", onClick = function()
+            local ok
+            if dir == "export" then
+              ok = M._exportKind(drive.mount, kind, deps)
+            else
+              ok = M._importKind(drive.mount, kind, deps)
+            end
+            dirStatus[dir] = M.LABEL[kind] .. ": " .. (ok and "OK" or "FAILED")
+            doDetect()
+            region:pop()
+            region:apply(nil)
+          end },
+      })
+      y = y + 1
+
+      local backRow = configkit.actionRow(f, { x = fx, y = y, w = fiw }, {
+        { label = "<", onClick = function() region:pop() end },
+      })
+
+      local function refresh()
+        local info = scanKindResults[kind] or {}
+        localLabel:setText(clampText("local: " .. M.fmtTime(info.localMs), fiw))
+        diskLabel:setText(clampText("disk: " .. M.fmtTime(info.diskMs), fiw))
+        statusLabel:setText("")
+      end
+      refresh()
+
+      return {
+        apply = function(_state) refresh() end,
+        elements = {
+          questionLabel = questionLabel, localLabel = localLabel, diskLabel = diskLabel,
+          statusLabel = statusLabel, confirmRow = confirmRow, backRow = backRow,
+        },
+      }
+    end
+  end
+
+  local screens = { top = buildTop, export = buildKindList("export"), import = buildKindList("import") }
+  for _, dir in ipairs({ "export", "import" }) do
+    for _, kind in ipairs(M.KINDS) do
+      screens["confirm_" .. dir .. "_" .. kind] = buildConfirm(dir, kind)
+    end
+  end
+
+  local region = Region.new(basalt, frame, {
+    x = 1, y = 3, width = w, height = math.max(1, h - 2),
+    root = "top", screens = screens, onNav = bump,
+  })
+
+  -- Force the top screen to build now (not on the first scheduled apply()), so its elements exist
+  -- as soon as M.build returns -- mirrors senssource.lua's/senscal.lua's identical eager-build call.
+  region:apply(nil)
+
+  local function apply(state)
+    region:apply(state)
+  end
 
   return {
     id = M.id,
     apply = apply,
-    elements = {
-      headerLabel = headerLabel, diskLabel = diskLabel, rowSlots = rowSlots,
-      footerRow = footerRow, backRow = backRow,
-    },
+    elements = { headerLabel = headerLabel, region = region },
   }
 end
 
