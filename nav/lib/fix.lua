@@ -3,7 +3,10 @@
 -- constellation, and ages the observations; this module packs that into one flat record the runtime
 -- relays to the craft wire and the UI renders:
 --   { x, y, z, age, quality, source, nBeacons }
--- so downstream (Phase 2 autopilot) can honestly refuse a stale or low-quality fix. Pure: no clock,
+-- so downstream (Phase 2 autopilot) can honestly refuse a stale or low-quality fix. NOTE: `quality`
+-- and `errorEst` describe the HORIZONTAL (x/z) fix ONLY -- they do NOT vouch for `y`, which is
+-- poorly constrained by any near-build-height beacon set (see nav/lib/geometry.lua:hdop). A future
+-- consumer trusting `y` as altitude must gate it separately, not on this quality. Pure: no clock,
 -- no peripherals -- `age` is supplied by the caller (the receiver measures it). Unknown quality is
 -- left nil rather than fabricated. Copies the position so a later mutation of the source can't
 -- corrupt a stored fix.
@@ -23,7 +26,7 @@ function M.make(pos, meta)
     source = meta.source or "gps",
     nBeacons = meta.nBeacons or 0,
     quality = meta.quality,
-    errorEst = meta.errorEst,   -- estimated position error radius (blocks), from geometry dilution
+    errorEst = meta.errorEst,   -- estimated HORIZONTAL (x/z) error radius (blocks), from HDOP
   }
 end
 

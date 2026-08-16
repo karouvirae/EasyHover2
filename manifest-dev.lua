@@ -496,9 +496,9 @@
         },
         {
           ["dst"] = "nav/lib/fix.lua",
-          ["size"] = 1305,
+          ["size"] = 1595,
           ["src"] = "nav/lib/fix.lua",
-          ["sum"] = "ae099f38",
+          ["sum"] = "16c7134a",
         },
         {
           ["dst"] = "nav/lib/geometry.lua",
@@ -520,9 +520,9 @@
         },
         {
           ["dst"] = "nav/runtime.lua",
-          ["size"] = 6181,
+          ["size"] = 6269,
           ["src"] = "nav/runtime.lua",
-          ["sum"] = "3526aecf",
+          ["sum"] = "41a2e904",
         },
         {
           ["dst"] = "nav/ui/config.lua",
@@ -1075,5 +1075,5 @@
     ["size"] = 70702,
     ["sum"] = "3dd2fb64",
   },
-  ["version"] = "eca1aaac",
+  ["version"] = "7534277a",
 }

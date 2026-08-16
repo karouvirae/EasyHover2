@@ -82,8 +82,9 @@ function R:computeFix(now)
   -- flags a near-coplanar constellation (all beacons near build height) as unusable for CC
   -- gps.locate()'s 3D mirror rule, but EH2 trilaterates real slant ranges and still nails the
   -- horizontal fix, so coplanarity must not zero horizontal quality (the "wide flat spread reads
-  -- POOR ~40 blk" bug). Horizontal degeneracy is still caught: geometry.hdop() -> nil ->
-  -- dopQuality.quality 0. Vertical/gpsAlt trust is a separate Batch-B concern.
+  -- POOR ~40 blk" bug). Horizontal degeneracy still yields quality 0 -- a horizontally ill-
+  -- conditioned set gives a huge HDOP (or nil for a fully degenerate one), and dopQuality maps both
+  -- to 0. Vertical/gpsAlt trust is a separate Batch-B concern.
   local enoughHosts = (grade.usableHosts or 0) >= geometry.REQUIRED_HOSTS
   local quality = enoughHosts and dq.quality or 0.0
   return fix.make(pos, { age = maxAge, source = "gps", nBeacons = #obs,

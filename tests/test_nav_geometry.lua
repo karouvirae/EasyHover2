@@ -67,6 +67,17 @@ t.test("hdop needs 4 hosts", function()
     { x = 0, y = 0, z = 0 }), nil)
 end)
 
+t.test("a horizontally-degenerate (near-collinear in x/z) set is still caught -- quality 0", function()
+  -- 4 hosts spread along x with only a hair of z separation (varied y keeps the full 3D matrix
+  -- non-singular). Horizontal geometry is ill-conditioned, so HDOP is huge and quality collapses to
+  -- 0 -- proving the "coplanarity decoupling still catches bad HORIZONTAL geometry" guarantee.
+  local hosts = { { x = 0, y = 0, z = 0 }, { x = 500, y = 40, z = 0 },
+                  { x = 1000, y = -30, z = 1 }, { x = 1500, y = 20, z = -1 } }
+  local h = Geo.hdop(hosts, { x = 750, y = 10, z = 0 })
+  t.truthy(h ~= nil and h > 50, "near-collinear horizontal geometry -> huge HDOP (" .. tostring(h) .. ")")
+  t.eq(Geo.dopQuality(h).quality, 0, "and quality collapses to 0")
+end)
+
 t.test("dopQuality maps PDOP to a 0..1 confidence and a block error estimate", function()
   local good = Geo.dopQuality(1.5)
   t.truthy(good.quality > 0.9, "low PDOP -> high quality")
