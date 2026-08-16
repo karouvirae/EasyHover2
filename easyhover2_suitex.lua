@@ -44,6 +44,17 @@ function SuiteX.toolInstallPlan(opts)
   }
 end
 
+--- toolsToInstall(flags) -> ordered list of manifest tool keys to install, one per ticked
+--- Advanced-tab "Optional tools" checkbox. Pure/nil-safe so it's unit-testable headless; the
+--- caller (installToolIfRequested) walks this list and installs each from ctx.manifest.tools.
+function SuiteX.toolsToInstall(flags)
+  flags = flags or {}
+  local out = {}
+  if flags.installBeaconUpdater then out[#out + 1] = "beaconupdate" end
+  if flags.installSplitConfig then out[#out + 1] = "splitconfig" end
+  return out
+end
+
 --- The primary-button label for a plan: fresh Install, Update, or Repair; a neutral "Go" while
 --- the plan is still unknown (mid-check) or the install is already current.
 function SuiteX.goLabel(plan)
@@ -316,6 +327,8 @@ local function applyTheme(ctx)
   ui.toolLabel:setForeground(pal.dim)
   ui.beaconUpdCheck:setBackground(pal.bg); ui.beaconUpdCheck:setForeground(pal.text)
   ui.beaconUpdCheckLabel:setForeground(pal.text)
+  ui.splitCfgCheck:setBackground(pal.bg); ui.splitCfgCheck:setForeground(pal.text)
+  ui.splitCfgCheckLabel:setForeground(pal.text)
   paintTabButtons(ctx)
   refreshStatus(ctx)
   -- Repaint the palette even mid-op, but don't let a theme toggle re-enable the action buttons
@@ -511,25 +524,19 @@ local function runEngineOp(ctx, fn)
   end)
 end
 
--- Install the standalone Beacon-updater tool if its Advanced-tab checkbox is ticked. Reuses the
--- SAME engine primitives the role install uses -- Suite.fetch (cache-busted + retry), Suite.checksum
--- (verify BEFORE write), Suite.writeRelease (guarded write) -- over the current-channel manifest's
--- tools.beaconupdate closure. Runs INSIDE runEngineOp's coroutine (Suite.sink is live, so logLine
--- shows progress) right after a successful role install. NOTE: a later role repair/switch may prune
--- the tool's files (they are not part of that role's manifest); reinstall the tool if that happens.
-local function installToolIfRequested(ctx)
-  local plan = SuiteX.toolInstallPlan({
-    toolChecked = ctx.installBeaconUpdater, devChecked = (ctx.channel == "dev"),
-  })
-  if not plan.install then return end
-  -- plan.channel (min/dev) is informational here: the dev checkbox drives the whole install, so
-  -- ctx.manifest is ALREADY the matching channel's manifest. We install straight from it.
-  local tool = ctx.manifest.tools and ctx.manifest.tools.beaconupdate
+-- Install ONE optional tool (by its manifest.tools key) if it's present in the current-channel
+-- manifest. Reuses the SAME engine primitives the role install uses -- Suite.fetch (cache-busted +
+-- retry), Suite.checksum (verify BEFORE write), Suite.writeRelease (guarded write). Runs INSIDE
+-- runEngineOp's coroutine (Suite.sink is live, so logLine shows progress) right after a successful
+-- role install. NOTE: a later role repair/switch may prune the tool's files (they are not part of
+-- that role's manifest); reinstall the tool if that happens.
+local function installOneTool(ctx, key, doneMsg)
+  local tool = ctx.manifest.tools and ctx.manifest.tools[key]
   if not tool or not tool.files then
-    logLine(ctx, "beacon updater not in this manifest -- skipped", ctx.pal.error)
+    logLine(ctx, key .. " not in this manifest -- skipped", ctx.pal.error)
     return
   end
-  logLine(ctx, ("installing tool: %s (%d file(s))..."):format(tool.title or "beaconupdate", #tool.files), ctx.pal.install)
+  logLine(ctx, ("installing tool: %s (%d file(s))..."):format(tool.title or key, #tool.files), ctx.pal.install)
   for _, entry in ipairs(tool.files) do
     local content, err = ctx.Suite.fetch(("%s/%s"):format(ctx.Suite.base, entry.src))
     if not content then
@@ -544,7 +551,22 @@ local function installToolIfRequested(ctx)
       logLine(ctx, "  write failed: " .. final .. " (disk full?)", ctx.pal.error); return
     end
   end
-  logLine(ctx, "beacon updater installed -- run 'beaconupdate' to push updates to the beacons", ctx.pal.ok)
+  logLine(ctx, doneMsg, ctx.pal.ok)
+end
+
+-- Install every optional tool whose Advanced-tab checkbox is ticked. ctx.manifest is ALREADY the
+-- channel (min/dev) selected via the dev checkbox, so each tool installs straight from it.
+local function installToolIfRequested(ctx)
+  local keys = SuiteX.toolsToInstall({
+    installBeaconUpdater = ctx.installBeaconUpdater, installSplitConfig = ctx.installSplitConfig,
+  })
+  local doneMsg = {
+    beaconupdate = "beacon updater installed -- run 'beaconupdate' to push updates to the beacons",
+    splitconfig = "split-config tool installed -- run 'splitconfig' on the FCS to split a legacy fused config",
+  }
+  for _, key in ipairs(keys) do
+    installOneTool(ctx, key, doneMsg[key])
+  end
 end
 
 --- Builds the whole Basalt element tree once. Elements are never rebuilt after this; every
@@ -667,6 +689,16 @@ local function buildUI(ctx)
   ui.beaconUpdCheckLabel = ui.frameAdv:addLabel({ x = 6, y = 6,
     text = "Beacon updater (push updates to beacons)", foreground = pal.text })
   ui.beaconUpdCheck:onChange("checked", function(_, checked) ctx.installBeaconUpdater = checked end)
+
+  -- Advanced tab: optionally install the standalone Split-config tool alongside the role. Ticked,
+  -- a successful install/update also lays down `splitconfig` (+ its closure) so this PC can split
+  -- a legacy fused config into the new per-role files. Same flag-then-installToolIfRequested flow
+  -- as the Beacon-updater checkbox above.
+  ui.splitCfgCheck = ui.frameAdv:addCheckBox({ x = 2, y = 7, checked = (ctx.installSplitConfig == true),
+    text = " ", checkedText = "x", background = pal.bg, foreground = pal.text })
+  ui.splitCfgCheckLabel = ui.frameAdv:addLabel({ x = 6, y = 7,
+    text = "Split config (split legacy FCS config)", foreground = pal.text })
+  ui.splitCfgCheck:onChange("checked", function(_, checked) ctx.installSplitConfig = checked end)
 
   ui.buttons.go:onClick(function()
     -- Defense in depth: setButtonsEnabled()/ctx.opInFlight already keep this disabled during an

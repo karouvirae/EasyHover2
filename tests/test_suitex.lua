@@ -35,6 +35,15 @@ t.test("toolInstallPlan: checkbox gates install, dev checkbox picks the channel"
   t.eq(SuiteX.toolInstallPlan(nil).install, false, "nil opts -> no install")
 end)
 
+t.test("toolsToInstall returns the ticked tools in order", function()
+  t.eq(#SuiteX.toolsToInstall({}), 0)
+  t.eq(#SuiteX.toolsToInstall(nil), 0)
+  local both = SuiteX.toolsToInstall({ installBeaconUpdater = true, installSplitConfig = true })
+  t.eq(both[1], "beaconupdate"); t.eq(both[2], "splitconfig")
+  local only = SuiteX.toolsToInstall({ installSplitConfig = true })
+  t.eq(#only, 1); t.eq(only[1], "splitconfig")
+end)
+
 t.test("buttonStates: Go disabled only when already current", function()
   t.eq(SuiteX.buttonStates("update").go, "active")
   t.eq(SuiteX.buttonStates("current").go, "disabled")
