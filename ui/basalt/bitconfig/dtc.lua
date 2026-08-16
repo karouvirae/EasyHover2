@@ -311,8 +311,8 @@ function M._scanSummary(scan)
   local nv = #(scan.valid or {})
   local nf = #(scan.foreign or {})
   local ni = #(scan.invalid or {})
-  local s = "valid " .. nv .. " \183 foreign " .. nf .. " \183 invalid " .. ni
-  if nv == 0 and (nf + ni) > 0 then s = s .. " \183 CLEAN ADVISED" end
+  local s = "valid " .. nv .. " . foreign " .. nf .. " . invalid " .. ni
+  if nv == 0 and (nf + ni) > 0 then s = s .. " . CLEAN ADVISED" end
   return s
 end
 
@@ -734,7 +734,6 @@ function M.build(basalt, frame, runtime, nav, deps)
 
   -- ===== "confirm_importall" screen: summary of valid importable kinds + one-shot CONFIRM/"<" =====
   local function buildImportAllConfirm(b, f, region)
-    local fw = ({ f:getSize() })[1]
     local fx, fiw, y = 2, math.max(1, ({ f:getSize() })[1] - 2), 1
     local summaryLabel = f:addLabel({ x = fx, y = y, width = fiw, height = 1, autoSize = false, text = "" })
     y = y + 1

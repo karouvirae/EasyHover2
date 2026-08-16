@@ -792,7 +792,7 @@ t.test("_cleanDisk: mount=nil -> nothing deleted", function()
 end)
 
 t.test("_scanSummary: counts and flags clean-advised when only junk present", function()
-  t.eq(M._scanSummary({ valid = { "tuning" }, foreign = {}, invalid = {} }), "valid 1 \183 foreign 0 \183 invalid 0")
+  t.eq(M._scanSummary({ valid = { "tuning" }, foreign = {}, invalid = {} }), "valid 1 . foreign 0 . invalid 0")
   local s = M._scanSummary({ valid = {}, foreign = { "/disk/x" }, invalid = { "/disk/eh2_senscal.tbl" } })
   t.truthy(s:find("CLEAN ADVISED", 1, true), "clean advised when no valid config but junk present: " .. s)
 end)
