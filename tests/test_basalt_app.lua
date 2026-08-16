@@ -195,6 +195,27 @@ t.test("buildState assembles the flat cadence keys from telemetry + engine + fue
   t.eq(state.uiRev, 3)
 end)
 
+t.test("routeModem stores a navfix relay (fix present) into runtime.nav", function()
+  local runtime = newRuntime()
+  local frame = { k = "navfix", fix = { x = 10, y = 82, z = -20, age = 0, source = "gps", nBeacons = 4, quality = 1.0 },
+    heading = 90, compass = "N", gs = 12.5, at = 1000 }
+  local reply = M.routeModem(runtime, 107, protocol.encode(frame))
+  t.eq(reply, nil, "navfix is a fire-and-forget relay, no reply frame")
+  t.eq(runtime.nav.gpsAlt, 82)
+  t.eq(runtime.nav.tas, 12.5)
+  t.eq(runtime.nav.fixOk, true)
+  t.truthy(runtime.nav.at ~= nil, "nav.at stamped")
+end)
+
+t.test("routeModem stores a navfix relay (no fix) into runtime.nav", function()
+  local runtime = newRuntime()
+  local frame = { k = "navfix", fix = nil, heading = nil, compass = nil, gs = nil, at = 1000 }
+  M.routeModem(runtime, 107, protocol.encode(frame))
+  t.eq(runtime.nav.gpsAlt, nil)
+  t.eq(runtime.nav.tas, nil)
+  t.eq(runtime.nav.fixOk, false)
+end)
+
 t.test("app loads + startScheduled registers scheduled work + one render pass, no error, no basalt.run()", function()
   local basalt = M.ensureBasalt()
   local mocks = { mA = newMockMonitor() }

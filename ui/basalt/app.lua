@@ -308,8 +308,13 @@ function M.buildRuntime(deps)
   local ackLink = modemlib.wrap(modem, { txCh = CH.command, rxCh = CH.ack })
   local hbLink  = modemlib.wrap(modem, { txCh = CH.command, rxCh = CH.health })
   local cfgLink = modemlib.wrap(modem, { txCh = CFG_CH.reply, rxCh = CFG_CH.req })
+  -- NAV computer relay (nav/runtime.lua): fire-and-forget navfix frames on wired ch 107, no
+  -- reply expected -- txCh is set to the same channel purely so the link shape matches the
+  -- others; the UI never sends on it.
+  local navLink = modemlib.wrap(modem, { txCh = 107, rxCh = 107 })
   for _, c in pairs(CH) do modem.open(c) end
   for _, c in pairs(CFG_CH) do modem.open(c) end
+  modem.open(107)
 
   local rx = telemetry.Rx.new()
   local sender = command.Sender.new({ timeout = 0.5 })
@@ -390,6 +395,7 @@ function M.buildRuntime(deps)
   return {
     links = { tel = telLink, ack = ackLink, hb = hbLink },
     cfgLink = cfgLink,
+    navLink = navLink,
     rx = rx,
     sender = sender,
     hbRx = hbRx,
@@ -441,6 +447,15 @@ function M.routeModem(runtime, ch, msg)
       runtime.cfgLink:send(reply)
       return reply
     end
+  end
+
+  local n = runtime.navLink:onMessage(ch, msg)
+  if n and n.k == "navfix" then
+    runtime.nav.gpsAlt = n.fix and n.fix.y or nil
+    runtime.nav.tas    = n.gs
+    runtime.nav.fixOk  = n.fix ~= nil
+    runtime.nav.at     = os.epoch("utc")
+    return nil
   end
 
   return nil
