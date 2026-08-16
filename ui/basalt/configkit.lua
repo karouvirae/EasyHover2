@@ -10,6 +10,18 @@ local switchbtn = require("ui.basalt.switchbtn")
 
 local M = {}
 
+-- M.GLYPH: named button glyph/label constants (Feature 1). CC:Tweaked's font does NOT reliably
+-- render ⟳/✓/✕, so every non-native action ships a short WORD by default; flip an entry to a real
+-- glyph ONLY after confirming it renders in-game (same discipline as horizon.lua M.STYLE.subpixel).
+-- BACK is the CC-native left arrow "\27", which always renders.
+M.GLYPH = {
+  BACK           = "\27",       -- ← (CC-native, safe)
+  RESCAN         = "RE-SCAN",   -- word fallback; a glyph candidate can replace this after in-game confirm
+  REFRESH        = "REFRESH",   -- word fallback
+  CONFIRM_OK     = "OK",        -- no safe native ✓
+  CONFIRM_CANCEL = "\27",       -- reuse BACK's ← for cancel
+}
+
 -- fitLabel(text, width): same behaviour as listpicker.formatLabel (strip one leading
 -- "namespace:", then if still wider than width keep the TAIL prefixed with "~"; width nil/<=0 ->
 -- strip only, no truncation). Delegates instead of duplicating the logic.

@@ -121,6 +121,14 @@ t.test("scrollWindow reports atBottom at the tail and mid-scroll neither", funct
   t.truthy(not tail.atTop and tail.atBottom, "at bottom not top")
 end)
 
+t.test("GLYPH: BACK is the CC-native left arrow; others are safe short-word fallbacks", function()
+  t.eq(ck.GLYPH.BACK, "\27")               -- CC-native left arrow, always renders
+  t.eq(ck.GLYPH.RESCAN, "RE-SCAN")         -- word fallback (flip to a glyph only after in-game confirm)
+  t.eq(ck.GLYPH.REFRESH, "REFRESH")
+  t.eq(ck.GLYPH.CONFIRM_OK, "OK")
+  t.eq(ck.GLYPH.CONFIRM_CANCEL, "\27")     -- cancel reuses BACK's arrow
+end)
+
 -- ===== Basalt chrome: actionRow + helpScreen construction probe =====
 
 t.test("actionRow + helpScreen construction probe: builds, one render pass does not error", function()
