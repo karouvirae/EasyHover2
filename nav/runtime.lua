@@ -19,6 +19,16 @@ local M = {}
 local R = {}
 R.__index = R
 
+--- Horizontal ground speed (blocks/s) between two fixes; nil on first/absent fix or non-positive dt.
+--- y is deliberately ignored -- a hovercraft navigates horizontally (matches the HDOP-honest quality).
+function M.groundSpeed(prevFix, prevT, fix, now)
+  if type(prevFix) ~= "table" or type(fix) ~= "table" or prevT == nil then return nil end
+  local dt = (now - prevT) / 1000
+  if dt <= 0 then return nil end
+  local dx, dz = fix.x - prevFix.x, fix.z - prevFix.z
+  return math.sqrt(dx * dx + dz * dz) / dt
+end
+
 --- new(opts): config (nav.config-shaped), navtable (peripheral with getRelativeAngle), gpsModem
 --- (raw, for reception -- opened by the app), wiredModem (raw, for relay), now (fn->ms), receiver
 --- (defaults to a fresh nav receiver on the config channel + staleMs = thresholds.maxAgeMs).
@@ -105,7 +115,10 @@ function R:frame(now)
   now = now or self.now()
   local f = self:computeFix(now)
   local hdg = self:heading()
-  return { k = "navfix", fix = f, heading = hdg, compass = hdg and heading.compass(hdg) or nil, at = now }
+  local gs = M.groundSpeed(self._lastFix, self._lastT, f, now)
+  if f then self._lastFix, self._lastT = f, now end
+  return { k = "navfix", fix = f, heading = hdg, compass = hdg and heading.compass(hdg) or nil,
+    gs = gs, at = now }
 end
 
 --- Compute + relay one nav frame onto the wired network. Fire-and-forget (latest-wins). Returns the
