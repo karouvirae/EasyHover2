@@ -14,18 +14,22 @@
 -- up mutually inconsistent. Persistent fix (later) = teach calibrate.lua to cross-check them.
 --   wget run https://raw.githubusercontent.com/maar-10/EasyHover2/main/tools/fix_yaw_sign.lua
 
-local P = "/eh2_hw_config.tbl"
-if not fs.exists(P) then
-  print("No " .. P .. " found -- run /calibrate first; there's nothing to patch.")
-  return
+package.path = "/?.lua;/?/init.lua;" .. package.path
+local cfgspec = require("fcs.io.cfgspec")
+local fsx = require("fcs.io.fsx")
+local LEGACY = "/eh2_hw_config.tbl"
+
+local cfg, existed = cfgspec.load("senscal", fsx.read)
+if not existed then
+  local body = fsx.read(LEGACY)
+  local legacy = body and textutils.unserialise(body) or nil
+  if type(legacy) == "table" then cfg = cfgspec.merge("senscal", cfgspec.splitLegacy(legacy).senscal)
+  else print("No senscal or legacy config found -- run /calibrate first; nothing to patch."); return end
 end
-local f = fs.open(P, "r"); local c = textutils.unserialise(f.readAll() or ""); f.close()
-if type(c) ~= "table" then print("Config file unreadable; aborting (no change made).") return end
-c.bindings = c.bindings or {}
-local oh, oy = c.bindings.signHeading, c.bindings.signYawRate
-c.bindings.signHeading = -1   -- deterministic target regardless of prior runs
-c.bindings.signYawRate = 1
-local w = fs.open(P, "w"); w.write(textutils.serialise(c)); w.close()
+local oh, oy = cfg.signHeading, cfg.signYawRate
+cfg.signHeading = -1
+cfg.signYawRate = 1
+cfgspec.save("senscal", cfg, fsx.writeAtomic)
 print(("signHeading: %s -> -1"):format(tostring(oh)))
 print(("signYawRate: %s -> 1  (reverting the earlier wrong flip)"):format(tostring(oy)))
-print("Saved. Now launch:  hovertest")
+print("Saved to " .. cfgspec.FILES.senscal .. ". Now launch:  hovertest")
