@@ -1,4 +1,5 @@
-local hwconfig = require("fcs.io.hwconfig")
+local cfgspec = require("fcs.io.cfgspec")
+local fsx = require("fcs.io.fsx")
 local M = {}
 function M.bind(config, role, name)
   if config.thrusters[role] ~= nil then config.thrusters[role] = name
@@ -12,20 +13,44 @@ function M.measureWrite(backend, id, n)
   return (os.epoch("utc") - t0) / n
 end
 -- Interactive UI (in-game only; not headless-tested)
-local CONFIG_PATH = "/eh2_hw_config.tbl"
-local function loadConfig()
-  local saved
-  if fs.exists(CONFIG_PATH) then local f=fs.open(CONFIG_PATH,"r"); saved=textutils.unserialise(f.readAll() or ""); f.close() end
-  return hwconfig.merge(saved or {}, hwconfig.defaults())
+local LEGACY_CONFIG_PATH = "/eh2_hw_config.tbl"
+local realRead = fsx.read
+local realWrite = fsx.writeAtomic
+
+-- Load the existing device binding so a re-run edits rather than clobbers.
+-- Prefers eh2_devbind.tbl; if absent AND the old combined /eh2_hw_config.tbl
+-- is present, migrates the binding out of it (read-through, nothing lost).
+-- Mirrors tools/binddevices.lua's loadBinding verbatim.
+local function loadBinding(read)
+  local cfg, existed = cfgspec.load("devbind", read)
+  if not existed then
+    local legacyBody = read(LEGACY_CONFIG_PATH)
+    if legacyBody ~= nil then
+      local legacy = textutils.unserialise(legacyBody)
+      if type(legacy) == "table" then
+        cfg = cfgspec.merge("devbind", cfgspec.splitLegacy(legacy).devbind)
+      end
+    end
+  end
+  return cfg
 end
-local function saveConfig(c) local f=fs.open(CONFIG_PATH,"w"); f.write(textutils.serialise(c)); f.close() end
+
+-- Read-only calibration lookup for the "sensors" diagnostic (branch "3"):
+-- Backend:sensors() indexes self.config.bindings directly with no fallback
+-- (`local c, b = self.config, self.config.bindings` then `b.someField`), so a
+-- bare devbind table (no `bindings` key) would error with "attempt to index
+-- nil value". This reads eh2_senscal.tbl (or its defaults) -- it never writes.
+local function loadCalibration(read)
+  return cfgspec.load("senscal", read)
+end
+
 local function discover(shim)
   for _, name in ipairs(shim.getNames()) do print(name .. "  [" .. tostring(shim.getType(name)) .. "]") end
 end
 function M.run()
   local shim = require("fcs.io.shim")
   local Backend = require("fcs.io.backend")
-  local config = loadConfig()
+  local config = loadBinding(realRead)
   while true do
     print("\n== EH2 PROBE == 1 discover 2 bind 3 sensors 4 thruster 5 timing 6 roles 7 methods q quit")
     local ch = read()
@@ -33,9 +58,11 @@ function M.run()
     elseif ch == "2" then
       write("role (e.g. FL / gimbal / fuelRelay): "); local role = read()
       write("peripheral name: "); local name = read()
-      config = M.bind(config, role, name); saveConfig(config); print("bound " .. role .. " -> " .. name)
+      config = M.bind(config, role, name); cfgspec.save("devbind", config, realWrite); print("bound " .. role .. " -> " .. name)
     elseif ch == "3" then
-      local b = Backend.new(shim, config); b:sensors()
+      local calibrated = { thrusters = config.thrusters, sensors = config.sensors, fuelRelay = config.fuelRelay,
+        bindings = loadCalibration(realRead) }
+      local b = Backend.new(shim, calibrated); b:sensors()
       for _=1,10 do local s=b:sensors()
         print(("alt %.2f v %.2f pitch %.3f roll %.3f hdg %.3f yawR %.3f sway %.2f surge %.2f gnd %s")
           :format(s.altitude,s.vSpeed,s.pitch,s.roll,s.heading,s.yawRate,s.swayVel,s.surgeVel,tostring(s.onGround)))
