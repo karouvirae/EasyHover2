@@ -608,6 +608,44 @@ t.test("_importAll: mount=nil -> nothing imported, nothing skipped-with-error", 
   t.eq(#r.imported, 0)
 end)
 
+-- ===== Task B6: IMPORT ALL button + confirm_importall screen =====
+
+t.test("M.build: IMPORT ALL button present; enabled only with a valid importable kind; "
+  .. "CONFIRM imports all valid kinds and pops", function()
+  local basalt = BasaltApp.ensureBasalt()
+  local frame = basalt.createFrame()
+  local nav = Nav.new("bitconfig")
+  local good = textutils.serialise({ gains = {}, caps = {}, feel = {} })
+  local files = { ["/disk/eh2_tuning.tbl"] = good }
+  local fakeDrive = {
+    isDiskPresent = function() return true end,
+    getMountPath  = function() return "disk" end,
+    getDiskLabel  = function() return "CART1" end,
+  }
+  local deps = {
+    find = function(k) return k == "drive" and fakeDrive or nil end,
+    exists = function(p) return files[p] ~= nil end,
+    read = function(p) return files[p] end,
+    write = function(p, b) files[p] = b end,
+    delete = function(p) files[p] = nil end,
+    move = function(a, b) files[b] = files[a]; files[a] = nil end,
+    attributes = function(p) return files[p] and { modified = 1 } or nil end,
+    backup = function(p) end,
+  }
+  local h = M.build(basalt, frame, nil, nav, deps)
+  local region = h.elements.region
+  local top = region.built.top.handle.elements
+  t.truthy(top.importAllRow ~= nil and #top.importAllRow.buttons == 1, "IMPORT ALL present")
+  t.eq(top.importAllRow.buttons[1].button:getEnabled(), true, "enabled: one valid disk kind exists")
+
+  region:push("confirm_importall"); h.apply({})
+  local cEls = region.built.confirm_importall.handle.elements
+  cEls.confirmRow.buttons[1].button:fireEvent("mouse_click", 1, 1, 1)
+  h.apply({})
+  t.eq(region:top(), "top", "CONFIRM pops back to top")
+  t.eq(files["/eh2_tuning.tbl"], good, "IMPORT ALL brought the valid tuning local")
+end)
+
 t.test("_exportKind copies local to disk", function()
   local store = { ["/eh2_tuning.tbl"] = "L" }
   local deps = { exists=function(p) return store[p]~=nil end, read=function(p) return store[p] end,

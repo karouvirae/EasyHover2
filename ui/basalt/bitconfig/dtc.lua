@@ -526,6 +526,11 @@ function M.build(basalt, frame, runtime, nav, deps)
     })
     y = y + 1
 
+    local importAllRow = configkit.actionRow(f, { x = fx, y = y, w = fiw }, {
+      { label = "IMPORT ALL", onClick = function() region:push("confirm_importall") end },
+    })
+    y = y + 1
+
     local backRow = configkit.actionRow(f, { x = fx, y = y, w = fiw }, {
       { label = configkit.GLYPH.BACK, onClick = function() if nav then nav:pop() end end },
     })
@@ -534,12 +539,20 @@ function M.build(basalt, frame, runtime, nav, deps)
       diskLabel:setText(clampText(summaryText(), fiw))
       ioRow.setState(1, drive.present and "off" or "disabled")
       ioRow.setState(2, drive.present and "off" or "disabled")
+      local anyValid = false
+      for _, kind in ipairs(M.KINDS) do
+        if scanKindResults[kind].diskHas and scanKindResults[kind].diskValid then anyValid = true end
+      end
+      importAllRow.setState(1, (drive.present and anyValid) and "off" or "disabled")
     end
     refreshTop()
 
     return {
       apply = function(_state) refreshTop() end,
-      elements = { diskLabel = diskLabel, ioRow = ioRow, refreshRow = refreshRow, backRow = backRow },
+      elements = {
+        diskLabel = diskLabel, ioRow = ioRow, refreshRow = refreshRow,
+        importAllRow = importAllRow, backRow = backRow,
+      },
     }
   end
 
@@ -653,12 +666,44 @@ function M.build(basalt, frame, runtime, nav, deps)
     end
   end
 
+  -- ===== "confirm_importall" screen: summary of valid importable kinds + one-shot CONFIRM/"<" =====
+  local function buildImportAllConfirm(b, f, region)
+    local fw = ({ f:getSize() })[1]
+    local fx, fiw, y = 2, math.max(1, ({ f:getSize() })[1] - 2), 1
+    local summaryLabel = f:addLabel({ x = fx, y = y, width = fiw, height = 1, autoSize = false, text = "" })
+    y = y + 1
+    local statusLabel = f:addLabel({ x = fx, y = y, width = fiw, height = 1, autoSize = false, text = "" })
+    y = y + 1
+    local confirmRow = configkit.actionRow(f, { x = fx, y = y, w = fiw }, {
+      { label = configkit.GLYPH.CONFIRM_OK, onClick = function()
+          local r = M._importAll(drive.mount, deps)
+          dirStatus.import = "IMPORT ALL: " .. #r.imported .. " imported, " .. #r.skipped .. " skipped"
+          doDetect(); region:pop(); region:apply(nil)
+        end },
+    })
+    y = y + 1
+    local backRow = configkit.actionRow(f, { x = fx, y = y, w = fiw }, {
+      { label = configkit.GLYPH.CONFIRM_CANCEL, onClick = function() region:pop() end },
+    })
+    local function refresh()
+      local n = 0
+      for _, kind in ipairs(M.KINDS) do
+        if scanKindResults[kind].diskHas and scanKindResults[kind].diskValid then n = n + 1 end
+      end
+      summaryLabel:setText(clampText("Import " .. n .. " valid config(s) to this UI PC?", fiw))
+    end
+    refresh()
+    return { apply = function(_s) refresh() end,
+      elements = { summaryLabel = summaryLabel, statusLabel = statusLabel, confirmRow = confirmRow, backRow = backRow } }
+  end
+
   local screens = { top = buildTop, export = buildKindList("export"), import = buildKindList("import") }
   for _, dir in ipairs({ "export", "import" }) do
     for _, kind in ipairs(M.KINDS) do
       screens["confirm_" .. dir .. "_" .. kind] = buildConfirm(dir, kind)
     end
   end
+  screens.confirm_importall = buildImportAllConfirm
 
   local region = Region.new(basalt, frame, {
     x = 1, y = 3, width = w, height = math.max(1, h - 2),
