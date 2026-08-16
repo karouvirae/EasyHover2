@@ -17,3 +17,13 @@ t.test("raw fuel amounts (pumpAmount/tankMb) are in the signature", function()
   t.eq(select(1, G.gate(s0, { pumpAmount = 99,  tankMb = 4200 })), true,  "solid count change -> repaint")
   t.eq(select(1, G.gate(s0, { pumpAmount = 100, tankMb = 4201 })), true,  "liquid mB change -> repaint")
 end)
+
+t.test("sig reflects the new PFD fields (pitch/roll/sas/gpsAlt/tas/gpsFixOk)", function()
+  local base = { heading = 90 }
+  local a = G.sig(base)
+  local b = G.sig({ heading = 90, pitch = 3 })
+  t.truthy(a ~= b, "pitch change moves the signature")
+  local c = G.sig({ heading = 90, gpsFixOk = true })
+  local d = G.sig({ heading = 90, gpsFixOk = false })
+  t.truthy(c ~= d, "gpsFixOk change moves the signature")
+end)

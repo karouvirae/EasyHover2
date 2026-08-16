@@ -22,6 +22,8 @@ function M.sig(state)
     state.nextFeedInMs and tostring(math.floor(state.nextFeedInMs / 1000)) or "-",
     qn(state.pumpFrac, 100), qn(state.tankFrac, 100),
     qn(state.pumpAmount, 1), qn(state.tankMb, 1),   -- raw fuel amounts (merged flight page gauges)
+    qn(state.pitch, 1), qn(state.roll, 1), qn(state.sas, 10),
+    qn(state.gpsAlt, 10), qn(state.tas, 10), tostring(state.gpsFixOk),
     tostring(state.uiRev),
   }, "|")
 end
