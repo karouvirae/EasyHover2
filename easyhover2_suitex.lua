@@ -52,6 +52,7 @@ function SuiteX.toolsToInstall(flags)
   local out = {}
   if flags.installBeaconUpdater then out[#out + 1] = "beaconupdate" end
   if flags.installSplitConfig then out[#out + 1] = "splitconfig" end
+  if flags.installFcs2Disk then out[#out + 1] = "fcs2disk" end
   return out
 end
 
@@ -572,14 +573,17 @@ end
 local function installToolIfRequested(ctx)
   local keys = SuiteX.toolsToInstall({
     installBeaconUpdater = ctx.installBeaconUpdater, installSplitConfig = ctx.installSplitConfig,
+    installFcs2Disk = ctx.installFcs2Disk,
   })
   local doneMsg = {
     beaconupdate = "beacon updater installed -- run 'beaconupdate' to push updates to the beacons",
     splitconfig = "split-config tool installed -- run 'splitconfig' on the FCS to split a legacy fused config",
+    fcs2disk = "FCS config-dump tool installed -- run 'fcs2disk' on the FCS to dump its configs to the shared disk",
   }
   local displayName = {
     beaconupdate = "beacon updater",
     splitconfig = "split-config tool",
+    fcs2disk = "FCS config dump",
   }
   for _, key in ipairs(keys) do
     installOneTool(ctx, key, doneMsg[key], displayName[key])
@@ -713,6 +717,14 @@ local function buildUI(ctx)
   ui.splitCfgCheck = ui.frameAdv:addCheckBox({ x = 2, y = 7, checked = (ctx.installSplitConfig == true),
     text = splitOff, checkedText = splitOn, background = pal.bg, foreground = pal.text })
   ui.splitCfgCheck:onChange("checked", function(_, checked) ctx.installSplitConfig = checked end)
+
+  -- Advanced tab: optionally install the standalone FCS config-dump tool alongside the role. Ticked,
+  -- a successful install/update also lays down `fcs2disk` (+ its closure) so this PC can dump its
+  -- FCS configs to the shared disk. Same flag-then-installToolIfRequested flow as the checkboxes above.
+  local fcs2diskOff, fcs2diskOn = SuiteX.checkboxLabels("FCS config dump (dump FCS configs to disk)")
+  ui.fcs2diskCheck = ui.frameAdv:addCheckBox({ x = 2, y = 8, checked = (ctx.installFcs2Disk == true),
+    text = fcs2diskOff, checkedText = fcs2diskOn, background = pal.bg, foreground = pal.text })
+  ui.fcs2diskCheck:onChange("checked", function(_, checked) ctx.installFcs2Disk = checked end)
 
   ui.buttons.go:onClick(function()
     -- Defense in depth: setButtonsEnabled()/ctx.opInFlight already keep this disabled during an

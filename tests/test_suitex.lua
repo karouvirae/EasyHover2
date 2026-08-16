@@ -44,6 +44,17 @@ t.test("toolsToInstall returns the ticked tools in order", function()
   t.eq(#only, 1); t.eq(only[1], "splitconfig")
 end)
 
+t.test("toolsToInstall includes fcs2disk when its flag is set", function()
+  local out = SuiteX.toolsToInstall({ installFcs2Disk = true })
+  local found = false
+  for _, k in ipairs(out) do if k == "fcs2disk" then found = true end end
+  t.truthy(found, "fcs2disk requested when installFcs2Disk flag set")
+end)
+
+t.test("toolsToInstall omits fcs2disk when its flag is unset", function()
+  for _, k in ipairs(SuiteX.toolsToInstall({})) do t.truthy(k ~= "fcs2disk", "no fcs2disk unless flagged") end
+end)
+
 t.test("checkboxLabels renders a visible box and a full-width (clickable) line in both states", function()
   local off, on = SuiteX.checkboxLabels("Split config (split legacy FCS config)")
   t.truthy(off:find("[ ]", 1, true), "unchecked shows an EMPTY box, not an invisible space")
