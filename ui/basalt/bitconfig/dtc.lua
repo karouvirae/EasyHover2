@@ -497,27 +497,31 @@ function M.build(basalt, frame, runtime, nav, deps)
     local diskLabel = f:addLabel({ x = fx, y = y, width = fiw, height = 1, autoSize = false, text = "" })
     y = y + 1
 
-    local topRow = configkit.actionRow(f, { x = fx, y = y, w = fiw }, {
-      { label = "EXPORT",  onClick = function() region:push("export") end },
-      { label = "IMPORT",  onClick = function() region:push("import") end },
-      { label = "REFRESH", onClick = function() doDetect(); region:apply(nil) end },
+    local ioRow = configkit.actionRow(f, { x = fx, y = y, w = fiw }, {
+      { label = "EXPORT", onClick = function() region:push("export") end },
+      { label = "IMPORT", onClick = function() region:push("import") end },
+    })
+    y = y + 1
+
+    local refreshRow = configkit.actionRow(f, { x = fx, y = y, w = fiw }, {
+      { label = configkit.GLYPH.REFRESH, onClick = function() doDetect(); region:apply(nil) end },
     })
     y = y + 1
 
     local backRow = configkit.actionRow(f, { x = fx, y = y, w = fiw }, {
-      { label = "<", onClick = function() if nav then nav:pop() end end },
+      { label = configkit.GLYPH.BACK, onClick = function() if nav then nav:pop() end end },
     })
 
     local function refreshTop()
       diskLabel:setText(clampText(summaryText(), fiw))
-      topRow.setState(1, drive.present and "off" or "disabled")
-      topRow.setState(2, drive.present and "off" or "disabled")
+      ioRow.setState(1, drive.present and "off" or "disabled")
+      ioRow.setState(2, drive.present and "off" or "disabled")
     end
     refreshTop()
 
     return {
       apply = function(_state) refreshTop() end,
-      elements = { diskLabel = diskLabel, topRow = topRow, backRow = backRow },
+      elements = { diskLabel = diskLabel, ioRow = ioRow, refreshRow = refreshRow, backRow = backRow },
     }
   end
 

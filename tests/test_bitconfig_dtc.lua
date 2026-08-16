@@ -348,16 +348,15 @@ t.test("M.build (no disk): 'top' screen constructs; disk summary is 'no disk'; E
   local els = rec.handle.elements
   t.truthy(els.diskLabel ~= nil, "diskLabel present")
 
-  -- EXPORT/IMPORT/REFRESH are one configkit.actionRow; BACK ("<") is its own full-width row.
-  t.truthy(els.topRow ~= nil, "topRow (EXPORT/IMPORT/REFRESH) present")
-  t.eq(#els.topRow.buttons, 3, "topRow has exactly EXPORT/IMPORT/REFRESH")
-  t.truthy(type(els.topRow.setState) == "function", "topRow.setState present")
+  -- EXPORT/IMPORT are one configkit.actionRow; REFRESH is its own row; BACK ("<") is its own full-width row.
+  t.truthy(els.ioRow ~= nil, "ioRow (EXPORT/IMPORT) present")
+  t.truthy(type(els.ioRow.setState) == "function", "ioRow.setState present")
   t.truthy(els.backRow ~= nil and #els.backRow.buttons == 1, "backRow (<) present")
 
   -- No disk detected -> EXPORT/IMPORT start disabled (gray, not clickable); REFRESH stays "off".
-  t.eq(els.topRow.buttons[1].button:getEnabled(), false, "EXPORT disabled: no disk")
-  t.eq(els.topRow.buttons[2].button:getEnabled(), false, "IMPORT disabled: no disk")
-  t.eq(els.topRow.buttons[3].button:getEnabled(), true, "REFRESH always enabled")
+  t.eq(els.ioRow.buttons[1].button:getEnabled(), false, "EXPORT disabled: no disk")
+  t.eq(els.ioRow.buttons[2].button:getEnabled(), false, "IMPORT disabled: no disk")
+  t.eq(els.refreshRow.buttons[1].button:getEnabled(), true, "REFRESH always enabled")
 
   t.eq(els.diskLabel:getText(), "no disk")
 
@@ -399,12 +398,31 @@ function()
   t.eq(els.diskLabel:getText(), "disk: CART1 . valid 0/4")
 
   -- Disk present -> EXPORT/IMPORT are enabled (mirrors the old drive.present gating, now expressed
-  -- as topRow's switchbtn "off" state).
-  t.eq(els.topRow.buttons[1].button:getEnabled(), true, "EXPORT enabled: disk present")
-  t.eq(els.topRow.buttons[2].button:getEnabled(), true, "IMPORT enabled: disk present")
+  -- as ioRow's switchbtn "off" state).
+  t.eq(els.ioRow.buttons[1].button:getEnabled(), true, "EXPORT enabled: disk present")
+  t.eq(els.ioRow.buttons[2].button:getEnabled(), true, "IMPORT enabled: disk present")
 
   local ok3, err3 = pcall(function() basalt.update("timer", -1) end)
   t.truthy(ok3, "basalt.update should not error: " .. tostring(err3))
+end)
+
+t.test("top screen: EXPORT/IMPORT on one row, REFRESH on its own row, BACK its own row", function()
+  local basalt = BasaltApp.ensureBasalt()
+  local frame = basalt.createFrame()
+  local nav = Nav.new("bitconfig")
+  local deps = { find = function() return nil end, exists = function() return false end }
+  local h = M.build(basalt, frame, nil, nav, deps)
+  local els = h.elements.region.built.top.handle.elements
+  t.truthy(els.ioRow ~= nil and #els.ioRow.buttons == 2, "EXPORT + IMPORT share a row")
+  t.eq(els.ioRow.buttons[1].button:getText(), "EXPORT")
+  t.eq(els.ioRow.buttons[2].button:getText(), "IMPORT")
+  t.truthy(els.refreshRow ~= nil and #els.refreshRow.buttons == 1, "REFRESH on its own row")
+  t.truthy(els.backRow ~= nil and #els.backRow.buttons == 1, "BACK its own row")
+  t.eq(els.backRow.buttons[1].button:getText(), "\27", "BACK is CC-native left arrow")
+  -- no disk -> EXPORT/IMPORT disabled, REFRESH enabled
+  t.eq(els.ioRow.buttons[1].button:getEnabled(), false, "EXPORT disabled: no disk")
+  t.eq(els.ioRow.buttons[2].button:getEnabled(), false, "IMPORT disabled: no disk")
+  t.eq(els.refreshRow.buttons[1].button:getEnabled(), true, "REFRESH always enabled")
 end)
 
 t.test("M.build: top screen's BACK pops the FRAME nav stack", function()
