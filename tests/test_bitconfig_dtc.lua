@@ -11,9 +11,10 @@ local cfgspec = require("fcs.io.cfgspec")
 
 -- ===== M.KINDS: canonical ordered list, resolves via cfgspec.FILES =====
 
-t.test("KINDS: three kinds in devbind/senscal/tuning order", function()
-  t.eq(#M.KINDS, 3)
+t.test("KINDS: four kinds in devbind/senscal/tuning/uicfg order", function()
+  t.eq(#M.KINDS, 4)
   t.eq(M.KINDS[1], "devbind"); t.eq(M.KINDS[2], "senscal"); t.eq(M.KINDS[3], "tuning")
+  t.eq(M.KINDS[4], "uicfg")
 end)
 
 -- ===== M.plan: PURE, no IO ===== (TDD cases from the task brief)
@@ -52,11 +53,14 @@ t.test("plan: kind absent both -> both false", function()
   end
 end)
 
-t.test("plan: filename resolves via cfgspec.FILES for every row", function()
+t.test("plan: filename resolves via M.FILE for every row (equals cfgspec.FILES for FCS kinds)", function()
   local plan = M.plan({ localHas = {}, diskHas = {} })
   for _, row in ipairs(plan) do
-    t.eq(row.filename, cfgspec.FILES[row.kind])
+    t.eq(row.filename, M.FILE[row.kind])
   end
+  t.eq(M.FILE.devbind, cfgspec.FILES.devbind)
+  t.eq(M.FILE.senscal, cfgspec.FILES.senscal)
+  t.eq(M.FILE.tuning, cfgspec.FILES.tuning)
 end)
 
 t.test("plan: exportable/importable convenience lists reflect canExport/canImport correctly", function()
@@ -71,9 +75,9 @@ t.test("plan: exportable/importable convenience lists reflect canExport/canImpor
   t.eq(plan.importable[1], "senscal"); t.eq(plan.importable[2], "tuning")
 end)
 
-t.test("plan: empty present -> empty exportable/importable lists, three rows still present", function()
+t.test("plan: empty present -> empty exportable/importable lists, four rows still present", function()
   local plan = M.plan({})
-  t.eq(#plan, 3)
+  t.eq(#plan, 4)
   t.eq(#plan.exportable, 0)
   t.eq(#plan.importable, 0)
 end)
@@ -264,9 +268,10 @@ end)
 -- ===== path-layout assertion: byte-for-byte match to loaderui.diskSource =====
 
 t.test("diskPath layout matches what fcs/boot/loaderui.lua's diskSource reads", function()
-  -- loaderui.diskSource: realRead("/" .. mount .. "/" .. cfgspec.FILES[kind])
+  -- loaderui.diskSource: realRead("/" .. mount .. "/" .. cfgspec.FILES[kind]) -- only the 3 FCS
+  -- kinds are ever read by the boot loader; "uicfg" has no cfgspec.FILES entry (it's FCS-opaque).
   local mount = "disk"
-  for _, kind in ipairs(M.KINDS) do
+  for _, kind in ipairs({ "devbind", "senscal", "tuning" }) do
     local loaderuiPath = "/" .. mount .. "/" .. cfgspec.FILES[kind]
     t.eq(M.diskPath(mount, kind), loaderuiPath)
   end
@@ -416,6 +421,21 @@ t.test("M.build: BACK pops the nav stack", function()
   -- basalt.run(), forbidden here).
   nav:pop()
   t.eq(nav:top(), "bitconfig")
+end)
+
+-- ===== Task 9: registry (M.KINDS/M.FILE/M.LABEL) + M.validateKind =====
+
+t.test("registry carries 4 kinds incl uicfg; filenames match cfgspec for FCS kinds", function()
+  local cfgspec = require("fcs.io.cfgspec")
+  t.eq(#M.KINDS, 4)
+  t.eq(M.FILE.devbind, cfgspec.FILES.devbind)
+  t.eq(M.FILE.uicfg, "eh2_ui_config.tbl")
+end)
+t.test("validateKind uses cfgspec for FCS kinds and table-shape for uicfg", function()
+  t.eq(M.validateKind("uicfg", {}), true)
+  t.eq(M.validateKind("uicfg", nil), false)
+  t.eq(M.validateKind("devbind", { thrusters = {}, sensors = {} }), true)
+  t.eq(M.validateKind("devbind", { thrusters = {} }), false)  -- missing sensors
 end)
 
 return true

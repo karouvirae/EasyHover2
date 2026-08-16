@@ -32,9 +32,42 @@ local M = {}
 M.id = "dtc"
 M.title = "DTC"
 
--- ===== M.KINDS: canonical ordered kind list. Filenames resolve via cfgspec.FILES so this can =====
--- ===== never drift from the schema. =====
-M.KINDS = { "devbind", "senscal", "tuning" }
+-- ===== M.KINDS: canonical ordered kind registry. The 3 FCS kinds' filenames resolve via =====
+-- ===== cfgspec.FILES (M.FILE below) so they can never drift from the schema; "uicfg" is a 4th,
+-- ===== FCS-opaque kind (the UI's own config) transported by this same disk courier. =====
+M.KINDS = { "devbind", "senscal", "tuning", "uicfg" }
+
+-- ===== M.FILE: kind -> filename. The 3 FCS kinds MUST equal cfgspec.FILES[kind] byte-for-byte =====
+-- ===== (fcs/boot/loaderui.lua's diskSource reads that same path) -- never hardcode those three.
+M.FILE = {
+  devbind = cfgspec.FILES.devbind,
+  senscal = cfgspec.FILES.senscal,
+  tuning = cfgspec.FILES.tuning,
+  uicfg = "eh2_ui_config.tbl",
+}
+
+-- ===== M.LABEL: kind -> human-readable menu label. =====
+M.LABEL = {
+  devbind = "Craft bindings",
+  senscal = "Sensor cal",
+  tuning = "FCS tuning",
+  uicfg = "UI config",
+}
+
+-- ===== M.validateKind(kind, t) -> bool. FCS kinds (devbind/senscal/tuning) delegate to =====
+-- ===== cfgspec.validate (coerced to a plain bool -- cfgspec.validate returns (ok, err)). "uicfg"
+-- ===== has no schema of its own here: any table is a valid UI config shape (ui.config.withDefaults
+-- ===== merges it against defaults), so validation is just a table-shape check. nil/non-table t,
+-- ===== or an unknown kind, is always false.
+function M.validateKind(kind, t)
+  if kind == "devbind" or kind == "senscal" or kind == "tuning" then
+    return cfgspec.validate(kind, t) == true
+  end
+  if kind == "uicfg" then
+    return type(t) == "table"
+  end
+  return false
+end
 
 -- ===== M.plan(present) -> ordered per-kind rows. PURE, no IO. =====
 -- present = { localHas = {kind=bool,...}, diskHas = {kind=bool,...} } (missing entries read as
@@ -53,7 +86,7 @@ function M.plan(present)
     local hasDisk = diskHas[kind] == true
     rows[i] = {
       kind = kind,
-      filename = cfgspec.FILES[kind],
+      filename = M.FILE[kind],
       hasLocal = hasLocal,
       hasDisk = hasDisk,
       canExport = hasLocal,
@@ -66,13 +99,15 @@ function M.plan(present)
 end
 
 -- ===== Path helpers: PURE, Basalt/fs-free. diskPath MUST match fcs/boot/loaderui.lua's =====
--- ===== diskSource byte-for-byte: realRead("/" .. mount .. "/" .. cfgspec.FILES[kind]). =====
+-- ===== diskSource byte-for-byte for the 3 FCS kinds: realRead("/" .. mount .. "/" ..
+-- ===== cfgspec.FILES[kind]) -- M.FILE[kind] equals cfgspec.FILES[kind] for those three, so this
+-- ===== holds unchanged; "uicfg" resolves the same way but the FCS boot loader never reads it.
 function M.localPath(kind)
-  return "/" .. cfgspec.FILES[kind]
+  return "/" .. M.FILE[kind]
 end
 
 function M.diskPath(mount, kind)
-  return "/" .. mount .. "/" .. cfgspec.FILES[kind]
+  return "/" .. mount .. "/" .. M.FILE[kind]
 end
 
 -- ===== real fs/peripheral seams (default injected deps; never called at module load) =====
