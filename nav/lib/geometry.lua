@@ -51,15 +51,15 @@ end
 -- a tiny distance error then maps to a huge position error (geometric dilution of precision).
 -- pdop() measures that dilution AT the solved position, so the quality readout can be honest
 -- instead of reporting a perfect fix that is 11 blocks off. Larger PDOP = worse.
-M.DOP_GOOD = 3.0    -- PDOP at or below this = excellent geometry (quality 1.0)
-M.DOP_BAD  = 12.0   -- PDOP at or above this = effectively unusable (quality 0.0)
+M.DOP_GOOD = 3.0    -- DOP at or below this = excellent geometry (quality 1.0)
+M.DOP_BAD  = 12.0   -- DOP at or above this = effectively unusable (quality 0.0)
 M.UERE     = 0.5    -- assumed per-beacon distance uncertainty in blocks (CC rounding + block offset)
 
---- pdop(hosts, atPos) -> Position Dilution of Precision, or nil (<4 hosts / degenerate).
---- H rows = unit line-of-sight vectors from atPos to each host; PDOP = sqrt(trace((H^T H)^-1)).
-function M.pdop(hosts, atPos)
+-- Diagonal of N^-1, where N = H^T H is the normal matrix built from the unit line-of-sight
+-- vectors (atPos -> each host). Returns invXX, invYY(vertical), invZZ (the per-axis position
+-- variances in UERE^2 units), or nil (<4 usable hosts / degenerate). Shared by pdop() and hdop().
+local function normalInvDiag(hosts, atPos)
   if type(hosts) ~= "table" or #hosts < M.REQUIRED_HOSTS or type(atPos) ~= "table" then return nil end
-  -- Accumulate the normal matrix N = H^T H (sum of outer products of the unit LOS vectors).
   local N = { { 0, 0, 0 }, { 0, 0, 0 }, { 0, 0, 0 } }
   local used = 0
   for _, ho in ipairs(hosts) do
@@ -74,15 +74,36 @@ function M.pdop(hosts, atPos)
     end
   end
   if used < M.REQUIRED_HOSTS then return nil end
-  -- trace of N^-1: only the diagonal cofactors / det are needed.
   local a, b, c = N[1][1], N[1][2], N[1][3]
   local d, e, f = N[2][1], N[2][2], N[2][3]
   local g, h, i = N[3][1], N[3][2], N[3][3]
   local det = a * (e * i - f * h) - b * (d * i - f * g) + c * (d * h - e * g)
   if math.abs(det) < 1e-12 then return nil end
-  local invDiag = ((e * i - f * h) + (a * i - c * g) + (a * e - b * d)) / det
-  if invDiag <= 0 then return nil end
-  return math.sqrt(invDiag)
+  -- diagonal cofactors / det = the diagonal of N^-1
+  return (e * i - f * h) / det, (a * i - c * g) / det, (a * e - b * d) / det
+end
+
+--- pdop(hosts, atPos) -> 3D Position Dilution of Precision, or nil (<4 hosts / degenerate).
+--- PDOP = sqrt(trace(N^-1)) over all three axes (x, y-vertical, z).
+function M.pdop(hosts, atPos)
+  local ix, iy, iz = normalInvDiag(hosts, atPos)
+  if ix == nil then return nil end
+  local sum = ix + iy + iz
+  if sum <= 0 then return nil end
+  return math.sqrt(sum)
+end
+
+--- hdop(hosts, atPos) -> HORIZONTAL Dilution of Precision (x,z only), or nil (<4 hosts /
+--- degenerate). This -- not pdop -- is what the NAV quality grades on: a hovercraft navigates
+--- horizontally, and in Minecraft beacons all sit near build height, so VERTICAL dilution is
+--- irreducibly huge (tiny Δy over km-scale horizontal baselines) and would swamp an honest 3D
+--- PDOP even when the horizontal fix is sub-block accurate. HDOP isolates the axes that matter.
+function M.hdop(hosts, atPos)
+  local ix, _iy, iz = normalInvDiag(hosts, atPos)
+  if ix == nil then return nil end
+  local sum = ix + iz
+  if sum <= 0 then return nil end
+  return math.sqrt(sum)
 end
 
 --- dopQuality(pdop, uere) -> { quality (0..1), errorEst (blocks), pdop }. Maps dilution to a

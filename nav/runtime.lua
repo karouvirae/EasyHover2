@@ -72,9 +72,20 @@ function R:computeFix(now)
   if not pos then return nil, grade end
   -- Trust the fix only if the constellation is valid AND well-conditioned AT this position: a
   -- distant/clustered constellation grades usable but has huge dilution, so quality must reflect
-  -- the GDOP, not just host count (the in-game "q 1.00 but 11 blocks off" bug).
-  local dq = geometry.dopQuality(geometry.pdop(positions, pos))
-  local quality = grade.usable and dq.quality or 0.0
+  -- the GDOP, not just host count (the in-game "q 1.00 but 11 blocks off" bug). We grade on
+  -- HORIZONTAL dilution (HDOP), not 3D PDOP: MC beacons all sit near build height, so vertical
+  -- dilution is irreducibly huge and would falsely read POOR even with a sub-block horizontal fix
+  -- (the "wide flat spread reads ~40 blk" bug). The craft navigates horizontally; altitude comes
+  -- from baro. See nav/lib/geometry.lua:hdop.
+  local dq = geometry.dopQuality(geometry.hdop(positions, pos))
+  -- Grade quality on HORIZONTAL geometry + host count only -- NOT grade.usable. geometry.grade()
+  -- flags a near-coplanar constellation (all beacons near build height) as unusable for CC
+  -- gps.locate()'s 3D mirror rule, but EH2 trilaterates real slant ranges and still nails the
+  -- horizontal fix, so coplanarity must not zero horizontal quality (the "wide flat spread reads
+  -- POOR ~40 blk" bug). Horizontal degeneracy is still caught: geometry.hdop() -> nil ->
+  -- dopQuality.quality 0. Vertical/gpsAlt trust is a separate Batch-B concern.
+  local enoughHosts = (grade.usableHosts or 0) >= geometry.REQUIRED_HOSTS
+  local quality = enoughHosts and dq.quality or 0.0
   return fix.make(pos, { age = maxAge, source = "gps", nBeacons = #obs,
     quality = quality, errorEst = dq.errorEst }), grade
 end

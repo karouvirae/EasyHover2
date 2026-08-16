@@ -78,9 +78,9 @@
         },
         {
           ["dst"] = "nav/lib/geometry.lua",
-          ["size"] = 2150,
+          ["size"] = 2374,
           ["src"] = "dist/nav/lib/geometry.lua",
-          ["sum"] = "e6a6e9a7",
+          ["sum"] = "12af25fb",
         },
         {
           ["dst"] = "startup.lua",
@@ -502,9 +502,9 @@
         },
         {
           ["dst"] = "nav/lib/geometry.lua",
-          ["size"] = 2150,
+          ["size"] = 2374,
           ["src"] = "dist/nav/lib/geometry.lua",
-          ["sum"] = "e6a6e9a7",
+          ["sum"] = "12af25fb",
         },
         {
           ["dst"] = "nav/lib/heading.lua",
@@ -520,9 +520,9 @@
         },
         {
           ["dst"] = "nav/runtime.lua",
-          ["size"] = 2103,
+          ["size"] = 2143,
           ["src"] = "dist/nav/runtime.lua",
-          ["sum"] = "a767cd79",
+          ["sum"] = "9f50e2a9",
         },
         {
           ["dst"] = "nav/ui/config.lua",
@@ -1075,5 +1075,5 @@
     ["size"] = 70702,
     ["sum"] = "3dd2fb64",
   },
-  ["version"] = "051aa3a1",
+  ["version"] = "297cd50e",
 }

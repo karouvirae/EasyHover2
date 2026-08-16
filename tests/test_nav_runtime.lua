@@ -60,6 +60,22 @@ t.test("a distant, clustered constellation yields a LOW-quality fix despite grad
   t.truthy(fix.errorEst and fix.errorEst > 4, "and a large error estimate (" .. tostring(fix.errorEst) .. ")")
 end)
 
+t.test("a wide, flat constellation (far apart, near-equal height) reports HIGH quality -- horizontal geometry is what nav needs", function()
+  local c, now = clockAt(1000)
+  local rt = newRuntime(now, fakeDev(), { getRelativeAngle = function() return 0 end })
+  local B = { { id = "67", x = -7737, y = -54, z = 7579 }, { id = "68", x = 6462, y = 200, z = 6107 },
+              { id = "69", x = 7144, y = 65, z = -7266 }, { id = "70", x = -7210, y = 64, z = -7260 } }
+  local target = { x = 824, y = 86, z = 2922 }
+  for _, b in ipairs(B) do
+    local dx, dy, dz = target.x - b.x, target.y - b.y, target.z - b.z
+    rt:onModemMessage(65000, 65000, gpsproto.encode(b), math.sqrt(dx * dx + dy * dy + dz * dz))
+  end
+  local fix = rt:computeFix()
+  t.truthy(fix ~= nil, "a fix is produced")
+  t.truthy(fix.quality >= 0.75, "flat-but-wide constellation -> GOOD horizontal quality (" .. tostring(fix.quality) .. ")")
+  t.truthy(fix.errorEst and fix.errorEst < 2, "and a small (sub-2-block) error estimate (" .. tostring(fix.errorEst) .. ")")
+end)
+
 t.test("fewer than 4 beacons yields no fix", function()
   local c, now = clockAt(1000)
   local rt = newRuntime(now, fakeDev(), { getRelativeAngle = function() return 0 end })
