@@ -98,6 +98,52 @@ function M.plan(present)
   return rows
 end
 
+-- ===== M.fmtTime(msEpoch) -> string: format ms epoch timestamp or "--". PURE. =====
+function M.fmtTime(msEpoch)
+  if msEpoch == nil then return "--" end
+  return os.date("%Y-%m-%d %H:%M", math.floor(msEpoch / 1000))
+end
+
+-- ===== M.row(kind, info) -> row table with local-vs-disk relation. PURE. =====
+-- info = { localHas, localMs, diskHas, diskMs, diskValid }
+-- Returns { kind, label, localHas, localMs, diskHas, diskMs, diskValid, rel } where
+-- rel ∈ "newer"|"older"|"same"|"local-only"|"disk-only"|"none"
+function M.row(kind, info)
+  info = info or {}
+
+  -- Compute the relation comparing local vs disk mtime
+  local rel
+  if info.localHas and info.diskHas then
+    -- Both present: compare timestamps (treat missing ms as 0)
+    local localMs = info.localMs or 0
+    local diskMs = info.diskMs or 0
+    if localMs > diskMs then
+      rel = "newer"
+    elseif localMs < diskMs then
+      rel = "older"
+    else
+      rel = "same"
+    end
+  elseif info.localHas then
+    rel = "local-only"
+  elseif info.diskHas then
+    rel = "disk-only"
+  else
+    rel = "none"
+  end
+
+  return {
+    kind = kind,
+    label = M.LABEL[kind],
+    localHas = info.localHas,
+    localMs = info.localMs,
+    diskHas = info.diskHas,
+    diskMs = info.diskMs,
+    diskValid = info.diskValid,
+    rel = rel,
+  }
+end
+
 -- ===== Path helpers: PURE, Basalt/fs-free. diskPath MUST match fcs/boot/loaderui.lua's =====
 -- ===== diskSource byte-for-byte for the 3 FCS kinds: realRead("/" .. mount .. "/" ..
 -- ===== cfgspec.FILES[kind]) -- M.FILE[kind] equals cfgspec.FILES[kind] for those three, so this

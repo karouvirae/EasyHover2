@@ -438,4 +438,18 @@ t.test("validateKind uses cfgspec for FCS kinds and table-shape for uicfg", func
   t.eq(M.validateKind("devbind", { thrusters = {} }), false)  -- missing sensors
 end)
 
+-- ===== Task 10: fmtTime + row =====
+
+t.test("fmtTime formats ms epoch and handles nil", function()
+  t.eq(M.fmtTime(nil), "--")
+  t.truthy(#M.fmtTime(1000000000000) >= 10, "formatted")
+end)
+t.test("row computes the local-vs-disk relation", function()
+  t.eq(M.row("tuning", { localHas=true, localMs=200, diskHas=true, diskMs=100, diskValid=true }).rel, "newer")
+  t.eq(M.row("tuning", { localHas=true, localMs=100, diskHas=true, diskMs=200, diskValid=true }).rel, "older")
+  t.eq(M.row("tuning", { localHas=true, diskHas=false }).rel, "local-only")
+  t.eq(M.row("tuning", { localHas=false, diskHas=true, diskValid=true }).rel, "disk-only")
+  t.eq(M.row("tuning", { localHas=false, diskHas=false }).rel, "none")
+end)
+
 return true
