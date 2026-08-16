@@ -17,6 +17,7 @@ function M.defaults()
     -- cake in a superheated engine lasts ~5m30s on this server, so feed one every 5m30s.
     -- Adjusted in the UI in +/-15s steps; pulseMs (funnel-open time) stays in ms.
     engine = { pulseMs = 250, intervalMs = 330000, invert = false, kickstart = true, masterDefault = false },
+    sens = { source = "FCS" },
   }
 end
 
