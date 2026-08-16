@@ -676,4 +676,61 @@ t.test("T12 M.build: constructs headless with injected in-memory deps, apply+ren
   t.truthy(ok3, "basalt.update should not error: " .. tostring(err3))
 end)
 
+-- ===== Regression: export-row gating must not fall through to the disk clause when a kind is =====
+-- ===== absent locally but valid on disk (Lua `and/or` precedence bug on the old
+-- `(dir=="export") and info.localHas or (info.diskHas and info.diskValid)` line let a
+-- disk-valid/local-absent kind's EXPORT row wrongly enable -- CONFIRM would then no-op and
+-- show FAILED, since M._exportKind requires a local source). Mirrors the EXPORT-drilldown
+-- integration test's navigation (region:push / region.built.<screen>.handle.elements).
+
+t.test("M.build: export row stays DISABLED for a kind that is valid on disk but absent locally "
+  .. "(import row for the same kind stays ENABLED)", function()
+  local basalt = BasaltApp.ensureBasalt()
+  local frame = basalt.createFrame()
+  local nav = Nav.new("bitconfig")
+
+  -- tuning: valid-serialised on disk, no local file at all.
+  local files = {
+    ["/disk/eh2_tuning.tbl"] = textutils.serialise({ gains = {}, caps = {}, feel = {} }),
+  }
+  local fakeDrive = {
+    isDiskPresent = function() return true end,
+    getMountPath  = function() return "disk" end,
+    getDiskLabel  = function() return "CART1" end,
+  }
+  local deps = {
+    find   = function(kind) if kind == "drive" then return fakeDrive end return nil end,
+    exists = function(p) return files[p] ~= nil end,
+    read   = function(p) return files[p] end,
+    write  = function(p, body) files[p] = body end,
+    delete = function(p) files[p] = nil end,
+    move   = function(from, to) files[to] = files[from]; files[from] = nil end,
+    attributes = function(p) return files[p] and { modified = 1 } or nil end,
+    backup = function(p) end,
+  }
+
+  local h = M.build(basalt, frame, nil, nav, deps)
+  local region = h.elements.region
+
+  region:push("export")
+  h.apply({})
+  t.eq(region:top(), "export")
+
+  local exportEls = region.built.export.handle.elements
+  -- tuning is KINDS[3]: diskValid true, localHas false -> export row MUST be disabled.
+  t.eq(exportEls.kindRows[3].buttons[1].button:getEnabled(), false,
+    "tuning export row disabled: valid on disk but absent locally")
+
+  region:pop()
+  region:push("import")
+  h.apply({})
+  t.eq(region:top(), "import")
+
+  local importEls = region.built.import.handle.elements
+  -- Same kind's IMPORT row must stay enabled (diskHas and diskValid) -- pins the fix didn't
+  -- regress the already-correct import branch.
+  t.eq(importEls.kindRows[3].buttons[1].button:getEnabled(), true,
+    "tuning import row enabled: valid on disk")
+end)
+
 return true

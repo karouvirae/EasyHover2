@@ -484,7 +484,7 @@ function M.build(basalt, frame, runtime, nav, deps)
     for _, kind in ipairs(M.KINDS) do
       if scanKindResults[kind].diskValid then n = n + 1 end
     end
-    return "disk: " .. tostring(drive.label) .. " . valid " .. n .. "/4"
+    return "disk: " .. tostring(drive.label) .. " . valid " .. n .. "/" .. #M.KINDS
   end
 
   -- ===== "top" screen: disk summary + EXPORT/IMPORT/REFRESH + "<" =====
@@ -553,7 +553,9 @@ function M.build(basalt, frame, runtime, nav, deps)
           local info = scanKindResults[kind]
           local row = M.row(kind, info)
           kindRows[i].buttons[1].button:setText(clampText(rowSelectorText(row), fiw))
-          local enabled = (dir == "export") and info.localHas or (info.diskHas and info.diskValid)
+          local enabled
+          if dir == "export" then enabled = info.localHas
+          else enabled = info.diskHas and info.diskValid end
           kindRows[i].setState(1, enabled and "off" or "disabled")
           detailLabels[i]:setText(clampText(
             "L:" .. M.fmtTime(info.localMs) .. " D:" .. M.fmtTime(info.diskMs), fiw))
