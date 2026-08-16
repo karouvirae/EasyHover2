@@ -33,7 +33,7 @@ function M.build(basalt, frame, runtime, nav)
 
   -- ---- Attitude box (center): static horizon layer + moving craft rows ----
   local boxTop = tapeY + 3
-  local boxBot = h - 2                        -- leave the bottom 2 rows for ALT/SPD
+  local boxBot = math.max(boxTop + 2, h - 2)  -- leave the bottom 2 rows for ALT/SPD (never invert on a tiny frame)
   local boxH = math.max(3, boxBot - boxTop + 1)
   local horizonStr = Horizon.row(w, M.HORIZON_STYLE)
   local midRow = math.ceil(boxH / 2)          -- horizon at mid-height of the box
@@ -85,9 +85,16 @@ function M.build(basalt, frame, runtime, nav)
     end
     for r = 1, boxH do rowLabels[r]:setText(composeRow(r, byRow)) end
 
-    -- Readouts.
-    altLabel:setText(Readout.alt(state))
-    spdLabel:setText(Readout.spd(state))
+    -- Readouts. The live cockpit cadence state (ui/basalt/app.lua:M.buildState) names barometric
+    -- altitude `altitude`, while the Batch-A instrument contract calls it `baroAlt`. Bridge the two
+    -- HERE at the page seam so baro-ALT reads live in-game while the pure Readout view-model stays
+    -- contract-driven. A future Batch-B feed that sets `baroAlt` directly takes precedence.
+    local rstate = state
+    if state.baroAlt == nil and state.altitude ~= nil then
+      rstate = setmetatable({ baroAlt = state.altitude }, { __index = state })
+    end
+    altLabel:setText(Readout.alt(rstate))
+    spdLabel:setText(Readout.spd(rstate))
   end
 
   return {

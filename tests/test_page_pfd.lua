@@ -39,6 +39,14 @@ t.test("build + apply render without error and reflect state text", function()
   page.apply({ heading = 0 })
   t.eq(page.elements.lubberLabel:getText(), "000", "lubber updates on repaint")
 
+  -- SEAM: the LIVE cockpit cadence state names baro altitude `altitude` (ui/basalt/app.lua
+  -- M.buildState), not `baroAlt`. The page must bridge it so baro-ALT reads live in-game.
+  page.apply({ heading = 0, altitude = 87.4 })
+  t.eq(page.elements.altLabel:getText(), "ALT 87Baro", "live `altitude` field drives baro-ALT")
+  -- an explicit contract `baroAlt` still wins if a future Batch-B feed sets it
+  page.apply({ heading = 0, altitude = 87.4, baroAlt = 42.0 })
+  t.eq(page.elements.altLabel:getText(), "ALT 42Baro", "explicit baroAlt takes precedence")
+
   -- apply(nil) is safe (idempotent, nil-safe)
   local ok0 = pcall(function() page.apply(nil) end)
   t.truthy(ok0, "apply(nil) does not error")

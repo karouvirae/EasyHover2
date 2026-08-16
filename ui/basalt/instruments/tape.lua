@@ -56,7 +56,9 @@ function M.row(heading, w, cfg)
     local ang = M.norm360(a)
     local label = CARD[ang] or string.format("%02d", round(ang / 10) % 36)
     local col = lub + round(M.signedDelta(a, heading) / cfg.degPerCell)
-    place(cells, col - math.floor((#label - 1) / 2), label)   -- center the label on its column
+    -- Center the label on its column: a 1-char cardinal lands exactly on `col`; a 2-digit tens
+    -- label straddles col-1..col so it reads as centred rather than starting at the column.
+    place(cells, col - math.floor(#label / 2), label)
   end
 
   return table.concat(cells)
