@@ -1,0 +1,1 @@
+local a={}function a.attitude(b,c)c=c or{}if type(b)~="table"then b={}end;local d=c.gimbalScale or 1;local e=(c.signPitch or 1)*d*(b[c.gimbalPitchIdx or 1]or 0)local f=(c.signRoll or 1)*d*(b[c.gimbalRollIdx or 2]or 0)return e,f end;function a.surge(g,c)c=c or{}return(c.signVelMedial or 1)*(type(g)=="number"and g or 0)end;return a

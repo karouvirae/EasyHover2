@@ -526,9 +526,9 @@
         },
         {
           ["dst"] = "nav/runtime.lua",
-          ["size"] = 6269,
+          ["size"] = 6911,
           ["src"] = "nav/runtime.lua",
-          ["sum"] = "41a2e904",
+          ["sum"] = "decbeeae",
         },
         {
           ["dst"] = "nav/ui/config.lua",
@@ -862,9 +862,9 @@
         },
         {
           ["dst"] = "ui/basalt/app.lua",
-          ["size"] = 27977,
+          ["size"] = 30539,
           ["src"] = "ui/basalt/app.lua",
-          ["sum"] = "310b0bf0",
+          ["sum"] = "7ca4db05",
         },
         {
           ["dst"] = "ui/basalt/bitconfig/dtc.lua",
@@ -880,9 +880,9 @@
         },
         {
           ["dst"] = "ui/basalt/bitconfig/hub.lua",
-          ["size"] = 3779,
+          ["size"] = 3827,
           ["src"] = "ui/basalt/bitconfig/hub.lua",
-          ["sum"] = "61fb2839",
+          ["sum"] = "e10323ce",
         },
         {
           ["dst"] = "ui/basalt/bitconfig/mdb.lua",
@@ -895,6 +895,12 @@
           ["size"] = 32245,
           ["src"] = "ui/basalt/bitconfig/senscal.lua",
           ["sum"] = "d224dfa6",
+        },
+        {
+          ["dst"] = "ui/basalt/bitconfig/senssource.lua",
+          ["size"] = 13770,
+          ["src"] = "ui/basalt/bitconfig/senssource.lua",
+          ["sum"] = "b1d36fa2",
         },
         {
           ["dst"] = "ui/basalt/bitconfig/tuning.lua",
@@ -916,9 +922,9 @@
         },
         {
           ["dst"] = "ui/basalt/cadence.lua",
-          ["size"] = 1519,
+          ["size"] = 1652,
           ["src"] = "ui/basalt/cadence.lua",
-          ["sum"] = "e5634660",
+          ["sum"] = "c7ecd624",
         },
         {
           ["dst"] = "ui/basalt/configkit.lua",
@@ -943,6 +949,12 @@
           ["size"] = 1111,
           ["src"] = "ui/basalt/instruments/readout.lua",
           ["sum"] = "bc973dd0",
+        },
+        {
+          ["dst"] = "ui/basalt/instruments/sensread.lua",
+          ["size"] = 919,
+          ["src"] = "ui/basalt/instruments/sensread.lua",
+          ["sum"] = "8c9785d1",
         },
         {
           ["dst"] = "ui/basalt/instruments/tape.lua",
@@ -1029,6 +1041,12 @@
           ["sum"] = "3850ebdc",
         },
         {
+          ["dst"] = "ui/basalt/senssource.lua",
+          ["size"] = 2591,
+          ["src"] = "ui/basalt/senssource.lua",
+          ["sum"] = "43dc45b3",
+        },
+        {
           ["dst"] = "ui/basalt/switchbtn.lua",
           ["size"] = 1584,
           ["src"] = "ui/basalt/switchbtn.lua",
@@ -1042,9 +1060,9 @@
         },
         {
           ["dst"] = "ui/config.lua",
-          ["size"] = 2415,
+          ["size"] = 2446,
           ["src"] = "ui/config.lua",
-          ["sum"] = "8e897ad0",
+          ["sum"] = "c13621ce",
         },
         {
           ["dst"] = "ui/detect.lua",
@@ -1148,5 +1166,5 @@
     ["size"] = 71382,
     ["sum"] = "b509c1c3",
   },
-  ["version"] = "46687eea",
+  ["version"] = "0a079573",
 }
