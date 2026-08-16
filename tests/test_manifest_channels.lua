@@ -33,3 +33,27 @@ t.test("manifest.lua (min) and manifest-dev.lua (dev) are parallel; basalt ident
     end
   end
 end)
+
+-- fcs and ui roles must back up all 4 of their config files (not just eh2_hw_config.tbl), so
+-- the Suite's backup step actually preserves everything a fresh install would otherwise clobber.
+local function toSet(list)
+  local s = {}
+  for _, v in ipairs(list) do s[v] = true end
+  return s
+end
+
+t.test("fcs and ui roles back up all their config files", function()
+  for _, path in ipairs({ "/manifest.lua", "/manifest-dev.lua" }) do
+    local m = load(path)
+
+    local fcs = toSet(m.roles.fcs.configs)
+    t.eq(#m.roles.fcs.configs, 4, path .. ": fcs has 4 configs")
+    t.truthy(fcs["/eh2_devbind.tbl"] and fcs["/eh2_senscal.tbl"] and fcs["/eh2_tuning.tbl"] and fcs["/eh2_hw_config.tbl"],
+      path .. ": fcs configs are the expected set")
+
+    local ui = toSet(m.roles.ui.configs)
+    t.eq(#m.roles.ui.configs, 4, path .. ": ui has 4 configs")
+    t.truthy(ui["/eh2_devbind.tbl"] and ui["/eh2_senscal.tbl"] and ui["/eh2_tuning.tbl"] and ui["/eh2_ui_config.tbl"],
+      path .. ": ui configs are the expected set")
+  end
+end)

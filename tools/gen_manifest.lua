@@ -52,7 +52,7 @@ local ROLES = {
   fcs = {
     title = "Flight computer", status = "released",
     blurb = "Thrusters, sensors, pilot input, control loops. Boots the flight app.",
-    configs = { "/eh2_hw_config.tbl" }, configModule = CONFIG_MODULE, luaPath = "/",
+    configs = { "/eh2_devbind.tbl", "/eh2_senscal.tbl", "/eh2_tuning.tbl", "/eh2_hw_config.tbl" }, configModule = CONFIG_MODULE, luaPath = "/",
     startup = { src = "launchers/fcs.lua", dst = "startup.lua" },
     roots   = { { src = "launchers/flight.lua", dst = "flight" },
                 { src = "launchers/fcslog.lua", dst = "fcslog" } }, -- + SHARED_DIAG + config module
@@ -61,7 +61,7 @@ local ROLES = {
   ui = {
     title = "Cockpit display", status = "released",
     blurb = "Receives telemetry, renders reported state, sends commands on touch. Boots the cockpit.",
-    configs = { "/eh2_hw_config.tbl" }, configModule = CONFIG_MODULE, luaPath = "/",
+    configs = { "/eh2_devbind.tbl", "/eh2_senscal.tbl", "/eh2_tuning.tbl", "/eh2_ui_config.tbl" }, configModule = CONFIG_MODULE, luaPath = "/",
     startup = { src = "launchers/ui.lua", dst = "startup.lua" },
     roots   = { { src = "launchers/cockpit.lua", dst = "cockpit" } },
     sharedDiag = true,
