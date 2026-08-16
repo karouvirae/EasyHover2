@@ -61,6 +61,12 @@ function M.finish(choices, sources, write)
   return true, assembled
 end
 
+-- True for sources that come from OUTSIDE this computer's own filesystem ("disk"/"ui") --
+-- these overwrite the FCS runtime config from an external source, so the in-game pick flow
+-- confirms with the pilot before proceeding. "own"/"defaults" are local/inert and proceed
+-- silently. Pure: no fs/peripheral/read() -- safe to unit test headless.
+function M.needsConfirm(src) return src == "disk" or src == "ui" end
+
 -- =====================================================================================
 -- In-game only from here down: real fs/peripheral/modem/read() access. NOT headless-tested
 -- (no modem/disk in the CraftOS-PC harness); kept coherent by reading, mirrored against the
@@ -220,14 +226,33 @@ local function closeCfgChannels()
   end
 end
 
--- Prompt for one concern until a valid source is picked; returns the source, or "ABORT" on 'q'.
-local function pickUntilValid(concern)
-  local src = pickSource(concern)
-  while src == nil do
-    print("  invalid choice, try again")
-    src = pickSource(concern)
+-- After a source is picked for a concern, if it's external (M.needsConfirm), ask the pilot
+-- to confirm before it overwrites the FCS runtime config. Loops until a clear Y/N answer;
+-- mirrors confirmBoot's read/lower/y-n idiom.
+local function confirmSource(concern, src)
+  while true do
+    write(LABEL[concern] .. " from " .. src .. " will overwrite the FCS runtime config -- proceed? (Y/N): ")
+    local input = (read() or ""):lower()
+    if input == "y" or input == "yes" then return true end
+    if input == "n" or input == "no" then return false end
+    print("  please answer Y or N")
   end
-  return src
+end
+
+-- Prompt for one concern until a valid source is picked; returns the source, or "ABORT" on 'q'.
+-- External sources ("disk"/"ui") are confirmed with the pilot before being accepted -- on N,
+-- re-pick the same concern; "own"/"defaults" proceed silently.
+local function pickUntilValid(concern)
+  while true do
+    local src = pickSource(concern)
+    while src == nil do
+      print("  invalid choice, try again")
+      src = pickSource(concern)
+    end
+    if src == "ABORT" then return src end
+    if not M.needsConfirm(src) then return src end
+    if confirmSource(concern, src) then return src end
+  end
 end
 
 -- After a successful write, ask the pilot whether to boot the FCS now. Loops until a clear

@@ -45,3 +45,10 @@ t.test("finish surfaces loader.resolve failures without writing anything", funct
   t.truthy(err)
   t.eq(next(written), nil, "no file written on a failed resolve")
 end)
+
+t.test("needsConfirm is true only for external sources", function()
+  t.eq(M.needsConfirm("disk"), true)
+  t.eq(M.needsConfirm("ui"), true)
+  t.eq(M.needsConfirm("own"), false)
+  t.eq(M.needsConfirm("defaults"), false)
+end)
