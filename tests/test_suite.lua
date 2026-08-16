@@ -210,6 +210,16 @@ t.test("backup keeps exactly one (latest) copy", function()
   fs.delete(src); fs.delete(root)
 end)
 
+t.test("backupConfig keeps one latest copy PER FILE (does not wipe siblings)", function()
+  local a, b = "/eh2_devbind.tbl", "/eh2_senscal.tbl"
+  local fa = fs.open(a, "w"); fa.write("A"); fa.close()
+  local fb = fs.open(b, "w"); fb.write("B"); fb.close()
+  Suite.backupConfig(a, "v"); Suite.backupConfig(b, "v")
+  t.truthy(fs.exists("/easyhover2_backup/eh2_devbind.tbl"), "first survives")
+  t.truthy(fs.exists("/easyhover2_backup/eh2_senscal.tbl"), "second present")
+  fs.delete(a); fs.delete(b); fs.delete("/easyhover2_backup")
+end)
+
 t.test("extendConfig uses the manifest's configModule (additive)", function()
   local path = "/eh2_hw_config.tbl"
   local Config = require("fcs.io.config")

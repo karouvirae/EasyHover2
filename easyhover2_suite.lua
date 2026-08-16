@@ -335,14 +335,15 @@ local function timestamp()
   return tostring(os.epoch("utc"))
 end
 
--- Single-latest backup: the backup folder holds exactly one copy. Each call clears the folder
--- first, then writes the current file's bytes. Copy-never-move, so a failed run costs nothing.
+-- Single-latest PER FILE: the backup folder holds one copy of each distinct file. Each call
+-- clears only THAT file's prior backup, so multiple configs coexist. Copy-never-move, so a
+-- failed run costs nothing.
 function Suite.backupConfig(path, version)
   if not fs.exists(path) or fs.isDir(path) then return nil end
-  if fs.exists(BACKUP_ROOT) then fs.delete(BACKUP_ROOT) end
-  fs.makeDir(BACKUP_ROOT)
+  if not fs.exists(BACKUP_ROOT) then fs.makeDir(BACKUP_ROOT) end
   local name = path:gsub("^/", ""):gsub("/", "_")
   local target = ("%s/%s"):format(BACKUP_ROOT, name)
+  if fs.exists(target) then fs.delete(target) end
   local f = fs.open(path, "r"); local body = f.readAll(); f.close()
   local w = fs.open(target, "w"); w.write(body or ""); w.close()
   backedUp[#backedUp + 1] = target
