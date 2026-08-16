@@ -55,4 +55,35 @@ t.test("build + apply render without error and reflect state text", function()
   t.truthy(ok, "basalt.update should not error: " .. tostring(err))
 end)
 
+t.test("buildState surfaces the PFD sensor + gps fields from runtime.state/runtime.nav", function()
+  local BasaltApp = require("ui.basalt.app")
+  local runtime = {
+    rx = { latest = function() return { heading = 12, altitude = 80 } end },
+    engine = { status = function() return {} end },
+    hbRx = { up = function() return true end },
+    state = { pitch = 4, roll = -2, sas = 6, pumpFrac = 0, tankFrac = 0 },
+    nav = { gpsAlt = 91, tas = 7, fixOk = true },
+    uiRev = 1,
+  }
+  local s = BasaltApp.buildState(runtime, 1000)
+  t.eq(s.pitch, 4); t.eq(s.roll, -2); t.eq(s.sas, 6)
+  t.eq(s.gpsAlt, 91); t.eq(s.tas, 7); t.eq(s.gpsFixOk, true)
+end)
+
+t.test("buildState is nil-safe when runtime.state fields and runtime.nav are all nil", function()
+  local BasaltApp = require("ui.basalt.app")
+  local runtime = {
+    rx = { latest = function() return {} end },
+    engine = { status = function() return {} end },
+    hbRx = { up = function() return true end },
+    state = { pumpFrac = 0, tankFrac = 0 },
+    nav = {},
+    uiRev = 1,
+  }
+  local ok, s = pcall(BasaltApp.buildState, runtime, 1000)
+  t.truthy(ok, "buildState should not error when pitch/roll/sas/gpsAlt/tas/gpsFixOk are all nil")
+  t.eq(s.pitch, nil); t.eq(s.roll, nil); t.eq(s.sas, nil)
+  t.eq(s.gpsAlt, nil); t.eq(s.tas, nil); t.eq(s.gpsFixOk, nil)
+end)
+
 return true

@@ -400,6 +400,7 @@ function M.buildRuntime(deps)
     isRelayReady = isRelayReady,
     uiRev = 0,
     state = { pumpFrac = 0, tankFrac = 0, pumpAmount = 0, tankMb = 0 },
+    nav = {},  -- PFD nav fields (gpsAlt/tas/fixOk); Task 7's nav listener populates this later
     CH = CH,
     CFG_CH = CFG_CH,
   }
@@ -470,6 +471,12 @@ function M.buildState(runtime, now)
     tankFrac     = runtime.state.tankFrac,
     pumpAmount   = runtime.state.pumpAmount,   -- raw solid count (merged page: % vs manual max)
     tankMb       = runtime.state.tankMb,       -- raw liquid mB (merged page: shown raw, gauge vs manual max)
+    pitch        = runtime.state.pitch,        -- PFD: attitude (Task 5's poll loop writes these)
+    roll         = runtime.state.roll,
+    sas          = runtime.state.sas,
+    gpsAlt       = runtime.nav and runtime.nav.gpsAlt or nil,  -- PFD: nav (Task 7's listener writes runtime.nav)
+    tas          = runtime.nav and runtime.nav.tas or nil,
+    gpsFixOk     = runtime.nav and runtime.nav.fixOk or nil,
     uiRev        = runtime.uiRev,
   }
 end
