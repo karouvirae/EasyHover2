@@ -1615,6 +1615,7 @@ end
 
 -- Engine surface: exposed so SuiteX front-ends can reuse the Suite's installation engine.
 Suite.fetch = fetch
+Suite.writeRelease = writeRelease   -- guarded release write, reused by SuiteX's standalone tool install
 Suite.readFile = readFile
 Suite.STATE_FILE = STATE_FILE
 Suite.CHANNEL_FILE = CHANNEL_FILE

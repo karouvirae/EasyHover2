@@ -17,6 +17,7 @@ function M.defaults()
     intervalMs = 1000,      -- broadcast period; 1 Hz default, also the floor (see clampInterval)
     modemSide = nil,        -- ender modem side/name
     enabled = true,         -- broadcasting on/off ([E] on the console)
+    updateToken = nil,      -- shared secret for remote update; unset = beacon ignores update commands
   }
 end
 

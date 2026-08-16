@@ -44,16 +44,22 @@ t.test("render reports an all-good self-check and a no-peers state distinctly", 
   t.truthy(rowWith(none, "no peers"), "zero peers is not dressed up as OK")
 end)
 
-t.test("render grades the constellation with a host count and USABLE/UNUSABLE", function()
-  local usable = Console.render({ id = "A", pos = { x = 0, y = 0, z = 0 }, enabled = true },
-    { constellation = { usable = true, usableHosts = 4, reasons = {} } })
-  local c = rowWith(usable, "constellation")
-  t.truthy(c and c.text:find("4 of 4", 1, true) and c.text:find("USABLE", 1, true))
+t.test("render grades the constellation HDOP-honestly (GOOD/POOR/waiting), not USABLE/coplanar", function()
+  -- A wide, flat spread is GOOD even though gps.locate() would call it "coplanar" -- only horizontal
+  -- dilution matters for a hovercraft, so the beacon grades on selfQuality (HDOP), like the NAV.
+  local good = Console.render({ id = "A", pos = { x = 0, y = 0, z = 0 }, enabled = true },
+    { selfQuality = { hosts = 4, quality = 1.0, errorEst = 0.7 } })
+  local c = rowWith(good, "constellation")
+  t.truthy(c and c.text:find("GOOD", 1, true) and c.text:find("blk", 1, true), "GOOD ~N blk: " .. tostring(c and c.text))
   t.eq(c.tone, "good")
-  local bad = Console.render({ id = "A", pos = { x = 0, y = 0, z = 0 }, enabled = true },
-    { constellation = { usable = false, usableHosts = 2, reasons = { "only 2 usable host(s); need 4" } } })
-  t.truthy(rowWith(bad, "UNUSABLE"))
-  t.truthy(rowWith(bad, "need 4"), "the reason is shown so the pilot knows what to fix")
+  local poor = Console.render({ id = "A", pos = { x = 0, y = 0, z = 0 }, enabled = true },
+    { selfQuality = { hosts = 4, quality = 0.1, errorEst = 9 } })
+  local p = rowWith(poor, "constellation")
+  t.truthy(p and p.text:find("POOR", 1, true), "poor geometry called out: " .. tostring(p and p.text))
+  t.eq(p.tone, "bad")
+  local wait = rowWith(Console.render({ id = "A", pos = { x = 0, y = 0, z = 0 }, enabled = true },
+    { selfQuality = { hosts = 2 } }), "constellation")
+  t.truthy(wait and wait.text:find("waiting", 1, true), "fewer than 4 hosts -> waiting: " .. tostring(wait and wait.text))
 end)
 
 t.test("render lists this beacon and its heard peers", function()
@@ -69,6 +75,23 @@ t.test("footer reflects the enabled state as YES/NO text", function()
   local off = Console.render({ id = "A", pos = {}, enabled = false }, {})
   t.truthy(rowWith(on.footer, "YES"))
   t.truthy(rowWith(off.footer, "NO"))
+end)
+
+t.test("[U] maps to setToken; footer shows SET/unset and never the token value", function()
+  t.eq(Console.actionFor("u"), "setToken")
+  local unset = Console.render({ id = "b1", updateToken = nil }, {})
+  local set   = Console.render({ id = "b1", updateToken = "SEKRET7" }, {})
+  t.truthy(rowWith(unset.footer, "update token: unset"), "unset shown")
+  t.truthy(rowWith(set.footer, "update token: SET"), "SET shown, not the value")
+  for _, e in ipairs(set.footer) do
+    t.truthy(not e.text:find("SEKRET7", 1, true), "the token value is never echoed in the footer")
+  end
+end)
+
+t.test("readToken trims whitespace and treats blank as nil (keep/cancel)", function()
+  t.eq(Console.readToken(function() return "  hey  " end), "hey")
+  t.eq(Console.readToken(function() return "   " end), nil)
+  t.eq(Console.readToken(function() return nil end), nil)
 end)
 
 t.test("readPosition takes three numbers from an injected reader, or refuses a bad one", function()

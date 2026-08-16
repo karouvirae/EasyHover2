@@ -33,6 +33,17 @@ function SuiteX.buttonStates(plan)
     verify = "active", repair = "active", switch = "active", tools = "active", quit = "active" }
 end
 
+--- toolInstallPlan(opts) -> { install, channel }. The Advanced-tab "Beacon updater" checkbox gates
+--- installing the standalone updater tool alongside the role; the dev checkbox picks the variant
+--- (off -> minified, on -> readable source), mirroring the role install channel.
+function SuiteX.toolInstallPlan(opts)
+  opts = opts or {}
+  return {
+    install = opts.toolChecked == true,
+    channel = opts.devChecked and "dev" or "min",
+  }
+end
+
 --- The primary-button label for a plan: fresh Install, Update, or Repair; a neutral "Go" while
 --- the plan is still unknown (mid-check) or the install is already current.
 function SuiteX.goLabel(plan)
@@ -302,6 +313,9 @@ local function applyTheme(ctx)
   ui.advancedLabel:setForeground(pal.dim)
   ui.devCheck:setBackground(pal.bg); ui.devCheck:setForeground(pal.text)
   ui.devCheckLabel:setForeground(pal.text)
+  ui.toolLabel:setForeground(pal.dim)
+  ui.beaconUpdCheck:setBackground(pal.bg); ui.beaconUpdCheck:setForeground(pal.text)
+  ui.beaconUpdCheckLabel:setForeground(pal.text)
   paintTabButtons(ctx)
   refreshStatus(ctx)
   -- Repaint the palette even mid-op, but don't let a theme toggle re-enable the action buttons
@@ -497,6 +511,40 @@ local function runEngineOp(ctx, fn)
   end)
 end
 
+-- Install the standalone Beacon-updater tool if its Advanced-tab checkbox is ticked. Reuses the
+-- SAME engine primitives the role install uses -- Suite.fetch (cache-busted + retry), Suite.checksum
+-- (verify BEFORE write), Suite.writeRelease (guarded write) -- over the current-channel manifest's
+-- tools.beaconupdate closure. Runs INSIDE runEngineOp's coroutine (Suite.sink is live, so logLine
+-- shows progress) right after a successful role install. NOTE: a later role repair/switch may prune
+-- the tool's files (they are not part of that role's manifest); reinstall the tool if that happens.
+local function installToolIfRequested(ctx)
+  local plan = SuiteX.toolInstallPlan({
+    toolChecked = ctx.installBeaconUpdater, devChecked = (ctx.channel == "dev"),
+  })
+  if not plan.install then return end
+  local tool = ctx.manifest.tools and ctx.manifest.tools.beaconupdate
+  if not tool or not tool.files then
+    logLine(ctx, "beacon updater not in this manifest -- skipped", ctx.pal.error)
+    return
+  end
+  logLine(ctx, ("installing tool: %s (%d file(s))..."):format(tool.title or "beaconupdate", #tool.files), ctx.pal.install)
+  for _, entry in ipairs(tool.files) do
+    local content, err = ctx.Suite.fetch(("%s/%s"):format(ctx.Suite.base, entry.src))
+    if not content then
+      logLine(ctx, "  fetch failed: " .. entry.src .. " (" .. tostring(err) .. ")", ctx.pal.error); return
+    end
+    if #content ~= entry.size or ctx.Suite.checksum(content) ~= entry.sum then
+      logLine(ctx, "  arrived corrupt: " .. entry.src, ctx.pal.error); return
+    end
+    local final = "/" .. entry.dst
+    if fs.exists(final) then fs.delete(final) end
+    if not ctx.Suite.writeRelease(final, content) then
+      logLine(ctx, "  write failed: " .. final .. " (disk full?)", ctx.pal.error); return
+    end
+  end
+  logLine(ctx, "beacon updater installed -- run 'beaconupdate' to push updates to the beacons", ctx.pal.ok)
+end
+
 --- Builds the whole Basalt element tree once. Elements are never rebuilt after this; every
 --- update (theme toggle, status refresh, progress) mutates the same instances via their setters.
 local function buildUI(ctx)
@@ -607,14 +655,27 @@ local function buildUI(ctx)
     end
   end)
 
+  -- Advanced tab: optionally install the standalone Beacon-updater tool alongside the role. Ticked,
+  -- a successful install/update also lays down `beaconupdate` (+ its closure) so this PC can push
+  -- "update + reboot" to every beacon over the GPS channel. Just a flag here; installToolIfRequested
+  -- does the work after the role install, in the same engine op.
+  ui.toolLabel = ui.frameAdv:addLabel({ x = 2, y = 5, text = "Optional tools", foreground = pal.dim })
+  ui.beaconUpdCheck = ui.frameAdv:addCheckBox({ x = 2, y = 6, checked = (ctx.installBeaconUpdater == true),
+    text = " ", checkedText = "x", background = pal.bg, foreground = pal.text })
+  ui.beaconUpdCheckLabel = ui.frameAdv:addLabel({ x = 6, y = 6,
+    text = "Beacon updater (push updates to beacons)", foreground = pal.text })
+  ui.beaconUpdCheck:onChange("checked", function(_, checked) ctx.installBeaconUpdater = checked end)
+
   ui.buttons.go:onClick(function()
     -- Defense in depth: setButtonsEnabled()/ctx.opInFlight already keep this disabled during an
     -- op, but a stray click that lands before a repaint catches up must still be a no-op rather
     -- than launching a second concurrent performPlan.
     if ctx.opInFlight or not ctx.spec or ctx.plan == "current" then return end
     runEngineOp(ctx, function()
-      return ctx.Suite.performPlan(ctx.Suite.base, ctx.manifest, ctx.spec, ctx.role, ctx.plan,
+      local r = ctx.Suite.performPlan(ctx.Suite.base, ctx.manifest, ctx.spec, ctx.role, ctx.plan,
         ctx.report and ctx.report.present == 0)
+      installToolIfRequested(ctx)   -- only if its Advanced-tab checkbox is ticked
+      return r
     end)
   end)
   ui.buttons.verify:onClick(function()

@@ -10,7 +10,7 @@
 local Console = {}
 
 --- A keypress asks for an action; the caller performs the side effect (keeps this testable).
-Console.ACTIONS = { p = "setPosition", e = "toggleEnabled", v = "verify", q = "quit" }
+Console.ACTIONS = { p = "setPosition", e = "toggleEnabled", v = "verify", u = "setToken", q = "quit" }
 
 function Console.actionFor(key)
   if type(key) ~= "string" then return nil end
@@ -74,13 +74,19 @@ function Console.render(cfg, model, width)
 
   row(("-"):rep(width), "dim")
 
-  -- the constellation
-  local con = model.constellation or { usable = false, usableHosts = 0, reasons = {} }
-  row(("constellation  %d of 4   %s"):format(con.usableHosts or 0, con.usable and "USABLE" or "UNUSABLE"),
-    con.usable and "good" or "bad")
-  local reasonLines = {}
-  for _, reason in ipairs(con.reasons or {}) do wrap(reason, width, "  ! ", reasonLines) end
-  for _, line in ipairs(reasonLines) do row(line, "bad") end
+  -- the constellation, graded HONESTLY on HORIZONTAL geometry (matches the NAV): a wide, flat spread
+  -- is GOOD even though gps.locate() would call it "coplanar" -- only horizontal dilution matters for
+  -- a hovercraft. Under 4 hosts we are still gathering peers, so say "waiting", not "UNUSABLE".
+  local sq = model.selfQuality or { hosts = 0 }
+  if (sq.hosts or 0) < 4 then
+    row(("constellation  %d of 4   waiting"):format(sq.hosts or 0), "dim")
+  else
+    local q = sq.quality or 0
+    local label = (q >= 0.75 and "GOOD") or (q >= 0.4 and "FAIR") or "POOR"
+    local err = sq.errorEst and ("  ~%d blk"):format(math.floor(sq.errorEst + 0.5)) or ""
+    row(("constellation  %d of 4   %s%s"):format(sq.hosts, label, err),
+      (q >= 0.75 and "good") or (q >= 0.4 and "normal") or "bad")
+  end
 
   -- the 4-beacon list: this beacon, then heard peers (sorted for a stable screen)
   if validPos(cfg.pos) then
@@ -112,6 +118,8 @@ function Console.render(cfg, model, width)
     { text = ("[E] enabled: %s"):format(cfg.enabled ~= false and "YES" or "NO"),
       tone = cfg.enabled ~= false and "good" or "bad" },
     { text = "[V] verify now", tone = "normal" },
+    { text = ("[U] update token: %s"):format(cfg.updateToken and "SET" or "unset"),
+      tone = cfg.updateToken and "good" or "dim" },
     { text = "[Q] quit to shell", tone = "dim" },
   }
   return rows
@@ -169,6 +177,15 @@ function Console.readPosition(reader, current)
     end
   end
   return wanted
+end
+
+--- Read one line as the shared update secret. `reader` is injected (production passes `read`). Blank
+--- (after trimming whitespace) returns nil = keep/cancel; the caller never echoes the value back to
+--- the screen (only SET/unset is ever shown).
+function Console.readToken(reader)
+  local text = tostring(reader() or ""):gsub("%s", "")
+  if text == "" then return nil end
+  return text
 end
 
 --- The header shown above the coordinate prompts.

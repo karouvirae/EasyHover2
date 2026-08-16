@@ -37,3 +37,8 @@ t.test("save then load round-trips the saved (pre-merge) table", function()
   t.eq(loaded.pos.z, 30)
   fs.delete(path)
 end)
+
+t.test("a saved updateToken is preserved through withDefaults; absent stays nil (fail-closed)", function()
+  t.eq(C.withDefaults({ updateToken = "abc" }).updateToken, "abc", "saved token kept")
+  t.eq(C.withDefaults({}).updateToken, nil, "absent -> nil (fail-closed)")
+end)

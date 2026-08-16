@@ -63,6 +63,68 @@ function M.constellation(selfPos, peers)
   return geometry.grade(list)
 end
 
+-- selfQuality grades HDOP at atPos == selfPos itself, so a naive [self + peers] host list always
+-- has self exactly coincide with atPos -- a zero-range, zero-information host that geometry.hdop's
+-- shared normalInvDiag rightly excludes (see its `r > 1e-6` guard). That drops the *usable* host
+-- count by one, so geometry.hdop's hard `#hosts/used >= REQUIRED_HOSTS(4)` gate can never pass for
+-- self + 3 peers. Unlike NAV's real trilateration (unknown position -- needs a 4th host to resolve
+-- gps.locate()'s mirror ambiguity), a beacon already KNOWS its own position is the correct root, so
+-- grading only needs the ranging hosts (peers) to well-condition a 3x3 system: 3 non-coplanar
+-- directions, not 4. That relaxed threshold isn't expressible through the exported geometry.hdop
+-- (its gate is hardcoded to REQUIRED_HOSTS), so horizontalDop reimplements normalInvDiag's math
+-- locally, over peers only, requiring REQUIRED_HOSTS - 1 real hosts instead of REQUIRED_HOSTS.
+local MIN_RANGING_HOSTS = geometry.REQUIRED_HOSTS - 1
+
+local function horizontalDop(hosts, atPos)
+  if type(hosts) ~= "table" or type(atPos) ~= "table" then return nil end
+  local nxx, nxy, nxz, nyy, nyz, nzz = 0, 0, 0, 0, 0, 0
+  local used = 0
+  for _, ho in ipairs(hosts) do
+    local dx, dy, dz = atPos.x - ho.x, atPos.y - ho.y, atPos.z - ho.z
+    local r = math.sqrt(dx * dx + dy * dy + dz * dz)
+    if r > 1e-6 then
+      used = used + 1
+      local ux, uy, uz = dx / r, dy / r, dz / r
+      nxx = nxx + ux * ux; nxy = nxy + ux * uy; nxz = nxz + ux * uz
+      nyy = nyy + uy * uy; nyz = nyz + uy * uz
+      nzz = nzz + uz * uz
+    end
+  end
+  if used < MIN_RANGING_HOSTS then return nil end
+  -- Symmetric normal matrix N = [[nxx,nxy,nxz],[nxy,nyy,nyz],[nxz,nyz,nzz]]; invert via cofactors
+  -- and keep only the horizontal (x,z) diagonal terms of N^-1 -- exactly geometry.hdop's math.
+  local det = nxx * (nyy * nzz - nyz * nyz) - nxy * (nxy * nzz - nyz * nxz) + nxz * (nxy * nyz - nyy * nxz)
+  if math.abs(det) < 1e-12 then return nil end
+  local ixx = (nyy * nzz - nyz * nyz) / det
+  local izz = (nxx * nyy - nxy * nxy) / det
+  local sum = ixx + izz
+  if sum <= 0 then return nil end
+  return math.sqrt(sum)
+end
+
+--- selfQuality(selfPos, peers) -> { hosts, quality?, errorEst? }. HORIZONTAL fix quality this
+--- beacon would give NAV, graded at its OWN position over [self + heard peers] -- the honest,
+--- HDOP-based metric (matches nav/runtime + nav/ui/main). < 4 hosts -> hosts only (no quality).
+function M.selfQuality(selfPos, peers)
+  local list, peerList = {}, {}
+  if validPos(selfPos) then list[#list + 1] = { x = selfPos.x, y = selfPos.y, z = selfPos.z } end
+  local ids = {}
+  for id in pairs(peers or {}) do ids[#ids + 1] = id end
+  table.sort(ids, function(a, b) return tostring(a) < tostring(b) end)
+  for _, id in ipairs(ids) do
+    local p = peers[id]
+    if validPos(p.pos) then
+      local pos = { x = p.pos.x, y = p.pos.y, z = p.pos.z }
+      list[#list + 1] = pos
+      peerList[#peerList + 1] = pos
+    end
+  end
+  local hosts = #list
+  if hosts < geometry.REQUIRED_HOSTS or not validPos(selfPos) then return { hosts = hosts } end
+  local dq = geometry.dopQuality(horizontalDop(peerList, selfPos))
+  return { hosts = hosts, quality = dq.quality, errorEst = dq.errorEst }
+end
+
 --- new(opts): config (beacon.config-shaped), modem (raw dev with .transmit/.open), now (fn->ms),
 --- receiver (defaults to a fresh nav receiver on the config channel).
 function M.new(opts)
@@ -116,6 +178,10 @@ end
 
 function R:constellation(now)
   return M.constellation(self.config.pos, self:peers(now))
+end
+
+function R:selfQuality(now)
+  return M.selfQuality(self.config.pos, self:peers(now))
 end
 
 return M

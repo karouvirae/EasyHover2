@@ -1,0 +1,42 @@
+package.path = "/?.lua;/?/init.lua;" .. package.path
+local t = require("tests.framework")
+local U = require("beacon.update")
+local gpsproto = require("nav.comms.gpsproto")
+
+t.test("validToken rejects nil/non-string/blank, accepts real strings", function()
+  t.eq(U.validToken(nil), false)
+  t.eq(U.validToken(123), false)
+  t.eq(U.validToken(""), false)
+  t.eq(U.validToken("   "), false)
+  t.eq(U.validToken("s3cret"), true)
+end)
+
+t.test("command/ack build the right shapes", function()
+  t.eq(U.command("tok").k, U.CMD_KIND); t.eq(U.command("tok").token, "tok")
+  t.eq(U.ack("beacon-7").k, U.ACK_KIND); t.eq(U.ack("beacon-7").id, "beacon-7")
+end)
+
+t.test("encode/decode round-trips a command and an ack", function()
+  local c = U.decode(U.encode(U.command("tok")))
+  t.truthy(c and c.k == U.CMD_KIND and c.token == "tok", "command survives")
+  local a = U.decode(U.encode(U.ack("b1")))
+  t.truthy(a and a.k == U.ACK_KIND and a.id == "b1", "ack survives")
+end)
+
+t.test("decode returns nil for a GPS frame and for garbage", function()
+  t.eq(U.decode(gpsproto.encode({ id = "b1", x = 1, y = 2, z = 3 })), nil)
+  t.eq(U.decode("not a frame"), nil)
+end)
+
+t.test("gpsproto.decode returns nil for an update frame (coexistence)", function()
+  t.eq(gpsproto.decode(U.encode(U.command("tok"))), nil)
+end)
+
+t.test("accepts is the fail-closed gate", function()
+  t.eq(U.accepts(U.command("tok"), "tok"), true, "valid match accepted")
+  t.eq(U.accepts(U.command("tok"), "other"), false, "mismatch rejected")
+  t.eq(U.accepts(U.command("tok"), ""), false, "blank config token rejected")
+  t.eq(U.accepts(U.command(""), "tok"), false, "blank command token rejected")
+  t.eq(U.accepts(U.ack("b1"), "tok"), false, "non-command rejected")
+  t.eq(U.accepts(nil, "tok"), false, "nil frame rejected")
+end)

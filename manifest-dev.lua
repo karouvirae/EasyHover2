@@ -36,27 +36,33 @@
       ["files"] = {
         {
           ["dst"] = "beacon/app.lua",
-          ["size"] = 3591,
+          ["size"] = 5059,
           ["src"] = "beacon/app.lua",
-          ["sum"] = "572a87b5",
+          ["sum"] = "860aa9ed",
         },
         {
           ["dst"] = "beacon/config.lua",
-          ["size"] = 2809,
+          ["size"] = 2912,
           ["src"] = "beacon/config.lua",
-          ["sum"] = "92cae260",
+          ["sum"] = "319bf3f6",
         },
         {
           ["dst"] = "beacon/console.lua",
-          ["size"] = 7576,
+          ["size"] = 8493,
           ["src"] = "beacon/console.lua",
-          ["sum"] = "df325a37",
+          ["sum"] = "66c7973f",
         },
         {
           ["dst"] = "beacon/runtime.lua",
-          ["size"] = 4868,
+          ["size"] = 8246,
           ["src"] = "beacon/runtime.lua",
-          ["sum"] = "00c291d2",
+          ["sum"] = "dfe076b8",
+        },
+        {
+          ["dst"] = "beacon/update.lua",
+          ["size"] = 1495,
+          ["src"] = "beacon/update.lua",
+          ["sum"] = "2a45f15f",
         },
         {
           ["dst"] = "fcs/comms/protocol.lua",
@@ -1071,9 +1077,46 @@
     },
   },
   ["schema"] = 1,
-  ["updater"] = {
-    ["size"] = 70702,
-    ["sum"] = "3dd2fb64",
+  ["tools"] = {
+    ["beaconupdate"] = {
+      ["dirs"] = {
+        "beacon",
+        "fcs",
+        "tools",
+      },
+      ["entry"] = "beaconupdate",
+      ["files"] = {
+        {
+          ["dst"] = "beacon/update.lua",
+          ["size"] = 1495,
+          ["src"] = "beacon/update.lua",
+          ["sum"] = "2a45f15f",
+        },
+        {
+          ["dst"] = "beaconupdate",
+          ["size"] = 2662,
+          ["src"] = "launchers/beaconupdate.lua",
+          ["sum"] = "e255b1d4",
+        },
+        {
+          ["dst"] = "fcs/comms/protocol.lua",
+          ["size"] = 311,
+          ["src"] = "fcs/comms/protocol.lua",
+          ["sum"] = "a92d01f4",
+        },
+        {
+          ["dst"] = "tools/beaconupdate.lua",
+          ["size"] = 1581,
+          ["src"] = "tools/beaconupdate.lua",
+          ["sum"] = "bbf726f5",
+        },
+      },
+      ["title"] = "Beacon updater",
+    },
   },
-  ["version"] = "7534277a",
+  ["updater"] = {
+    ["size"] = 70807,
+    ["sum"] = "311b4a9c",
+  },
+  ["version"] = "759029d5",
 }

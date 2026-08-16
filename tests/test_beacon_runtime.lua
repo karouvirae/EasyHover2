@@ -74,3 +74,38 @@ t.test("runtime selfCheck flags a typo'd peer from the heard mesh", function()
   t.truthy(not sc.ok)
   t.eq(sc.mismatches[1].id, "B")
 end)
+
+t.test("selfQuality reports GOOD for a wide, flat mesh and POOR for a clustered one", function()
+  local Runtime = require("beacon.runtime")
+  local selfPos = { x = 824, y = 86, z = 2922 }
+  local peers = {
+    ["68"] = { pos = { x = 6462,  y = 200, z = 6107  }, dist = 1 },
+    ["69"] = { pos = { x = 7144,  y = 65,  z = -7266 }, dist = 1 },
+    ["70"] = { pos = { x = -7210, y = 64,  z = -7260 }, dist = 1 },
+  }
+  local q = Runtime.selfQuality(selfPos, peers)
+  t.eq(q.hosts, 4, "self + 3 peers")
+  t.truthy(q.quality and q.quality >= 0.75, "wide-flat -> GOOD (" .. tostring(q.quality) .. ")")
+  t.truthy(q.errorEst and q.errorEst < 2, "small horizontal error")
+
+  -- A genuinely HORIZONTALLY clustered constellation: all three peers bunched far to +x, at nearly
+  -- the same z, all near build height (as MC beacons are) so there is NO vertical spread to rescue
+  -- the geometry. Every line-of-sight points the same way -> the horizontal normal matrix is nearly
+  -- singular -> huge HDOP -> POOR. (An earlier fixture put one peer 130 blocks below build height,
+  -- which is unrealistic for MC beacons and its vertical baseline made the fix well-conditioned ->
+  -- GOOD; that hid the honest degeneracy this case is meant to exercise.)
+  local clustered = {
+    ["68"] = { pos = { x = 5000, y = 92, z = 40  }, dist = 1 },
+    ["69"] = { pos = { x = 5100, y = 88, z = -40 }, dist = 1 },
+    ["70"] = { pos = { x = 5050, y = 91, z = 80  }, dist = 1 },
+  }
+  local qc = Runtime.selfQuality({ x = 0, y = 90, z = 0 }, clustered)
+  t.truthy(qc.quality and qc.quality < 0.5, "clustered -> POOR (" .. tostring(qc.quality) .. ")")
+end)
+
+t.test("selfQuality with fewer than 4 hosts reports hosts only", function()
+  local Runtime = require("beacon.runtime")
+  local q = Runtime.selfQuality({ x = 0, y = 0, z = 0 }, { ["a"] = { pos = { x = 10, y = 0, z = 0 }, dist = 1 } })
+  t.eq(q.hosts, 2)
+  t.eq(q.quality, nil, "no quality below 4 hosts")
+end)

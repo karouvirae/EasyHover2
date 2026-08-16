@@ -6,6 +6,11 @@
 local config = require("beacon.config")
 local Runtime = require("beacon.runtime")
 local Console = require("beacon.console")
+local Update = require("beacon.update")
+
+-- The classic (dependency-free) Suite, fetched over HTTPS-pinned raw GitHub. Duplicated here rather
+-- than cross-requiring the Suite so this thin glue stays standalone (mirrors ui/basalt/app.lua's REPO).
+local SUITE_URL = "https://raw.githubusercontent.com/maar-10/EasyHover2/main/easyhover2_suite.lua"
 
 local M = {}
 
@@ -45,6 +50,7 @@ function M.run()
   local function repaint()
     local model = {
       selfCheck = rt:selfCheck(), constellation = rt:constellation(),
+      selfQuality = rt:selfQuality(),
       peers = rt:peers(), seq = rt.seq,
     }
     local w, h = term.getSize()
@@ -75,6 +81,17 @@ function M.run()
     elseif name == "modem_message" then
       -- side, channel, replyChannel, message, distance
       rt:onModemMessage(ev[3], ev[4], ev[5], ev[6])
+      -- Remote update: a token-valid command -> ack, reinstall via the classic Suite, reboot. Fail
+      -- closed -- Update.accepts() rejects a blank/mismatched token, so an unprovisioned beacon (no
+      -- updateToken set) never reboots, and a stray GPS frame on this channel is decoded to nil.
+      local frame = Update.decode(ev[5])
+      if frame and modem and Update.accepts(frame, cfg.updateToken) then
+        modem.transmit(cfg.channel, cfg.channel, Update.encode(Update.ack(cfg.id)))
+        term.setCursorPos(1, 1); term.clear()
+        print("remote update received -- reinstalling + rebooting...")
+        local ok = pcall(function() return shell.run("wget", "run", SUITE_URL) end)
+        if ok then os.reboot() else print("update failed; staying on current version"); os.sleep(2); repaint() end
+      end
     elseif name == "char" then
       local action = Console.actionFor(ev[2])
       if action == "quit" then
@@ -83,6 +100,12 @@ function M.run()
         cfg.enabled = not (cfg.enabled ~= false); save(); repaint()
       elseif action == "verify" then
         rt:broadcast(); repaint()
+      elseif action == "setToken" then
+        term.clear(); term.setCursorPos(1, 1)
+        term.write("Shared update secret (blank = keep): ")
+        local tok = Console.readToken(read)
+        if tok then cfg.updateToken = tok; save() end
+        repaint()
       elseif action == "setPosition" then
         term.clear()
         for i, line in ipairs(Console.positionHeader()) do term.setCursorPos(1, i); term.write(line) end
