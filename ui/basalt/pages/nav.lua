@@ -21,6 +21,7 @@ local Region    = require("ui.basalt.region")
 local WL        = require("ui.basalt.waypointlist")
 local W         = require("nav.waypoints")
 local configkit = require("ui.basalt.configkit")
+local Picker    = require("ui.basalt.listpicker")
 
 local M = {}
 M.id = "nav"
@@ -102,6 +103,8 @@ function M.build(basalt, frame, runtime, nav)
     return eff
   end
 
+  local function mutateOp(op, args) if client() then client():mutate(op, args) end end
+
   local function bump() if runtime then runtime.uiRev = (runtime.uiRev or 0) + 1 end end
 
   frame:addLabel({ x = 2, y = 1, width = math.max(1, w - 2), height = 1, autoSize = false, text = "NAV" })
@@ -113,7 +116,7 @@ function M.build(basalt, frame, runtime, nav)
 
     local actionRow = configkit.actionRow(f, { x = 1, y = 1, w = fw }, {
       { label = "WPT EDIT", onClick = function() region:push("wptedit") end },
-      { label = "RT EDIT",  onClick = function() end },   -- Phase 2 (routes)
+      { label = "RT EDIT",  onClick = function() region:push("rtedit") end },
       { label = "DTC",      onClick = function() region:push("dtc") end },
     })
 
@@ -226,9 +229,85 @@ function M.build(basalt, frame, runtime, nav)
       elements = { row1 = row1, row2 = row2, resultLabel = resultLabel, backRow = backRow } }
   end
 
+  -- ---------- rtedit: routes (blue) -- a nested drilldown routes -> legs ----------
+  local function buildRtedit(b, f, region)
+    local openRoute = nil   -- the route being edited on the legs screen
+
+    -- routes screen: the route list + NEW / DEL / OPEN / ACTIVATE
+    local function buildRoutes(bb, ff, inner)
+      local ffw, ffh = ff:getSize()
+      local sel, refresh = nil, nil
+      local row1 = configkit.actionRow(ff, { x = 1, y = 1, w = ffw }, {
+        { label = "NEW", onClick = function()
+            mutateOp("addRoute", { name = "route" .. (#(store().routes or {}) + 1) }); refresh() end },
+        { label = "DEL", onClick = function() if sel then mutateOp("deleteRoute", { name = sel }); sel = nil end; refresh() end },
+      })
+      local row2 = configkit.actionRow(ff, { x = 1, y = 2, w = ffw }, {
+        { label = "OPEN", onClick = function() if sel then openRoute = sel; inner:push("legs") end end },
+        { label = "ACT",  onClick = function()
+            if sel and runtime then runtime.nav = runtime.nav or {}
+              runtime.nav.routeActive = { name = sel, i = 1 }; runtime.nav.target = nil; bump() end end },
+      })
+      local listFrame = ff:addFrame({ x = 1, y = 3, width = ffw, height = math.max(3, ffh - 3) })
+      local list = WL.make(listFrame, { rows = math.max(1, ffh - 4), selColor = colors.blue,
+        fmt = function(r) return tostring(r.name) end, onSelect = function(r) sel = r and r.name or nil end })
+      local backRow = configkit.actionRow(ff, { x = 1, y = ffh, w = ffw }, {
+        { label = "< BACK", onClick = function() region:pop() end } })
+      refresh = function() list.setItems(store().routes or {}) end
+      refresh()
+      return { apply = function(_s) refresh() end, elements = { row1 = row1, row2 = row2, list = list, backRow = backRow } }
+    end
+
+    -- legs screen: the open route's legs + ADD LEG (waypoint picker) / DEL / ALT-+ / UP / DN
+    local function buildLegs(bb, ff, inner)
+      local ffw, ffh = ff:getSize()
+      local selLeg, refresh = nil, nil
+      local picker = Picker.make(ff)
+      local function route() return W.findRoute(store(), openRoute) end
+      local function legAlt(i, d)
+        local r = route(); local leg = r and r.legs[i]
+        if leg then mutateOp("editLegAlt", { route = openRoute, i = i, alt = (leg.alt or 0) + d }); refresh() end
+      end
+      local row1 = configkit.actionRow(ff, { x = 1, y = 1, w = ffw }, {
+        { label = "ADD", onClick = function()
+            local opts = {}
+            for _, wp in ipairs(store().waypoints or {}) do opts[#opts + 1] = { text = wp.name .. "  " .. wp.type, value = wp.name } end
+            picker.show({ title = "add leg wpt", options = opts,
+              onPick = function(name) mutateOp("addLeg", { route = openRoute, wpt = name }); refresh() end })
+          end },
+        { label = "DEL", onClick = function() if selLeg then mutateOp("deleteLeg", { route = openRoute, i = selLeg }); selLeg = nil; refresh() end end },
+      })
+      local row2 = configkit.actionRow(ff, { x = 1, y = 2, w = ffw }, {
+        { label = "ALT-", onClick = function() if selLeg then legAlt(selLeg, -5) end end },
+        { label = "ALT+", onClick = function() if selLeg then legAlt(selLeg, 5) end end },
+        { label = "UP",   onClick = function() if selLeg then mutateOp("moveLeg", { route = openRoute, i = selLeg, dir = -1 }); selLeg = math.max(1, selLeg - 1); refresh() end end },
+        { label = "DN",   onClick = function() if selLeg then mutateOp("moveLeg", { route = openRoute, i = selLeg, dir = 1 }); selLeg = selLeg + 1; refresh() end end },
+      })
+      local listFrame = ff:addFrame({ x = 1, y = 3, width = ffw, height = math.max(3, ffh - 3) })
+      local list = WL.make(listFrame, { rows = math.max(1, ffh - 4), selColor = colors.blue,
+        fmt = function(it) return (it.wpt or "?") .. " @" .. tostring(it.alt) end,
+        keyOf = function(it) return it._i end,
+        onSelect = function(it) selLeg = it and it._i or nil end })
+      local backRow = configkit.actionRow(ff, { x = 1, y = ffh, w = ffw }, {
+        { label = "< ROUTES", onClick = function() inner:pop() end } })
+      refresh = function()
+        local r = route(); local items = {}
+        if r then for i, leg in ipairs(r.legs) do items[i] = { wpt = leg.wpt, alt = leg.alt, _i = i } end end
+        list.setItems(items)
+      end
+      refresh()
+      return { apply = function(_s) refresh() end, elements = { row1 = row1, row2 = row2, list = list, backRow = backRow } }
+    end
+
+    local inner = Region.new(basalt, f, { x = 1, y = 1, width = ({ f:getSize() })[1], height = ({ f:getSize() })[2],
+      root = "routes", onNav = bump, screens = { routes = buildRoutes, legs = buildLegs } })
+    inner:apply(nil)
+    return { apply = function(s) inner:apply(s) end, elements = { inner = inner } }
+  end
+
   local region = Region.new(basalt, frame, {
     x = 1, y = 2, width = w, height = math.max(1, h - 2), root = "navmain", onNav = bump,
-    screens = { navmain = buildNavmain, wptedit = buildWptedit, dtc = buildDtc },
+    screens = { navmain = buildNavmain, wptedit = buildWptedit, dtc = buildDtc, rtedit = buildRtedit },
   })
   region:apply(nil)
 

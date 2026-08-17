@@ -559,9 +559,9 @@
         },
         {
           ["dst"] = "nav/waypoints.lua",
-          ["size"] = 5501,
+          ["size"] = 9147,
           ["src"] = "nav/waypoints.lua",
-          ["sum"] = "aa80a385",
+          ["sum"] = "d9044e9a",
         },
         {
           ["dst"] = "nav/wptdisk.lua",
@@ -571,9 +571,9 @@
         },
         {
           ["dst"] = "nav/wptserver.lua",
-          ["size"] = 2219,
+          ["size"] = 2839,
           ["src"] = "nav/wptserver.lua",
-          ["sum"] = "d6cfa0a7",
+          ["sum"] = "a037fd55",
         },
         {
           ["dst"] = "startup.lua",
@@ -839,9 +839,9 @@
         },
         {
           ["dst"] = "nav/waypoints.lua",
-          ["size"] = 5501,
+          ["size"] = 9147,
           ["src"] = "nav/waypoints.lua",
-          ["sum"] = "aa80a385",
+          ["sum"] = "d9044e9a",
         },
         {
           ["dst"] = "probe",
@@ -911,9 +911,9 @@
         },
         {
           ["dst"] = "ui/basalt/app.lua",
-          ["size"] = 40311,
+          ["size"] = 41234,
           ["src"] = "ui/basalt/app.lua",
-          ["sum"] = "57aafa7b",
+          ["sum"] = "39618b34",
         },
         {
           ["dst"] = "ui/basalt/bitconfig/dtc.lua",
@@ -1061,9 +1061,9 @@
         },
         {
           ["dst"] = "ui/basalt/pages/nav.lua",
-          ["size"] = 12204,
+          ["size"] = 17209,
           ["src"] = "ui/basalt/pages/nav.lua",
-          ["sum"] = "d4952e88",
+          ["sum"] = "14b1aaae",
         },
         {
           ["dst"] = "ui/basalt/pages/pfd.lua",
@@ -1190,6 +1190,12 @@
           ["size"] = 1436,
           ["src"] = "ui/relaywriter.lua",
           ["sum"] = "a4054176",
+        },
+        {
+          ["dst"] = "ui/routefollow.lua",
+          ["size"] = 2055,
+          ["src"] = "ui/routefollow.lua",
+          ["sum"] = "76a3fbde",
         },
         {
           ["dst"] = "ui/toolkit.lua",
@@ -1337,5 +1343,5 @@
     ["size"] = 71434,
     ["sum"] = "57671ad7",
   },
-  ["version"] = "7063913c",
+  ["version"] = "42895d94",
 }

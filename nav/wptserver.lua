@@ -16,11 +16,18 @@ local W = require("nav.waypoints")
 
 local M = {}
 
--- op name -> function(store, args) -> ok, err. Waypoint CRUD now; route ops added in Phase 2.
+-- op name -> function(store, args) -> ok, err. Waypoint + route CRUD (Phase 2 adds the route ops).
 local OPS = {
-  addWpt    = function(s, a) return W.addWpt(s, a) end,
-  editWpt   = function(s, a) return W.editWpt(s, a and a.name, a and a.fields) end,
-  deleteWpt = function(s, a) return W.deleteWpt(s, a and a.name) end,
+  addWpt      = function(s, a) return W.addWpt(s, a) end,
+  editWpt     = function(s, a) return W.editWpt(s, a and a.name, a and a.fields) end,
+  deleteWpt   = function(s, a) return W.deleteWpt(s, a and a.name) end,
+  addRoute    = function(s, a) return W.addRoute(s, a and a.name) end,
+  renameRoute = function(s, a) return W.renameRoute(s, a and a.name, a and a.newName) end,
+  deleteRoute = function(s, a) return W.deleteRoute(s, a and a.name) end,
+  addLeg      = function(s, a) return W.addLeg(s, a and a.route, a and a.wpt, a and a.alt) end,
+  editLegAlt  = function(s, a) return W.editLegAlt(s, a and a.route, a and a.i, a and a.alt) end,
+  deleteLeg   = function(s, a) return W.deleteLeg(s, a and a.route, a and a.i) end,
+  moveLeg     = function(s, a) return W.moveLeg(s, a and a.route, a and a.i, a and a.dir) end,
 }
 
 local function storeReply(store, rev, err)

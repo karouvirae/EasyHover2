@@ -48,6 +48,8 @@ local senssource = require("ui.basalt.senssource")
 local UILog     = require("ui.basalt.uilog")
 local WptClient = require("ui.basalt.wptclient")
 local navtarget = require("ui.navtarget")
+local navwpt    = require("nav.waypoints")
+local routefollow = require("ui.routefollow")
 
 local modemlib  = require("fcs.comms.modem")
 local telemetry = require("fcs.comms.telemetry")
@@ -104,6 +106,10 @@ M.UI_LOG_PATH = "/eh2_ui_log.txt"   -- rolling UI log; P uploads this to carbide
 -- heading reads unknown -> the PFD tape shows "---" rather than a stale/wrong bearing. Sized to
 -- tolerate a handful of missed ~0.1s relays without flickering.
 M.NAV_HEADING_MAX_AGE_MS = 1000
+
+-- Route auto-advance: the active leg advances to the next when the craft comes within this many
+-- blocks (horizontal) of it. <30 is too tight for practical flight; 50 is the default.
+M.ROUTE_ARRIVAL_RADIUS = 50
 
 -- Installed location first (SuiteX writes /basalt-full.lua there), repo/headless location
 -- second (the ui role ships release/basalt-full.lua -- see DECISION note on M.ensureBasalt).
@@ -518,17 +524,31 @@ function M.buildState(runtime, now)
   -- tape shows "---" (honest) instead of a wrong bearing. See M.NAV_HEADING_MAX_AGE_MS.
   local navFresh = runtime.nav and runtime.nav.at
     and (now - runtime.nav.at) <= M.NAV_HEADING_MAX_AGE_MS
-  -- Waypoint steering target (NAV-menu selection): solve the PFD cue when a target is set and the
-  -- craft's horizontal position is known. Heading uses the fresh nav bearing; altitude uses baro.
+  -- PFD steering cue: an ACTIVE ROUTE's current leg (blue, auto-advancing) takes precedence, else a
+  -- single selected waypoint (green). Needs the craft's horizontal position; heading from the fresh
+  -- nav bearing, altitude from baro.
   local target = nil
   local nv = runtime.nav
-  if nv and nv.target and type(nv.fixX) == "number" and type(nv.fixZ) == "number" then
-    local sol = navtarget.solve(
-      { x = nv.fixX, z = nv.fixZ, heading = navFresh and nv.heading or nil, baroY = latest.altitude },
-      nv.target)
-    if sol then
-      target = { name = nv.target.name, bearing = sol.bearing, distanceH = sol.distanceH,
-        relBearing = sol.relBearing, altDelta = sol.altDelta, color = nv.target.color or "green" }
+  if nv and type(nv.fixX) == "number" and type(nv.fixZ) == "number" then
+    local craft = { x = nv.fixX, z = nv.fixZ, heading = navFresh and nv.heading or nil, baroY = latest.altitude }
+    local tgt, color = nil, "green"
+    if nv.routeActive and runtime.wptClient then
+      local route = navwpt.findRoute(runtime.wptClient.store, nv.routeActive.name)
+      if route then
+        local legs = navwpt.resolveLegs(runtime.wptClient.store, route)
+        local step = routefollow.step(legs, nv.routeActive.i or 1, craft, M.ROUTE_ARRIVAL_RADIUS)
+        nv.routeActive.i = step.i   -- auto-advance the active leg on arrival
+        tgt, color = step.target, "blue"
+      end
+    elseif nv.target then
+      tgt, color = nv.target, (nv.target.color or "green")
+    end
+    if tgt then
+      local sol = navtarget.solve(craft, tgt)
+      if sol then
+        target = { name = tgt.name, bearing = sol.bearing, distanceH = sol.distanceH,
+          relBearing = sol.relBearing, altDelta = sol.altDelta, color = color }
+      end
     end
   end
   return {

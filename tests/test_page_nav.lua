@@ -99,6 +99,19 @@ t.test("M.build constructs the element tree; apply() + one render pass do not er
   t.truthy(ok3, "basalt.update should not error: " .. tostring(err3))
 end)
 
+t.test("drilling into each NAV sub-screen builds + renders without error (real basalt)", function()
+  local basalt = BasaltApp.ensureBasalt()
+  local frame = basalt.createFrame()
+  local h = M.build(basalt, frame, nil, Nav.new("nav"))
+  local region = h.elements.region
+  for _, screen in ipairs({ "wptedit", "dtc", "rtedit" }) do
+    local ok, err = pcall(function()
+      region:push(screen); h.apply({}); basalt.update("timer", -1); region:pop()
+    end)
+    t.truthy(ok, screen .. " sub-screen must build without error: " .. tostring(err))
+  end
+end)
+
 t.test("M.build: clicking [BIT/CONFIG] button invokes M._onButton and pushes nav", function()
   local basalt = BasaltApp.ensureBasalt()
   local frame = basalt.createFrame()

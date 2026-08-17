@@ -265,6 +265,23 @@ t.test("buildState target is nil with no selection", function()
   t.eq(M.buildState(runtime, os.epoch("utc")).target, nil)
 end)
 
+t.test("buildState follows an active route: BLUE current-leg cue, auto-advances on arrival", function()
+  local runtime = newRuntime()
+  local W = require("nav.waypoints")
+  local store = W.defaults()
+  W.addWpt(store, { name = "A", x = 0,   y = 64, z = 0, type = "base" })
+  W.addWpt(store, { name = "B", x = 100, y = 70, z = 0, type = "poi" })
+  W.addRoute(store, "R"); W.addLeg(store, "R", "A"); W.addLeg(store, "R", "B")
+  runtime.wptClient.store = store
+  local now = os.epoch("utc")
+  runtime.nav.fixX = 10; runtime.nav.fixZ = 0; runtime.nav.heading = 90; runtime.nav.at = now
+  runtime.nav.routeActive = { name = "R", i = 1 }
+  M.routeModem(runtime, CH.telemetry, protocol.encode(telemetry.Tx.new():frame({ altitude = 64 })))
+  local s = M.buildState(runtime, now)
+  t.eq(runtime.nav.routeActive.i, 2, "craft within 50 of leg A -> advanced to leg B")
+  t.truthy(s.target ~= nil); t.eq(s.target.name, "B"); t.eq(s.target.color, "blue")
+end)
+
 t.test("routeModem feeds a wpt_store reply (ch 109) into the wptClient cache", function()
   local runtime = newRuntime()
   t.truthy(runtime.wptClient ~= nil, "buildRuntime wired the NAV store sync client")

@@ -67,6 +67,60 @@ t.test("mergeWpts adds new and replaces same-name (dedupe by name)", function()
   t.truthy(W.find(s, "B") ~= nil)
 end)
 
+-- ---- routes (Phase 2): ordered connected legs with per-leg altitude ----
+t.test("addRoute validates + appends; rejects blank + duplicate names", function()
+  local s = W.defaults()
+  local r = W.addRoute(s, "Patrol"); t.truthy(r ~= nil); t.eq(#s.routes, 1); t.eq(#r.legs, 0)
+  t.eq(W.addRoute(s, ""), nil, "blank name rejected")
+  t.eq(W.addRoute(s, "Patrol"), nil, "duplicate rejected")
+  t.truthy(W.findRoute(s, "Patrol") ~= nil); t.eq(W.findRoute(s, "Nope"), nil)
+end)
+
+t.test("deleteRoute / renameRoute by name", function()
+  local s = W.defaults(); W.addRoute(s, "A")
+  t.truthy(W.renameRoute(s, "A", "B")); t.truthy(W.findRoute(s, "B") ~= nil); t.eq(W.findRoute(s, "A"), nil)
+  t.truthy(W.deleteRoute(s, "B")); t.eq(#s.routes, 0)
+  t.eq(W.deleteRoute(s, "B"), nil)
+end)
+
+t.test("addLeg appends a waypoint leg; alt defaults to the waypoint's y", function()
+  local s = W.defaults()
+  W.addWpt(s, { name = "P1", x = 10, y = 70, z = 20, type = "base" })
+  W.addRoute(s, "R")
+  local leg = W.addLeg(s, "R", "P1")
+  t.truthy(leg ~= nil); t.eq(leg.wpt, "P1"); t.eq(leg.alt, 70, "alt seeded from wpt.y")
+  local leg2 = W.addLeg(s, "R", "P1", 120)   -- explicit alt override
+  t.eq(leg2.alt, 120)
+  t.eq(W.addLeg(s, "R", "ghost"), nil, "leg for a missing waypoint rejected")
+  t.eq(W.addLeg(s, "Nope", "P1"), nil, "leg on a missing route rejected")
+  t.eq(#W.findRoute(s, "R").legs, 2)
+end)
+
+t.test("editLegAlt / deleteLeg / moveLeg reorder the leg list", function()
+  local s = W.defaults()
+  W.addWpt(s, { name = "A", x = 1, y = 1, z = 1, type = "base" })
+  W.addWpt(s, { name = "B", x = 2, y = 2, z = 2, type = "poi" })
+  W.addWpt(s, { name = "C", x = 3, y = 3, z = 3, type = "poi" })
+  W.addRoute(s, "R"); W.addLeg(s, "R", "A"); W.addLeg(s, "R", "B"); W.addLeg(s, "R", "C")
+  t.truthy(W.editLegAlt(s, "R", 2, 99)); t.eq(W.findRoute(s, "R").legs[2].alt, 99)
+  t.truthy(W.moveLeg(s, "R", 1, 1))   -- A<->B
+  t.eq(W.findRoute(s, "R").legs[1].wpt, "B"); t.eq(W.findRoute(s, "R").legs[2].wpt, "A")
+  t.eq(W.moveLeg(s, "R", 1, -1), nil, "cannot move the first leg up")
+  t.truthy(W.deleteLeg(s, "R", 3)); t.eq(#W.findRoute(s, "R").legs, 2)
+end)
+
+t.test("resolveLegs pairs each leg with its waypoint x/z + per-leg alt; flags unresolved", function()
+  local s = W.defaults()
+  W.addWpt(s, { name = "A", x = 10, y = 5, z = 20, type = "base" })
+  W.addRoute(s, "R"); W.addLeg(s, "R", "A", 88); W.addLeg(s, "R", "Gone")  -- addLeg("Gone") is rejected...
+  -- ...so inject an unresolved leg directly to prove resolveLegs flags it
+  W.findRoute(s, "R").legs[2] = { wpt = "Gone", alt = 40 }
+  local legs = W.resolveLegs(s, W.findRoute(s, "R"))
+  t.eq(#legs, 2)
+  t.eq(legs[1].resolved, true); t.eq(legs[1].x, 10); t.eq(legs[1].z, 20); t.eq(legs[1].y, 88, "per-leg alt")
+  t.eq(legs[2].resolved, false); t.eq(legs[2].wpt, "Gone")
+end)
+
 -- ---- persistence ----
 t.test("save then load round-trips the store", function()
   local path = "/eh2_nav_wpt_test.tbl"

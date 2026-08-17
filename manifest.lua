@@ -559,9 +559,9 @@
         },
         {
           ["dst"] = "nav/waypoints.lua",
-          ["size"] = 2693,
+          ["size"] = 4446,
           ["src"] = "dist/nav/waypoints.lua",
-          ["sum"] = "9089d162",
+          ["sum"] = "d5e6ac7c",
         },
         {
           ["dst"] = "nav/wptdisk.lua",
@@ -571,9 +571,9 @@
         },
         {
           ["dst"] = "nav/wptserver.lua",
-          ["size"] = 657,
+          ["size"] = 1180,
           ["src"] = "dist/nav/wptserver.lua",
-          ["sum"] = "dff2265b",
+          ["sum"] = "875a455d",
         },
         {
           ["dst"] = "startup.lua",
@@ -839,9 +839,9 @@
         },
         {
           ["dst"] = "nav/waypoints.lua",
-          ["size"] = 2693,
+          ["size"] = 4446,
           ["src"] = "dist/nav/waypoints.lua",
-          ["sum"] = "9089d162",
+          ["sum"] = "d5e6ac7c",
         },
         {
           ["dst"] = "probe",
@@ -911,9 +911,9 @@
         },
         {
           ["dst"] = "ui/basalt/app.lua",
-          ["size"] = 13288,
+          ["size"] = 13723,
           ["src"] = "dist/ui/basalt/app.lua",
-          ["sum"] = "0e6e761f",
+          ["sum"] = "cf07480b",
         },
         {
           ["dst"] = "ui/basalt/bitconfig/dtc.lua",
@@ -1061,9 +1061,9 @@
         },
         {
           ["dst"] = "ui/basalt/pages/nav.lua",
-          ["size"] = 5829,
+          ["size"] = 8777,
           ["src"] = "dist/ui/basalt/pages/nav.lua",
-          ["sum"] = "30a15a2e",
+          ["sum"] = "3b7b2520",
         },
         {
           ["dst"] = "ui/basalt/pages/pfd.lua",
@@ -1190,6 +1190,12 @@
           ["size"] = 240,
           ["src"] = "dist/ui/relaywriter.lua",
           ["sum"] = "a42bd44d",
+        },
+        {
+          ["dst"] = "ui/routefollow.lua",
+          ["size"] = 671,
+          ["src"] = "dist/ui/routefollow.lua",
+          ["sum"] = "b74a6497",
         },
         {
           ["dst"] = "ui/toolkit.lua",
@@ -1337,5 +1343,5 @@
     ["size"] = 71434,
     ["sum"] = "57671ad7",
   },
-  ["version"] = "27aad99a",
+  ["version"] = "9b5246c3",
 }

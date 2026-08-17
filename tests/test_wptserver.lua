@@ -50,6 +50,17 @@ t.test("a failed op does NOT bump rev and reports the error", function()
   t.truthy(reply.err ~= nil, "error surfaced to the client")
 end)
 
+t.test("route ops dispatch through apply (addRoute + addLeg) and bump rev", function()
+  local s = seed()   -- has waypoint "Home"
+  local _, s1, r1 = S.apply(s, { k = "wpt_op", op = "addRoute", args = { name = "Patrol" } }, 0)
+  t.eq(#s1.routes, 1); t.eq(r1, 1)
+  local _, s2, r2 = S.apply(s1, { k = "wpt_op", op = "addLeg", args = { route = "Patrol", wpt = "Home", alt = 90 } }, r1)
+  t.eq(#W.findRoute(s2, "Patrol").legs, 1); t.eq(W.findRoute(s2, "Patrol").legs[1].alt, 90); t.eq(r2, 2)
+  -- a bad leg (missing waypoint) fails without bumping rev
+  local rep, _, r3 = S.apply(s2, { k = "wpt_op", op = "addLeg", args = { route = "Patrol", wpt = "ghost" } }, r2)
+  t.eq(r3, r2); t.truthy(rep.err ~= nil)
+end)
+
 t.test("an unknown op / frame kind replies an error, store + rev untouched", function()
   local s = seed()
   local reply, newStore, newRev = S.apply(s, { k = "wpt_op", op = "nuke", args = {} }, 7)
