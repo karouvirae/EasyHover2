@@ -941,9 +941,9 @@
         },
         {
           ["dst"] = "ui/basalt/bitconfig/pfd.lua",
-          ["size"] = 3175,
+          ["size"] = 3538,
           ["src"] = "ui/basalt/bitconfig/pfd.lua",
-          ["sum"] = "c6c7acda",
+          ["sum"] = "921a0bb1",
         },
         {
           ["dst"] = "ui/basalt/bitconfig/senscal.lua",
@@ -1343,5 +1343,5 @@
     ["size"] = 71434,
     ["sum"] = "57671ad7",
   },
-  ["version"] = "affa72d8",
+  ["version"] = "9019811b",
 }

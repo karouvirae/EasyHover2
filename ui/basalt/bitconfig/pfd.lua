@@ -1,14 +1,11 @@
 -- ui/basalt/bitconfig/pfd.lua
--- PFD RATE sub-menu (BIT/CONFIG hub, screen id "pfdrate" -- deliberately NOT "pfd", which is the
--- COCKPIT PFD page in ui/basalt/app.lua's M.PAGES; a shared id would make the nav stack open the
--- cockpit page instead of this config screen). A single numeric stepper over the PFD redraw cadence
--- (ui.config's pfd.renderMs), persisted to /eh2_ui_config.tbl like every other UI menu.
+-- PFD RATE sub-menu (BIT/CONFIG hub, screen id "pfdrate" -- NOT "pfd", the cockpit page). Sets the
+-- PFD cockpit-page redraw rate. The render loop reads ui.config's pfd.renderMs (a sleep interval in
+-- ms), but the MENU is expressed in Hz -- the intuitive unit -- so FASTER means MORE renders per
+-- second (higher Hz, fewer ms), not fewer. Persisted to /eh2_ui_config.tbl like the other UI menus.
 --
--- Follows the bitconfig template: M.id/M.title, a PURE testable seam (M.step), an effectful persist
--- seam (M._applyStep), and M.build(basalt, frame, runtime, nav, deps) -> { id, apply, elements }
--- with an idempotent apply(). NO peripheral/Basalt access at module LOAD. ui.basalt.app is required
--- LAZILY inside M._applyStep (the page registry requires this module at its own top; a top-level
--- back-require would loop mid-load -- same rationale as uical.lua's header note).
+-- PURE testable seams (M.step / M.hz / M.msOf) + an effectful persist seam (M._applyStep). NO
+-- peripheral/Basalt access at module LOAD. ui.basalt.app is required LAZILY inside M._applyStep.
 local Config    = require("ui.config")
 local configkit = require("ui.basalt.configkit")
 
@@ -16,23 +13,32 @@ local M = {}
 M.id = "pfdrate"
 M.title = "PFD RATE"
 
-M.STEP    = 25    -- ms per press
-M.MIN     = 50    -- floor (20 Hz): faster costs more shared render budget the FCS also draws from
-M.MAX     = 500   -- ceiling (2 Hz)
-M.DEFAULT = 100
+M.HZ_MIN    = 2     -- 500 ms
+M.HZ_MAX    = 20    -- 50 ms  -- faster costs more shared render budget the FCS also draws from
+M.HZ_STEP   = 1     -- Hz per press
+M.DEFAULT_MS = 100  -- 10 Hz
 
--- PURE: step cfg.pfd.renderMs by delta*STEP, clamped to [MIN,MAX]; seeds pfd/renderMs if absent.
-function M.step(cfg, delta)
-  cfg.pfd = cfg.pfd or {}
-  local cur = tonumber(cfg.pfd.renderMs) or M.DEFAULT
-  local v = cur + (delta or 0) * M.STEP
-  if v < M.MIN then v = M.MIN end
-  if v > M.MAX then v = M.MAX end
-  cfg.pfd.renderMs = v
-  return v
+local function clamp(v, lo, hi) if v < lo then return lo elseif v > hi then return hi else return v end end
+
+--- msOf(hz) -> the render interval in ms for `hz` renders/second.
+function M.msOf(hz) return math.floor(1000 / hz + 0.5) end
+--- hz(cfg) -> the current PFD render rate in Hz (from cfg.pfd.renderMs).
+function M.hz(cfg)
+  local ms = (cfg.pfd and cfg.pfd.renderMs) or M.DEFAULT_MS
+  return math.floor(1000 / ms + 0.5)
 end
 
--- Effectful: step + persist. deps.save defaults to ui.config's M.save at BasaltApp.CONFIG_PATH.
+--- PURE: step the render rate by `delta` Hz (positive = FASTER = higher Hz = LOWER renderMs),
+--- clamped to [HZ_MIN, HZ_MAX]; stores the resulting renderMs. Seeds pfd/renderMs if absent.
+function M.step(cfg, delta)
+  cfg.pfd = cfg.pfd or {}
+  if type(cfg.pfd.renderMs) ~= "number" then cfg.pfd.renderMs = M.DEFAULT_MS end
+  local hz = clamp(M.hz(cfg) + (delta or 0) * M.HZ_STEP, M.HZ_MIN, M.HZ_MAX)
+  cfg.pfd.renderMs = M.msOf(hz)
+  return cfg.pfd.renderMs
+end
+
+--- Effectful: step + persist. deps.save defaults to ui.config's M.save at BasaltApp.CONFIG_PATH.
 function M._applyStep(runtime, delta, deps)
   local BasaltApp = require("ui.basalt.app")
   deps = deps or {}
@@ -51,11 +57,13 @@ function M.build(basalt, frame, runtime, nav, deps)
   local valueLabel  = frame:addLabel({ x = x, y = 4, width = iw, height = 1, autoSize = false, text = "" })
 
   local function refresh()
-    local ms = (runtime and runtime.config and runtime.config.pfd and runtime.config.pfd.renderMs) or M.DEFAULT
-    valueLabel:setText(configkit.fitLabel(string.format("RENDER %dms  %.1fHz", ms, 1000 / ms), iw))
+    local cfg = (runtime and runtime.config) or {}
+    valueLabel:setText(configkit.fitLabel(string.format("RATE %dHz  (%dms)", M.hz(cfg),
+      (cfg.pfd and cfg.pfd.renderMs) or M.DEFAULT_MS), iw))
   end
 
-  local stepRow = configkit.actionRow(frame, { x = x, y = 5, w = iw }, {
+  -- SLOWER = -1 Hz (more ms), FASTER = +1 Hz (fewer ms) -- higher Hz = more renders/second.
+  local stepRow = configkit.actionRow(frame, { x = x, y = 5, w = iw, gap = 1 }, {
     { label = "- SLOWER", onClick = function() M._applyStep(runtime, -1, deps); refresh() end },
     { label = "+ FASTER", onClick = function() M._applyStep(runtime,  1, deps); refresh() end },
   })
