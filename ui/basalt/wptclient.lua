@@ -47,6 +47,10 @@ function C:onReply(frame, now)
     self.lastErr = frame.err
     return true
   end
+  if frame.k == "wpt_disk_res" then
+    self.lastDisk = frame; self.online = true; self.lastReplyAt = now
+    return false
+  end
   if frame.k == "wpt_err" then self.lastErr = frame.err; return false end
   return false
 end

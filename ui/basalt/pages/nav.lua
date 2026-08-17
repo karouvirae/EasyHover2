@@ -114,7 +114,7 @@ function M.build(basalt, frame, runtime, nav)
     local actionRow = configkit.actionRow(f, { x = 1, y = 1, w = fw }, {
       { label = "WPT EDIT", onClick = function() region:push("wptedit") end },
       { label = "RT EDIT",  onClick = function() end },   -- Phase 2 (routes)
-      { label = "DTC",      onClick = function() end },   -- Task 1f (disk courier)
+      { label = "DTC",      onClick = function() region:push("dtc") end },
     })
 
     local FILTERS = { { "BAS", "base" }, { "OUT", "outpost" }, { "FAC", "facility" }, { "POI", "poi" }, { "ALL", "all" } }
@@ -192,9 +192,43 @@ function M.build(basalt, frame, runtime, nav)
         actionRow = actionRow, list = list, backRow = backRow } }
   end
 
+  -- ---------- dtc: NAV-PC disk courier (scan / import / export / clean) ----------
+  local function buildDtc(b, f, region)
+    local fw, fh = f:getSize()
+    f:addLabel({ x = 1, y = 1, width = fw, height = 1, autoSize = false, text = "DTC - NAV disk" })
+    local function disk(op) if client() then client():diskOp(op) end end
+    local row1 = configkit.actionRow(f, { x = 1, y = 2, w = fw }, {
+      { label = "SCAN",   onClick = function() disk("scan") end },
+      { label = "IMPORT", onClick = function() disk("import") end },
+    })
+    local row2 = configkit.actionRow(f, { x = 1, y = 3, w = fw }, {
+      { label = "EXPORT", onClick = function() disk("export") end },
+      { label = "CLEAN",  onClick = function() disk("clean") end },
+    })
+    local resultLabel = f:addLabel({ x = 1, y = 5, width = fw, height = 1, autoSize = false, text = "" })
+    local backRow = configkit.actionRow(f, { x = 1, y = fh, w = fw }, {
+      { label = "< BACK", onClick = function() region:pop() end },
+    })
+    local function refresh()
+      local c = client()
+      local ld = c and c.lastDisk
+      if ld and ld.op == "scan" and ld.result then
+        resultLabel:setText(ld.result.valid and "disk: valid nav file"
+          or (ld.result.hasDisk and "disk: foreign file" or "disk: no nav file"))
+      elseif ld then
+        resultLabel:setText(tostring(ld.op) .. ": " .. (ld.ok and "ok" or tostring(ld.err or "fail")))
+      else
+        resultLabel:setText((c and c.online) and "ready" or "NAV offline")
+      end
+    end
+    refresh()
+    return { apply = function(_s) refresh() end,
+      elements = { row1 = row1, row2 = row2, resultLabel = resultLabel, backRow = backRow } }
+  end
+
   local region = Region.new(basalt, frame, {
     x = 1, y = 2, width = w, height = math.max(1, h - 2), root = "navmain", onNav = bump,
-    screens = { navmain = buildNavmain, wptedit = buildWptedit },
+    screens = { navmain = buildNavmain, wptedit = buildWptedit, dtc = buildDtc },
   })
   region:apply(nil)
 

@@ -37,6 +37,13 @@ t.test("onReply(wpt_store) with an err carries it but still updates the store", 
   t.eq(c.lastErr, "name exists"); t.eq(c.online, true)
 end)
 
+t.test("onReply(wpt_disk_res) records the disk result + marks online, not a store update", function()
+  local c = Client.new({})
+  local changed = c:onReply({ k = "wpt_disk_res", op = "scan", result = { hasDisk = true, valid = true } }, 10)
+  t.eq(changed, false); t.eq(c.online, true)
+  t.truthy(c.lastDisk ~= nil and c.lastDisk.op == "scan")
+end)
+
 t.test("onReply(wpt_err) records the error, is not a store update", function()
   local c = Client.new({})
   local changed = c:onReply({ k = "wpt_err", err = "bad" })

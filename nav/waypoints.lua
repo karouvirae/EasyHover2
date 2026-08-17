@@ -109,6 +109,22 @@ function M.mergeWpts(store, incoming)
   return n
 end
 
+--- mergeRoutes(store, incoming): add new + REPLACE same-name routes (dedupe by name). Used by disk
+--- import. Only tables with a name + legs array are accepted. Returns the number merged.
+function M.mergeRoutes(store, incoming)
+  store.routes = store.routes or {}
+  local function idx(name) for i, r in ipairs(store.routes) do if r.name == name then return i end end end
+  local n = 0
+  for _, r in ipairs(incoming or {}) do
+    if type(r) == "table" and type(r.name) == "string" and r.name ~= "" and type(r.legs) == "table" then
+      local i = idx(r.name)
+      if i then store.routes[i] = r else store.routes[#store.routes + 1] = r end
+      n = n + 1
+    end
+  end
+  return n
+end
+
 -- ---- persistence (atomic tmp+move, pre-merge load -- mirrors ui/config.lua) ----
 
 --- load(path) -> store|nil, existed. Never throws.

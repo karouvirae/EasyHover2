@@ -493,9 +493,9 @@
         },
         {
           ["dst"] = "nav/app.lua",
-          ["size"] = 4777,
+          ["size"] = 6001,
           ["src"] = "dist/nav/app.lua",
-          ["sum"] = "5250ce16",
+          ["sum"] = "edb69726",
         },
         {
           ["dst"] = "nav/comms/gpsproto.lua",
@@ -559,9 +559,15 @@
         },
         {
           ["dst"] = "nav/waypoints.lua",
-          ["size"] = 2328,
+          ["size"] = 2693,
           ["src"] = "dist/nav/waypoints.lua",
-          ["sum"] = "f26b7d6f",
+          ["sum"] = "9089d162",
+        },
+        {
+          ["dst"] = "nav/wptdisk.lua",
+          ["size"] = 1025,
+          ["src"] = "dist/nav/wptdisk.lua",
+          ["sum"] = "fcc98be9",
         },
         {
           ["dst"] = "nav/wptserver.lua",
@@ -833,9 +839,9 @@
         },
         {
           ["dst"] = "nav/waypoints.lua",
-          ["size"] = 2328,
+          ["size"] = 2693,
           ["src"] = "dist/nav/waypoints.lua",
-          ["sum"] = "f26b7d6f",
+          ["sum"] = "9089d162",
         },
         {
           ["dst"] = "probe",
@@ -905,9 +911,9 @@
         },
         {
           ["dst"] = "ui/basalt/app.lua",
-          ["size"] = 13265,
+          ["size"] = 13288,
           ["src"] = "dist/ui/basalt/app.lua",
-          ["sum"] = "b91816ce",
+          ["sum"] = "0e6e761f",
         },
         {
           ["dst"] = "ui/basalt/bitconfig/dtc.lua",
@@ -1055,9 +1061,9 @@
         },
         {
           ["dst"] = "ui/basalt/pages/nav.lua",
-          ["size"] = 4739,
+          ["size"] = 5829,
           ["src"] = "dist/ui/basalt/pages/nav.lua",
-          ["sum"] = "ff644540",
+          ["sum"] = "30a15a2e",
         },
         {
           ["dst"] = "ui/basalt/pages/pfd.lua",
@@ -1115,9 +1121,9 @@
         },
         {
           ["dst"] = "ui/basalt/wptclient.lua",
-          ["size"] = 1142,
+          ["size"] = 1238,
           ["src"] = "dist/ui/basalt/wptclient.lua",
-          ["sum"] = "740fa2bb",
+          ["sum"] = "be893775",
         },
         {
           ["dst"] = "ui/cfgserver.lua",
@@ -1331,5 +1337,5 @@
     ["size"] = 71434,
     ["sum"] = "57671ad7",
   },
-  ["version"] = "f52a0a04",
+  ["version"] = "27aad99a",
 }

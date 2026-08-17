@@ -14,6 +14,7 @@ local protocol   = require("fcs.comms.protocol")
 local modemlib   = require("fcs.comms.modem")
 local W          = require("nav.waypoints")
 local wptserver  = require("nav.wptserver")
+local wptdisk    = require("nav.wptdisk")
 
 local M = {}
 M.CONFIG_PATH = navconfig.PATH
@@ -120,6 +121,7 @@ end
 -- (wpt_disk) are routed to nav.wptdisk separately (Task 1f). Testable: inject runtime.store +
 -- runtime.saveStore.
 function M.handleWptRequest(runtime, msg)
+  if type(msg) == "table" and msg.k == "wpt_disk" then return M.handleDisk(runtime, msg) end
   local reply, newStore, newRev = wptserver.apply(runtime.store, msg, runtime.wptRev or 0)
   if newRev ~= (runtime.wptRev or 0) then
     runtime.store = newStore
@@ -127,6 +129,46 @@ function M.handleWptRequest(runtime, msg)
     if runtime.saveStore then pcall(runtime.saveStore, runtime.store) end
   end
   return reply
+end
+
+-- M.diskDeps() -> { mount, read, write, delete } from the real disk drive on THIS (NAV) PC, or
+-- { mount=nil } when no disk is present. In-game only (peripheral/fs); injected in tests.
+function M.diskDeps()
+  local drive = peripheral.find("drive")
+  if not drive or not (drive.isDiskPresent and drive.isDiskPresent()) then return { mount = nil } end
+  return {
+    mount  = drive.getMountPath and drive.getMountPath() or nil,
+    read   = function(p) local f = fs.open(p, "r"); if not f then return nil end local b = f.readAll(); f.close(); return b end,
+    write  = function(p, b) local f = fs.open(p, "w"); if not f then return false end f.write(b); f.close(); return true end,
+    delete = function(p) if fs.exists(p) then fs.delete(p) end end,
+  }
+end
+
+-- M.handleDisk(runtime, msg, dd) -> reply. Runs a wpt_disk op (scan/import/export/clean) against the
+-- NAV PC's disk (dd = injected disk deps, default M.diskDeps()). IMPORT merges + persists + replies
+-- the fresh store (so the cockpit cache refreshes); the rest reply a wpt_disk_res status. Testable
+-- via injected dd.
+function M.handleDisk(runtime, msg, dd)
+  dd = dd or M.diskDeps()
+  local mount = dd and dd.mount or nil
+  local op = msg.op
+  if op == "export" then
+    return { k = "wpt_disk_res", op = op, ok = wptdisk.export(runtime.store, mount, dd), mount = mount }
+  elseif op == "import" then
+    local merged = wptdisk.import(runtime.store, mount, dd)
+    if merged then
+      runtime.store = merged
+      runtime.wptRev = (runtime.wptRev or 0) + 1
+      if runtime.saveStore then pcall(runtime.saveStore, runtime.store) end
+      return { k = "wpt_store", store = runtime.store, rev = runtime.wptRev }
+    end
+    return { k = "wpt_disk_res", op = op, ok = false, err = "import failed" }
+  elseif op == "scan" then
+    return { k = "wpt_disk_res", op = op, result = wptdisk.scan(mount, dd) }
+  elseif op == "clean" then
+    return { k = "wpt_disk_res", op = op, ok = wptdisk.clean(mount, dd) }
+  end
+  return { k = "wpt_err", err = "unknown disk op: " .. tostring(op) }
 end
 
 -- M.routeModem(runtime, ch, replyCh, msg, dist): GPS-channel messages feed the receiver; FCS

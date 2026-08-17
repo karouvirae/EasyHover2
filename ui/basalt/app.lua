@@ -496,7 +496,7 @@ function M.routeModem(runtime, ch, msg)
   -- the reply arrives here and refreshes runtime.wptClient's cached store.
   if runtime.wptClient and runtime.wptClient.link then
     local wf = runtime.wptClient.link:onMessage(ch, msg)
-    if wf and (wf.k == "wpt_store" or wf.k == "wpt_err") then
+    if wf and (wf.k == "wpt_store" or wf.k == "wpt_err" or wf.k == "wpt_disk_res") then
       runtime.wptClient:onReply(wf, os.epoch("utc"))
       return nil
     end

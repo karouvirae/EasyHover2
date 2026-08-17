@@ -223,3 +223,33 @@ t.test("app.handleWptRequest keeps rev + does not persist on a failed op", funct
   App.handleWptRequest(runtime, { k = "wpt_op", op = "deleteWpt", args = { name = "ghost" } })
   t.eq(runtime.wptRev, 2); t.eq(persisted, false)
 end)
+
+t.test("app.handleDisk export replies wpt_disk_res; import merges + persists + replies wpt_store", function()
+  local W = require("nav.waypoints")
+  local files = {}
+  local dd = { mount = "disk",
+    read = function(p) return files[p] end, write = function(p, b) files[p] = b; return true end,
+    delete = function(p) files[p] = nil end }
+
+  -- export the current store to the (fake) disk
+  local runtime = { store = W.defaults(), wptRev = 0, saveStore = function() end }
+  W.addWpt(runtime.store, { name = "A", x = 1, y = 1, z = 1, type = "base" })
+  local rep = App.handleDisk(runtime, { k = "wpt_disk", op = "export" }, dd)
+  t.eq(rep.k, "wpt_disk_res"); t.eq(rep.op, "export"); t.eq(rep.ok, true)
+  t.truthy(files["/disk/eh2_nav_wpt.tbl"] ~= nil)
+
+  -- a second NAV imports it -> merges + persists + replies the fresh store
+  local saved
+  local rt2 = { store = W.defaults(), wptRev = 3, saveStore = function(s) saved = s end }
+  local rep2 = App.handleDisk(rt2, { k = "wpt_disk", op = "import" }, dd)
+  t.eq(rep2.k, "wpt_store"); t.eq(rep2.rev, 4)
+  t.eq(#rt2.store.waypoints, 1); t.truthy(saved ~= nil, "imported store persisted")
+end)
+
+t.test("app.handleWptRequest routes wpt_disk to handleDisk", function()
+  local W = require("nav.waypoints")
+  local runtime = { store = W.defaults(), wptRev = 0, saveStore = function() end }
+  -- no drive deps -> mount nil -> export fails gracefully, still a wpt_disk_res
+  local rep = App.handleDisk(runtime, { k = "wpt_disk", op = "export" }, { mount = nil })
+  t.eq(rep.k, "wpt_disk_res"); t.eq(rep.ok, false)
+end)
