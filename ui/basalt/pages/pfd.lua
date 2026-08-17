@@ -108,9 +108,16 @@ function M.build(basalt, frame, runtime, nav)
     -- blue route). Hidden when there is no target or no heading to reference.
     local tgt = state.target
     local tgtColor = (tgt and tgt.color == "blue") and colors.blue or colors.lime
-    local bugCol = (tgt and type(state.heading) == "number") and Tape.bugCol(tgt.bearing, state.heading, w) or nil
+    local haveHdg = tgt and type(state.heading) == "number"
+    local bugCol = haveHdg and Tape.bugCol(tgt.bearing, state.heading, w) or nil
     if bugCol then
       bugLabel:setX(bugCol); bugLabel:setText("v"); bugLabel:setForeground(tgtColor)
+    elseif haveHdg and type(tgt.relBearing) == "number" then
+      -- Target is off the visible tape: pin an edge arrow showing which way to turn toward it
+      -- (relBearing >= 0 -> to the right). Otherwise the pilot gets no cue for a side target.
+      if tgt.relBearing >= 0 then bugLabel:setX(w); bugLabel:setText(">")
+      else bugLabel:setX(1); bugLabel:setText("<") end
+      bugLabel:setForeground(tgtColor)
     else
       bugLabel:setText("")
     end

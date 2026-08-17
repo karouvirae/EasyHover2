@@ -58,6 +58,14 @@ t.test("build + apply render without error and reflect state text", function()
   t.eq(page.elements.bugLabel:getText(), "v", "bearing bug shown for an on-tape target")
   t.truthy(page.elements.tgtLine1:getText():find("Home", 1, true), "TGT name shown")
   t.truthy(page.elements.tgtLine2:getText():find("340m", 1, true), "TGT distance shown")
+  -- target OFF the visible tape (bearing far from heading) -> an edge arrow shows which way to turn
+  page.apply({ heading = 0, target = { name = "Far", bearing = 90, distanceH = 2000, relBearing = 90,
+    altDelta = 0, color = "green" } })
+  t.eq(page.elements.bugLabel:getText(), ">", "off-tape target to the right -> right edge arrow")
+  page.apply({ heading = 0, target = { name = "Far", bearing = 270, distanceH = 2000, relBearing = -90,
+    altDelta = 0, color = "green" } })
+  t.eq(page.elements.bugLabel:getText(), "<", "off-tape target to the left -> left edge arrow")
+
   -- no target -> cue hidden
   page.apply({ heading = 0 })
   t.eq(page.elements.bugLabel:getText(), "", "bug hidden with no target")

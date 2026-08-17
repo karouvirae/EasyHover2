@@ -121,12 +121,18 @@ function M.build(basalt, frame, runtime, nav)
       { label = "DTC", onClick = function() region:push("dtc") end },
     })
 
-    local FILTERS = { { "BAS", "base" }, { "OUT", "outpost" }, { "FAC", "facility" }, { "POI", "poi" }, { "ALL", "all" } }
-    local fspecs = {}
-    for _, ft in ipairs(FILTERS) do
-      fspecs[#fspecs + 1] = { label = ft[1], onClick = function() activeType = ft[2]; refresh() end }
-    end
-    local filterRow = configkit.actionRow(f, { x = 1, y = 2, w = fw, gap = 1 }, fspecs)
+    -- Filter: ONE full-width cycling button. Five tiny type buttons were unreadable on a narrow
+    -- monitor (OUT/FAC/POI truncated to ~T/~C/~I); a single button shows the FULL type name and
+    -- clicking cycles all -> base -> outpost -> facility -> poi -> all.
+    local FILTER_CYCLE = { "all", "base", "outpost", "facility", "poi" }
+    local filterBtn = f:addButton({ x = 1, y = 2, width = fw, height = 1, text = "FILTER: " .. activeType })
+    filterBtn:onClick(function()
+      local i = 1
+      for k, tp in ipairs(FILTER_CYCLE) do if tp == activeType then i = k end end
+      activeType = FILTER_CYCLE[(i % #FILTER_CYCLE) + 1]
+      filterBtn:setText("FILTER: " .. activeType)
+      refresh()
+    end)
 
     local listTop = 3
     local listH = math.max(4, fh - listTop + 1)
@@ -141,7 +147,7 @@ function M.build(basalt, frame, runtime, nav)
     refresh()
 
     return { apply = function(_s) refresh() end,
-      elements = { actionRow = actionRow, filterRow = filterRow, list = list } }
+      elements = { actionRow = actionRow, filterBtn = filterBtn, list = list } }
   end
 
   -- ---------- wptedit: form (name/x/y/z/type) + ADD here / ADD manual / EDIT / DEL + list ----------
