@@ -81,6 +81,15 @@ t.test("baroThrusterOffset adds into altitude", function()
   local b = Backend.new(sensorRig(10, {0,0}, 0,0,0, 0, 5), cfg, function() return 0 end)
   t.near(b:sensors().altitude, 17, 1e-9)          -- 10 + 5 + heightOffset 2
 end)
+t.test("baroMsl is the RAW barometer height (true Y), ignoring the AGL offsets", function()
+  -- The FCS control loop keeps AGL (`altitude`), but the DISPLAY wants true Y that matches F3.
+  -- baroMsl is getHeight untouched -- no baroThrusterOffset, no heightOffset.
+  local cfg = sensorCfg(); cfg.bindings.baroThrusterOffset = 5   -- heightOffset already 2
+  local b = Backend.new(sensorRig(10, {0,0}, 0,0,0, 0, 5), cfg, function() return 0 end)
+  local s = b:sensors()
+  t.near(s.baroMsl, 10, 1e-9)     -- raw getHeight, NOT +offsets
+  t.near(s.altitude, 17, 1e-9)    -- AGL still 10+5+2 for control (unchanged)
+end)
 t.test("setThrusterLevel writes setPower(level) to the bound peripheral", function()
   local th = mocks.thruster()
   local shim = mocks.shim({ thruster_1 = th })

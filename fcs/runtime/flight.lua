@@ -103,7 +103,10 @@ function Flight:snapshot(r, meas)
     mode = self.parked and "PARKED" or ((r and r.mode) or self.loop:getMode()),
     flightMode = self.flightMode,
     trimDir = self.trimDir,
-    altitude = m.altitude, vSpeed = m.vSpeed, heading = m.heading,
+    -- DISPLAY altitude = true-Y baro (baroMsl) so the cockpit ALT matches F3. The control loop
+    -- cycles on m.altitude (AGL) independently; only this telemetry field is retargeted. Falls back
+    -- to m.altitude when baroMsl is absent (older backends / tests).
+    altitude = m.baroMsl or m.altitude, vSpeed = m.vSpeed, heading = m.heading,
     yawRate = m.yawRate, swayPos = m.swayPos, surgePos = m.surgePos,
     onGround = m.onGround, loopHz = self._loopHz,
   }

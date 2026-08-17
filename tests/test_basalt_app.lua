@@ -185,7 +185,7 @@ t.test("buildState assembles the flat cadence keys from telemetry + engine + fue
   t.eq(state.mode, "HOVER")
   t.eq(state.altitude, 12.3)
   t.eq(state.vSpeed, 0.5)
-  t.eq(state.heading, 90)
+  t.eq(state.heading, nil, "heading is nav-magnet-table sourced, NOT the FCS telemetry heading")
   t.eq(state.loopHz, 20)
   t.eq(state.linkUp, false, "no heartbeat received -> linkUp false")
   t.eq(state.engineMaster, false, "masterDefault is false")
@@ -214,6 +214,38 @@ t.test("routeModem stores a navfix relay (no fix) into runtime.nav", function()
   t.eq(runtime.nav.gpsAlt, nil)
   t.eq(runtime.nav.tas, nil)
   t.eq(runtime.nav.fixOk, false)
+end)
+
+t.test("routeModem stores the nav-magnet-table heading + compass for display", function()
+  local runtime = newRuntime()
+  local frame = { k = "navfix", fix = nil, heading = 123, compass = "SE", gs = nil, at = 1000 }
+  M.routeModem(runtime, 107, protocol.encode(frame))
+  t.eq(runtime.nav.heading, 123, "nav bearing stored")
+  t.eq(runtime.nav.compass, "SE", "compass stored")
+end)
+
+t.test("buildState heading comes from a FRESH nav relay, ignoring FCS telemetry heading", function()
+  local runtime = newRuntime()
+  M.routeModem(runtime, CH.telemetry, protocol.encode(telemetry.Tx.new():frame({ heading = 90 })))
+  local now = os.epoch("utc")
+  runtime.nav.heading = 123
+  runtime.nav.at = now
+  local state = M.buildState(runtime, now)
+  t.eq(state.heading, 123, "display heading is the nav magnet-table bearing")
+end)
+
+t.test("buildState heading is nil when the nav relay is stale (nav pc down)", function()
+  local runtime = newRuntime()
+  runtime.nav.heading = 123
+  runtime.nav.at = 0
+  local state = M.buildState(runtime, M.NAV_HEADING_MAX_AGE_MS + 1)  -- just past the stale window
+  t.eq(state.heading, nil, "stale nav -> no heading (tape shows ---)")
+end)
+
+t.test("buildState heading is nil when no nav relay has ever arrived", function()
+  local runtime = newRuntime()
+  local state = M.buildState(runtime, os.epoch("utc"))
+  t.eq(state.heading, nil)
 end)
 
 t.test("app loads + startScheduled registers scheduled work + one render pass, no error, no basalt.run()", function()

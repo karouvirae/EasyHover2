@@ -24,6 +24,7 @@ end
 function M.lubberCol(w) return math.ceil(w / 2) end
 
 function M.lubberLabel(heading)
+  if type(heading) ~= "number" then return "---" end   -- no fresh nav bearing -> unknown
   return string.format("%03d", round(M.norm360(heading)) % 360)
 end
 
@@ -38,6 +39,7 @@ end
 function M.row(heading, w, cfg)
   cfg = cfg or M.CFG
   if type(w) ~= "number" or w < 1 then return "" end
+  if type(heading) ~= "number" then return string.rep(" ", w) end  -- no bearing -> blank scale
   local cells = {}
   for i = 1, w do cells[i] = " " end
   local lub = M.lubberCol(w)

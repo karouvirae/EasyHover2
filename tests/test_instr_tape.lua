@@ -19,6 +19,17 @@ t.test("lubberLabel is the 3-digit rounded heading", function()
   t.eq(Tape.lubberLabel(359.6), "000")   -- rounds then wraps
 end)
 
+t.test("lubberLabel is --- when the heading is unknown (nil)", function()
+  t.eq(Tape.lubberLabel(nil), "---", "no bearing -> dashes, not 000")
+end)
+
+t.test("row is blank (all spaces) when the heading is unknown (nil)", function()
+  local w = 21
+  local row = Tape.row(nil, w)
+  t.eq(#row, w, "still full width")
+  t.eq(row, string.rep(" ", w), "no scale to draw without a heading reference")
+end)
+
 t.test("row is exactly w chars", function()
   for _, w in ipairs({ 1, 5, 21, 40 }) do
     t.eq(#Tape.row(0, w), w, "width " .. w)

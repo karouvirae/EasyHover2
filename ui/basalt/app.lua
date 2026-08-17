@@ -94,6 +94,12 @@ M.CFG_CH = { req = 105, reply = 106 }
 
 M.CONFIG_PATH = "/eh2_ui_config.tbl"
 
+-- Displayed heading comes ONLY from the shared NAV magnet-table bearing relayed by the nav pc
+-- (never the FCS's control-signed heading). If no fresh relay has arrived within this window the
+-- heading reads unknown -> the PFD tape shows "---" rather than a stale/wrong bearing. Sized to
+-- tolerate a handful of missed ~0.1s relays without flickering.
+M.NAV_HEADING_MAX_AGE_MS = 1000
+
 -- Installed location first (SuiteX writes /basalt-full.lua there), repo/headless location
 -- second (the ui role ships release/basalt-full.lua -- see DECISION note on M.ensureBasalt).
 M.BASALT_PATHS = { "/basalt-full.lua", "/release/basalt-full.lua" }
@@ -455,6 +461,8 @@ function M.routeModem(runtime, ch, msg)
     runtime.nav.gpsAlt = n.fix and n.fix.y or nil
     runtime.nav.tas    = n.gs
     runtime.nav.fixOk  = n.fix ~= nil
+    runtime.nav.heading = n.heading   -- shared magnet-table bearing: THE display heading source
+    runtime.nav.compass = n.compass
     runtime.nav.at     = os.epoch("utc")
     return nil
   end
@@ -470,6 +478,11 @@ end
 function M.buildState(runtime, now)
   local latest = runtime.rx:latest() or {}
   local e = runtime.engine:status(now)
+  -- Heading is display-sourced from the shared NAV magnet table (relayed by the nav pc), NOT the
+  -- FCS's control-signed `latest.heading`. Only a fresh relay counts; stale/absent -> nil so the
+  -- tape shows "---" (honest) instead of a wrong bearing. See M.NAV_HEADING_MAX_AGE_MS.
+  local navFresh = runtime.nav and runtime.nav.at
+    and (now - runtime.nav.at) <= M.NAV_HEADING_MAX_AGE_MS
   return {
     engaged      = latest.engaged,
     gndSafety    = latest.gndSafety,
@@ -480,7 +493,7 @@ function M.buildState(runtime, now)
     linkUp       = runtime.hbRx:up(now / 1000),
     altitude     = latest.altitude,
     vSpeed       = latest.vSpeed,
-    heading      = latest.heading,
+    heading      = navFresh and runtime.nav.heading or nil,
     loopHz       = latest.loopHz,
     engineMaster = e.master,
     feeding      = e.feeding,
@@ -557,7 +570,7 @@ function M.startScheduled(basalt, runtime, frames, applyState, extraDirty)
     end
   end)
 
-  -- (f) attitude poll, ~0.25s: read the LOCAL gimbal + medial-velocity sensors, apply the active
+  -- (f) attitude poll, ~0.1s: read the LOCAL gimbal + medial-velocity sensors, apply the active
   -- SENS SOURCE calibration, publish pitch/roll/sas. OFF the render path (non-mainThread reads).
   -- Re-resolves only when config.sens.source changes (file reads are not repeated every tick).
   basalt.schedule(function()
@@ -577,7 +590,7 @@ function M.startScheduled(basalt, runtime, frames, applyState, extraDirty)
           runtime.state.pitch, runtime.state.roll, runtime.state.sas = nil, nil, nil
         end
       end)
-      sleep(0.25)
+      sleep(0.1)   -- 10Hz attitude poll: keeps the PFD horizon reactive (UI-pc local, off the flight loop)
     end
   end)
 
@@ -589,7 +602,7 @@ function M.startScheduled(basalt, runtime, frames, applyState, extraDirty)
     end
   end)
 
-  -- (e) render gate, ~0.2s: build state, gate on the quantized signature, repaint only on change.
+  -- (e) render gate, ~0.1s: build state, gate on the quantized signature, repaint only on change.
   basalt.schedule(function()
     local lastSig = nil
     while true do
@@ -601,7 +614,7 @@ function M.startScheduled(basalt, runtime, frames, applyState, extraDirty)
         lastSig = sig
         applyState(state, frames)
       end
-      sleep(0.2)
+      sleep(0.1)   -- 10Hz render gate: matches telemetry/nav/attitude feeds so the PFD stays snappy
     end
   end)
 end

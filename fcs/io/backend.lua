@@ -63,7 +63,7 @@ function Backend:sensors()
     end
   end
   self.lastT, self.lastAlt = now, altitude
-  return { altitude=altitude, vSpeed=vSpeed, pitch=pitch, roll=roll, heading=heading,
+  return { altitude=altitude, baroMsl=rawAlt, vSpeed=vSpeed, pitch=pitch, roll=roll, heading=heading,
     yawRate=yawRate, swayVel=swayVel, surgeVel=surgeVel, swayPos=self.swayPos, surgePos=self.surgePos,
     onGround=onGround }
 end

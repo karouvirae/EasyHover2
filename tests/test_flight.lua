@@ -18,6 +18,16 @@ local CFG = { headingRate=0.6, climbRate=0.8, leadCapVert=3, cruiseSpeed=1, maxL
 local function meas() return { altitude=10, heading=0, swayPos=0, surgePos=0,
   vSpeed=0, yawRate=0, swayVel=0, surgeVel=0, pitch=0, roll=0, onGround=false } end
 
+t.test("snapshot publishes true-Y baro (baroMsl) as the DISPLAY altitude, not the AGL control value", function()
+  -- The control loop cycles on meas.altitude (AGL); the telemetry snapshot the UI reads must carry
+  -- true Y (baroMsl) so the PFD/FCS ALT matches F3. baroMsl absent -> falls back to altitude.
+  local f = Flight.new({ loop = fakeLoop(), pilot = Pilot.new(CFG) })
+  local snap = f:snapshot(nil, { altitude = 17, baroMsl = 10 })
+  t.eq(snap.altitude, 10, "display altitude is true-Y baro, not AGL")
+  local snap2 = f:snapshot(nil, { altitude = 12 })  -- no baroMsl
+  t.eq(snap2.altitude, 12, "falls back to altitude when baroMsl absent")
+end)
+
 t.test("boot state is safe: disengaged, gndSafety on", function()
   local f = Flight.new({ loop = fakeLoop(), pilot = Pilot.new(CFG) })
   t.eq(f.engaged, false); t.eq(f.gndSafety, true)

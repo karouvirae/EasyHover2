@@ -39,6 +39,11 @@ t.test("build + apply render without error and reflect state text", function()
   page.apply({ heading = 0 })
   t.eq(page.elements.lubberLabel:getText(), "000", "lubber updates on repaint")
 
+  -- no fresh nav bearing (heading nil) -> tape shows "---", NOT a fabricated 000/N
+  page.apply({ heading = nil, pitch = 0, roll = 0 })
+  t.eq(page.elements.lubberLabel:getText(), "---", "unknown heading shows dashes")
+  t.eq(page.elements.tapeLabel:getText(), string.rep(" ", ({frame:getSize()})[1]), "tape blank when heading unknown")
+
   -- SEAM: the LIVE cockpit cadence state names baro altitude `altitude` (ui/basalt/app.lua
   -- M.buildState), not `baroAlt`. The page must bridge it so baro-ALT reads live in-game.
   page.apply({ heading = 0, altitude = 87.4 })

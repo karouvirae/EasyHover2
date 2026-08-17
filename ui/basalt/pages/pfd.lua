@@ -72,9 +72,10 @@ function M.build(basalt, frame, runtime, nav)
   local function apply(state)
     state = state or {}
 
-    -- Tape.
-    tapeLabel:setText(Tape.row(state.heading or 0, w))
-    lubberLabel:setText(Tape.lubberLabel(state.heading or 0))
+    -- Tape. Pass heading through nil-safe: a nil (no fresh nav bearing) renders a blank scale +
+    -- "---" lubber rather than a fabricated 000/N. See ui/basalt/instruments/tape.lua.
+    tapeLabel:setText(Tape.row(state.heading, w))
+    lubberLabel:setText(Tape.lubberLabel(state.heading))
 
     -- Attitude: craft cells are box-relative; bucket them by row for compositing.
     local cells = Attitude.craftCells(state.pitch or 0, state.roll or 0, w, boxH)

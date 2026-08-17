@@ -15,7 +15,8 @@ function M.defaults()
     thresholds = { maxAgeMs = 3000, minQuality = 0.5 },  -- how a consumer judges the fix (Phase 2)
     modemSide = nil,          -- ender modem for GPS reception
     wiredSide = nil,          -- wired modem to the craft network
-    intervalMs = 500,         -- NAV fix/relay cadence (event-driven, NOT a control loop)
+    intervalMs = 100,         -- NAV fix/relay cadence: 10Hz so the relayed magnet heading drives a
+                              -- reactive PFD tape (event-driven on the idle nav pc, NOT a control loop)
   }
 end
 

@@ -248,9 +248,9 @@
         },
         {
           ["dst"] = "fcs/io/backend.lua",
-          ["size"] = 3387,
+          ["size"] = 3403,
           ["src"] = "fcs/io/backend.lua",
-          ["sum"] = "7a1b513e",
+          ["sum"] = "02144296",
         },
         {
           ["dst"] = "fcs/io/calibration.lua",
@@ -314,9 +314,9 @@
         },
         {
           ["dst"] = "fcs/runtime/flight.lua",
-          ["size"] = 4754,
+          ["size"] = 5034,
           ["src"] = "fcs/runtime/flight.lua",
-          ["sum"] = "147771ce",
+          ["sum"] = "165847f3",
         },
         {
           ["dst"] = "fcs/runtime/loop.lua",
@@ -499,9 +499,9 @@
         },
         {
           ["dst"] = "nav/config.lua",
-          ["size"] = 2155,
+          ["size"] = 2270,
           ["src"] = "nav/config.lua",
-          ["sum"] = "d7ead1d4",
+          ["sum"] = "3ca91ab3",
         },
         {
           ["dst"] = "nav/lib/fix.lua",
@@ -688,9 +688,9 @@
         },
         {
           ["dst"] = "fcs/io/backend.lua",
-          ["size"] = 3387,
+          ["size"] = 3403,
           ["src"] = "fcs/io/backend.lua",
-          ["sum"] = "7a1b513e",
+          ["sum"] = "02144296",
         },
         {
           ["dst"] = "fcs/io/calibration.lua",
@@ -868,9 +868,9 @@
         },
         {
           ["dst"] = "ui/basalt/app.lua",
-          ["size"] = 30539,
+          ["size"] = 31652,
           ["src"] = "ui/basalt/app.lua",
-          ["sum"] = "7ca4db05",
+          ["sum"] = "b52cbf4d",
         },
         {
           ["dst"] = "ui/basalt/bitconfig/dtc.lua",
@@ -964,9 +964,9 @@
         },
         {
           ["dst"] = "ui/basalt/instruments/tape.lua",
-          ["size"] = 2452,
+          ["size"] = 2638,
           ["src"] = "ui/basalt/instruments/tape.lua",
-          ["sum"] = "f8eac462",
+          ["sum"] = "71f6d7c0",
         },
         {
           ["dst"] = "ui/basalt/listpicker.lua",
@@ -1018,9 +1018,9 @@
         },
         {
           ["dst"] = "ui/basalt/pages/pfd.lua",
-          ["size"] = 4987,
+          ["size"] = 5149,
           ["src"] = "ui/basalt/pages/pfd.lua",
-          ["sum"] = "9cccf4f9",
+          ["sum"] = "c1fffde2",
         },
         {
           ["dst"] = "ui/basalt/picker.lua",
@@ -1264,5 +1264,5 @@
     ["size"] = 71434,
     ["sum"] = "57671ad7",
   },
-  ["version"] = "291de712",
+  ["version"] = "bfaa9727",
 }
