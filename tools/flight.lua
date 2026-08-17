@@ -18,9 +18,16 @@ local telemetry = require("fcs.comms.telemetry")
 local command   = require("fcs.comms.command")
 local health    = require("fcs.comms.health")
 local Inst      = require("fcs.bringup.instrument")
+local Status    = require("fcs.bringup.status")
+local LogBuffer = require("fcs.bringup.logbuffer")
 
 local CH = { telemetry = 101, command = 102, ack = 103, health = 104 }
 local CONFIG_PATH = "/eh2_hw_config.tbl"
+
+-- Clear the boot-loader's console and show a status the operator can see during the (short)
+-- synchronous build below -- otherwise the flight computer looks dead after "boot FCS? Y". The
+-- status task (registered further down) takes over the moment the flight tasks start.
+pcall(function() term.clear(); term.setCursorPos(1, 1); term.write(Status.statusLine("LOADING")) end)
 
 -- ---- Build the flight-proven control stack (mirror tools/hover_test.lua) ----
 local function loadConfig()
@@ -64,13 +71,13 @@ local LOGGING   = _G.EH2_FLIGHTLOG == true
 local LOG_PATH  = "/eh2_flight_log.csv"
 local MAX_ROWS  = 3000   -- bound RAM/disk (~0.5MB); the in-memory summary still covers the whole run
 local logSummary, logT0, logRows
--- Buffer rows in RAM; write the file ONCE at Ctrl-T. CC file writes are synchronous + non-yielding,
--- so writing every control cycle (~20/s) stalled the WHOLE FCS computer as the buffer flushed --
--- freezing comms so the UI panel couldn't toggle GND safety (fcslog-specific; plain `fcs` was fine).
--- Nothing that can block belongs on the control loop -- same lesson as the fuel decouple.
+-- ROLLING ring buffer of the last MAX_ROWS formatted rows (fcs.bringup.logbuffer): P dumps a
+-- bounded, recent window on demand while the FCS keeps flying. CC file writes are synchronous +
+-- non-yielding, so the write happens ONLY on a P press / on exit, never on the control loop --
+-- same "nothing that can block belongs on the hot path" lesson as the fuel decouple.
 local function logStart()
   if not LOGGING then return end
-  logSummary = Inst.Summary.new(); logT0 = os.epoch("utc"); logRows = {}
+  logSummary = Inst.Summary.new(); logT0 = os.epoch("utc"); logRows = LogBuffer.new(MAX_ROWS)
 end
 local function logCycle(dt, m)
   if not LOGGING then return end
@@ -88,26 +95,42 @@ local function logCycle(dt, m)
     dSway = dem.sway, dSurge = dem.surge, duties = r.duties,
   }
   logSummary:add(sample)                                   -- summary always covers the whole flight
-  if #logRows < MAX_ROWS then logRows[#logRows + 1] = Inst.formatRow(sample) end  -- RAM only
+  logRows:push(Inst.formatRow(sample))                     -- RAM ring; oldest rolls off past MAX_ROWS
 end
-local function logFinish()
-  if not LOGGING then return end
-  loop:arm(false); pcall(function() loop:cycle(0, backend:sensors()) end)   -- stop thrust on exit
+-- Compose the CSV body (header + buffered rows + running summary) and write it to LOG_PATH.
+-- Returns rowCount. Off the flight path (called only from logDump/logFinish).
+local function logWriteFile()
+  local rows = logRows:rows()
   local summaryText = Inst.formatSummary(logSummary:finalize())
-  pcall(function()                                         -- single write, off the flight path
-    if fs.exists(LOG_PATH) then fs.delete(LOG_PATH) end    -- reclaim space from a prior run
-    if fs.exists(LOG_PATH .. ".part") then fs.delete(LOG_PATH .. ".part") end
+  pcall(function()
+    if fs.exists(LOG_PATH) then fs.delete(LOG_PATH) end     -- reclaim space from a prior write
     local f = fs.open(LOG_PATH, "w")
     if f then
-      f.write(Inst.header() .. "\n" .. table.concat(logRows, "\n") .. "\n\n" .. summaryText .. "\n")
+      f.write(Inst.header() .. "\n" .. table.concat(rows, "\n") .. "\n\n" .. summaryText .. "\n")
       f.close()
     end
   end)
-  print(""); print(summaryText)                            -- ALWAYS visible, even with no disk/uploader
-  print(("Log: %s  (%d rows)"):format(LOG_PATH, #logRows))
+  return #rows
+end
+-- P-triggered: write the rolling window + upload to carbide, then KEEP FLYING. Repeatable -- each
+-- press uploads a fresh (overlapping) window. Feedback lands on row 4, below the status rows.
+local function logDump()
+  if not LOGGING then return end
+  local n = logWriteFile()
+  pcall(function() term.setCursorPos(1, 4); term.clearLine() end)
+  print(("LOG: %d rows -> carbide..."):format(n))
   if not pcall(function() return shell.run("carbide", "put", LOG_PATH) end) then
     print("(carbide unavailable -- grab " .. LOG_PATH .. " manually)")
   end
+end
+-- Exit-only: stop thrust, write the final window LOCALLY (no auto-upload -- P is the upload action).
+local function logFinish()
+  if not LOGGING then return end
+  loop:arm(false); pcall(function() loop:cycle(0, backend:sensors()) end)   -- stop thrust on exit
+  local n = logWriteFile()
+  pcall(function() term.setCursorPos(1, 4) end)
+  print(""); print(Inst.formatSummary(logSummary:finalize()))
+  print(("Log saved: %s  (%d rows). Press P in-flight to upload."):format(LOG_PATH, n))
 end
 
 -- ---- Fuel readback: DECOUPLED from the control loop ----
@@ -211,12 +234,41 @@ local function healthTask()
   end
 end
 
+-- ---- Console status (fcs.bringup.status): tells the operator the FCS is alive + what it's doing.
+-- Own low-rate (~4Hz) parallel task -- one cursor-move + write per tick, yields immediately, so it
+-- never competes with the control loop. Owns rows 1-2; logDump feedback lands on row 4.
+local WARMUP_MS = 20000   -- ~20s display-only settle window (never gates engagement)
+local loadT0 = nil        -- set when flight tasks start; nil => LOADING
+local function statusTask()
+  local tick = 0
+  while true do
+    local elapsed = loadT0 and (os.epoch("utc") - loadT0) or nil
+    local phase = Status.phase({ elapsedMs = elapsed, warmupMs = WARMUP_MS, engaged = flight.engaged })
+    local spin = Status.spinner(tick, phase == "RUNNING" and "running" or "idle")
+    pcall(function()
+      term.setCursorPos(1, 1); term.clearLine(); term.write(Status.statusLine(phase, spin))
+      term.setCursorPos(1, 2); term.clearLine(); term.write(Status.logLine(LOGGING))
+    end)
+    tick = tick + 1
+    sleep(0.25)
+  end
+end
+
+-- P dumps + uploads the rolling log window and keeps flying (only meaningful when LOGGING).
+local function logKeyTask()
+  while true do
+    local _, key = os.pullEvent("char")
+    if key == "p" or key == "P" then logDump() end
+  end
+end
+
+loadT0 = os.epoch("utc")
 if LOGGING then
-  print("EH2 FCS -- FLIGHT LOGGING ON. Fly the repro, then Ctrl-T to stop (log auto-saves + uploads to carbide).")
   logStart()
-  local ok, err = pcall(parallel.waitForAny, controlTask, inputTask, telemetryTask, commandTask, healthTask, fuelTask)
+  local ok, err = pcall(parallel.waitForAny, controlTask, inputTask, telemetryTask, commandTask,
+                        healthTask, fuelTask, statusTask, logKeyTask)
   logFinish()
   if not ok then print("FCS EXIT: " .. tostring(err)) end
 else
-  parallel.waitForAny(controlTask, inputTask, telemetryTask, commandTask, healthTask, fuelTask)
+  parallel.waitForAny(controlTask, inputTask, telemetryTask, commandTask, healthTask, fuelTask, statusTask)
 end

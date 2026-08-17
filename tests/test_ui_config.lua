@@ -45,6 +45,12 @@ t.test("load of unparseable is present-with-error", function()
   fs.delete(path)
 end)
 
+t.test("pfd render rate defaults to 100ms and round-trips through withDefaults", function()
+  t.eq(Config.defaults().pfd.renderMs, 100, "default PFD render cadence")
+  t.eq(Config.withDefaults({ pfd = { renderMs = 200 } }).pfd.renderMs, 200, "saved value kept")
+  t.eq(Config.withDefaults({}).pfd.renderMs, 100, "filled from defaults")
+end)
+
 t.test("sens concern defaults to FCS and preserves a saved source + self cal", function()
   t.eq(Config.withDefaults({}).sens.source, "FCS", "default source")
   local kept = Config.withDefaults({ sens = { source = "SELF", self = { signPitch = -1 } } })

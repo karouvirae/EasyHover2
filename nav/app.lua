@@ -10,9 +10,17 @@ local navconfig  = require("nav.config")
 local NavRuntime = require("nav.runtime")
 local Main       = require("nav.ui.main")
 local ConfigPage = require("nav.ui.config")
+local protocol   = require("fcs.comms.protocol")
 
 local M = {}
 M.CONFIG_PATH = navconfig.PATH
+
+-- The NAV hears the FCS telemetry it shares the wired network with, purely to cache the true-Y baro
+-- (snapshot.altitude) as its accurate vertical source. Same channel as ui/main.lua's telemetry.
+M.TELEMETRY_CH = 101
+-- Baro is considered fresh within this window of the last telemetry frame (FCS sends ~10Hz); past
+-- it the NAV falls back to the trilaterated GPS y.
+M.BARO_MAX_AGE_MS = 1000
 
 -- Basalt loader (mirrors ui/basalt/app.lua's ensureBasalt -- deliberately NOT required from there,
 -- so the nav role's dependency closure stays lean and never pulls in the whole cockpit page
@@ -53,6 +61,8 @@ function M.buildRuntime(deps)
   if not gpsModem then gpsModem = find("modem", function(_, m) return m.isWireless and m.isWireless() end) end
   if not wiredModem then wiredModem = find("modem", function(_, m) return not (m.isWireless and m.isWireless()) end) end
   if gpsModem and gpsModem.open then gpsModem.open(cfg.channel) end
+  -- Listen for FCS telemetry on the shared wired network to cache the true-Y baro (NAV y-source).
+  if wiredModem and wiredModem.open then pcall(wiredModem.open, M.TELEMETRY_CH) end
 
   -- Bind the navigation_table: explicit injection wins (tests), then a configured name, then
   -- AUTO-DETECT. Without auto-detect a fresh NAV install has no bound table (the config UI has no
@@ -84,18 +94,32 @@ function M.buildRuntime(deps)
            save = function(c) navconfig.save(M.CONFIG_PATH, c or cfg) end }
 end
 
--- M.routeModem(runtime, ch, replyCh, msg, dist): feed ONLY GPS-channel messages to the receiver.
+-- M.routeModem(runtime, ch, replyCh, msg, dist): GPS-channel messages feed the receiver; FCS
+-- telemetry on TELEMETRY_CH caches the true-Y baro for the NAV y-source. Everything else ignored.
 function M.routeModem(runtime, ch, replyCh, msg, dist)
   if ch == runtime.config.channel then
     return runtime.nav:onModemMessage(ch, replyCh, msg, dist)
   end
+  if ch == M.TELEMETRY_CH then
+    local ok, f = pcall(protocol.decode, msg)
+    if ok and type(f) == "table" and f.k == "tel" and type(f.s) == "table"
+       and type(f.s.altitude) == "number" then
+      runtime.baroY  = f.s.altitude
+      runtime.baroAt = runtime.now()
+    end
+    return false
+  end
   return false
 end
 
--- M.buildState(runtime, now): the flat state the render gate + pages read.
+-- M.buildState(runtime, now): the flat state the render gate + pages read. Attaches the cached FCS
+-- baro + its freshness so nav.ui.main can pick baro (B) vs trilaterated (N) y.
 function M.buildState(runtime, now)
   now = now or runtime.now()
-  return { nav = runtime.nav:status(now), uiRev = runtime.uiRev }
+  local nav = runtime.nav:status(now)
+  nav.baroY = runtime.baroY
+  nav.baroFresh = (runtime.baroAt ~= nil) and ((now - runtime.baroAt) <= M.BARO_MAX_AGE_MS) or false
+  return { nav = nav, uiRev = runtime.uiRev }
 end
 
 -- M.signature(state): quantized render-gate key -- repaint only when the fix/heading/mesh changes.
@@ -141,11 +165,20 @@ function M.run(deps)
     end
   end)
 
-  -- (b) relay fix+heading onto the craft wire, event-driven with a sleep between (never busy-wait).
+  -- (b1) FAST heading relay: the magnet-table bearing, decoupled from the GPS fix rate so the PFD
+  -- tape stays smooth regardless of trilateration cadence. Cheap (no computeFix).
+  basalt.schedule(function()
+    while true do
+      pcall(function() runtime.nav:stepHeading(os.epoch("utc")) end)
+      sleep((runtime.config.headingMs or 80) / 1000)
+    end
+  end)
+
+  -- (b2) SLOW GPS fix relay: trilateration + position/speed, event-driven with a sleep between.
   basalt.schedule(function()
     while true do
       pcall(function() runtime.nav:step(os.epoch("utc")) end)
-      sleep((runtime.config.intervalMs or 500) / 1000)
+      sleep((runtime.config.intervalMs or 250) / 1000)
     end
   end)
 

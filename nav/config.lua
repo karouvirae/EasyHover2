@@ -15,8 +15,11 @@ function M.defaults()
     thresholds = { maxAgeMs = 3000, minQuality = 0.5 },  -- how a consumer judges the fix (Phase 2)
     modemSide = nil,          -- ender modem for GPS reception
     wiredSide = nil,          -- wired modem to the craft network
-    intervalMs = 100,         -- NAV fix/relay cadence: 10Hz so the relayed magnet heading drives a
-                              -- reactive PFD tape (event-driven on the idle nav pc, NOT a control loop)
+    intervalMs = 250,         -- GPS fix relay cadence (trilateration; slow -- GPS moves slowly)
+    headingMs  = 80,          -- FAST heading relay cadence (~12Hz): the magnet-table bearing, split
+                              -- off the GPS fix so the PFD tape isn't limited by the GPS rate. Each
+                              -- tick = 1 getRelativeAngle + 1 transmit (both main-thread tasks) --
+                              -- a deliberately conservative shared-server-budget choice.
   }
 end
 

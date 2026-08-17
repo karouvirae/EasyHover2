@@ -140,9 +140,9 @@
         },
         {
           ["dst"] = "fcs/boot/loaderui.lua",
-          ["size"] = 13389,
+          ["size"] = 14273,
           ["src"] = "fcs/boot/loaderui.lua",
-          ["sum"] = "2cda0aa5",
+          ["sum"] = "c29c2484",
         },
         {
           ["dst"] = "fcs/bringup/instrument.lua",
@@ -151,10 +151,22 @@
           ["sum"] = "3b15825f",
         },
         {
+          ["dst"] = "fcs/bringup/logbuffer.lua",
+          ["size"] = 1229,
+          ["src"] = "fcs/bringup/logbuffer.lua",
+          ["sum"] = "67c7e864",
+        },
+        {
           ["dst"] = "fcs/bringup/profile.lua",
           ["size"] = 2514,
           ["src"] = "fcs/bringup/profile.lua",
           ["sum"] = "103249cb",
+        },
+        {
+          ["dst"] = "fcs/bringup/status.lua",
+          ["size"] = 2064,
+          ["src"] = "fcs/bringup/status.lua",
+          ["sum"] = "1fad5c6f",
         },
         {
           ["dst"] = "fcs/comms/cfgsync.lua",
@@ -368,9 +380,9 @@
         },
         {
           ["dst"] = "fcslog",
-          ["size"] = 291,
+          ["size"] = 378,
           ["src"] = "launchers/fcslog.lua",
-          ["sum"] = "3a8acaf1",
+          ["sum"] = "ef5bee7e",
         },
         {
           ["dst"] = "flight",
@@ -404,9 +416,9 @@
         },
         {
           ["dst"] = "startup.lua",
-          ["size"] = 178,
+          ["size"] = 427,
           ["src"] = "launchers/fcs.lua",
-          ["sum"] = "8136255a",
+          ["sum"] = "90b2aa34",
         },
         {
           ["dst"] = "tools/calibrate.lua",
@@ -416,9 +428,9 @@
         },
         {
           ["dst"] = "tools/flight.lua",
-          ["size"] = 9897,
+          ["size"] = 12267,
           ["src"] = "tools/flight.lua",
-          ["sum"] = "1ebc3bc7",
+          ["sum"] = "29f4b862",
         },
         {
           ["dst"] = "tools/hover_test.lua",
@@ -481,9 +493,9 @@
         },
         {
           ["dst"] = "nav/app.lua",
-          ["size"] = 7219,
+          ["size"] = 8859,
           ["src"] = "nav/app.lua",
-          ["sum"] = "82ee7572",
+          ["sum"] = "170a622a",
         },
         {
           ["dst"] = "nav/comms/gpsproto.lua",
@@ -499,9 +511,9 @@
         },
         {
           ["dst"] = "nav/config.lua",
-          ["size"] = 2270,
+          ["size"] = 2554,
           ["src"] = "nav/config.lua",
-          ["sum"] = "3ca91ab3",
+          ["sum"] = "ff63fbc9",
         },
         {
           ["dst"] = "nav/lib/fix.lua",
@@ -529,9 +541,9 @@
         },
         {
           ["dst"] = "nav/runtime.lua",
-          ["size"] = 6911,
+          ["size"] = 7560,
           ["src"] = "nav/runtime.lua",
-          ["sum"] = "decbeeae",
+          ["sum"] = "d1bb1029",
         },
         {
           ["dst"] = "nav/ui/config.lua",
@@ -541,9 +553,9 @@
         },
         {
           ["dst"] = "nav/ui/main.lua",
-          ["size"] = 4217,
+          ["size"] = 4909,
           ["src"] = "nav/ui/main.lua",
-          ["sum"] = "ee9904ca",
+          ["sum"] = "5a04a2c0",
         },
         {
           ["dst"] = "startup.lua",
@@ -868,9 +880,9 @@
         },
         {
           ["dst"] = "ui/basalt/app.lua",
-          ["size"] = 31652,
+          ["size"] = 32411,
           ["src"] = "ui/basalt/app.lua",
-          ["sum"] = "b52cbf4d",
+          ["sum"] = "7d6921dc",
         },
         {
           ["dst"] = "ui/basalt/bitconfig/dtc.lua",
@@ -886,15 +898,21 @@
         },
         {
           ["dst"] = "ui/basalt/bitconfig/hub.lua",
-          ["size"] = 3827,
+          ["size"] = 3869,
           ["src"] = "ui/basalt/bitconfig/hub.lua",
-          ["sum"] = "e10323ce",
+          ["sum"] = "7c8f56bd",
         },
         {
           ["dst"] = "ui/basalt/bitconfig/mdb.lua",
           ["size"] = 16160,
           ["src"] = "ui/basalt/bitconfig/mdb.lua",
           ["sum"] = "7439ed09",
+        },
+        {
+          ["dst"] = "ui/basalt/bitconfig/pfd.lua",
+          ["size"] = 3175,
+          ["src"] = "ui/basalt/bitconfig/pfd.lua",
+          ["sum"] = "c6c7acda",
         },
         {
           ["dst"] = "ui/basalt/bitconfig/senscal.lua",
@@ -1066,9 +1084,9 @@
         },
         {
           ["dst"] = "ui/config.lua",
-          ["size"] = 2446,
+          ["size"] = 2772,
           ["src"] = "ui/config.lua",
-          ["sum"] = "c13621ce",
+          ["sum"] = "4c317d8b",
         },
         {
           ["dst"] = "ui/detect.lua",
@@ -1264,5 +1282,5 @@
     ["size"] = 71434,
     ["sum"] = "57671ad7",
   },
-  ["version"] = "bfaa9727",
+  ["version"] = "9a9bd151",
 }

@@ -120,7 +120,7 @@ t.test("M.build constructs the element tree; apply() + one render pass do not er
   t.truthy(ok3, "basalt.update should not error: " .. tostring(err3))
 end)
 
-t.test("M.build: seven buttons total (six items + back)", function()
+t.test("M.build: one button per item + back", function()
   local basalt = BasaltApp.ensureBasalt()
   local frame = basalt.createFrame()
 
@@ -133,7 +133,7 @@ t.test("M.build: seven buttons total (six items + back)", function()
       buttonCount = buttonCount + 1
     end
   end
-  t.eq(buttonCount, 8, "should have 8 buttons (7 items + 1 back)")
+  t.eq(buttonCount, #M.ITEMS + 1, "one button per item plus back")
 end)
 
 t.test("M.build: clicking each menu item button invokes M._onButton correctly", function()
@@ -154,10 +154,10 @@ end)
 
 t.test("M.ITEMS canonical definition is present and has correct structure", function()
   t.truthy(M.ITEMS ~= nil, "M.ITEMS should be defined")
-  t.eq(#M.ITEMS, 7, "M.ITEMS should have 7 entries")
+  t.eq(#M.ITEMS, 8, "M.ITEMS should have 8 entries")
 
   -- Check each expected item
-  local expectedIds = { "tuning", "mdb", "uical", "senscal", "senssource", "dtc", "fcssync" }
+  local expectedIds = { "tuning", "mdb", "uical", "senscal", "senssource", "pfdrate", "dtc", "fcssync" }
   for i, expectedId in ipairs(expectedIds) do
     t.eq(M.ITEMS[i].id, expectedId, "M.ITEMS[" .. i .. "].id should be " .. expectedId)
     t.truthy(M.ITEMS[i].label ~= nil, "M.ITEMS[" .. i .. "] should have a label")

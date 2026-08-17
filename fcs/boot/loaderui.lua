@@ -255,6 +255,20 @@ local function pickUntilValid(concern)
   end
 end
 
+-- After the config is written (and before the boot question), ask whether to run FCS
+-- instrumentation/logging for THIS instance. y/yes -> true (logging on until reboot + N), n/no ->
+-- false. Loops until a clear answer. Mirrors confirmBoot's read/lower/y-n idiom.
+local function confirmLogging()
+  while true do
+    print("")
+    write("Enable FCS logging? (Y/N): ")
+    local input = (read() or ""):lower()
+    if input == "y" or input == "yes" then return true end
+    if input == "n" or input == "no" then return false end
+    print("  please answer Y or N")
+  end
+end
+
 -- After a successful write, ask the pilot whether to boot the FCS now. Loops until a clear
 -- answer; returns true (start the flight app with the chosen config) or false (return to the
 -- console -- the config is on disk, nothing is started). Accepts y/yes and n/no, any case.
@@ -269,9 +283,10 @@ local function confirmBoot()
   end
 end
 
--- Full interactive boot loop. Only place read()/term is touched. On a successful resolve the
--- config is written and the pilot is asked whether to boot: returns the assembled {hw=, tuning=}
--- result if they choose to boot, or nil if they decline (config saved, nothing started) or abort.
+-- Full interactive boot loop. Only place read()/term is touched. On a successful resolve the config
+-- is written, then the pilot is asked whether to enable logging and whether to boot: returns
+-- `assembled {hw=,tuning=}, logging(bool)` if they choose to boot, or nil if they decline (config
+-- saved, nothing started) or abort. The launcher turns `logging` into _G.EH2_FLIGHTLOG.
 function M.run()
   local sources = M.buildSources()
   print("EH2 BOOT LOADER")
@@ -290,8 +305,11 @@ function M.run()
     if ok then
       print("OK -- wrote " .. HW_CONFIG_PATH .. " + " .. TUNING_PATH)
       closeCfgChannels()
+      -- Logging choice comes first (per the boot-flow spec), then the boot question. The launcher
+      -- turns `logging` into _G.EH2_FLIGHTLOG for tools/flight.lua.
+      local logging = confirmLogging()
       if confirmBoot() then
-        return assembled
+        return assembled, logging
       end
       print("returning to console (config saved, FCS not started)")
       return nil

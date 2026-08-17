@@ -18,6 +18,10 @@ function M.defaults()
     -- Adjusted in the UI in +/-15s steps; pulseMs (funnel-open time) stays in ms.
     engine = { pulseMs = 250, intervalMs = 330000, invert = false, kickstart = true, masterDefault = false },
     sens = { source = "FCS" },
+    -- PFD cockpit-page redraw cadence (ms). Tunable in BIT/CONFIG -> PFD RATE. The dirty-gate is
+    -- kept (only unchanged frames are skipped); this sets how often it checks/repaints. Faster =
+    -- smoother but more shared-server render budget (watch the FCS loopHz). See ui/basalt/app.lua.
+    pfd = { renderMs = 100 },
   }
 end
 

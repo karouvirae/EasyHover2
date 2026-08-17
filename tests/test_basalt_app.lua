@@ -198,13 +198,13 @@ end)
 t.test("routeModem stores a navfix relay (fix present) into runtime.nav", function()
   local runtime = newRuntime()
   local frame = { k = "navfix", fix = { x = 10, y = 82, z = -20, age = 0, source = "gps", nBeacons = 4, quality = 1.0 },
-    heading = 90, compass = "N", gs = 12.5, at = 1000 }
+    gs = 12.5, at = 1000 }
   local reply = M.routeModem(runtime, 107, protocol.encode(frame))
   t.eq(reply, nil, "navfix is a fire-and-forget relay, no reply frame")
   t.eq(runtime.nav.gpsAlt, 82)
   t.eq(runtime.nav.tas, 12.5)
   t.eq(runtime.nav.fixOk, true)
-  t.truthy(runtime.nav.at ~= nil, "nav.at stamped")
+  t.eq(runtime.nav.at, nil, "navfix does NOT touch the heading-freshness clock (that's navhdg's job)")
 end)
 
 t.test("routeModem stores a navfix relay (no fix) into runtime.nav", function()
@@ -216,12 +216,14 @@ t.test("routeModem stores a navfix relay (no fix) into runtime.nav", function()
   t.eq(runtime.nav.fixOk, false)
 end)
 
-t.test("routeModem stores the nav-magnet-table heading + compass for display", function()
+t.test("routeModem stores a fast navhdg relay: heading + compass + freshness clock", function()
   local runtime = newRuntime()
-  local frame = { k = "navfix", fix = nil, heading = 123, compass = "SE", gs = nil, at = 1000 }
-  M.routeModem(runtime, 107, protocol.encode(frame))
+  local frame = { k = "navhdg", heading = 123, compass = "SE", at = 1000 }
+  local reply = M.routeModem(runtime, 107, protocol.encode(frame))
+  t.eq(reply, nil, "navhdg is a fire-and-forget relay, no reply frame")
   t.eq(runtime.nav.heading, 123, "nav bearing stored")
   t.eq(runtime.nav.compass, "SE", "compass stored")
+  t.truthy(runtime.nav.at ~= nil, "navhdg stamps the heading-freshness clock")
 end)
 
 t.test("buildState heading comes from a FRESH nav relay, ignoring FCS telemetry heading", function()

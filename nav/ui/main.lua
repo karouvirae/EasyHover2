@@ -17,10 +17,23 @@ function M.viewModel(status)
   status = status or {}
   local vm = {}
   local f = status.fix
+  -- y source: baro (suffix B) when the FCS baro telemetry is fresh -- it's the accurate vertical
+  -- (GPS-y is VDOP-poor with near-coplanar beacons); else the trilaterated GPS y (suffix N).
+  local useBaro = status.baroFresh and type(status.baroY) == "number"
+  local function yTok(gpsY)
+    if useBaro then return ("%dB"):format(math.floor(status.baroY + 0.5)) end
+    if type(gpsY) == "number" then return ("%dN"):format(math.floor(gpsY + 0.5)) end
+    return "--"
+  end
   if f then
-    vm.position = ("%d %d %d"):format(math.floor(f.x + 0.5), math.floor(f.y + 0.5), math.floor(f.z + 0.5))
+    vm.position = ("%d %s %d"):format(math.floor(f.x + 0.5), yTok(f.y), math.floor(f.z + 0.5))
     vm.positionTone = "good"
     vm.fixInfo = ("%d beacons  %.1fs  q %.2f"):format(f.nBeacons or 0, (f.age or 0) / 1000, f.quality or 0)
+  elseif useBaro then
+    -- Altitude known (baro), horizontal unknown (no GPS fix): show the y we DO have.
+    vm.position = ("-- %s --"):format(yTok(nil))
+    vm.positionTone = "normal"
+    vm.fixInfo = "waiting for 4 beacons"
   else
     vm.position = "NO FIX"
     vm.positionTone = "bad"

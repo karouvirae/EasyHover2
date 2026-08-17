@@ -110,21 +110,35 @@ function R:heading()
   return heading.absolute(raw, self.config.navtable and self.config.navtable.sign or 1)
 end
 
---- Build the relay frame (fix may be nil so the craft still learns NAV is alive + the heading).
+--- Build the GPS fix relay frame (fix may be nil so the craft still learns NAV is alive). Heading is
+--- NOT bundled here -- it rides the faster navhdg frame so the tape isn't limited by the GPS rate.
 function R:frame(now)
   now = now or self.now()
   local f = self:computeFix(now)
-  local hdg = self:heading()
   local gs = M.groundSpeed(self._lastFix, self._lastT, f, now)
   if f then self._lastFix, self._lastT = f, now end
-  return { k = "navfix", fix = f, heading = hdg, compass = hdg and heading.compass(hdg) or nil,
-    gs = gs, at = now }
+  return { k = "navfix", fix = f, gs = gs, at = now }
 end
 
---- Compute + relay one nav frame onto the wired network. Fire-and-forget (latest-wins). Returns the
---- frame.
+--- Build the fast heading-only relay frame: the shared magnet-table bearing + compass, fully
+--- decoupled from the GPS fix (no trilateration, just getRelativeAngle). heading may be nil (silent
+--- table) -- the frame still emits so the craft knows NAV is alive.
+function R:headingFrame(now)
+  now = now or self.now()
+  local hdg = self:heading()
+  return { k = "navhdg", heading = hdg, compass = hdg and heading.compass(hdg) or nil, at = now }
+end
+
+--- Compute + relay one GPS fix frame onto the wired network. Fire-and-forget (latest-wins).
 function R:step(now)
   local frame = self:frame(now)
+  if self.link then self.link:send(frame) end
+  return frame
+end
+
+--- Relay one fast heading frame onto the wired network. Fire-and-forget.
+function R:stepHeading(now)
+  local frame = self:headingFrame(now)
   if self.link then self.link:send(frame) end
   return frame
 end

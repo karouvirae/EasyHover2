@@ -83,6 +83,7 @@ M.PAGES = {
   uical     = require("ui.basalt.bitconfig.uical"),
   senscal   = require("ui.basalt.bitconfig.senscal"),
   senssource = require("ui.basalt.bitconfig.senssource"),
+  pfdrate   = require("ui.basalt.bitconfig.pfd"),   -- PFD RATE submenu (id "pfdrate", not the cockpit "pfd")
   dtc       = require("ui.basalt.bitconfig.dtc"),
   fcssync   = require("ui.basalt.bitconfig.fcssync"),
 }
@@ -457,13 +458,20 @@ function M.routeModem(runtime, ch, msg)
   end
 
   local n = runtime.navLink:onMessage(ch, msg)
+  if n and n.k == "navhdg" then
+    -- Fast heading relay (shared magnet-table bearing): THE display heading source. Stamps the
+    -- heading-freshness clock so a dead NAV -> stale -> tape "---" (buildState gate keys off this).
+    runtime.nav.heading = n.heading
+    runtime.nav.compass = n.compass
+    runtime.nav.at      = os.epoch("utc")
+    return nil
+  end
   if n and n.k == "navfix" then
+    -- Slow GPS fix relay: position/speed only. Deliberately does NOT touch nav.at -- heading
+    -- freshness must track the fast navhdg stream, not this slow one.
     runtime.nav.gpsAlt = n.fix and n.fix.y or nil
     runtime.nav.tas    = n.gs
     runtime.nav.fixOk  = n.fix ~= nil
-    runtime.nav.heading = n.heading   -- shared magnet-table bearing: THE display heading source
-    runtime.nav.compass = n.compass
-    runtime.nav.at     = os.epoch("utc")
     return nil
   end
 
@@ -614,7 +622,11 @@ function M.startScheduled(basalt, runtime, frames, applyState, extraDirty)
         lastSig = sig
         applyState(state, frames)
       end
-      sleep(0.1)   -- 10Hz render gate: matches telemetry/nav/attitude feeds so the PFD stays snappy
+      -- Tunable render cadence (BIT/CONFIG -> PFD RATE, ui.config pfd.renderMs). The dirty-gate is
+      -- kept, so unchanged frames still skip the expensive recompose+monitor-blit -- protecting the
+      -- server-global render budget the FCS shares. Faster = smoother, watch the FCS loopHz.
+      local ms = (runtime.config.pfd and runtime.config.pfd.renderMs) or 100
+      sleep(ms / 1000)
     end
   end)
 end
