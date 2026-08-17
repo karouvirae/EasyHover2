@@ -11,6 +11,9 @@ mkdir -p "$COMP"
 for d in fcs tools ui nav beacon release launchers; do
   [ -d "$ROOT/$d" ] && cp -r "$ROOT/$d" "$COMP/"
 done
+for f in easyhover2_suite.lua easyhover2_suitex.lua manifest.lua manifest-dev.lua; do
+  [ -f "$ROOT/$f" ] && cp "$ROOT/$f" "$COMP/"
+done
 cp -r "$ROOT/tests" "$COMP/"
 {
   echo 'package.path = "/?.lua;/?/init.lua;" .. package.path'

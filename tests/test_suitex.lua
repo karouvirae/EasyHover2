@@ -165,6 +165,25 @@ t.test("shouldArmCheck: skip a redundant same-target re-arm; arm on change, forc
   t.eq(SuiteX.shouldArmCheck(true, "min|fcs", "min|fcs", true), true, "forced (Verify / post-op) -> arm even for same target")
 end)
 
+t.test("drainEvents flushes the queued backlog up to its own sentinel timer", function()
+  -- The freeze re-fix: after stopping a running EH2 program, a backlog of queued events (modem
+  -- messages, key/char, stray timers) is delivered into SuiteX's loop and starves the check
+  -- coroutine's sleep-timer, wedging the bar after one batch. Draining that backlog at startup
+  -- removes the trigger -- exactly what a manual restart does today.
+  local queue = { {"modem_message", 1}, {"char", "p"}, {"key", 50}, {"timer", 7}, {"timer", 99} }
+  local i = 0
+  local pull = function() i = i + 1; return table.unpack(queue[i]) end
+  local startTimer = function(_n) return 99 end                 -- our sentinel id
+  local drained = SuiteX.drainEvents(pull, startTimer)
+  t.eq(drained, 4, "drained the 4 real events (incl. a foreign timer), stopped at the sentinel")
+end)
+
+t.test("drainEvents on an empty queue returns 0 (sentinel fires first)", function()
+  local pull = function() return "timer", 42 end               -- only the sentinel is ever pulled
+  local startTimer = function(_n) return 42 end
+  t.eq(SuiteX.drainEvents(pull, startTimer), 0, "nothing to drain")
+end)
+
 t.test("logo is a rectangular ASCII block", function()
   t.truthy(#SuiteX.logo >= 1, "has rows")
   local w = #SuiteX.logo[1]

@@ -176,6 +176,25 @@ function SuiteX.shouldArmCheck(hasCheck, prevTarget, newTarget, force)
   return prevTarget ~= newTarget
 end
 
+--- Flush the event backlog queued while a previous program (e.g. a running FCS) was stopped, BEFORE
+--- the dashboard's check coroutine starts pumping. That backlog -- modem messages, key/char, stray
+--- timers -- otherwise starves the check's sleep-timer, wedging the bar after its first ~16-file
+--- batch (~28-29% on the FCS role). A manual restart drains the same backlog, which is why the
+--- second launch always worked. Pulls events until its OWN 0s sentinel timer surfaces (queued last,
+--- after everything already pending), then returns the count drained. pull/startTimer injectable for
+--- tests; defaults to the real os API.
+function SuiteX.drainEvents(pull, startTimer)
+  pull = pull or os.pullEvent
+  startTimer = startTimer or os.startTimer
+  local sentinel = startTimer(0)
+  local drained = 0
+  while true do
+    local ev = { pull() }
+    if ev[1] == "timer" and ev[2] == sentinel then return drained end
+    drained = drained + 1
+  end
+end
+
 SuiteX.logo = {
   "  ___ _  _ ___    ___ ",
   " | __| || |_  )  |__ \\",
@@ -396,7 +415,11 @@ end
 local function driveCheck(ctx, myCheck)
   ctx.basalt.schedule(function()
     while ctx.check == myCheck and not ctx.checkDone do
-      local done = myCheck.step(16)
+      -- Guard the batch: a checkFile/readFile throw (e.g. an odd on-disk path) must not silently
+      -- kill this scheduled coroutine and freeze the bar. On error, finish with whatever we have so
+      -- the buttons re-enable rather than wedging (defense in depth alongside the startup drain).
+      local ok, done = pcall(myCheck.step, 16)
+      if not ok then done = true end
       local i, total = myCheck.progress()
       ctx.ui.progress:setProgress(total > 0 and math.floor(i / total * 100 + 0.5) or 100)
       if done then
@@ -894,6 +917,10 @@ function SuiteX.run()
   }
 
   buildUI(ctx)
+  -- Flush the stale event backlog (from a just-stopped FCS/UI program) BEFORE basalt starts pumping,
+  -- so the freshly-armed integrity-check coroutine's sleep-timer isn't starved after its first batch
+  -- -- the ~28-29% wedge that forced a second launch every time. See SuiteX.drainEvents.
+  SuiteX.drainEvents()
   basalt.run()
 end
 
