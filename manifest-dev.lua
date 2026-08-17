@@ -493,9 +493,9 @@
         },
         {
           ["dst"] = "nav/app.lua",
-          ["size"] = 8859,
+          ["size"] = 10981,
           ["src"] = "nav/app.lua",
-          ["sum"] = "170a622a",
+          ["sum"] = "a3c31b37",
         },
         {
           ["dst"] = "nav/comms/gpsproto.lua",
@@ -556,6 +556,18 @@
           ["size"] = 4909,
           ["src"] = "nav/ui/main.lua",
           ["sum"] = "5a04a2c0",
+        },
+        {
+          ["dst"] = "nav/waypoints.lua",
+          ["size"] = 4814,
+          ["src"] = "nav/waypoints.lua",
+          ["sum"] = "0707914b",
+        },
+        {
+          ["dst"] = "nav/wptserver.lua",
+          ["size"] = 2219,
+          ["src"] = "nav/wptserver.lua",
+          ["sum"] = "d6cfa0a7",
         },
         {
           ["dst"] = "startup.lua",
@@ -886,9 +898,9 @@
         },
         {
           ["dst"] = "ui/basalt/app.lua",
-          ["size"] = 37888,
+          ["size"] = 39446,
           ["src"] = "ui/basalt/app.lua",
-          ["sum"] = "8396e168",
+          ["sum"] = "efe5780a",
         },
         {
           ["dst"] = "ui/basalt/bitconfig/dtc.lua",
@@ -1087,6 +1099,12 @@
           ["size"] = 1817,
           ["src"] = "ui/basalt/uilog.lua",
           ["sum"] = "5d507aa9",
+        },
+        {
+          ["dst"] = "ui/basalt/wptclient.lua",
+          ["size"] = 3108,
+          ["src"] = "ui/basalt/wptclient.lua",
+          ["sum"] = "d35d329f",
         },
         {
           ["dst"] = "ui/cfgserver.lua",
@@ -1294,5 +1312,5 @@
     ["size"] = 71434,
     ["sum"] = "57671ad7",
   },
-  ["version"] = "d1ae81e1",
+  ["version"] = "9db18aa0",
 }

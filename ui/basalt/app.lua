@@ -46,6 +46,7 @@ local cadence   = require("ui.basalt.cadence")
 local Nav       = require("ui.basalt.nav")
 local senssource = require("ui.basalt.senssource")
 local UILog     = require("ui.basalt.uilog")
+local WptClient = require("ui.basalt.wptclient")
 
 local modemlib  = require("fcs.comms.modem")
 local telemetry = require("fcs.comms.telemetry")
@@ -322,9 +323,13 @@ function M.buildRuntime(deps)
   -- reply expected -- txCh is set to the same channel purely so the link shape matches the
   -- others; the UI never sends on it.
   local navLink = modemlib.wrap(modem, { txCh = 107, rxCh = 107 })
+  -- NAV waypoint store sync: the cockpit menu is a client -- sends requests on 108, gets replies on
+  -- 109 (the NAV PC owns the store). Fire-and-forget send; replies land via routeModem -> onReply.
+  local wptClient = WptClient.new({ link = modemlib.wrap(modem, { txCh = 108, rxCh = 109 }) })
   for _, c in pairs(CH) do modem.open(c) end
   for _, c in pairs(CFG_CH) do modem.open(c) end
   modem.open(107)
+  modem.open(109)
 
   local rx = telemetry.Rx.new()
   local sender = command.Sender.new({ timeout = 0.5 })
@@ -421,6 +426,7 @@ function M.buildRuntime(deps)
     -- semantic actions; P uploads the rolling window to carbide from inside the cockpit.
     uilog = UILog.new((deps.uilog ~= nil) and deps.uilog or (_G.EH2_UILOG == true)),
     setLogStatus = function() end,   -- no-op until M.run wires the Basalt overlay (in-game only)
+    wptClient = wptClient,   -- NAV store sync client (waypoints/routes live on the NAV PC)
     state = { pumpFrac = 0, tankFrac = 0, pumpAmount = 0, tankMb = 0 },
     nav = {},  -- PFD nav fields (gpsAlt/tas/fixOk); Task 7's nav listener populates this later
     CH = CH,
@@ -475,11 +481,24 @@ function M.routeModem(runtime, ch, msg)
   end
   if n and n.k == "navfix" then
     -- Slow GPS fix relay: position/speed only. Deliberately does NOT touch nav.at -- heading
-    -- freshness must track the fast navhdg stream, not this slow one.
+    -- freshness must track the fast navhdg stream, not this slow one. Store the craft's horizontal
+    -- position too (fixX/fixZ) for NAV-menu waypoint targeting on the PFD.
     runtime.nav.gpsAlt = n.fix and n.fix.y or nil
+    runtime.nav.fixX   = n.fix and n.fix.x or nil
+    runtime.nav.fixZ   = n.fix and n.fix.z or nil
     runtime.nav.tas    = n.gs
     runtime.nav.fixOk  = n.fix ~= nil
     return nil
+  end
+
+  -- NAV waypoint-store sync replies (ch 109) -> the client cache. Async: the client only SENDS;
+  -- the reply arrives here and refreshes runtime.wptClient's cached store.
+  if runtime.wptClient and runtime.wptClient.link then
+    local wf = runtime.wptClient.link:onMessage(ch, msg)
+    if wf and (wf.k == "wpt_store" or wf.k == "wpt_err") then
+      runtime.wptClient:onReply(wf, os.epoch("utc"))
+      return nil
+    end
   end
 
   return nil
@@ -631,6 +650,16 @@ function M.startScheduled(basalt, runtime, frames, applyState, extraDirty)
     while true do
       for _, f in ipairs(runtime.sender:tick(0.25)) do runtime.links.tel:send(f) end
       sleep(0.25)
+    end
+  end)
+
+  -- (g) NAV store sync poll, 2s: pull the waypoint/route store from the NAV PC so the NAV menu cache
+  -- stays fresh + offline is detected. Cheap (one small frame); the reply lands via routeModem ->
+  -- wptClient:onReply. First request fires immediately so the menu populates as soon as it opens.
+  basalt.schedule(function()
+    while true do
+      if runtime.wptClient then pcall(function() runtime.wptClient:request() end) end
+      sleep(2.0)
     end
   end)
 

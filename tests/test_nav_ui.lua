@@ -193,3 +193,33 @@ t.test("app.buildState marks the NAV baro stale past the freshness window", func
   local state = App.buildState(rt, App.BARO_MAX_AGE_MS + 1)
   t.eq(state.nav.baroFresh, false, "past the window -> stale -> NAV falls back to GPS y")
 end)
+
+-- ============================ NAV store sync server (handleWptRequest) ============================
+
+t.test("app.handleWptRequest applies an op, persists on rev change, returns the fresh store", function()
+  local W = require("nav.waypoints")
+  local saved
+  local runtime = { store = W.defaults(), wptRev = 0, saveStore = function(s) saved = s end }
+  local reply = App.handleWptRequest(runtime, { k = "wpt_op", op = "addWpt",
+    args = { name = "Home", x = 1, y = 2, z = 3, type = "base" } })
+  t.eq(reply.k, "wpt_store"); t.eq(reply.rev, 1)
+  t.eq(#runtime.store.waypoints, 1); t.eq(runtime.wptRev, 1)
+  t.truthy(saved ~= nil and #saved.waypoints == 1, "persisted the store on mutation")
+end)
+
+t.test("app.handleWptRequest wpt_get returns the store + rev and never persists", function()
+  local W = require("nav.waypoints")
+  local persisted = false
+  local runtime = { store = W.defaults(), wptRev = 3, saveStore = function() persisted = true end }
+  local reply = App.handleWptRequest(runtime, { k = "wpt_get" })
+  t.eq(reply.k, "wpt_store"); t.eq(reply.rev, 3)
+  t.eq(persisted, false, "a read never persists"); t.eq(runtime.wptRev, 3)
+end)
+
+t.test("app.handleWptRequest keeps rev + does not persist on a failed op", function()
+  local W = require("nav.waypoints")
+  local persisted = false
+  local runtime = { store = W.defaults(), wptRev = 2, saveStore = function() persisted = true end }
+  App.handleWptRequest(runtime, { k = "wpt_op", op = "deleteWpt", args = { name = "ghost" } })
+  t.eq(runtime.wptRev, 2); t.eq(persisted, false)
+end)

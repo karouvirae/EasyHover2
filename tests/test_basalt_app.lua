@@ -239,6 +239,24 @@ t.test("routeModem stores a fast navhdg relay: heading + compass + freshness clo
   t.truthy(runtime.nav.at ~= nil, "navhdg stamps the heading-freshness clock")
 end)
 
+t.test("routeModem stores craft x/z from a navfix relay (for waypoint targeting)", function()
+  local runtime = newRuntime()
+  local frame = { k = "navfix", fix = { x = 100, y = 64, z = -200 }, gs = 5, at = 1 }
+  M.routeModem(runtime, 107, protocol.encode(frame))
+  t.eq(runtime.nav.fixX, 100); t.eq(runtime.nav.fixZ, -200); t.eq(runtime.nav.gpsAlt, 64)
+end)
+
+t.test("routeModem feeds a wpt_store reply (ch 109) into the wptClient cache", function()
+  local runtime = newRuntime()
+  t.truthy(runtime.wptClient ~= nil, "buildRuntime wired the NAV store sync client")
+  local frame = { k = "wpt_store",
+    store = { waypoints = { { name = "Home", x = 1, y = 2, z = 3, type = "base" } }, routes = {} }, rev = 5 }
+  M.routeModem(runtime, 109, protocol.encode(frame))
+  t.eq(runtime.wptClient.online, true)
+  t.eq(runtime.wptClient.rev, 5)
+  t.eq(#runtime.wptClient.store.waypoints, 1)
+end)
+
 t.test("buildState heading comes from a FRESH nav relay, ignoring FCS telemetry heading", function()
   local runtime = newRuntime()
   M.routeModem(runtime, CH.telemetry, protocol.encode(telemetry.Tx.new():frame({ heading = 90 })))

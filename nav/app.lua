@@ -11,9 +11,18 @@ local NavRuntime = require("nav.runtime")
 local Main       = require("nav.ui.main")
 local ConfigPage = require("nav.ui.config")
 local protocol   = require("fcs.comms.protocol")
+local modemlib   = require("fcs.comms.modem")
+local W          = require("nav.waypoints")
+local wptserver  = require("nav.wptserver")
 
 local M = {}
 M.CONFIG_PATH = navconfig.PATH
+
+-- The NAV PC owns the waypoint/route store + the disk drive; the cockpit NAV menu is a sync client
+-- (ui.basalt.wptclient) that requests on 108 and gets replies on 109.
+M.WPT_STORE_PATH = "/eh2_nav_wpt.tbl"
+M.WPT_REQ_CH = 108
+M.WPT_REPLY_CH = 109
 
 -- The NAV hears the FCS telemetry it shares the wired network with, purely to cache the true-Y baro
 -- (snapshot.altitude) as its accurate vertical source. Same channel as ui/main.lua's telemetry.
@@ -61,8 +70,18 @@ function M.buildRuntime(deps)
   if not gpsModem then gpsModem = find("modem", function(_, m) return m.isWireless and m.isWireless() end) end
   if not wiredModem then wiredModem = find("modem", function(_, m) return not (m.isWireless and m.isWireless()) end) end
   if gpsModem and gpsModem.open then gpsModem.open(cfg.channel) end
-  -- Listen for FCS telemetry on the shared wired network to cache the true-Y baro (NAV y-source).
+  -- Listen for FCS telemetry on the shared wired network to cache the true-Y baro (NAV y-source),
+  -- and for cockpit NAV-menu waypoint sync requests (108, reply on 109).
   if wiredModem and wiredModem.open then pcall(wiredModem.open, M.TELEMETRY_CH) end
+  if wiredModem and wiredModem.open then pcall(wiredModem.open, M.WPT_REQ_CH) end
+
+  -- Waypoint/route store (this PC owns it) + the reply link the request handler answers on.
+  local wptStorePath = deps.wptStorePath or M.WPT_STORE_PATH
+  local store = select(1, W.load(wptStorePath)) or W.defaults()
+  local wptLink = deps.wptLink
+  if not wptLink and wiredModem then
+    wptLink = modemlib.wrap(wiredModem, { txCh = M.WPT_REPLY_CH, rxCh = M.WPT_REQ_CH })
+  end
 
   -- Bind the navigation_table: explicit injection wins (tests), then a configured name, then
   -- AUTO-DETECT. Without auto-detect a fresh NAV install has no bound table (the config UI has no
@@ -91,7 +110,23 @@ function M.buildRuntime(deps)
   local rt = NavRuntime.new({ config = cfg, navtable = navtable, gpsModem = gpsModem,
                               wiredModem = wiredModem, now = now })
   return { nav = rt, config = cfg, gpsModem = gpsModem, wiredModem = wiredModem, uiRev = 0, now = now,
-           save = function(c) navconfig.save(M.CONFIG_PATH, c or cfg) end }
+           save = function(c) navconfig.save(M.CONFIG_PATH, c or cfg) end,
+           store = store, wptRev = 0, wptLink = wptLink,
+           saveStore = function(s) W.save(wptStorePath, s or store) end }
+end
+
+-- M.handleWptRequest(runtime, msg) -> reply. Applies a cockpit NAV-menu request (wpt_get/wpt_op) to
+-- the store via nav.wptserver, persists on any rev change, and returns the reply frame. Disk ops
+-- (wpt_disk) are routed to nav.wptdisk separately (Task 1f). Testable: inject runtime.store +
+-- runtime.saveStore.
+function M.handleWptRequest(runtime, msg)
+  local reply, newStore, newRev = wptserver.apply(runtime.store, msg, runtime.wptRev or 0)
+  if newRev ~= (runtime.wptRev or 0) then
+    runtime.store = newStore
+    runtime.wptRev = newRev
+    if runtime.saveStore then pcall(runtime.saveStore, runtime.store) end
+  end
+  return reply
 end
 
 -- M.routeModem(runtime, ch, replyCh, msg, dist): GPS-channel messages feed the receiver; FCS
@@ -106,6 +141,15 @@ function M.routeModem(runtime, ch, replyCh, msg, dist)
        and type(f.s.altitude) == "number" then
       runtime.baroY  = f.s.altitude
       runtime.baroAt = runtime.now()
+    end
+    return false
+  end
+  if ch == M.WPT_REQ_CH then
+    -- A cockpit NAV-menu sync request: apply + persist, reply on 109.
+    local ok, f = pcall(protocol.decode, msg)
+    if ok and type(f) == "table" and (f.k == "wpt_get" or f.k == "wpt_op" or f.k == "wpt_disk") then
+      local reply = M.handleWptRequest(runtime, f)
+      if reply and runtime.wptLink then pcall(function() runtime.wptLink:send(reply) end) end
     end
     return false
   end
