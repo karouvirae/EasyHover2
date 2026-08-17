@@ -213,7 +213,13 @@ end
 -- consistent styling and a per-button set(state) -- default state is "off" unless spec.state is
 -- given. setState(i, state) forwards to the i-th button's set().
 function M.actionRow(frame, pos, specs)
-  local widths = M.splitWidths(pos.w, #specs)
+  -- Optional `pos.gap` (default 0): columns of frame-background left BETWEEN buttons so a row of
+  -- several same-coloured buttons reads as distinct cells instead of one merged bar. The gaps are
+  -- taken out of the usable width first, then splitWidths divides what remains among the buttons.
+  local n = #specs
+  local gap = pos.gap or 0
+  local usable = math.max(n, pos.w - gap * math.max(0, n - 1))
+  local widths = M.splitWidths(usable, n)
   local buttons = {}
   local px = pos.x
   for i, spec in ipairs(specs) do
@@ -226,7 +232,7 @@ function M.actionRow(frame, pos, specs)
     sw.button:onClick(function() if onClick then onClick() end end)
     sw.set(spec.state or "off")
     buttons[i] = sw
-    px = px + width
+    px = px + width + gap
   end
   local function setState(i, state)
     if buttons[i] then buttons[i].set(state) end

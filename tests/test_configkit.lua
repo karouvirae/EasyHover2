@@ -131,6 +131,25 @@ end)
 
 -- ===== Basalt chrome: actionRow + helpScreen construction probe =====
 
+t.test("actionRow gap leaves a column between buttons so they don't merge", function()
+  local BasaltApp = require("ui.basalt.app")
+  local basalt = BasaltApp.ensureBasalt()
+  local frame = basalt.createFrame()
+  local row = ck.actionRow(frame, { x = 1, y = 1, w = 15, gap = 1 }, {
+    { label = "A", onClick = function() end },
+    { label = "B", onClick = function() end },
+    { label = "C", onClick = function() end },
+  })
+  local b = row.buttons
+  t.eq(b[1].button:getX(), 1)
+  t.eq(b[2].button:getX(), b[1].button:getX() + b[1].button:getWidth() + 1, "1-col gap after button 1")
+  t.eq(b[3].button:getX(), b[2].button:getX() + b[2].button:getWidth() + 1, "1-col gap after button 2")
+  -- and gap=0 (default) keeps the old edge-to-edge packing
+  local tight = ck.actionRow(frame, { x = 1, y = 2, w = 15 }, { { label = "X" }, { label = "Y" } })
+  t.eq(tight.buttons[2].button:getX(), tight.buttons[1].button:getX() + tight.buttons[1].button:getWidth(),
+    "no gap by default")
+end)
+
 t.test("actionRow + helpScreen construction probe: builds, one render pass does not error", function()
   local BasaltApp = require("ui.basalt.app")
   local Region = require("ui.basalt.region")

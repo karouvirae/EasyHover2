@@ -106,18 +106,19 @@ function M.build(basalt, frame, runtime, nav)
   local function mutateOp(op, args) if client() then client():mutate(op, args) end end
 
   local function bump() if runtime then runtime.uiRev = (runtime.uiRev or 0) + 1 end end
-
-  frame:addLabel({ x = 2, y = 1, width = math.max(1, w - 2), height = 1, autoSize = false, text = "NAV" })
+  -- No "NAV" header row -- it wasted a line; the region uses the full frame above the BIT/CONFIG row.
 
   -- ---------- navmain: action row + type-filter row + waypoint list ----------
   local function buildNavmain(b, f, region)
     local fw, fh = f:getSize()
     local refresh   -- forward decl (filter buttons call it)
 
-    local actionRow = configkit.actionRow(f, { x = 1, y = 1, w = fw }, {
-      { label = "WPT EDIT", onClick = function() region:push("wptedit") end },
-      { label = "RT EDIT",  onClick = function() region:push("rtedit") end },
-      { label = "DTC",      onClick = function() region:push("dtc") end },
+    -- Short labels that fit their cell without fitLabel truncation, + a 1-col gap so the buttons
+    -- read as separate cells instead of one merged bar.
+    local actionRow = configkit.actionRow(f, { x = 1, y = 1, w = fw, gap = 1 }, {
+      { label = "WPT", onClick = function() region:push("wptedit") end },
+      { label = "RT",  onClick = function() region:push("rtedit") end },
+      { label = "DTC", onClick = function() region:push("dtc") end },
     })
 
     local FILTERS = { { "BAS", "base" }, { "OUT", "outpost" }, { "FAC", "facility" }, { "POI", "poi" }, { "ALL", "all" } }
@@ -125,7 +126,7 @@ function M.build(basalt, frame, runtime, nav)
     for _, ft in ipairs(FILTERS) do
       fspecs[#fspecs + 1] = { label = ft[1], onClick = function() activeType = ft[2]; refresh() end }
     end
-    local filterRow = configkit.actionRow(f, { x = 1, y = 2, w = fw }, fspecs)
+    local filterRow = configkit.actionRow(f, { x = 1, y = 2, w = fw, gap = 1 }, fspecs)
 
     local listTop = 3
     local listH = math.max(4, fh - listTop + 1)
@@ -166,7 +167,7 @@ function M.build(basalt, frame, runtime, nav)
       z = zIn:getText(), type = curType } end
     local function clearForm() nameIn:setText(""); xIn:setText(""); yIn:setText(""); zIn:setText("") end
 
-    local actionRow = configkit.actionRow(f, { x = 1, y = 4, w = fw }, {
+    local actionRow = configkit.actionRow(f, { x = 1, y = 4, w = fw, gap = 1 }, {
       { label = "HERE", onClick = function() sendMutation("addHere", form()); clearForm(); refresh() end },
       { label = "MAN",  onClick = function() sendMutation("addManual", form()); clearForm(); refresh() end },
       { label = "EDIT", onClick = function() sendMutation("edit", form(), selectedName); refresh() end },
@@ -306,7 +307,7 @@ function M.build(basalt, frame, runtime, nav)
   end
 
   local region = Region.new(basalt, frame, {
-    x = 1, y = 2, width = w, height = math.max(1, h - 2), root = "navmain", onNav = bump,
+    x = 1, y = 1, width = w, height = math.max(1, h - 1), root = "navmain", onNav = bump,
     screens = { navmain = buildNavmain, wptedit = buildWptedit, dtc = buildDtc, rtedit = buildRtedit },
   })
   region:apply(nil)
