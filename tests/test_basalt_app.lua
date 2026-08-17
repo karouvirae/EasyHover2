@@ -122,6 +122,19 @@ t.test("buildRuntime wires comms/engine/fuel/cfgsync with injected deps, no real
   t.truthy(runtime.cfgserver ~= nil, "cfgserver present")
   t.truthy(runtime.cfgserver:running() == false, "cfgserver NOT auto-started")
   t.eq(runtime.uiRev, 0)
+  -- UI logger present + a no-op setLogStatus (real overlay wired only in M.run, in-game).
+  t.truthy(runtime.uilog ~= nil, "uilog present")
+  t.eq(runtime.uilog.enabled, false, "logging off by default (no _G.EH2_UILOG / deps.uilog)")
+  t.eq(type(runtime.setLogStatus), "function", "setLogStatus stub present")
+end)
+
+t.test("buildRuntime arms the UI logger when deps.uilog is true", function()
+  local modem = newMockModem()
+  local runtime = M.buildRuntime({ modem = modem, wrap = function() return {} end,
+    read = function() return nil end, uilog = true })
+  t.eq(runtime.uilog.enabled, true, "deps.uilog=true arms logging")
+  runtime.uilog:event("TEST", "hello", 1000)
+  t.eq(#runtime.uilog:rows(), 1, "events record when armed")
 end)
 
 t.test("routeModem accepts a telemetry frame into rx", function()
@@ -264,4 +277,29 @@ t.test("app loads + startScheduled registers scheduled work + one render pass, n
     basalt.update("timer", -1)
   end)
   t.truthy(ok, "startScheduled + one render pass should not error: " .. tostring(err))
+end)
+
+t.test("logging-armed: status overlay (z=1000) + input logger run clean and record events (real basalt)", function()
+  local basalt = M.ensureBasalt()
+  local mocks = { mA = newMockMonitor() }
+  local built = M.buildFrames(basalt, { mA = "fcs" }, { "mA" }, function(name) return mocks[name] end)
+  local runtime = M.buildRuntime({ modem = newMockModem(), wrap = function() return {} end,
+    read = function() return nil end, uilog = true })
+
+  local ok, err = pcall(function()
+    -- Mirror M.run's overlay wiring: a high-z status label on the terminal frame + the setter.
+    local tw, th = built.terminal:getSize()
+    local statusLabel = built.terminal:addLabel({ x = 1, y = th, width = tw, height = 1, autoSize = false,
+      z = 1000, background = colors.black, foreground = colors.lime, text = "LOG on  P:upload" })
+    runtime.setLogStatus = function(s) statusLabel:setText(tostring(s)) end
+    runtime.setLogStatus("LOG .. uploading")               -- exercise the setter path
+
+    M.startScheduled(basalt, runtime, built, function() end)
+    basalt.update("timer", -1)                             -- render + resume the sleep loops once
+    basalt.update("mouse_click", 1, 2, 3)                  -- raw-input logger should record this
+  end)
+  t.truthy(ok, "logging-armed startScheduled + z-overlay must not error: " .. tostring(err))
+
+  local joined = table.concat(runtime.uilog:rows(), "\n")
+  t.truthy(joined:find("INPUT", 1, true), "raw input was logged while armed:\n" .. joined)
 end)

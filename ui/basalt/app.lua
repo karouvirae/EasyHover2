@@ -45,6 +45,7 @@ local CfgServer = require("ui.cfgserver")
 local cadence   = require("ui.basalt.cadence")
 local Nav       = require("ui.basalt.nav")
 local senssource = require("ui.basalt.senssource")
+local UILog     = require("ui.basalt.uilog")
 
 local modemlib  = require("fcs.comms.modem")
 local telemetry = require("fcs.comms.telemetry")
@@ -94,6 +95,7 @@ M.CH = { telemetry = 101, command = 102, ack = 103, health = 104 }
 M.CFG_CH = { req = 105, reply = 106 }
 
 M.CONFIG_PATH = "/eh2_ui_config.tbl"
+M.UI_LOG_PATH = "/eh2_ui_log.txt"   -- rolling UI log; P uploads this to carbide from the cockpit
 
 -- Displayed heading comes ONLY from the shared NAV magnet-table bearing relayed by the nav pc
 -- (never the FCS's control-signed heading). If no fresh relay has arrived within this window the
@@ -414,6 +416,11 @@ function M.buildRuntime(deps)
     rebindRelay = rebindRelay,
     isRelayReady = isRelayReady,
     uiRev = 0,
+    -- Session UI logger (no-op unless the launcher set _G.EH2_UILOG). Records raw input, scheduled-
+    -- loop timings (incl. the engine tick's feeding/pulseEndsAt -- the engine-bug probe), and
+    -- semantic actions; P uploads the rolling window to carbide from inside the cockpit.
+    uilog = UILog.new((deps.uilog ~= nil) and deps.uilog or (_G.EH2_UILOG == true)),
+    setLogStatus = function() end,   -- no-op until M.run wires the Basalt overlay (in-game only)
     state = { pumpFrac = 0, tankFrac = 0, pumpAmount = 0, tankMb = 0 },
     nav = {},  -- PFD nav fields (gpsAlt/tas/fixOk); Task 7's nav listener populates this later
     CH = CH,
@@ -559,8 +566,25 @@ function M.startScheduled(basalt, runtime, frames, applyState, extraDirty)
   -- already pcall-wrapped for a disconnected/broken relay; this outer guard additionally keeps a
   -- scheduled coroutine that hit an unexpected error alive instead of dying silently forever).
   basalt.schedule(function()
+    local n, lastFeed, lastBeat = 0, nil, 0
     while true do
-      pcall(function() runtime.engine:tick(os.epoch("utc")) end)
+      local now = os.epoch("utc")
+      pcall(function() runtime.engine:tick(now) end)
+      -- UI-log probe (no-op when logging off): log every feed/master transition immediately, plus a
+      -- ~1s heartbeat, so a wedged feed shows in the log as either a frozen heartbeat (tick loop
+      -- starved) or feed=true heartbeats that never clear (tick runs but pulse never ends).
+      if runtime.uilog.enabled then
+        n = n + 1
+        local st = runtime.engine:status(now)
+        if st.feeding ~= lastFeed then
+          runtime.uilog:event("ENGINE", ("feed=%s master=%s pEnds=%s"):format(
+            tostring(st.feeding), tostring(st.master), tostring(runtime.engine.pulseEndsAt)), now)
+          lastFeed = st.feeding
+        elseif now - lastBeat >= 1000 then
+          runtime.uilog:event("ENGINE", ("tick#%d feed=%s"):format(n, tostring(st.feeding)), now)
+          lastBeat = now
+        end
+      end
       sleep(0.1)
     end
   end)
@@ -620,7 +644,11 @@ function M.startScheduled(basalt, runtime, frames, applyState, extraDirty)
       local navDirty = extraDirty and extraDirty() or false
       if changed or navDirty then
         lastSig = sig
+        local t0 = os.epoch("utc")
         applyState(state, frames)
+        if runtime.uilog.enabled then
+          runtime.uilog:event("RENDER", ("apply %dms%s"):format(os.epoch("utc") - t0, navDirty and " nav" or ""), t0)
+        end
       end
       -- Tunable render cadence (BIT/CONFIG -> PFD RATE, ui.config pfd.renderMs). The dirty-gate is
       -- kept, so unchanged frames still skip the expensive recompose+monitor-blit -- protecting the
@@ -629,6 +657,60 @@ function M.startScheduled(basalt, runtime, frames, applyState, extraDirty)
       sleep(ms / 1000)
     end
   end)
+
+  -- ===== UI logging: raw-input capture + P-to-carbide upload (only armed when logging is on) =====
+  if runtime.uilog.enabled then
+    -- Write the rolling log + upload to carbide WITHOUT corrupting the cockpit: Basalt renders to
+    -- the term it captured at createFrame, so redirecting term here only diverts carbide's own
+    -- stdout into an invisible capture window we then scrape the paste URL from. Status shows in the
+    -- Basalt overlay (runtime.setLogStatus), never on the terminal. Runs in its own coroutine so a
+    -- P press never blocks input logging; guarded so spamming P can't stack uploads.
+    local uploading = false
+    local function uploadLog()
+      if uploading then return end
+      uploading = true
+      runtime.setLogStatus("LOG .. uploading")
+      pcall(function()
+        local f = fs.open(M.UI_LOG_PATH, "w")
+        if f then f.write(runtime.uilog:compose()); f.close() end
+      end)
+      local url = nil
+      pcall(function()
+        local prev = term.current()
+        local cw, ch2 = prev.getSize()
+        local cap = window.create(prev, 1, 1, cw, ch2, false)   -- invisible: carbide's stdout only
+        term.redirect(cap)
+        shell.run("carbide", "put", M.UI_LOG_PATH)
+        term.redirect(prev)
+        local lines = {}
+        for i = 1, ch2 do lines[i] = (cap.getLine and (cap.getLine(i))) or "" end
+        url = UILog.scrapeUrl(table.concat(lines, "\n"))
+      end)
+      runtime.uilog:event("UPLOAD", url and ("-> " .. url) or "(carbide unavailable)", os.epoch("utc"))
+      runtime.setLogStatus(url and ("LOG ok " .. url) or "LOG upload FAILED (grab " .. M.UI_LOG_PATH .. ")")
+      uploading = false
+    end
+
+    -- Raw-input logger: logs every input event (no filter; basalt still delivers them to the UI --
+    -- os.pullEvent in a scheduled coroutine observes events, it does not consume them). P/p fires an
+    -- upload on its own coroutine.
+    basalt.schedule(function()
+      while true do
+        local ev = { os.pullEvent() }
+        local e, now = ev[1], os.epoch("utc")
+        if e == "mouse_click" then runtime.uilog:event("INPUT", ("click b%s @%s,%s"):format(tostring(ev[2]), tostring(ev[3]), tostring(ev[4])), now)
+        elseif e == "mouse_up" then runtime.uilog:event("INPUT", ("up @%s,%s"):format(tostring(ev[3]), tostring(ev[4])), now)
+        elseif e == "mouse_drag" then runtime.uilog:event("INPUT", ("drag @%s,%s"):format(tostring(ev[3]), tostring(ev[4])), now)
+        elseif e == "mouse_scroll" then runtime.uilog:event("INPUT", ("scroll %s @%s,%s"):format(tostring(ev[2]), tostring(ev[3]), tostring(ev[4])), now)
+        elseif e == "char" then
+          runtime.uilog:event("INPUT", "char " .. tostring(ev[2]), now)
+          if ev[2] == "p" or ev[2] == "P" then basalt.schedule(uploadLog) end
+        elseif e == "key" then runtime.uilog:event("INPUT", "key " .. tostring(ev[2]), now)
+        elseif e == "key_up" then runtime.uilog:event("INPUT", "key_up " .. tostring(ev[2]), now)
+        end
+      end
+    end)
+  end
 end
 
 -- ===== M.run: top-level cockpit entry point =====
@@ -679,6 +761,19 @@ function M.run(deps)
       if frameRec.nav:top() ~= frameRec.lastTop then return true end
     end
     return false
+  end
+
+  -- Logging status overlay on the PC terminal frame (only when logging is armed). High z so lazily-
+  -- built page child frames never cover it. The P-upload task updates it: idle -> uploading ->
+  -- uploaded+url. Bottom row; the operator watches the PC screen for the paste link.
+  if runtime.uilog.enabled then
+    local tw, th = built.terminal:getSize()
+    local statusLabel = built.terminal:addLabel({
+      x = 1, y = th, width = tw, height = 1, autoSize = false, z = 1000,
+      background = colors.black, foreground = colors.lime, text = "LOG on  P:upload",
+    })
+    runtime.setLogStatus = function(s) pcall(function() statusLabel:setText(tostring(s)) end) end
+    runtime.uilog:event("SESSION", "UI logging armed", os.epoch("utc"))
   end
 
   M.startScheduled(basalt, runtime, built, applyState, navChanged)

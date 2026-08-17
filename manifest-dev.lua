@@ -598,9 +598,9 @@
         },
         {
           ["dst"] = "cockpit",
-          ["size"] = 84,
+          ["size"] = 479,
           ["src"] = "launchers/cockpit.lua",
-          ["sum"] = "a694fd33",
+          ["sum"] = "b584b757",
         },
         {
           ["dst"] = "fcs/actuate/level.lua",
@@ -619,6 +619,12 @@
           ["size"] = 5974,
           ["src"] = "fcs/bringup/instrument.lua",
           ["sum"] = "3b15825f",
+        },
+        {
+          ["dst"] = "fcs/bringup/logbuffer.lua",
+          ["size"] = 1229,
+          ["src"] = "fcs/bringup/logbuffer.lua",
+          ["sum"] = "67c7e864",
         },
         {
           ["dst"] = "fcs/bringup/profile.lua",
@@ -832,9 +838,9 @@
         },
         {
           ["dst"] = "startup.lua",
-          ["size"] = 84,
+          ["size"] = 479,
           ["src"] = "launchers/ui.lua",
-          ["sum"] = "a694fd33",
+          ["sum"] = "b584b757",
         },
         {
           ["dst"] = "tools/binddevices.lua",
@@ -880,9 +886,9 @@
         },
         {
           ["dst"] = "ui/basalt/app.lua",
-          ["size"] = 32411,
+          ["size"] = 37888,
           ["src"] = "ui/basalt/app.lua",
-          ["sum"] = "7d6921dc",
+          ["sum"] = "8396e168",
         },
         {
           ["dst"] = "ui/basalt/bitconfig/dtc.lua",
@@ -1075,6 +1081,12 @@
           ["size"] = 1584,
           ["src"] = "ui/basalt/switchbtn.lua",
           ["sum"] = "0a6e6e4f",
+        },
+        {
+          ["dst"] = "ui/basalt/uilog.lua",
+          ["size"] = 1817,
+          ["src"] = "ui/basalt/uilog.lua",
+          ["sum"] = "5d507aa9",
         },
         {
           ["dst"] = "ui/cfgserver.lua",
@@ -1282,5 +1294,5 @@
     ["size"] = 71434,
     ["sum"] = "57671ad7",
   },
-  ["version"] = "9a9bd151",
+  ["version"] = "d1ae81e1",
 }
