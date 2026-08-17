@@ -37,6 +37,39 @@ t.test("_onButton: with nil nav returns nil gracefully", function()
   t.eq(result, nil, "M._onButton should return nil when nav is nil")
 end)
 
+-- ===== M._wptArgs: PURE mutation-arg builder for WPT EDIT actions =====
+
+t.test("_wptArgs addHere copies the craft GPS position into a new waypoint", function()
+  local eff = M._wptArgs("addHere", { name = "Home", type = "base" }, { x = 10, y = -47, z = 20 })
+  t.eq(eff.op, "addWpt")
+  t.eq(eff.args.name, "Home"); t.eq(eff.args.x, 10); t.eq(eff.args.y, -47); t.eq(eff.args.z, 20)
+  t.eq(eff.args.type, "base")
+end)
+
+t.test("_wptArgs addHere fails without a name or a GPS fix", function()
+  t.eq(M._wptArgs("addHere", { name = "", type = "base" }, { x = 1, y = 1, z = 1 }), nil)
+  t.eq(M._wptArgs("addHere", { name = "A", type = "base" }, nil), nil, "no fix -> nil")
+end)
+
+t.test("_wptArgs addManual parses x/y/z strings into numbers", function()
+  local eff = M._wptArgs("addManual", { name = "Depot", x = "100", y = "64", z = "-200", type = "outpost" })
+  t.eq(eff.op, "addWpt"); t.eq(eff.args.x, 100); t.eq(eff.args.y, 64); t.eq(eff.args.z, -200)
+  t.eq(M._wptArgs("addManual", { name = "Bad", x = "nan", y = "1", z = "1", type = "poi" }), nil)
+end)
+
+t.test("_wptArgs edit targets the selected name with parsed fields", function()
+  local eff = M._wptArgs("edit", { x = "5", y = "6", z = "7", type = "facility" }, nil, "Home")
+  t.eq(eff.op, "editWpt"); t.eq(eff.args.name, "Home")
+  t.eq(eff.args.fields.x, 5); t.eq(eff.args.fields.type, "facility")
+  t.eq(M._wptArgs("edit", {}, nil, nil), nil, "no selection -> nil")
+end)
+
+t.test("_wptArgs delete targets the selected name", function()
+  local eff = M._wptArgs("delete", {}, nil, "Home")
+  t.eq(eff.op, "deleteWpt"); t.eq(eff.args.name, "Home")
+  t.eq(M._wptArgs("delete", {}, nil, nil), nil, "no selection -> nil")
+end)
+
 -- ===== Construction probe: real CraftOS-PC Basalt, no real peripherals =====
 
 t.test("M.build constructs the element tree; apply() + one render pass do not error", function()
@@ -49,11 +82,8 @@ t.test("M.build constructs the element tree; apply() + one render pass do not er
   t.eq(h.id, "nav")
   t.truthy(type(h.apply) == "function", "apply should be a function")
   t.truthy(h.elements ~= nil, "elements table should be exposed")
-  t.truthy(h.elements.bodyLabel ~= nil, "bodyLabel element present")
-  t.truthy(h.elements.bitconfigBtn ~= nil, "bitconfigBtn element present")
-
-  -- BIT/CONFIG button should be enabled (the only interactive element on this placeholder page).
-  t.eq(h.elements.bitconfigBtn:getEnabled(), true, "bitconfigBtn enabled by default")
+  t.truthy(h.elements.region ~= nil, "the NAV menu region is present")
+  t.truthy(h.elements.bitconfigBtn ~= nil, "bitconfigBtn element present (BIT/CONFIG still reachable)")
 
   local sampleState = {
     uiRev = 1,
