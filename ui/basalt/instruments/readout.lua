@@ -22,6 +22,25 @@ function M.alt(state)
   return "ALT " .. num(state.baroAlt, false, true) .. "Baro"
 end
 
+-- tgt(target) -> { line1, line2 } | nil. The PFD's waypoint steering readout: line1 the target name,
+-- line2 the horizontal distance + altitude delta (climb/descend) + a steer arrow (< left / > right,
+-- with a small deadband). target = { name, distanceH, relBearing, altDelta }. PURE.
+function M.tgt(target)
+  if type(target) ~= "table" then return nil end
+  local dist = (type(target.distanceH) == "number") and (tostring(round(target.distanceH)) .. "m") or "--"
+  local alt = ""
+  if type(target.altDelta) == "number" then
+    local a = round(target.altDelta)
+    alt = (a >= 0 and "+" or "") .. tostring(a)
+  end
+  local arrow = ""
+  if type(target.relBearing) == "number" then
+    if target.relBearing > 2 then arrow = ">" elseif target.relBearing < -2 then arrow = "<" end
+  end
+  return { line1 = "TGT " .. tostring(target.name or "?"),
+           line2 = (dist .. "  " .. alt .. "  " .. arrow) }
+end
+
 function M.spd(state)
   state = state or {}
   local src = state.spdSource or "SAS"

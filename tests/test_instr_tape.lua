@@ -51,6 +51,21 @@ t.test("row places a tick one cell-step off the lubber", function()
   t.eq(row:sub(c + 3, c + 3), Tape.CFG.tickCh, "+10 deg tick 3 cells right")
 end)
 
+t.test("bugCol places the target bearing bug relative to the lubber (degPerCell steps)", function()
+  local w = 21
+  local lub = Tape.lubberCol(w)   -- 11
+  t.eq(Tape.bugCol(0, 0, w), lub, "target dead ahead sits on the lubber")
+  -- target 30 deg to the right of heading -> round(30/3)=10 cells right
+  t.eq(Tape.bugCol(30, 0, w), lub + 10)
+  t.eq(Tape.bugCol(330, 0, w), lub - 10, "30 deg left")
+end)
+
+t.test("bugCol returns nil when the target bearing is off the visible tape", function()
+  local w = 21
+  t.eq(Tape.bugCol(180, 0, w), nil, "target directly behind -> off-tape")
+  t.eq(Tape.bugCol(nil, 0, w), nil); t.eq(Tape.bugCol(90, nil, w), nil)
+end)
+
 t.test("row scrolls: heading 90 puts E under the lubber", function()
   local w = 21
   local row = Tape.row(90, w)

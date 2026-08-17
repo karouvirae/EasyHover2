@@ -52,6 +52,13 @@ function M.build(basalt, frame, runtime, nav)
   local altLabel = frame:addLabel({ x = roX, y = h - 1, width = roW, height = 1, autoSize = false, text = "" })
   local spdLabel = frame:addLabel({ x = roX, y = h,     width = roW, height = 1, autoSize = false, text = "" })
 
+  -- ---- Waypoint target cue: bearing bug on the tape scale (created AFTER the tape so it renders on
+  -- top) + a TGT readout (lower-left, clear of ALT/SPD). GREEN for a waypoint, BLUE for a route leg.
+  local bugLabel = frame:addLabel({ x = lubCol, y = tapeY, width = 1, height = 1, autoSize = false, text = "" })
+  local tgtW = math.max(1, roX - 2)
+  local tgtLine1 = frame:addLabel({ x = 1, y = h - 1, width = tgtW, height = 1, autoSize = false, text = "" })
+  local tgtLine2 = frame:addLabel({ x = 1, y = h,     width = tgtW, height = 1, autoSize = false, text = "" })
+
   -- Compose a box row string: horizon underlay (only on midRow) with the craft cells overlaid.
   local function composeRow(rowIndex, craftByRow)
     local base = {}
@@ -96,6 +103,20 @@ function M.build(basalt, frame, runtime, nav)
     end
     altLabel:setText(Readout.alt(rstate))
     spdLabel:setText(Readout.spd(rstate))
+
+    -- Waypoint target cue: bearing bug on the tape + TGT readout. Colored by source (green wpt /
+    -- blue route). Hidden when there is no target or no heading to reference.
+    local tgt = state.target
+    local tgtColor = (tgt and tgt.color == "blue") and colors.blue or colors.lime
+    local bugCol = (tgt and type(state.heading) == "number") and Tape.bugCol(tgt.bearing, state.heading, w) or nil
+    if bugCol then
+      bugLabel:setX(bugCol); bugLabel:setText("v"); bugLabel:setForeground(tgtColor)
+    else
+      bugLabel:setText("")
+    end
+    local tr = tgt and Readout.tgt(tgt) or nil
+    tgtLine1:setText(tr and tr.line1 or ""); tgtLine1:setForeground(tgtColor)
+    tgtLine2:setText(tr and tr.line2 or ""); tgtLine2:setForeground(tgtColor)
   end
 
   return {
@@ -108,6 +129,9 @@ function M.build(basalt, frame, runtime, nav)
       rowLabels = rowLabels,
       altLabel = altLabel,
       spdLabel = spdLabel,
+      bugLabel = bugLabel,
+      tgtLine1 = tgtLine1,
+      tgtLine2 = tgtLine2,
     },
   }
 end

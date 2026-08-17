@@ -905,9 +905,9 @@
         },
         {
           ["dst"] = "ui/basalt/app.lua",
-          ["size"] = 39446,
+          ["size"] = 40285,
           ["src"] = "ui/basalt/app.lua",
-          ["sum"] = "efe5780a",
+          ["sum"] = "8248d6ea",
         },
         {
           ["dst"] = "ui/basalt/bitconfig/dtc.lua",
@@ -971,9 +971,9 @@
         },
         {
           ["dst"] = "ui/basalt/cadence.lua",
-          ["size"] = 1652,
+          ["size"] = 2054,
           ["src"] = "ui/basalt/cadence.lua",
-          ["sum"] = "c7ecd624",
+          ["sum"] = "54be8a0e",
         },
         {
           ["dst"] = "ui/basalt/configkit.lua",
@@ -995,9 +995,9 @@
         },
         {
           ["dst"] = "ui/basalt/instruments/readout.lua",
-          ["size"] = 1111,
+          ["size"] = 2022,
           ["src"] = "ui/basalt/instruments/readout.lua",
-          ["sum"] = "bc973dd0",
+          ["sum"] = "fbc240af",
         },
         {
           ["dst"] = "ui/basalt/instruments/sensread.lua",
@@ -1007,9 +1007,9 @@
         },
         {
           ["dst"] = "ui/basalt/instruments/tape.lua",
-          ["size"] = 2638,
+          ["size"] = 3272,
           ["src"] = "ui/basalt/instruments/tape.lua",
-          ["sum"] = "71f6d7c0",
+          ["sum"] = "d69b3d38",
         },
         {
           ["dst"] = "ui/basalt/listpicker.lua",
@@ -1061,9 +1061,9 @@
         },
         {
           ["dst"] = "ui/basalt/pages/pfd.lua",
-          ["size"] = 5149,
+          ["size"] = 6561,
           ["src"] = "ui/basalt/pages/pfd.lua",
-          ["sum"] = "c1fffde2",
+          ["sum"] = "e4f5bd3a",
         },
         {
           ["dst"] = "ui/basalt/picker.lua",
@@ -1154,6 +1154,12 @@
           ["size"] = 1777,
           ["src"] = "ui/monitors.lua",
           ["sum"] = "8adb2b72",
+        },
+        {
+          ["dst"] = "ui/navtarget.lua",
+          ["size"] = 1767,
+          ["src"] = "ui/navtarget.lua",
+          ["sum"] = "283dcf1d",
         },
         {
           ["dst"] = "ui/panels/config.lua",
@@ -1325,5 +1331,5 @@
     ["size"] = 71434,
     ["sum"] = "57671ad7",
   },
-  ["version"] = "a4e55585",
+  ["version"] = "d635b63d",
 }

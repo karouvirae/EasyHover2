@@ -905,9 +905,9 @@
         },
         {
           ["dst"] = "ui/basalt/app.lua",
-          ["size"] = 12745,
+          ["size"] = 13265,
           ["src"] = "dist/ui/basalt/app.lua",
-          ["sum"] = "4c3a7f81",
+          ["sum"] = "b91816ce",
         },
         {
           ["dst"] = "ui/basalt/bitconfig/dtc.lua",
@@ -971,9 +971,9 @@
         },
         {
           ["dst"] = "ui/basalt/cadence.lua",
-          ["size"] = 745,
+          ["size"] = 978,
           ["src"] = "dist/ui/basalt/cadence.lua",
-          ["sum"] = "87efdf13",
+          ["sum"] = "27581ef8",
         },
         {
           ["dst"] = "ui/basalt/configkit.lua",
@@ -995,9 +995,9 @@
         },
         {
           ["dst"] = "ui/basalt/instruments/readout.lua",
-          ["size"] = 519,
+          ["size"] = 939,
           ["src"] = "dist/ui/basalt/instruments/readout.lua",
-          ["sum"] = "52582dd1",
+          ["sum"] = "cdb835a1",
         },
         {
           ["dst"] = "ui/basalt/instruments/sensread.lua",
@@ -1007,9 +1007,9 @@
         },
         {
           ["dst"] = "ui/basalt/instruments/tape.lua",
-          ["size"] = 1164,
+          ["size"] = 1394,
           ["src"] = "dist/ui/basalt/instruments/tape.lua",
-          ["sum"] = "b5f03def",
+          ["sum"] = "7f2e3832",
         },
         {
           ["dst"] = "ui/basalt/listpicker.lua",
@@ -1061,9 +1061,9 @@
         },
         {
           ["dst"] = "ui/basalt/pages/pfd.lua",
-          ["size"] = 1692,
+          ["size"] = 2311,
           ["src"] = "dist/ui/basalt/pages/pfd.lua",
-          ["sum"] = "dba3d57d",
+          ["sum"] = "ba27f2de",
         },
         {
           ["dst"] = "ui/basalt/picker.lua",
@@ -1154,6 +1154,12 @@
           ["size"] = 423,
           ["src"] = "dist/ui/monitors.lua",
           ["sum"] = "d201bc2b",
+        },
+        {
+          ["dst"] = "ui/navtarget.lua",
+          ["size"] = 633,
+          ["src"] = "dist/ui/navtarget.lua",
+          ["sum"] = "567687d3",
         },
         {
           ["dst"] = "ui/panels/config.lua",
@@ -1325,5 +1331,5 @@
     ["size"] = 71434,
     ["sum"] = "57671ad7",
   },
-  ["version"] = "60aad10f",
+  ["version"] = "f52a0a04",
 }

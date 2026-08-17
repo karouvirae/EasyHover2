@@ -52,6 +52,17 @@ t.test("build + apply render without error and reflect state text", function()
   page.apply({ heading = 0, altitude = 87.4, baroAlt = 42.0 })
   t.eq(page.elements.altLabel:getText(), "ALT 42Baro", "explicit baroAlt takes precedence")
 
+  -- waypoint target cue: bearing bug on the tape + TGT readout appear when a target is present
+  page.apply({ heading = 0, target = { name = "Home", bearing = 6, distanceH = 340, relBearing = 6,
+    altDelta = 12, color = "green" } })
+  t.eq(page.elements.bugLabel:getText(), "v", "bearing bug shown for an on-tape target")
+  t.truthy(page.elements.tgtLine1:getText():find("Home", 1, true), "TGT name shown")
+  t.truthy(page.elements.tgtLine2:getText():find("340m", 1, true), "TGT distance shown")
+  -- no target -> cue hidden
+  page.apply({ heading = 0 })
+  t.eq(page.elements.bugLabel:getText(), "", "bug hidden with no target")
+  t.eq(page.elements.tgtLine1:getText(), "", "TGT readout cleared with no target")
+
   -- apply(nil) is safe (idempotent, nil-safe)
   local ok0 = pcall(function() page.apply(nil) end)
   t.truthy(ok0, "apply(nil) does not error")

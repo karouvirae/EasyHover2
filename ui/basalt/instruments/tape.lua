@@ -36,6 +36,19 @@ local function place(cells, col, text)
   end
 end
 
+-- bugCol(targetBearing, heading, w, cfg) -> the column for a target bearing bug on the scale, or nil
+-- when the target is off the visible tape (or inputs are nil). Same placement math as the ticks:
+-- col = lubberCol + round(signedDelta(targetBearing, heading) / degPerCell). PURE.
+function M.bugCol(targetBearing, heading, w, cfg)
+  cfg = cfg or M.CFG
+  if type(targetBearing) ~= "number" or type(heading) ~= "number" or type(w) ~= "number" or w < 1 then
+    return nil
+  end
+  local col = M.lubberCol(w) + round(M.signedDelta(targetBearing, heading) / cfg.degPerCell)
+  if col < 1 or col > w then return nil end
+  return col
+end
+
 function M.row(heading, w, cfg)
   cfg = cfg or M.CFG
   if type(w) ~= "number" or w < 1 then return "" end

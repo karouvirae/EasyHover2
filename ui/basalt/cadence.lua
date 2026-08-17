@@ -24,6 +24,11 @@ function M.sig(state)
     qn(state.pumpAmount, 1), qn(state.tankMb, 1),   -- raw fuel amounts (merged flight page gauges)
     qn(state.pitch, 1), qn(state.roll, 1), qn(state.sas, 10),
     qn(state.gpsAlt, 10), qn(state.tas, 10), tostring(state.gpsFixOk),
+    -- PFD waypoint target cue: repaint on bearing/steer/distance/alt/name/color change.
+    qn(state.target and state.target.bearing, 1), qn(state.target and state.target.relBearing, 1),
+    qn(state.target and state.target.distanceH, 1), qn(state.target and state.target.altDelta, 1),
+    tostring(state.target and state.target.name or "-"),
+    tostring(state.target and state.target.color or "-"),
     tostring(state.uiRev),
   }, "|")
 end

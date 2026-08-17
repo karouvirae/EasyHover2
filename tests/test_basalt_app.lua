@@ -246,6 +246,25 @@ t.test("routeModem stores craft x/z from a navfix relay (for waypoint targeting)
   t.eq(runtime.nav.fixX, 100); t.eq(runtime.nav.fixZ, -200); t.eq(runtime.nav.gpsAlt, 64)
 end)
 
+t.test("buildState solves the PFD target cue from a selected waypoint + fresh fix", function()
+  local runtime = newRuntime()
+  local now = os.epoch("utc")
+  runtime.nav.fixX = 0; runtime.nav.fixZ = 0; runtime.nav.heading = 0; runtime.nav.at = now
+  runtime.nav.target = { name = "E", x = 10, y = 5, z = 0, color = "green" }
+  M.routeModem(runtime, CH.telemetry, protocol.encode(telemetry.Tx.new():frame({ altitude = 0 })))
+  local s = M.buildState(runtime, now)
+  t.truthy(s.target ~= nil, "a target cue is produced")
+  t.truthy(math.abs(s.target.bearing - 90) < 1e-6, "east target -> bearing 90")
+  t.eq(s.target.name, "E"); t.eq(s.target.color, "green")
+  t.truthy(math.abs(s.target.relBearing - 90) < 1e-6, "steer +90 (right) facing north")
+end)
+
+t.test("buildState target is nil with no selection", function()
+  local runtime = newRuntime()
+  runtime.nav.fixX = 0; runtime.nav.fixZ = 0
+  t.eq(M.buildState(runtime, os.epoch("utc")).target, nil)
+end)
+
 t.test("routeModem feeds a wpt_store reply (ch 109) into the wptClient cache", function()
   local runtime = newRuntime()
   t.truthy(runtime.wptClient ~= nil, "buildRuntime wired the NAV store sync client")

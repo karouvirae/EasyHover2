@@ -47,6 +47,7 @@ local Nav       = require("ui.basalt.nav")
 local senssource = require("ui.basalt.senssource")
 local UILog     = require("ui.basalt.uilog")
 local WptClient = require("ui.basalt.wptclient")
+local navtarget = require("ui.navtarget")
 
 local modemlib  = require("fcs.comms.modem")
 local telemetry = require("fcs.comms.telemetry")
@@ -517,6 +518,19 @@ function M.buildState(runtime, now)
   -- tape shows "---" (honest) instead of a wrong bearing. See M.NAV_HEADING_MAX_AGE_MS.
   local navFresh = runtime.nav and runtime.nav.at
     and (now - runtime.nav.at) <= M.NAV_HEADING_MAX_AGE_MS
+  -- Waypoint steering target (NAV-menu selection): solve the PFD cue when a target is set and the
+  -- craft's horizontal position is known. Heading uses the fresh nav bearing; altitude uses baro.
+  local target = nil
+  local nv = runtime.nav
+  if nv and nv.target and type(nv.fixX) == "number" and type(nv.fixZ) == "number" then
+    local sol = navtarget.solve(
+      { x = nv.fixX, z = nv.fixZ, heading = navFresh and nv.heading or nil, baroY = latest.altitude },
+      nv.target)
+    if sol then
+      target = { name = nv.target.name, bearing = sol.bearing, distanceH = sol.distanceH,
+        relBearing = sol.relBearing, altDelta = sol.altDelta, color = nv.target.color or "green" }
+    end
+  end
   return {
     engaged      = latest.engaged,
     gndSafety    = latest.gndSafety,
@@ -543,6 +557,7 @@ function M.buildState(runtime, now)
     gpsAlt       = runtime.nav and runtime.nav.gpsAlt or nil,  -- PFD: nav (Task 7's listener writes runtime.nav)
     tas          = runtime.nav and runtime.nav.tas or nil,
     gpsFixOk     = runtime.nav and runtime.nav.fixOk or nil,
+    target       = target,   -- PFD waypoint steering cue (NAV menu selection); nil when none
     uiRev        = runtime.uiRev,
   }
 end
