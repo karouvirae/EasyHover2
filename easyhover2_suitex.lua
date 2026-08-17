@@ -412,24 +412,24 @@ end
 --- actually exercised (the Task 9 headless check only CONSTRUCTED it), and in-game the periodic
 --- step never fired -- the check sat at 0% and the buttons never enabled. basalt.schedule is the
 --- same coroutine mechanism the engine ops already use, and it self-pumps via its own sleep timer.
-local function driveCheck(ctx, myCheck)
-  ctx.basalt.schedule(function()
-    while ctx.check == myCheck and not ctx.checkDone do
-      -- Guard the batch: a checkFile/readFile throw (e.g. an odd on-disk path) must not silently
-      -- kill this scheduled coroutine and freeze the bar. On error, finish with whatever we have so
-      -- the buttons re-enable rather than wedging (defense in depth alongside the startup drain).
-      local ok, done = pcall(myCheck.step, 16)
-      if not ok then done = true end
-      local i, total = myCheck.progress()
-      ctx.ui.progress:setProgress(total > 0 and math.floor(i / total * 100 + 0.5) or 100)
-      if done then
-        ctx.checkDone = true
-        finishCheck(ctx)
-        return
-      end
-      sleep(0.05)
-    end
-  end)
+-- Run the integrity check to completion SYNCHRONOUSLY (no scheduled coroutine, no sleep). The check
+-- is a handful of LOCAL file reads + fnv1a checksums -- fast and non-yielding -- so stepping it
+-- straight through in one call cannot be starved by an event flood or orphaned by a re-arm. Those
+-- were the two ways the old basalt.schedule-driven check wedged at ~28% (exactly one 16-file batch)
+-- on a busy multi-computer network: the check's own 0.05s sleep-timer never resurfaced through the
+-- event stream, so the coroutine never ran its second batch and finishCheck was never reached. A
+-- synchronous run has no timer to starve and no coroutine to orphan -- it is GUARANTEED to reach
+-- finishCheck. The brief (~ms) UI pause while it runs is imperceptible. A checkFile throw stays
+-- pcall-guarded so a bad on-disk path finishes the check rather than aborting it.
+local function runCheck(ctx, myCheck)
+  repeat
+    local ok, done = pcall(myCheck.step, 16)
+    if not ok then done = true end
+  until done
+  local i, total = myCheck.progress()
+  ctx.ui.progress:setProgress(total > 0 and math.floor(i / total * 100 + 0.5) or 100)
+  ctx.checkDone = true
+  finishCheck(ctx)
 end
 
 --- A stable identity for what a check examines: role + channel. Two non-forced startCheck calls with
@@ -460,7 +460,7 @@ local function startCheck(ctx, force)
   ctx.check = SuiteX.checkDriver(ctx.spec.files, function(e) return ctx.Suite.checkFile(e, ctx.Suite.readFile) end)
   ctx.ui.progress:setProgress(0)
   setButtonsEnabled(ctx, false)
-  driveCheck(ctx, ctx.check)
+  runCheck(ctx, ctx.check)   -- SYNCHRONOUS: cannot be starved/orphaned (see runCheck's note)
 end
 
 local function activateRole(ctx, roleName)
