@@ -911,9 +911,9 @@
         },
         {
           ["dst"] = "ui/basalt/app.lua",
-          ["size"] = 13723,
+          ["size"] = 14047,
           ["src"] = "dist/ui/basalt/app.lua",
-          ["sum"] = "cf07480b",
+          ["sum"] = "aa0cb2cd",
         },
         {
           ["dst"] = "ui/basalt/bitconfig/dtc.lua",
@@ -965,9 +965,9 @@
         },
         {
           ["dst"] = "ui/basalt/bitconfig/uical.lua",
-          ["size"] = 9367,
+          ["size"] = 10759,
           ["src"] = "dist/ui/basalt/bitconfig/uical.lua",
-          ["sum"] = "4660fadf",
+          ["sum"] = "73a10dc3",
         },
         {
           ["dst"] = "ui/basalt/btnfit.lua",
@@ -1133,9 +1133,9 @@
         },
         {
           ["dst"] = "ui/config.lua",
-          ["size"] = 1123,
+          ["size"] = 1163,
           ["src"] = "dist/ui/config.lua",
-          ["sum"] = "f5187c5b",
+          ["sum"] = "26c9cb26",
         },
         {
           ["dst"] = "ui/detect.lua",
@@ -1145,9 +1145,9 @@
         },
         {
           ["dst"] = "ui/engine.lua",
-          ["size"] = 1915,
+          ["size"] = 2774,
           ["src"] = "dist/ui/engine.lua",
-          ["sum"] = "125d4dc8",
+          ["sum"] = "497493ea",
         },
         {
           ["dst"] = "ui/fuel.lua",
@@ -1169,9 +1169,9 @@
         },
         {
           ["dst"] = "ui/panels/config.lua",
-          ["size"] = 4535,
+          ["size"] = 4693,
           ["src"] = "dist/ui/panels/config.lua",
-          ["sum"] = "b2134b1f",
+          ["sum"] = "a5418abd",
         },
         {
           ["dst"] = "ui/panels/engine.lua",
@@ -1187,9 +1187,9 @@
         },
         {
           ["dst"] = "ui/relaywriter.lua",
-          ["size"] = 240,
+          ["size"] = 613,
           ["src"] = "dist/ui/relaywriter.lua",
-          ["sum"] = "a42bd44d",
+          ["sum"] = "b0e32815",
         },
         {
           ["dst"] = "ui/routefollow.lua",
@@ -1343,5 +1343,5 @@
     ["size"] = 71434,
     ["sum"] = "57671ad7",
   },
-  ["version"] = "a2221cda",
+  ["version"] = "06bf4fc8",
 }
