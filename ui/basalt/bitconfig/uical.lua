@@ -239,6 +239,12 @@ function M._applyOp(runtime, effect, deps)
       runtime.config.engine.mode = "basic"
     else
       runtime.config.engine.mode = "latch"
+      -- Entering latch: a pulse shorter than LATCH_LINE_MS (150ms, see engine.lua) can't
+      -- reliably clear the FEED trigger line before the BLOCK pulse would rise -- same floor
+      -- stepEngine enforces going forward. Correct it here too so a value that got below 200
+      -- some other way (e.g. floored at 0 in basic mode, then flipped) is saved valid on the
+      -- very transition that makes it dangerous. Leaving latch never raises pulseMs.
+      if runtime.config.engine.pulseMs < 200 then runtime.config.engine.pulseMs = 200 end
     end
     runtime.engine:applyConfig(runtime.config.engine)
     runtime.rebindRelay()

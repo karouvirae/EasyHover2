@@ -128,7 +128,17 @@ function Engine:toggleMaster(now)
 end
 
 function Engine:_startPulse(now)
-  self.pulseEndsAt = now + self.cfg.pulseMs
+  if self.mode == "latch" then
+    -- Structural floor, independent of how cfg got here (uical's cycleMode clamps on save, but
+    -- a hand-edited config or a pre-clamp reboot could still hand us a too-short pulseMs): the
+    -- FEED trigger line takes LATCH_LINE_MS to drop, so the pulse window can never be shorter
+    -- than that plus a small margin, or BLOCK could rise while FEED is still HIGH (the forbidden
+    -- both-lines-high set/reset ambiguity on a latch). Basic mode is untouched.
+    local latchPulseFloorMs = LATCH_LINE_MS + 50
+    self.pulseEndsAt = now + math.max(self.cfg.pulseMs, latchPulseFloorMs)
+  else
+    self.pulseEndsAt = now + self.cfg.pulseMs
+  end
   self.nextPulseAt = nil
   self.pulses = self.pulses + 1
   self:_write(true, now)

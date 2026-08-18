@@ -111,3 +111,29 @@ t.test("latch: blockNow re-fires a BLOCK pulse (force)", function()
   e:blockNow()
   t.eq(w.calls[n+1].line, "block"); t.eq(w.calls[n+1].value, true)
 end)
+
+t.test("latch: a mis-set pulseMs (100, below the 150+50 line-drop floor) still drops FEED before BLOCK rises", function()
+  local w = fakeLatchWriter()
+  local e = Engine.new({ mode = "latch", pulseMs = 100, intervalMs = 1500, kickstart = true, masterDefault = false }, w.fn)
+  e:setMaster(true, 0)              -- feed line raised at tick 0
+  -- Drive the timeline through the raw pulseMs (100, where an un-clamped pulse would end and
+  -- try to raise BLOCK) and on to the clamped effective end (max(100,150+50)=200), and past the
+  -- feed line's own LATCH_LINE_MS drop point (150), in ticks that straddle each boundary.
+  e:tick(100); e:tick(150); e:tick(200)
+  local feedDown, blockUp
+  for i, c in ipairs(w.calls) do
+    if c.line == "feed" and c.value == false and not feedDown then feedDown = i end
+    if c.line == "block" and c.value == true and not blockUp then blockUp = i end
+  end
+  t.eq(feedDown ~= nil and blockUp ~= nil, true, "both events happened")
+  t.eq(feedDown < blockUp, true, "FEED must drop before BLOCK rises -- no both-lines-high overlap")
+end)
+
+t.test("basic mode: pulseMs timing is unchanged (blocks exactly at tick(250))", function()
+  local w = fakeWriter()
+  local e = Engine.new({ pulseMs = 250, intervalMs = 1500, invert = false, kickstart = true, masterDefault = false }, w.fn)
+  e:setMaster(true, 0)
+  t.eq(w.last, false)
+  e:tick(249); t.eq(w.last, false)
+  e:tick(250); t.eq(w.last, true)
+end)

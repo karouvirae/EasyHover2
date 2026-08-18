@@ -965,9 +965,9 @@
         },
         {
           ["dst"] = "ui/basalt/bitconfig/uical.lua",
-          ["size"] = 10759,
+          ["size"] = 10827,
           ["src"] = "dist/ui/basalt/bitconfig/uical.lua",
-          ["sum"] = "73a10dc3",
+          ["sum"] = "65997ba7",
         },
         {
           ["dst"] = "ui/basalt/btnfit.lua",
@@ -1145,9 +1145,9 @@
         },
         {
           ["dst"] = "ui/engine.lua",
-          ["size"] = 2774,
+          ["size"] = 2869,
           ["src"] = "dist/ui/engine.lua",
-          ["sum"] = "497493ea",
+          ["sum"] = "f165c406",
         },
         {
           ["dst"] = "ui/fuel.lua",
@@ -1343,5 +1343,5 @@
     ["size"] = 71434,
     ["sum"] = "57671ad7",
   },
-  ["version"] = "06bf4fc8",
+  ["version"] = "f359b4ae",
 }

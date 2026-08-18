@@ -326,6 +326,31 @@ t.test("_applyOp cycleMode: applyConfig + rebindRelay + engine:blockNow all fire
   t.eq(calls.blockNow, 1)
 end)
 
+t.test("_applyOp cycleMode: entering latch clamps a sub-200 pulseMs up to 200", function()
+  local runtime = newStubRuntime()
+  runtime.config.engine.pulseMs = 100
+  local save = newSaveSpy()
+  local deps = { save = save }
+
+  M._applyOp(runtime, { kind = "config", op = "cycleMode" }, deps)
+
+  t.eq(runtime.config.engine.mode, "latch")
+  t.eq(runtime.config.engine.pulseMs, 200, "entering latch floors pulseMs at 200")
+end)
+
+t.test("_applyOp cycleMode: leaving latch does NOT raise pulseMs", function()
+  local runtime = newStubRuntime()
+  runtime.config.engine.mode = "latch"
+  runtime.config.engine.pulseMs = 100
+  local save = newSaveSpy()
+  local deps = { save = save }
+
+  M._applyOp(runtime, { kind = "config", op = "cycleMode" }, deps)
+
+  t.eq(runtime.config.engine.mode, "basic")
+  t.eq(runtime.config.engine.pulseMs, 100, "leaving latch leaves pulseMs untouched")
+end)
+
 -- ===== M._applyOp: cycleRelaySide with effect.which -- basic side (default) vs latch block/feed =====
 
 t.test("_applyOp cycleRelaySide default (no which) still cycles basic relay.side unchanged", function()
