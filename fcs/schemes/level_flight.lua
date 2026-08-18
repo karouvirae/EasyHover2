@@ -17,13 +17,19 @@ end
 function Scheme:reset()
   self.altPid:reset(); self.pitchPid:reset(); self.rollPid:reset(); self.headingPid:reset()
   self.swayTc:reset(); self.surgeTc:reset()
+  self._heaveSat = false
 end
 function Scheme:update(sp, m, dt, freeze)
-  local heave = self.hoverDuty + self.altPid:update(sp.altitude, m.altitude, dt, freeze)
+  -- Anti-windup: freeze alt integration whenever the collective was pinned to the heave band on
+  -- the PREVIOUS tick (or the caller froze it). Without this the integrator keeps accumulating
+  -- while heave is railed, then overshoots the altitude on the way back down (climb-stop bounce).
+  local heave = self.hoverDuty + self.altPid:update(sp.altitude, m.altitude, dt, freeze or self._heaveSat)
   -- Band the collective so lift thrusters never saturate to 0 or 1 -- shared-duty bang-bang
   -- loses ALL pitch/roll differential authority at the rails. Attitude survival > climb speed.
-  if self.heaveMin and heave < self.heaveMin then heave = self.heaveMin end
-  if self.heaveMax and heave > self.heaveMax then heave = self.heaveMax end
+  local sat = false
+  if self.heaveMin and heave < self.heaveMin then heave = self.heaveMin; sat = true end
+  if self.heaveMax and heave > self.heaveMax then heave = self.heaveMax; sat = true end
+  self._heaveSat = sat
   return {
     heave = heave,
     pitch = self.pitchPid:update(sp.pitch or 0, m.pitch, dt, freeze),

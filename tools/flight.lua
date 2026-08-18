@@ -194,14 +194,19 @@ local function controlTask()
   while true do
     local ev = { os.pullEvent() }
     if ev[1] == "timer" and ev[2] == timer then
-      local now = os.epoch("utc"); local dt = (now - lastT) / 1000; lastT = now
-      local meas = backend:sensors()
-      local snap = flight:step(dt, heldRef.held, meas)
-      snap.thrusterFuel = fuelState.thrusterFuel   -- cheap copy; fuelTask does the peripheral reads
-      snap.fuelMain = fuelState.fuelMain
-      shared.snap = snap
-      logCycle(dt, meas)
-      timer = os.startTimer(0)
+      -- Guard the whole step: a single bad sensor read or step error must NOT kill the control
+      -- task (a silently-dead loop = uncontrolled craft). Capture it for the console and carry on.
+      local ok, err = pcall(function()
+        local now = os.epoch("utc"); local dt = (now - lastT) / 1000; lastT = now
+        local meas = backend:sensors()
+        local snap = flight:step(dt, heldRef.held, meas)
+        snap.thrusterFuel = fuelState.thrusterFuel   -- cheap copy; fuelTask does the peripheral reads
+        snap.fuelMain = fuelState.fuelMain
+        shared.snap = snap
+        logCycle(dt, meas)
+      end)
+      if not ok then shared.controlErr = tostring(err) end
+      timer = os.startTimer(0)   -- ALWAYS re-arm, even if the step threw, so the loop never stalls
     end
   end
 end
@@ -269,13 +274,28 @@ local function logKeyTask()
   end
 end
 
+-- However the task group ends -- a returned task, or an unhandled error in any of them -- always
+-- drop thrust so a crash can't leave the craft with thrusters latched on.
+local function safeShutdown()
+  pcall(function() loop:arm(false); loop:cycle(0, backend:sensors()) end)   -- applies zeros via pwm
+  pcall(function()
+    for _, grp in ipairs({ backend:liftIds(), backend:lateralIds(), backend:mainIds(), backend:frontalIds() }) do
+      for _, id in ipairs(grp) do pcall(function() backend:setThruster(id, false) end) end
+    end
+  end)
+end
+
 loadT0 = os.epoch("utc")
 if LOGGING then
   logStart()
   local ok, err = pcall(parallel.waitForAny, controlTask, inputTask, telemetryTask, commandTask,
                         healthTask, fuelTask, statusTask, logKeyTask)
+  safeShutdown()
   logFinish()
   if not ok then print("FCS EXIT: " .. tostring(err)) end
 else
-  parallel.waitForAny(controlTask, inputTask, telemetryTask, commandTask, healthTask, fuelTask, statusTask)
+  local ok, err = pcall(parallel.waitForAny, controlTask, inputTask, telemetryTask, commandTask,
+                        healthTask, fuelTask, statusTask)
+  safeShutdown()
+  if not ok then print("FCS EXIT: " .. tostring(err)) end
 end

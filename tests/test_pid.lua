@@ -37,3 +37,10 @@ t.test("dt spike produces no derivative kick", function()
   local out = p:update(0, 100, 5.0)          -- huge jump AND huge dt (a stall)
   t.near(out, 0, 1e-9)                        -- skipped: no kick
 end)
+t.test("a non-usable tick still tracks the measurement (no stale-derivative spike next tick)", function()
+  local p = Pid.new({ kp = 0, ki = 0, kd = 1, tauD = 0, dtMax = 0.5 })
+  p:update(0, 0, 0.1)                        -- seed lastMeas = 0
+  p:update(0, 100, 5.0)                      -- non-usable (dt>dtMax): d skipped, but must track meas=100
+  local out = p:update(0, 100.1, 0.1)        -- real one-tick move of 0.1 over dt 0.1 => rate 1.0
+  t.near(out, -1.0, 1e-9)                     -- a stale lastMeas(=0) would give -(100.1/0.1) = -1001
+end)

@@ -42,14 +42,19 @@ end
 
 local Receiver = {}; Receiver.__index = Receiver
 M.Receiver = { new = function()
-  return setmetatable({ handled = {} }, Receiver)
+  return setmetatable({ handled = {}, sid = nil }, Receiver)
 end }
 function Receiver:receive(frame, apply)
   if type(frame) ~= "table" or frame.k ~= "cmd" or type(frame.id) ~= "number" then
     return nil
   end
   -- Dedup key is (session, id): idempotent for retries within a session, but a restarted sender
-  -- (new sid, ids from 1) is never mistaken for a duplicate.
+  -- (new sid, ids from 1) is never mistaken for a duplicate. A new sid also drops the previous
+  -- session's handled entries -- otherwise the set grew unbounded, one dead id-range per reboot.
+  if frame.sid ~= self.sid then
+    self.handled = {}
+    self.sid = frame.sid
+  end
   local key = tostring(frame.sid or "") .. ":" .. tostring(frame.id)
   if not self.handled[key] then
     self.handled[key] = true

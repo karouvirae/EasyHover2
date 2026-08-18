@@ -18,6 +18,8 @@ t.test("tuning exposes actuator + safety params", function()
   t.near(T.pwmPeriod, 0.3, 1e-9)
   t.near(T.caps.pitch, 0.2, 1e-9)
   t.eq(T.osc.minChanges, 6)
+  t.near(T.osc.deadband, 0.02, 1e-9)   -- ~1.1deg: above the level-flight sensor noise floor
+  t.near(T.osc.calmTime, 1.0, 1e-9)    -- s of calm before a trip auto-releases
   t.near(T.dtMax, 0.5, 1e-9)
   t.near(T.attLimit, 0.6, 1e-9)
   t.near(T.groundIdle.moveEps, 0.5, 1e-9)

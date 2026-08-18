@@ -90,6 +90,22 @@ t.test("baroMsl is the RAW barometer height (true Y), ignoring the AGL offsets",
   t.near(s.baroMsl, 10, 1e-9)     -- raw getHeight, NOT +offsets
   t.near(s.altitude, 17, 1e-9)    -- AGL still 10+5+2 for control (unchanged)
 end)
+t.test("a non-finite sensor read holds the last-good value instead of poisoning control", function()
+  local altP = mocks.altitude(10)
+  local vfP = mocks.velocity(0)
+  local shim = mocks.shim({ alt=altP, gim=mocks.gimbal({0.1,-0.2}), vf=vfP, vr=mocks.velocity(0),
+    vm=mocks.velocity(0), nav=mocks.navtable(0.3), opt=mocks.optical(5) })
+  local clk = 0; local b = Backend.new(shim, sensorCfg(), function() return clk end)
+  local s1 = b:sensors(); clk = 100         -- seed last-good (altitude 12, pitch 0.1)
+  t.near(s1.altitude, 12, 1e-9)
+  altP.getHeight = function() return 0 / 0 end        -- barometer glitches to NaN
+  vfP.getVelocity = function() return math.huge end   -- a velocity spikes to inf
+  local s2 = b:sensors()
+  t.truthy(s2.altitude == s2.altitude, "altitude is not NaN")
+  t.near(s2.altitude, 12, 1e-9)                        -- held last-good, not NaN
+  t.truthy(s2.yawRate == s2.yawRate and s2.yawRate ~= math.huge, "yawRate stays finite")
+  t.truthy(s2.swayPos == s2.swayPos, "position integrator not poisoned by an inf velocity")
+end)
 t.test("setThrusterLevel writes setPower(level) to the bound peripheral", function()
   local th = mocks.thruster()
   local shim = mocks.shim({ thruster_1 = th })

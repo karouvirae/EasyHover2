@@ -176,9 +176,9 @@
         },
         {
           ["dst"] = "fcs/comms/command.lua",
-          ["size"] = 996,
+          ["size"] = 1062,
           ["src"] = "dist/fcs/comms/command.lua",
-          ["sum"] = "88fada87",
+          ["sum"] = "714565d4",
         },
         {
           ["dst"] = "fcs/comms/health.lua",
@@ -220,7 +220,7 @@
           ["dst"] = "fcs/control/pid.lua",
           ["size"] = 765,
           ["src"] = "dist/fcs/control/pid.lua",
-          ["sum"] = "7fc5de87",
+          ["sum"] = "2a6b305b",
         },
         {
           ["dst"] = "fcs/control/translate.lua",
@@ -230,9 +230,9 @@
         },
         {
           ["dst"] = "fcs/envelope.lua",
-          ["size"] = 172,
+          ["size"] = 229,
           ["src"] = "dist/fcs/envelope.lua",
-          ["sum"] = "74311047",
+          ["sum"] = "b242a6c8",
         },
         {
           ["dst"] = "fcs/frame.lua",
@@ -260,9 +260,9 @@
         },
         {
           ["dst"] = "fcs/io/backend.lua",
-          ["size"] = 2361,
+          ["size"] = 2598,
           ["src"] = "dist/fcs/io/backend.lua",
-          ["sum"] = "5bd2a5ab",
+          ["sum"] = "03b78848",
         },
         {
           ["dst"] = "fcs/io/calibration.lua",
@@ -302,9 +302,9 @@
         },
         {
           ["dst"] = "fcs/io/tuningdefaults.lua",
-          ["size"] = 1598,
+          ["size"] = 1625,
           ["src"] = "dist/fcs/io/tuningdefaults.lua",
-          ["sum"] = "a5b213da",
+          ["sum"] = "94bb621c",
         },
         {
           ["dst"] = "fcs/leash.lua",
@@ -332,15 +332,15 @@
         },
         {
           ["dst"] = "fcs/runtime/loop.lua",
-          ["size"] = 1751,
+          ["size"] = 1788,
           ["src"] = "dist/fcs/runtime/loop.lua",
-          ["sum"] = "ef857b74",
+          ["sum"] = "237ddd41",
         },
         {
           ["dst"] = "fcs/safety/oscillation.lua",
-          ["size"] = 569,
+          ["size"] = 1007,
           ["src"] = "dist/fcs/safety/oscillation.lua",
-          ["sum"] = "59404929",
+          ["sum"] = "1cf8f73a",
         },
         {
           ["dst"] = "fcs/schemes/coupled.lua",
@@ -362,9 +362,9 @@
         },
         {
           ["dst"] = "fcs/schemes/level_flight.lua",
-          ["size"] = 1173,
+          ["size"] = 1257,
           ["src"] = "dist/fcs/schemes/level_flight.lua",
-          ["sum"] = "efc7ba2e",
+          ["sum"] = "2b686965",
         },
         {
           ["dst"] = "fcs/schemes/manual.lua",
@@ -428,15 +428,15 @@
         },
         {
           ["dst"] = "tools/flight.lua",
-          ["size"] = 5690,
+          ["size"] = 6095,
           ["src"] = "dist/tools/flight.lua",
-          ["sum"] = "11636c2a",
+          ["sum"] = "00f7a2c2",
         },
         {
           ["dst"] = "tools/hover_test.lua",
-          ["size"] = 3204,
+          ["size"] = 3232,
           ["src"] = "dist/tools/hover_test.lua",
-          ["sum"] = "6f34bc3e",
+          ["sum"] = "a5e01a4b",
         },
         {
           ["dst"] = "tools/probe.lua",
@@ -659,9 +659,9 @@
         },
         {
           ["dst"] = "fcs/comms/command.lua",
-          ["size"] = 996,
+          ["size"] = 1062,
           ["src"] = "dist/fcs/comms/command.lua",
-          ["sum"] = "88fada87",
+          ["sum"] = "714565d4",
         },
         {
           ["dst"] = "fcs/comms/health.lua",
@@ -703,7 +703,7 @@
           ["dst"] = "fcs/control/pid.lua",
           ["size"] = 765,
           ["src"] = "dist/fcs/control/pid.lua",
-          ["sum"] = "7fc5de87",
+          ["sum"] = "2a6b305b",
         },
         {
           ["dst"] = "fcs/control/translate.lua",
@@ -713,9 +713,9 @@
         },
         {
           ["dst"] = "fcs/envelope.lua",
-          ["size"] = 172,
+          ["size"] = 229,
           ["src"] = "dist/fcs/envelope.lua",
-          ["sum"] = "74311047",
+          ["sum"] = "b242a6c8",
         },
         {
           ["dst"] = "fcs/frame.lua",
@@ -725,9 +725,9 @@
         },
         {
           ["dst"] = "fcs/io/backend.lua",
-          ["size"] = 2361,
+          ["size"] = 2598,
           ["src"] = "dist/fcs/io/backend.lua",
-          ["sum"] = "5bd2a5ab",
+          ["sum"] = "03b78848",
         },
         {
           ["dst"] = "fcs/io/calibration.lua",
@@ -767,9 +767,9 @@
         },
         {
           ["dst"] = "fcs/io/tuningdefaults.lua",
-          ["size"] = 1598,
+          ["size"] = 1625,
           ["src"] = "dist/fcs/io/tuningdefaults.lua",
-          ["sum"] = "a5b213da",
+          ["sum"] = "94bb621c",
         },
         {
           ["dst"] = "fcs/mixer/level_flight.lua",
@@ -785,15 +785,15 @@
         },
         {
           ["dst"] = "fcs/runtime/loop.lua",
-          ["size"] = 1751,
+          ["size"] = 1788,
           ["src"] = "dist/fcs/runtime/loop.lua",
-          ["sum"] = "ef857b74",
+          ["sum"] = "237ddd41",
         },
         {
           ["dst"] = "fcs/safety/oscillation.lua",
-          ["size"] = 569,
+          ["size"] = 1007,
           ["src"] = "dist/fcs/safety/oscillation.lua",
-          ["sum"] = "59404929",
+          ["sum"] = "1cf8f73a",
         },
         {
           ["dst"] = "fcs/schemes/coupled.lua",
@@ -815,9 +815,9 @@
         },
         {
           ["dst"] = "fcs/schemes/level_flight.lua",
-          ["size"] = 1173,
+          ["size"] = 1257,
           ["src"] = "dist/fcs/schemes/level_flight.lua",
-          ["sum"] = "efc7ba2e",
+          ["sum"] = "2b686965",
         },
         {
           ["dst"] = "fcs/schemes/manual.lua",
@@ -887,9 +887,9 @@
         },
         {
           ["dst"] = "tools/hover_test.lua",
-          ["size"] = 3204,
+          ["size"] = 3232,
           ["src"] = "dist/tools/hover_test.lua",
-          ["sum"] = "6f34bc3e",
+          ["sum"] = "a5e01a4b",
         },
         {
           ["dst"] = "tools/probe.lua",
@@ -1273,9 +1273,9 @@
         },
         {
           ["dst"] = "fcs/io/tuningdefaults.lua",
-          ["size"] = 1598,
+          ["size"] = 1625,
           ["src"] = "dist/fcs/io/tuningdefaults.lua",
-          ["sum"] = "a5b213da",
+          ["sum"] = "94bb621c",
         },
         {
           ["dst"] = "fcs2disk",
@@ -1319,9 +1319,9 @@
         },
         {
           ["dst"] = "fcs/io/tuningdefaults.lua",
-          ["size"] = 1598,
+          ["size"] = 1625,
           ["src"] = "dist/fcs/io/tuningdefaults.lua",
-          ["sum"] = "a5b213da",
+          ["sum"] = "94bb621c",
         },
         {
           ["dst"] = "splitconfig",
@@ -1343,5 +1343,5 @@
     ["size"] = 71434,
     ["sum"] = "57671ad7",
   },
-  ["version"] = "9401e5c6",
+  ["version"] = "a2221cda",
 }

@@ -11,3 +11,10 @@ end)
 t.test("leaves in-range values untouched", function()
   t.near(envelope.clamp({ sway = 0.05 }, { sway = 0.5 }).sway, 0.05, 1e-9)
 end)
+t.test("a non-finite demand (NaN or inf) maps to 0 -- never forwarded to the mixer", function()
+  local nan = 0 / 0
+  local d = envelope.clamp({ pitch = nan, roll = math.huge, yaw = -math.huge, heave = 0.5 },
+                           { pitch = 0.2, roll = 0.2, yaw = 0.6 })
+  t.eq(d.pitch, 0); t.eq(d.roll, 0); t.eq(d.yaw, 0)   -- guarded, not clamped-through
+  t.near(d.heave, 0.5, 1e-9)                            -- finite values still pass
+end)
