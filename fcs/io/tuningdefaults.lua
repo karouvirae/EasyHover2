@@ -31,7 +31,7 @@ local DEFAULTS = {
               landEps = 0.4, watchdog = 60, overshootMargin = 2, leadCap = 1.0 },
   feel = {
     headingRate    = 2.2,
-    leadCapHeading = 0.35,   -- 0.70->0.35: halve the standing yaw lead (turn rate) -> less momentum
+    leadCapHeading = 0.45,   -- 0.70->0.35 killed the overshoot; nudged to 0.45 for a bit more turn speed
     yawStopLead    = 0.15,   -- s of yaw-rate led into the release capture; LOWER = harder stop
 
     climbRate      = 4.5,
