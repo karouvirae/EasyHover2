@@ -31,4 +31,33 @@ function M.make(getRelay, getSide)
   end
 end
 
+-- Latch-mode writer: two independent lines (block -> latch BACK/set, feed -> latch SIDE/reset),
+-- pulsed by ui/engine.lua. Same "release the abandoned side on side-change" hygiene as M.make,
+-- tracked per line. writer(line, value): line == "block" | "feed".
+function M.makeLatch(getRelay, getBlockSide, getFeedSide)
+  local lastBlock, lastFeed = nil, nil
+  return function(line, value)
+    local relay = getRelay()
+    if not relay then return false end
+    local side
+    if line == "feed" then side = getFeedSide() else side = getBlockSide() end
+    if not side then return false end
+
+    -- NOTE: deliberately an if/else, not `(line == "feed") and lastFeed or lastBlock" --
+    -- that and/or idiom mis-resolves to lastBlock whenever lastFeed is nil (falsy), regardless
+    -- of which line is being written.
+    local last
+    if line == "feed" then last = lastFeed else last = lastBlock end
+    if last ~= nil and last ~= side then
+      pcall(relay.setOutput, last, false)
+    end
+
+    local ok = pcall(relay.setOutput, side, value)
+    if ok then
+      if line == "feed" then lastFeed = side else lastBlock = side end
+    end
+    return ok
+  end
+end
+
 return M

@@ -50,3 +50,48 @@ t.test("a throwing setOutput is caught and reported as failure", function()
   local w = RelayWriter.make(function() return relay end, function() return "back" end)
   t.eq(w(true), false, "pcall-guarded, returns false rather than propagating")
 end)
+
+t.test("makeLatch drives block vs feed on their configured sides", function()
+  local relay = mockRelay()
+  local w = RelayWriter.makeLatch(function() return relay end,
+    function() return "back" end, function() return "left" end)
+  t.eq(w("block", true), true)
+  t.eq(relay.calls[1].side, "back");  t.eq(relay.calls[1].val, true)
+  t.eq(w("feed", true), true)
+  t.eq(relay.calls[2].side, "left");  t.eq(relay.calls[2].val, true)
+  t.eq(w("feed", false), true)
+  t.eq(relay.calls[3].side, "left");  t.eq(relay.calls[3].val, false)
+end)
+
+t.test("makeLatch releases an abandoned block side when it changes", function()
+  local relay = mockRelay()
+  local blockSide = "back"
+  local w = RelayWriter.makeLatch(function() return relay end,
+    function() return blockSide end, function() return "left" end)
+  w("block", true)          -- drive back
+  blockSide = "top"         -- side reconfigured
+  w("block", false)         -- release "back", then drive "top"
+  t.eq(#relay.calls, 3)
+  t.eq(relay.calls[2].side, "back"); t.eq(relay.calls[2].val, false)
+  t.eq(relay.calls[3].side, "top");  t.eq(relay.calls[3].val, false)
+end)
+
+t.test("makeLatch: no relay -> false, nothing written", function()
+  local w = RelayWriter.makeLatch(function() return nil end,
+    function() return "back" end, function() return "left" end)
+  t.eq(w("block", true), false)
+end)
+
+t.test("makeLatch: nil side -> false", function()
+  local relay = mockRelay()
+  local w = RelayWriter.makeLatch(function() return relay end,
+    function() return nil end, function() return "left" end)
+  t.eq(w("block", true), false)
+end)
+
+t.test("makeLatch: throwing setOutput caught -> false", function()
+  local relay = { setOutput = function() error("gone") end }
+  local w = RelayWriter.makeLatch(function() return relay end,
+    function() return "back" end, function() return "left" end)
+  t.eq(w("feed", true), false)
+end)
