@@ -11,6 +11,7 @@ local M = require("ui.basalt.app")
 local protocol  = require("fcs.comms.protocol")
 local telemetry = require("fcs.comms.telemetry")
 local S         = require("fcs.comms.cfgsync")
+local RelayWriter = require("ui.relaywriter")
 
 -- Minimal mock monitor/term: covers every term method release/basalt-full.lua's render path
 -- (render.lua: setCursorPos/blit/setTextColor/setCursorBlink; BaseFrame's "term" setter:
@@ -356,4 +357,28 @@ t.test("logging-armed: status overlay (z=1000) + input logger run clean and reco
 
   local joined = table.concat(runtime.uilog:rows(), "\n")
   t.truthy(joined:find("INPUT", 1, true), "raw input was logged while armed:\n" .. joined)
+end)
+
+-- ===== Task 4: M.makeEngineWriter -- select engine relay writer by mode =====
+
+local function mockRelay()
+  local calls = {}
+  return { calls = calls, setOutput = function(s, v) calls[#calls+1] = { side = s, val = v } end }
+end
+
+t.test("makeEngineWriter: basic mode drives config.relay.side with a 1-arg writer", function()
+  local relay = mockRelay()
+  local cfg = { engine = { mode = "basic" }, relay = { side = "back" } }
+  local w = M.makeEngineWriter(RelayWriter, function() return relay end, cfg)
+  w(true)
+  t.eq(relay.calls[1].side, "back"); t.eq(relay.calls[1].val, true)
+end)
+
+t.test("makeEngineWriter: latch mode drives block/feed sides with a 2-arg writer", function()
+  local relay = mockRelay()
+  local cfg = { engine = { mode = "latch" }, relay = { blockSide = "back", feedSide = "left" } }
+  local w = M.makeEngineWriter(RelayWriter, function() return relay end, cfg)
+  w("block", true); w("feed", true)
+  t.eq(relay.calls[1].side, "back"); t.eq(relay.calls[1].val, true)
+  t.eq(relay.calls[2].side, "left"); t.eq(relay.calls[2].val, true)
 end)

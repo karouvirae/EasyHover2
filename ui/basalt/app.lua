@@ -300,6 +300,18 @@ end
 -- Delegates to fcs/io/fsx.lua's shared helper.
 local realRead = fsx.read
 
+-- Select the engine's relay writer by mode. basic -> single-side level writer (config.relay.side);
+-- latch -> two-line pulse writer (config.relay.blockSide/feedSide). Read fresh via closures so a
+-- rebind/side change is picked up without rebuilding. Pure but for the injected getRelay.
+function M.makeEngineWriter(RelayWriter, getRelay, config)
+  if config.engine.mode == "latch" then
+    return RelayWriter.makeLatch(getRelay,
+      function() return config.relay.blockSide end,
+      function() return config.relay.feedSide end)
+  end
+  return RelayWriter.make(getRelay, function() return config.relay.side end)
+end
+
 -- M.buildRuntime(deps) -> runtime
 -- deps.modem   -- a modem peripheral (default peripheral.find("modem"))
 -- deps.wrap    -- peripheral.wrap override (default peripheral.wrap)
@@ -349,7 +361,13 @@ function M.buildRuntime(deps)
   local relay = nil
   local function rebindRelay()
     relay = nil
-    if config.relay.name and config.relay.side then
+    local haveSides
+    if config.engine.mode == "latch" then
+      haveSides = (config.relay.blockSide ~= nil and config.relay.feedSide ~= nil)
+    else
+      haveSides = (config.relay.side ~= nil)
+    end
+    if config.relay.name and haveSides then
       local ok, p = pcall(wrap, config.relay.name)
       if ok then relay = p end
     end
@@ -362,9 +380,10 @@ function M.buildRuntime(deps)
   -- name change, so this stays current without a render-path cost.
   local function isRelayReady() return relay ~= nil end
 
-  -- Physical write edge (ui/relaywriter.lua): drives config.relay.side and releases the previously
-  -- driven side when the side changes, so a re-picked side can't leave the old one latched HIGH.
-  local writer = RelayWriter.make(function() return relay end, function() return config.relay.side end)
+  -- Physical write edge (ui/relaywriter.lua): basic mode drives config.relay.side and releases the
+  -- previously driven side when the side changes; latch mode drives the block/feed lines instead
+  -- (M.makeEngineWriter picks by config.engine.mode).
+  local writer = M.makeEngineWriter(RelayWriter, function() return relay end, config)
 
   local engine = Engine.new(config.engine, writer)
 
