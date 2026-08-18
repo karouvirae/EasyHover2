@@ -336,6 +336,19 @@ function M._onButton(runtime, id, now, deps)
   return effect
 end
 
+-- ===== M._modeIntent / M._sideIntent: PURE button->intent seams (Task 6) -- uical builds most of=====
+-- ===== its intents inline in M.build's onClick closures, but ENG MODE / BLOCK SIDE / FEED SIDE =====
+-- ===== extract theirs so the shape is testable headless (no Basalt needed). Both are op-shaped =====
+-- ===== effects M._applyOp already handles (cycleMode / cycleRelaySide{which=}) -- these two =====
+-- ===== functions ONLY build the effect table; M.build's onClick calls M._applyOp with it. =====
+function M._modeIntent()
+  return { kind = "config", op = "cycleMode" }
+end
+
+function M._sideIntent(which)
+  return { kind = "config", op = "cycleRelaySide", which = which }
+end
+
 -- ===== M.CATEGORIES / M.CONTROLS_BY_CATEGORY: pure overview->category drilldown mapping =====
 -- ===== (Task 5). The old flat ~11-row build() overflowed the ~12-row monitor -- its BACK button =====
 -- ===== rendered off-screen. M.build now hosts a region.lua drilldown (root "overview") with one =====
@@ -506,20 +519,63 @@ function M.build(basalt, frame, runtime, nav, deps)
         refresh()
       end)
 
+    -- ===== ENG MODE switch + BLOCK/FEED SIDE cycle buttons (Task 6, latch-mode controls) =====
+    -- BLOCK SIDE / FEED SIDE emit a CYCLE op (M._sideIntent -> _applyOp's cycleRelaySide with
+    -- which="block"/"feed"), not a direct-pick like the SIDE Picker above -- a switchbtn matches
+    -- that "click to advance" semantics (mirrors ENG MODE below, and the click-to-cycle RELAY
+    -- SIDE button ui/panels/config.lua exposes to the other config surfaces); a Picker's
+    -- onPick(value) SET semantics would be a poor fit for a cycle op. Always shown -- per the
+    -- brief, harmless in basic mode since they only ever edit relay.blockSide/feedSide, fields
+    -- basic mode's write path never reads (ui/engine.lua's basic branch reads relay.side, the
+    -- SIDE picker above, unchanged). Text/state are set in refresh() below, same as every other
+    -- live-config readout on this screen.
+    local modeSw = switchbtn.make(f, { x = fx, y = y, width = fiw, height = 1, text = "" })
+    modeSw.button:onClick(function()
+      M._applyOp(runtime, M._modeIntent(), deps)
+      refresh()
+    end)
+    y = y + 1
+
+    local blockSw = switchbtn.make(f, { x = fx, y = y, width = fiw, height = 1, text = "" })
+    blockSw.button:onClick(function()
+      M._applyOp(runtime, M._sideIntent("block"), deps)
+      refresh()
+    end)
+    y = y + 1
+
+    local feedSw = switchbtn.make(f, { x = fx, y = y, width = fiw, height = 1, text = "" })
+    feedSw.button:onClick(function()
+      M._applyOp(runtime, M._sideIntent("feed"), deps)
+      refresh()
+    end)
+    y = y + 1
+
     local backRow = configkit.actionRow(f, { x = fx, y = y, w = fiw }, {
       { label = "<", onClick = function() region:pop() end },
     })
 
-    -- refresh(): idempotent repaint of the picker selections from runtime.config + the live
-    -- `descriptors` upvalue. Never polls peripherals on its own -- config-only, like the old flat
-    -- build (the candidate LISTS only change on SCAN; each picker's CURRENT selection always
-    -- tracks config here).
+    -- refresh(): idempotent repaint of the picker selections + ENG MODE/BLOCK/FEED SIDE labels
+    -- from runtime.config + the live `descriptors` upvalue. Never polls peripherals on its own --
+    -- config-only, like the old flat build (the candidate LISTS only change on SCAN; each
+    -- picker's CURRENT selection always tracks config here).
     refresh = function()
       local cfg = runtime.config or {}
       relayPicker.setOptions(M._toOptions(M._relayCandidates(descriptors)), cfg.relay and cfg.relay.name)
       pumpPicker.setOptions(M._toOptions(M._fuelCandidates(descriptors)), cfg.fuel and cfg.fuel.pump and cfg.fuel.pump.name)
       tankPicker.setOptions(M._toOptions(M._fuelCandidates(descriptors)), cfg.fuel and cfg.fuel.tank and cfg.fuel.tank.name)
       sidePicker.setOptions(M._sideOptions(), (cfg.relay and cfg.relay.side) or "back")
+
+      local mode = (cfg.engine and cfg.engine.mode) or "basic"
+      modeSw.button:setText(configkit.fitLabel("ENG MODE: " .. mode, fiw))
+      modeSw.set(mode == "latch" and "on" or "off")
+
+      local blockSide = (cfg.relay and cfg.relay.blockSide) or "back"
+      blockSw.button:setText(configkit.fitLabel("BLOCK SIDE: " .. blockSide, fiw))
+      blockSw.set("off")
+
+      local feedSide = (cfg.relay and cfg.relay.feedSide) or "back"
+      feedSw.button:setText(configkit.fitLabel("FEED SIDE: " .. feedSide, fiw))
+      feedSw.set("off")
     end
     refresh()
 
@@ -531,6 +587,7 @@ function M.build(basalt, frame, runtime, nav, deps)
         pumpLabel = pumpLabel, pumpPicker = pumpPicker,
         tankLabel = tankLabel, tankPicker = tankPicker,
         sideLabel = sideLabel, sidePicker = sidePicker,
+        modeSw = modeSw, blockSw = blockSw, feedSw = feedSw,
         backRow = backRow,
       },
     }

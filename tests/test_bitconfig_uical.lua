@@ -679,6 +679,34 @@ t.test("categoryOf: an unknown control returns nil", function()
   t.eq(M.categoryOf(nil), nil)
 end)
 
+-- ===== M._modeIntent / M._sideIntent: PURE button->intent shape seams (Task 6) =====
+
+t.test("_modeIntent/_sideIntent shapes", function()
+  t.eq(M._modeIntent().op, "cycleMode")
+  t.eq(M._modeIntent().kind, "config")
+  t.eq(M._sideIntent("block").op, "cycleRelaySide")
+  t.eq(M._sideIntent("block").which, "block")
+  t.eq(M._sideIntent("feed").which, "feed")
+  t.eq(M._sideIntent("feed").kind, "config")
+end)
+
+t.test("_modeIntent/_sideIntent feed through _applyOp exactly like the hand-built effect tables", function()
+  local runtime = newStubRuntime()
+  local save = newSaveSpy()
+  local deps = { save = save }
+
+  M._applyOp(runtime, M._modeIntent(), deps)
+  t.eq(runtime.config.engine.mode, "latch", "_modeIntent()'s effect flips basic->latch")
+
+  runtime.config.relay.blockSide = "back"
+  M._applyOp(runtime, M._sideIntent("block"), deps)
+  t.eq(runtime.config.relay.blockSide, M.nextSide("back"), "_sideIntent('block')'s effect cycles blockSide")
+
+  runtime.config.relay.feedSide = "left"
+  M._applyOp(runtime, M._sideIntent("feed"), deps)
+  t.eq(runtime.config.relay.feedSide, M.nextSide("left"), "_sideIntent('feed')'s effect cycles feedSide")
+end)
+
 -- ===== Construction probe: real CraftOS-PC Basalt, no real peripherals =====
 
 t.test("M.build: overview shows DEVICES/FUEL/TIMING + '<'; apply() + one render pass do not error", function()
@@ -877,6 +905,66 @@ t.test("M.build: overview's '<' pops the FRAME-level nav stack", function()
   -- basalt.run(), forbidden here).
   nav:pop()
   t.eq(nav:top(), "bitconfig")
+end)
+
+t.test("M.build: DEVICES screen exposes ENG MODE + BLOCK/FEED SIDE controls, labelled from config", function()
+  local basalt = BasaltApp.ensureBasalt()
+  local frame = basalt.createFrame()
+  local nav = Nav.new("bitconfig")
+  local runtime = newStubRuntime()
+  runtime.config.engine.mode = "latch"
+  runtime.config.relay.blockSide = "front"
+  runtime.config.relay.feedSide = "top"
+  local save = newSaveSpy()
+  local deps = { scan = descriptorsA, save = save }
+
+  local h = M.build(basalt, frame, runtime, nav, deps)
+  local region = h.elements.region
+  region:push("devices")
+  h.apply({})
+
+  local els = region.built.devices.handle.elements
+  t.truthy(els.modeSw ~= nil and els.modeSw.button ~= nil, "ENG MODE control present")
+  t.truthy(els.blockSw ~= nil and els.blockSw.button ~= nil, "BLOCK SIDE control present")
+  t.truthy(els.feedSw ~= nil and els.feedSw.button ~= nil, "FEED SIDE control present")
+
+  t.truthy(tostring(els.modeSw.button:getText()):find("latch", 1, true) ~= nil, "ENG MODE label shows latch")
+  t.truthy(tostring(els.blockSw.button:getText()):find("front", 1, true) ~= nil, "BLOCK SIDE label shows front")
+  t.truthy(tostring(els.feedSw.button:getText()):find("top", 1, true) ~= nil, "FEED SIDE label shows top")
+end)
+
+t.test("M.build: clicking ENG MODE / BLOCK SIDE / FEED SIDE applies the intent and re-blocks (DRAIN SAFETY)", function()
+  local basalt = BasaltApp.ensureBasalt()
+  local frame = basalt.createFrame()
+  local nav = Nav.new("bitconfig")
+  local runtime, calls = newStubRuntime()
+  runtime.config.relay.blockSide = "back"
+  runtime.config.relay.feedSide = "back"
+  local save, saveCalls = newSaveSpy()
+  local deps = { scan = descriptorsA, save = save }
+
+  local h = M.build(basalt, frame, runtime, nav, deps)
+  local region = h.elements.region
+  region:push("devices")
+  h.apply({})
+
+  -- Drive the exact seam each button's onClick calls -- a real click needs basalt.run(), forbidden
+  -- in headless tests (mirrors the file's established "picking a relay via the picker" convention).
+  M._applyOp(runtime, M._modeIntent(), deps)
+  t.eq(runtime.config.engine.mode, "latch")
+
+  M._applyOp(runtime, M._sideIntent("block"), deps)
+  t.eq(runtime.config.relay.blockSide, M.nextSide("back"))
+  t.truthy(calls.rebind >= 1 and calls.blockNow >= 1, "block side change re-blocked")
+
+  M._applyOp(runtime, M._sideIntent("feed"), deps)
+  t.eq(runtime.config.relay.feedSide, M.nextSide("back"))
+
+  t.truthy(#saveCalls >= 3, "each op persisted")
+
+  h.apply({})
+  local els = region.built.devices.handle.elements
+  t.truthy(tostring(els.modeSw.button:getText()):find("latch", 1, true) ~= nil, "refresh picks up the new mode")
 end)
 
 t.test("M.build: DEVICES screen's SCAN re-scans descriptors + refreshes pickers", function()

@@ -965,9 +965,9 @@
         },
         {
           ["dst"] = "ui/basalt/bitconfig/uical.lua",
-          ["size"] = 29394,
+          ["size"] = 32289,
           ["src"] = "ui/basalt/bitconfig/uical.lua",
-          ["sum"] = "823f9da3",
+          ["sum"] = "6bfc1630",
         },
         {
           ["dst"] = "ui/basalt/btnfit.lua",
@@ -1343,5 +1343,5 @@
     ["size"] = 71434,
     ["sum"] = "57671ad7",
   },
-  ["version"] = "d5745bba",
+  ["version"] = "d6ab3786",
 }
