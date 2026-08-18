@@ -32,6 +32,8 @@ local DEFAULTS = {
   feel = {
     headingRate    = 2.2,
     leadCapHeading = 0.70,
+    yawStopLead    = 0.15,   -- s of yaw-rate led into the release capture; LOWER = harder stop
+
     climbRate      = 4.5,
     leadCapVert    = 8.0,
     surgeSpeed     = 10.0,
@@ -70,12 +72,16 @@ local function coupledFeel()
   f.throttleRate = 1.0; f.throttleDecay = 1.0; f.brakeGain = 0.5
   f.slowSurgeRate = 0.3; f.strafeRate = 0.3
   f.climbRampTime = 1.0; f.climbBoost = 2.0
-  f.trimGain = 0.1; f.trimDir = -1        -- -1 = nose-down trim (this craft pitches nose-up on accel)
+  -- Nose-down auto-trim. -1 = nose-down (this craft pitches nose-up on accel). trimGain raised
+  -- 0.1->0.35 (~20deg at full throttle) with a dedicated trimCap (~28deg, under attLimit 0.6) so
+  -- the differential-only pitch-down can actually counter high surge accel. RETUNE in flight.
+  f.trimGain = 0.35; f.trimDir = -1; f.trimCap = 0.5
   return f
 end
 DEFAULTS.modes.CPL = {
   gains = deep(DEFAULTS.gains),
-  caps  = { pitch = 0.4, roll = 0.4, yaw = DEFAULTS.caps.yaw, sway = DEFAULTS.caps.sway,
+  -- pitch cap 0.4->0.5 so the mixer's lift-differential torque isn't the nose-down limiter.
+  caps  = { pitch = 0.5, roll = 0.4, yaw = DEFAULTS.caps.yaw, sway = DEFAULTS.caps.sway,
             surge = DEFAULTS.caps.surge, yawRear = DEFAULTS.caps.yaw },
   feel  = coupledFeel(),
 }

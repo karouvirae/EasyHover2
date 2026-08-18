@@ -14,12 +14,14 @@ function Pilot.new(cfg)
     tilt = { pitch = 0, roll = 0 },
     throttle = 0,
     climbHeld = 0,
+    yawWasHeld = false,
   }, Pilot)
 end
 
 function Pilot:reset(meas)
   self.sp = { altitude = meas.altitude, heading = meas.heading,
               swayPos = meas.swayPos, surgePos = meas.surgePos }
+  self.yawWasHeld = false
   return self.sp
 end
 
@@ -42,10 +44,12 @@ function Pilot:update(dt, held, meas)
   local c, sp = self.cfg, self.sp
 
   -- Yaw: slew heading setpoint, angle-wrapped, leashed to lead the CURRENT heading by at most
-  -- leadCapHeading. Without the leash a long yaw hold runs the setpoint far ahead; the craft chases
-  -- that lead, builds yaw momentum, and keeps turning for seconds after release then overshoots.
-  -- Mirrors the altitude (leadCapVert) and position (maxLead) leashes.
+  -- leadCapHeading. The leash bounds the standing lead (hence the steady turn RATE) while held;
+  -- mirrors the altitude (leadCapVert) and position (maxLead) leashes. The post-release coast --
+  -- the craft continuing to turn out the remaining lead -- is killed separately by the release-edge
+  -- capture near the end of update() (snaps the setpoint to current heading + a small stop lead).
   local yd = dirOf(held, "yawLeft", "yawRight")
+  local yawActive = (yd ~= 0)   -- set true again by the CPL rudder block; drives release-capture below
   if yd ~= 0 then
     sp.heading = angle.wrap(sp.heading + c.headingRate * dt * yd)
     local cap = c.leadCapHeading
@@ -90,6 +94,18 @@ function Pilot:update(dt, held, meas)
   local utarget = (sud ~= 0) and (meas.surgePos + surgeLead * sud) or sp.surgePos
   sp.surgePos = leash.step(sp.surgePos, utarget, meas.surgePos, dt, surgeSpeed, surgeLead)
 
+  -- MAN drift-relax: while the pilot actively tilts, relax the horizontal position hold so a
+  -- banked craft drifts freely instead of the translate loop fighting it. Snapping the position
+  -- setpoints to the measured position zeroes the loop error (no counter-thrust). Releasing tilt
+  -- stops the snap, so the setpoints freeze at the current position and the loop re-holds wherever
+  -- the drift ended. Overrides the leash above; only MAN sets policy.relaxTiltDrift.
+  if self.policy.relaxTiltDrift then
+    if held.pitchDown or held.pitchUp or held.rollLeft or held.rollRight then
+      sp.swayPos = meas.swayPos
+      sp.surgePos = meas.surgePos
+    end
+  end
+
   -- Coupled (CPL/DCPL) horizontal + rudder inputs. Runs before the tilt block so auto-trim can
   -- read self.throttle. The generic sway/surge leash above still ran; we override sp.surgePos/
   -- swayPos to the measured position while the pilot is actively commanding, so the CPL cushion
@@ -119,6 +135,7 @@ function Pilot:update(dt, held, meas)
     -- scheme reroutes to the rear-only effector this tick.
     local rd = dirOf(held, "rudderLeft", "rudderRight")
     if rd ~= 0 then
+      yawActive = true                 -- rudder is a yaw input too -> same release-capture path
       sp.heading = angle.wrap(sp.heading + c.headingRate * dt * rd)
       local cap = c.leadCapHeading
       if cap then
@@ -148,7 +165,10 @@ function Pilot:update(dt, held, meas)
     if self.policy.surge == "coupled" then
       local trim = (c.trimGain or 0) * (c.trimDir or -1) * (self.throttle or 0)
       local p = self.tilt.pitch + trim
-      local cap = c.tiltCap or 0.4
+      -- Auto-trim gets its own headroom (trimCap) so it can command MORE nose-down than a manual
+      -- tilt (tiltCap): the craft has no pitch-down surface, so countering surge accel needs the
+      -- extra authority. Falls back to tiltCap when trimCap is absent (older configs).
+      local cap = c.trimCap or c.tiltCap or 0.4
       if p > cap then p = cap elseif p < -cap then p = -cap end
       sp.pitch, sp.roll = p, self.tilt.roll
     else
@@ -163,6 +183,18 @@ function Pilot:update(dt, held, meas)
     self.throttle = self.throttle + (c.cruiseThrottleRate or 1.0) * dt * d
     if self.throttle < 0 then self.throttle = 0 elseif self.throttle > maxT then self.throttle = maxT end
     sp.surgeThrottle = self.throttle
+  end
+
+  -- Yaw release-edge capture: on the tick the pilot lets go of yaw/rudder, drop the leashed lead
+  -- and snap the heading setpoint to the current heading plus a small predictive stop
+  -- (yawStopLead * yawRate), so the loop brakes to a halt where you released instead of coasting
+  -- the ~leadCapHeading lead out -- the old oversteer. Edge-triggered (yawWasHeld): once captured,
+  -- the setpoint stays fixed so the heading PID fights drift rather than re-tracking meas.heading.
+  if yawActive then
+    self.yawWasHeld = true
+  elseif self.yawWasHeld then
+    sp.heading = angle.wrap((meas.heading or 0) + (c.yawStopLead or 0) * (meas.yawRate or 0))
+    self.yawWasHeld = false
   end
 
   -- Return a snapshot copy: sp is self.sp, mutated in place as internal ramp state across calls

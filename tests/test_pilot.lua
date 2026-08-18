@@ -63,6 +63,34 @@ t.test("release holds setpoints where they are", function()
   t.near(sp.swayPos, 1.0, 1e-9, "held at 1")
 end)
 
+t.test("yaw release captures current heading + predictive stop, dropping the leashed lead", function()
+  local CFG2 = { headingRate = 1.0, leadCapHeading = 0.35, climbRate = 0.5, leadCapVert = 2.0,
+    cruiseSpeed = 1.0, maxLead = 3.0, yawStopLead = 0.1 }
+  local p = Pilot.new(CFG2); p:reset(meas())
+  -- hold yaw right: setpoint leads meas.heading(0) by leadCapHeading(0.35)
+  local held = p:update(3.0, {yawRight=true},
+    { altitude=10, heading=0, swayPos=0, surgePos=0, yawRate=0.5 })
+  t.near(held.heading, 0.35, 1e-9, "held: leashed 0.35 ahead of current")
+  -- release at meas.heading=0.2, yawRate=0.5 -> capture 0.2 + 0.1*0.5 = 0.25 (NOT the 0.35 lead)
+  local rel = p:update(0.1, {},
+    { altitude=10, heading=0.2, swayPos=0, surgePos=0, yawRate=0.5 })
+  t.near(rel.heading, 0.25, 1e-9, "release: current + predictive stop, not the leashed lead")
+  t.truthy(rel.heading < held.heading, "setpoint drops behind the held lead -> no oversteer")
+end)
+
+t.test("yaw release is edge-triggered: a settled release holds heading and fights drift", function()
+  local CFG2 = { headingRate = 1.0, leadCapHeading = 0.35, climbRate = 0.5, leadCapVert = 2.0,
+    cruiseSpeed = 1.0, maxLead = 3.0, yawStopLead = 0.0 }
+  local p = Pilot.new(CFG2); p:reset(meas())
+  p:update(1.0, {yawRight=true}, { altitude=10, heading=0, swayPos=0, surgePos=0, yawRate=0.3 })
+  local r1 = p:update(0.1, {}, { altitude=10, heading=0.3, swayPos=0, surgePos=0, yawRate=0.1 })
+  t.near(r1.heading, 0.3, 1e-9, "captured current heading (0.3) on the release edge")
+  -- next released tick: heading drifts to 0.5, but the setpoint must STAY 0.3 (PID fights drift),
+  -- not re-capture to the drifted heading.
+  local r2 = p:update(0.1, {}, { altitude=10, heading=0.5, swayPos=0, surgePos=0, yawRate=0.1 })
+  t.near(r2.heading, 0.3, 1e-9, "held at 0.3, not re-tracking the 0.5 drift")
+end)
+
 t.test("position hold freezes setpoints and ignores held", function()
   local p = Pilot.new(CFG); p:reset(meas{heading=0.2, swayPos=1})
   p:setPositionHold(true)

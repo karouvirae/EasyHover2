@@ -17,7 +17,7 @@ end
 
 local SPECS = {
   { id = "PRECISION", label = "PRECISION", ctor = Level,     policy = { tilt = false, surge = "position" } },
-  { id = "MAN",       label = "MAN",       ctor = Manual,    policy = { tilt = true,  surge = "position" } },
+  { id = "MAN",       label = "MAN",       ctor = Manual,    policy = { tilt = true,  surge = "position", relaxTiltDrift = true } },
   { id = "CRUISE",    label = "CRUISE",    ctor = Cruise,    policy = { tilt = false, surge = "throttle" } },
   { id = "CPL",       label = "CPL",       ctor = Coupled,   policy = { tilt = true,  surge = "coupled" } },
   { id = "DCPL",      label = "DCPL",      ctor = Decoupled, policy = { tilt = true,  surge = "coupled" } },

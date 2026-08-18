@@ -42,6 +42,18 @@ t.test("auto-trim offsets pitch by trimDir*trimGain*throttle, clamped to tiltCap
   t.truthy(sp.pitch >= -0.4 - 1e-9, "trim stays within tiltCap")
 end)
 
+t.test("trimCap lets auto-trim command more nose-down than the manual tiltCap", function()
+  local FEEL2 = { headingRate=2.2, leadCapHeading=0.7, climbRate=4.5, leadCapVert=8,
+    surgeSpeed=10, surgeLead=20, swaySpeed=5, swayLead=10, tiltRate=0.8, tiltCap=0.4,
+    throttleRate=1.0, throttleDecay=1.0, brakeGain=0.5, slowSurgeRate=0.3, strafeRate=0.3,
+    climbRampTime=1.0, climbBoost=2.0, trimGain=0.5, trimDir=-1, trimCap=0.6 }
+  local p = Pilot.new(FEEL2); p:setMode({ tilt=true, surge="coupled" }, FEEL2); p:reset(meas())
+  for _ = 1, 10 do p:update(0.2, { surgeFwd=true }, meas()) end  -- throttle -> 1
+  local sp = p:update(0, {}, meas())
+  t.truthy(sp.pitch < -0.4 - 1e-9, "nose-down exceeds the 0.4 tiltCap (got " .. sp.pitch .. ")")
+  t.truthy(sp.pitch >= -0.6 - 1e-9, "still clamped to trimCap 0.6")
+end)
+
 t.test("rudder keys flag rear-only routing; comma/period do not", function()
   local p = Pilot.new(FEEL); cpl(p)
   t.eq(p:update(0.1, { rudderRight=true }, meas()).yawRear, true, "rudder -> yawRear")
