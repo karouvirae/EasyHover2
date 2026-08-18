@@ -56,3 +56,26 @@ t.test("sens concern defaults to FCS and preserves a saved source + self cal", f
   local kept = Config.withDefaults({ sens = { source = "SELF", self = { signPitch = -1 } } })
   t.eq(kept.sens.source, "SELF"); t.eq(kept.sens.self.signPitch, -1)
 end)
+
+t.test("engine defaults to basic mode", function()
+  local d = Config.defaults()
+  t.eq(d.engine.mode, "basic")
+end)
+
+t.test("relay defaults carry blockSide/feedSide keys (nil)", function()
+  local d = Config.defaults()
+  t.eq(d.relay.blockSide, nil)
+  t.eq(d.relay.feedSide, nil)
+end)
+
+t.test("withDefaults preserves a saved latch config", function()
+  local merged = Config.withDefaults({
+    engine = { mode = "latch" },
+    relay  = { name = "redstone_relay_0", blockSide = "back", feedSide = "left" },
+  })
+  t.eq(merged.engine.mode, "latch")
+  t.eq(merged.relay.blockSide, "back")
+  t.eq(merged.relay.feedSide, "left")
+  -- untouched engine defaults still merge through:
+  t.eq(merged.engine.pulseMs, 250)
+end)

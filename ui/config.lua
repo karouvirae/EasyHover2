@@ -8,7 +8,7 @@ local M = {}
 function M.defaults()
   return {
     assign = {},                       -- [monitorName]=panelId ("engine"|"fcs"|"config")
-    relay  = { name = nil, side = nil },
+    relay  = { name = nil, side = nil, blockSide = nil, feedSide = nil },
     fuel   = {
       pump = { name = nil, kind = "inventory", empty = 0, full = 0 },
       tank = { name = nil, kind = "inventory", empty = 0, full = 0 },
@@ -16,7 +16,7 @@ function M.defaults()
     -- intervalMs = gap between feeds. Must be shorter than the engine's burn time; one blaze
     -- cake in a superheated engine lasts ~5m30s on this server, so feed one every 5m30s.
     -- Adjusted in the UI in +/-15s steps; pulseMs (funnel-open time) stays in ms.
-    engine = { pulseMs = 250, intervalMs = 330000, invert = false, kickstart = true, masterDefault = false },
+    engine = { mode = "basic", pulseMs = 250, intervalMs = 330000, invert = false, kickstart = true, masterDefault = false },
     sens = { source = "FCS" },
     -- PFD cockpit-page redraw cadence (ms). Tunable in BIT/CONFIG -> PFD RATE. The dirty-gate is
     -- kept (only unchanged frames are skipped); this sets how often it checks/repaints. Faster =

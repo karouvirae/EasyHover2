@@ -1133,9 +1133,9 @@
         },
         {
           ["dst"] = "ui/config.lua",
-          ["size"] = 2772,
+          ["size"] = 2821,
           ["src"] = "ui/config.lua",
-          ["sum"] = "4c317d8b",
+          ["sum"] = "99ac6880",
         },
         {
           ["dst"] = "ui/detect.lua",
@@ -1343,5 +1343,5 @@
     ["size"] = 71434,
     ["sum"] = "57671ad7",
   },
-  ["version"] = "64598306",
+  ["version"] = "756544e3",
 }
