@@ -15,21 +15,30 @@ function M.new(enabled, cap)
   return setmetatable({ enabled = enabled and true or false, buf = LogBuffer.new(cap), t0 = nil }, U)
 end
 
---- event(kind, msg, now): append "+<ms since first event>ms <kind> <msg>" when enabled. The first
---- event seeds t0 so the log reads as relative flight time. No-op when disabled.
+--- event(kind, msg, now): buffer a RAW event record when enabled; the "+<ms> <kind> <msg>" line is
+--- formatted lazily in rows()/compose() so no string.format runs on the caller's hot path (e.g. the
+--- per-render RENDER event). The first event seeds t0 so the log reads as relative time. No-op when
+--- disabled. Records hold only scalars/strings -- no live table refs -- so buffering raw is safe.
 function U:event(kind, msg, now)
   if not self.enabled then return end
   now = now or 0
   if self.t0 == nil then self.t0 = now end
-  self.buf:push(("+%dms %s %s"):format(now - self.t0, tostring(kind), tostring(msg or "")))
+  self.buf:push({ t = now, kind = kind, msg = msg })
 end
 
---- rows() -> the buffered lines, oldest-to-newest (snapshot).
-function U:rows() return self.buf:rows() end
+--- rows() -> the buffered lines "+<ms since t0> <kind> <msg>", oldest-to-newest, formatted HERE (at
+--- dump) from the raw records. t0 is the first-ever event, so wrapped-off rows keep their real time.
+function U:rows()
+  local out, t0 = {}, self.t0 or 0
+  for _, r in ipairs(self.buf:rows()) do
+    out[#out + 1] = ("+%dms %s %s"):format((r.t or 0) - t0, tostring(r.kind), tostring(r.msg or ""))
+  end
+  return out
+end
 
 --- compose() -> the full upload body (header + rows).
 function U:compose()
-  return "EH2 UI LOG\n" .. table.concat(self.buf:rows(), "\n") .. "\n"
+  return "EH2 UI LOG\n" .. table.concat(self:rows(), "\n") .. "\n"
 end
 
 --- scrapeUrl(text) -> the first http(s) URL in `text`, or nil. Used to lift the carbide paste link

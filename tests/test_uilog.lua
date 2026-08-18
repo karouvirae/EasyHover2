@@ -25,6 +25,15 @@ t.test("enabled logger records timestamped lines, first event seeds t0", functio
   t.truthy(r[2]:find("ENGINE", 1, true))
 end)
 
+t.test("event buffers a RAW record; line formatting is deferred to rows()/compose() (off the hot path)", function()
+  local u = UILog.new(true)
+  u:event("RENDER", "apply 12ms", 5000)
+  local raw = u.buf:rows()[1]
+  t.eq(type(raw), "table", "buffer holds a raw record, not a pre-formatted string")
+  t.eq(raw.kind, "RENDER"); t.eq(raw.msg, "apply 12ms")
+  t.truthy(u:rows()[1]:find("+0ms RENDER apply 12ms", 1, true), "rows() formats the record at dump time")
+end)
+
 t.test("ring buffer caps the log at its capacity (rolling)", function()
   local u = UILog.new(true, 3)
   for i = 1, 5 do u:event("K", "e" .. i, 1000 + i) end
