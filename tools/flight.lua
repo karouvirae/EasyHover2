@@ -95,12 +95,19 @@ local function logCycle(dt, m)
     dSway = dem.sway, dSurge = dem.surge, duties = r.duties,
   }
   logSummary:add(sample)                                   -- summary always covers the whole flight
-  logRows:push(Inst.formatRow(sample))                     -- RAM ring; oldest rolls off past MAX_ROWS
+  -- Buffer the RAW captured sample (duties snapshotted), NOT a formatted string. The 34-column
+  -- string.format (Inst.formatRow) is the costly part and now runs only at dump time (logWriteFile),
+  -- OFF the control loop -- so logging no longer steals hot-path time from the FCS. See analysis:
+  -- logging-on flights ran ~15Hz jittery; this removes the per-cycle format work.
+  logRows:push(Inst.capture(sample))                       -- RAM ring; oldest rolls off past MAX_ROWS
 end
 -- Compose the CSV body (header + buffered rows + running summary) and write it to LOG_PATH.
 -- Returns rowCount. Off the flight path (called only from logDump/logFinish).
 local function logWriteFile()
-  local rows = logRows:rows()
+  -- Format the buffered raw samples to CSV rows HERE, at dump time (P press / exit), not per cycle.
+  local recs = logRows:rows()
+  local rows = {}
+  for i = 1, #recs do rows[i] = Inst.formatRow(recs[i]) end
   local summaryText = Inst.formatSummary(logSummary:finalize())
   pcall(function()
     if fs.exists(LOG_PATH) then fs.delete(LOG_PATH) end     -- reclaim space from a prior write

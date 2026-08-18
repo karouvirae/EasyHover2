@@ -7,6 +7,19 @@ t.test("header and formatRow agree on column count", function()
   local nrow = select(2, row:gsub(",", ",")) + 1
   t.eq(nrow, ncols)
 end)
+t.test("capture snapshots the live duties table so deferred formatRow is immune to later mutation", function()
+  -- The control loop reuses/overwrites its duties table each cycle. To move formatRow OFF the hot
+  -- path we buffer the raw sample and format at dump time -- which is only safe if the shared duties
+  -- reference is snapshotted at capture. This is the correctness guard for that deferral.
+  local live = { FL = 0.1, FR = 0.2, RL = 0.3, RR = 0.4 }
+  local sample = { t = 1, dt = 0.1, phase = "ENGAGED", mode = "NORMAL", pitch = 0.05, duties = live }
+  local rec = I.capture(sample)
+  local atCapture = I.formatRow(rec)
+  live.FL = 0.99; live.FR = 0.88   -- next cycle overwrites the live duties in place
+  t.eq(I.formatRow(rec), atCapture, "captured record's formatRow is unaffected by later duties mutation")
+  t.truthy(atCapture:find("0.1000", 1, true), "the FL=0.1 snapshot is preserved for the deferred format")
+end)
+
 t.test("Summary computes bob amplitude from HOLD samples", function()
   local s = I.Summary.new()
   s:add({ t=0,   dt=0.1, phase="HOLD", alt=5.0, sp_alt=5, heading=0 })

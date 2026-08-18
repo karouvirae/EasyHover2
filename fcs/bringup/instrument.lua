@@ -36,6 +36,20 @@ function M.formatRow(s)
   return table.concat(vals, ",")
 end
 
+-- capture(s): make a per-cycle sample safe to BUFFER for deferred formatRow. The control loop
+-- reuses/overwrites its duties table in place each cycle, so the ONLY unsafe reference in `s` is
+-- `s.duties`; every other field is already a per-cycle scalar. Snapshot just the emitted duty
+-- columns into a private table so formatRow(s) at DUMP time reflects THIS cycle, not the latest.
+-- Cheap (11 field copies) vs the 34-column string.format that formatRow does -- which now runs only
+-- at dump, off the hot control loop. Mutates+returns `s` (a fresh literal at the call site).
+function M.capture(s)
+  local d = s.duties or {}
+  local snap = {}
+  for _, id in ipairs(DUTY_IDS) do snap[id] = d[id] end
+  s.duties = snap
+  return s
+end
+
 local Summary = {}
 Summary.__index = Summary
 M.Summary = Summary

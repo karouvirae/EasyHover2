@@ -146,9 +146,9 @@
         },
         {
           ["dst"] = "fcs/bringup/instrument.lua",
-          ["size"] = 4705,
+          ["size"] = 4817,
           ["src"] = "dist/fcs/bringup/instrument.lua",
-          ["sum"] = "3b9c2045",
+          ["sum"] = "08bb3811",
         },
         {
           ["dst"] = "fcs/bringup/logbuffer.lua",
@@ -428,9 +428,9 @@
         },
         {
           ["dst"] = "tools/flight.lua",
-          ["size"] = 5635,
+          ["size"] = 5690,
           ["src"] = "dist/tools/flight.lua",
-          ["sum"] = "7d8e0126",
+          ["sum"] = "11636c2a",
         },
         {
           ["dst"] = "tools/hover_test.lua",
@@ -635,9 +635,9 @@
         },
         {
           ["dst"] = "fcs/bringup/instrument.lua",
-          ["size"] = 4705,
+          ["size"] = 4817,
           ["src"] = "dist/fcs/bringup/instrument.lua",
-          ["sum"] = "3b9c2045",
+          ["sum"] = "08bb3811",
         },
         {
           ["dst"] = "fcs/bringup/logbuffer.lua",
@@ -1109,9 +1109,9 @@
         },
         {
           ["dst"] = "ui/basalt/uilog.lua",
-          ["size"] = 603,
+          ["size"] = 691,
           ["src"] = "dist/ui/basalt/uilog.lua",
-          ["sum"] = "0a6062d6",
+          ["sum"] = "6a401645",
         },
         {
           ["dst"] = "ui/basalt/waypointlist.lua",
@@ -1343,5 +1343,5 @@
     ["size"] = 71434,
     ["sum"] = "57671ad7",
   },
-  ["version"] = "4f5be0d2",
+  ["version"] = "9401e5c6",
 }
