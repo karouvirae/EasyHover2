@@ -298,6 +298,101 @@ t.test("_applyOp toggle: flips engine.invert and engine.kickstart independently,
   t.eq(#saveCalls, 2)
 end)
 
+-- ===== M._applyOp: cycleMode -- toggles engine.mode basic<->latch, re-applies, re-blocks =====
+
+t.test("_applyOp cycleMode: toggles basic<->latch and persists", function()
+  local runtime = newStubRuntime()
+  local save, saveCalls = newSaveSpy()
+  local deps = { save = save }
+
+  M._applyOp(runtime, { kind = "config", op = "cycleMode" }, deps)
+  t.eq(runtime.config.engine.mode, "latch")
+
+  M._applyOp(runtime, { kind = "config", op = "cycleMode" }, deps)
+  t.eq(runtime.config.engine.mode, "basic")
+
+  t.eq(#saveCalls, 2)
+end)
+
+t.test("_applyOp cycleMode: applyConfig + rebindRelay + engine:blockNow all fire on a mode flip", function()
+  local runtime, calls = newStubRuntime()
+  local save = newSaveSpy()
+  local deps = { save = save }
+
+  M._applyOp(runtime, { kind = "config", op = "cycleMode" }, deps)
+
+  t.eq(#calls.applyConfig, 1)
+  t.eq(calls.rebind, 1)
+  t.eq(calls.blockNow, 1)
+end)
+
+-- ===== M._applyOp: cycleRelaySide with effect.which -- basic side (default) vs latch block/feed =====
+
+t.test("_applyOp cycleRelaySide default (no which) still cycles basic relay.side unchanged", function()
+  local runtime = newStubRuntime()
+  runtime.config.relay.side = "back"
+  runtime.config.relay.blockSide = "front"
+  runtime.config.relay.feedSide = "left"
+  local save, saveCalls = newSaveSpy()
+  local deps = { save = save }
+
+  M._applyOp(runtime, { kind = "config", op = "cycleRelaySide" }, deps)
+
+  t.eq(runtime.config.relay.side, "front")
+  t.eq(runtime.config.relay.blockSide, "front", "block side untouched by the basic op")
+  t.eq(runtime.config.relay.feedSide, "left", "feed side untouched by the basic op")
+  t.eq(#saveCalls, 1)
+end)
+
+t.test("_applyOp cycleRelaySide which=block cycles blockSide and re-blocks", function()
+  local runtime, calls = newStubRuntime()
+  runtime.config.relay.blockSide = "back"
+  local save = newSaveSpy()
+  local deps = { save = save }
+
+  M._applyOp(runtime, { kind = "config", op = "cycleRelaySide", which = "block" }, deps)
+
+  t.eq(runtime.config.relay.blockSide, M.nextSide("back"))
+  t.eq(calls.rebind, 1)
+  t.eq(calls.blockNow, 1)
+end)
+
+t.test("_applyOp cycleRelaySide which=feed cycles feedSide", function()
+  local runtime = newStubRuntime()
+  runtime.config.relay.feedSide = "left"
+  local save = newSaveSpy()
+  local deps = { save = save }
+
+  M._applyOp(runtime, { kind = "config", op = "cycleRelaySide", which = "feed" }, deps)
+
+  t.eq(runtime.config.relay.feedSide, M.nextSide("left"))
+end)
+
+-- ===== M._applyOp: stepEngine -- pulseMs floors at 200 in latch mode, stays 0-floor in basic =====
+
+t.test("_applyOp stepEngine: pulseMs floors at 200 in latch mode (150 clamped up to 200)", function()
+  local runtime = newStubRuntime()
+  runtime.config.engine.mode = "latch"
+  runtime.config.engine.pulseMs = 250
+  local save = newSaveSpy()
+  local deps = { save = save }
+
+  M._applyOp(runtime, { kind = "config", op = "stepEngine", field = "pulseMs", delta = -100 }, deps)
+
+  t.eq(runtime.config.engine.pulseMs, 200)
+end)
+
+t.test("_applyOp stepEngine: pulseMs has no 200 floor in basic mode (matches today's behaviour)", function()
+  local runtime = newStubRuntime()
+  runtime.config.engine.pulseMs = 50
+  local save = newSaveSpy()
+  local deps = { save = save }
+
+  M._applyOp(runtime, { kind = "config", op = "stepEngine", field = "pulseMs", delta = -100 }, deps)
+
+  t.eq(runtime.config.engine.pulseMs, 0, "basic mode still floors pulseMs at 0 only")
+end)
+
 -- ===== M._fuelCandidates / M._relayCandidates: PURE dropdown-population filters =====
 
 t.test("_fuelCandidates: names whose methods classify as fluid/inventory, not the relays", function()

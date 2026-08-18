@@ -126,7 +126,13 @@ end
 local function labelFor(b, cfg, assign)
   local id = b.id
   if b.monitorName then return assign[b.monitorName] or "--" end
-  if id == "relaySide" then return "RELAY SIDE: " .. ((cfg.relay and cfg.relay.side) or "back") end
+  if id == "relaySide" then
+    local r, e = cfg.relay or {}, cfg.engine or {}
+    if (e.mode or "basic") == "latch" then
+      return "SIDES blk:" .. (r.blockSide or "--") .. " feed:" .. (r.feedSide or "--")
+    end
+    return "RELAY SIDE: " .. (r.side or "back")
+  end
   if id == "bindRelay" then return "RELAY: " .. shortName(cfg.relay and cfg.relay.name) end
   if id == "bindPump" then return "PUMP: " .. shortName(cfg.fuel and cfg.fuel.pump and cfg.fuel.pump.name) end
   if id == "bindTank" then return "TANK: " .. shortName(cfg.fuel and cfg.fuel.tank and cfg.fuel.tank.name) end
@@ -146,7 +152,8 @@ M.fmtInterval = fmtInterval
 
 local function timingLine(cfg, width)
   local e = cfg.engine or {}
-  local s = string.format("P %sms  I %s  inv %s  kick %s",
+  local s = string.format("%s  P %sms  I %s  inv %s  kick %s",
+    tostring(e.mode or "basic"),
     tostring(e.pulseMs or "?"), fmtInterval(e.intervalMs),
     (e.invert and "on" or "off"), (e.kickstart and "on" or "off"))
   return s:sub(1, math.max(0, width))

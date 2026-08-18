@@ -183,6 +183,24 @@ t.test("timing line shows the feed interval as minutes+seconds", function()
   t.eq(sawInterval, true)
 end)
 
+t.test("timingLine shows the engine mode (basic by default, latch when set)", function()
+  local sBasic = cfgp.timingLine({ engine = { pulseMs = 250, intervalMs = 330000 } }, 80)
+  t.eq(sBasic:find("basic") ~= nil, true)
+
+  local sLatch = cfgp.timingLine({ engine = { mode = "latch", pulseMs = 250, intervalMs = 330000 } }, 80)
+  t.eq(sLatch:find("latch") ~= nil, true)
+end)
+
+t.test("labelFor relaySide is mode-aware: basic shows RELAY SIDE, latch shows blk/feed sides", function()
+  local basicCfg = { relay = { side = "back" }, engine = { mode = "basic" } }
+  t.eq(cfgp.labelFor({ id = "relaySide" }, basicCfg, {}), "RELAY SIDE: back")
+
+  local latchCfg = { relay = { blockSide = "front", feedSide = "left" }, engine = { mode = "latch" } }
+  local s = cfgp.labelFor({ id = "relaySide" }, latchCfg, {})
+  t.eq(s:find("blk:front") ~= nil, true)
+  t.eq(s:find("feed:left") ~= nil, true)
+end)
+
 t.test("config fits: all buttons present + within bounds with 7 monitors", function()
   local mons = {}; for i = 1, 7 do mons[i] = "m" .. i end
   local W, H = 51, 19

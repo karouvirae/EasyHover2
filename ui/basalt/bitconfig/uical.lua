@@ -231,17 +231,41 @@ function M._applyOp(runtime, effect, deps)
     doBind(runtime, effect.role, d)
   elseif op == "calFuel" then
     doCalFuel(runtime)
+  elseif op == "cycleMode" then
+    -- Flip basic<->latch, re-apply the engine config under the new mode, then re-assert blocked
+    -- (a mode flip changes how blockNow/feed writes the relay -- see engine.lua's basic vs latch
+    -- write paths -- so it needs the SAME re-block discipline as a relay/side change).
+    if runtime.config.engine.mode == "latch" then
+      runtime.config.engine.mode = "basic"
+    else
+      runtime.config.engine.mode = "latch"
+    end
+    runtime.engine:applyConfig(runtime.config.engine)
+    runtime.rebindRelay()
+    runtime.engine:blockNow()
   elseif op == "cycleRelaySide" then
     -- Change the side the engine drives, then re-assert blocked on the NEW side -- same
     -- drain-safety as (re)binding: force a HIGH write so the funnel stays closed.
-    runtime.config.relay.side = M.nextSide(runtime.config.relay.side)
+    -- effect.which selects WHICH side field cycles: nil/"side" = the basic single-side field
+    -- (today's behaviour, unchanged); "block"/"feed" = the latch-mode block/feed side fields.
+    local which = effect.which
+    if which == "block" then
+      runtime.config.relay.blockSide = M.nextSide(runtime.config.relay.blockSide)
+    elseif which == "feed" then
+      runtime.config.relay.feedSide = M.nextSide(runtime.config.relay.feedSide)
+    else
+      runtime.config.relay.side = M.nextSide(runtime.config.relay.side)
+    end
     runtime.rebindRelay()
     runtime.engine:blockNow()
   elseif op == "stepEngine" then
     local v = (runtime.config.engine[effect.field] or 0) + effect.delta
     -- Never let the feed interval reach 0 (that would hold the funnel open = continuous drain);
-    -- floor it at one 15s step. pulseMs just stays non-negative.
+    -- floor it at one 15s step. pulseMs just stays non-negative, EXCEPT in latch mode: a pulse
+    -- shorter than LATCH_LINE_MS (150ms, see engine.lua) can't reliably clear the trigger line,
+    -- so floor pulseMs at 200ms there.
     local floor = (effect.field == "intervalMs") and 15000 or 0
+    if effect.field == "pulseMs" and runtime.config.engine.mode == "latch" then floor = 200 end
     if v < floor then v = floor end
     runtime.config.engine[effect.field] = v
     runtime.engine:applyConfig(runtime.config.engine)
