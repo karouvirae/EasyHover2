@@ -16,3 +16,12 @@ t.test("no band configured leaves heave unclamped (backward compat)", function()
   local sc = Scheme.new({ hoverDuty = 0.5, alt = { kp = 1, ki = 0, kd = 0 } })
   t.near(sc:update({ altitude = 10 }, m(0), 0.1, false).heave, 10.5, 1e-9)
 end)
+t.test("alt integrator stops winding up while heave is saturated at the band (anti-windup)", function()
+  -- Heave pinned to heaveMax by a large sustained error: without anti-windup the alt integrator
+  -- keeps accumulating every tick (climb-stop overshoot). With it, the band saturation freezes
+  -- integration after one tick, so `i` stays ~one-tick-small instead of growing unbounded.
+  local sc = Scheme.new({ hoverDuty = 0.5, heaveMin = 0.05, heaveMax = 0.85,
+    alt = { kp = 0.1, ki = 1.0, kd = 0 } })    -- no iMax: isolate the band anti-windup
+  for _ = 1, 50 do sc:update({ altitude = 100 }, m(0), 0.1, false) end
+  t.truthy(sc.altPid.i < 20, "integrator frozen once saturated, not wound up over 50 ticks")
+end)

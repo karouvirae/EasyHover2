@@ -50,6 +50,17 @@ t.test("receiver dedups PER SESSION so a restarted sender (ids reset to 1) is no
   t.eq(applied, 2, "session B id 1 must NOT be swallowed by session A's id 1")
 end)
 
+t.test("a new session id drops the old session's handled set (bounds the per-reboot leak)", function()
+  -- Across many UI reboots the handled set grew forever (a fresh sid added a whole new id range,
+  -- never freeing the dead sessions). A new sid now clears the stale entries.
+  local r = command.Receiver.new()
+  r:receive({ k = "cmd", sid = "A", id = 1, cmd = {} }, function() end)
+  r:receive({ k = "cmd", sid = "A", id = 2, cmd = {} }, function() end)
+  r:receive({ k = "cmd", sid = "B", id = 1, cmd = {} }, function() end)   -- reboot -> session B
+  local n = 0; for _ in pairs(r.handled) do n = n + 1 end
+  t.eq(n, 1, "only the current session's ids are retained")
+end)
+
 t.test("sender stamps a session id; ack from another session is ignored", function()
   local s = command.Sender.new({ timeout = 1.0, sid = "S1" })
   local f = s:send({ k = "engage" })

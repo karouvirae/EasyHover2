@@ -29,7 +29,8 @@ local function buildLoop(backend)
   local loop = Loop.new({ scheme = d.scheme, mixer = d.mixer, caps = d.caps,
     pwm = Level.new({ backend = backend, steps = 15 }),
     sd = nil,
-    backend = backend, dtMax = tuning.dtMax, osc = tuning.osc })
+    backend = backend, dtMax = tuning.dtMax, osc = tuning.osc,
+    hoverDuty = tuning.gains.hoverDuty })   -- DAMPED holds vertical here, not just zeroes attitude
   return loop, reg
 end
 

@@ -6,7 +6,7 @@ Loop.__index = Loop
 function Loop.new(cfg)
   local self = setmetatable({ scheme = cfg.scheme, mixer = cfg.mixer, pwm = cfg.pwm,
     sd = cfg.sd, backend = cfg.backend, dtMax = cfg.dtMax or 0.5, sp = {}, armed = false,
-    caps = cfg.caps or {}, mode = "NORMAL" }, Loop)
+    caps = cfg.caps or {}, mode = "NORMAL", hoverDuty = cfg.hoverDuty }, Loop)
   if cfg.osc then self.osc = Osc.new(cfg.osc) end
   self.isLift = {}
   for _, id in ipairs(frame.LIFT) do self.isLift[id] = true end
@@ -50,14 +50,16 @@ function Loop:cycle(dt, m)
   end
   local grounded = m.onGround == true
   local demands = self.scheme:update(self.sp, m, dt, grounded)
-  if self.mode ~= "DAMPED" then
-    self.mode = grounded and "GROUND" or "NORMAL"
-  end
-  if self.osc then
-    if self.osc:update(m.pitch + m.roll, dt) then self.mode = "DAMPED" end
-  end
+  -- The oscillation detector is per-axis and auto-recovering, so mode tracks it every tick:
+  -- a trip latches DAMPED, and it falls back to GROUND/NORMAL on its own once the signal is
+  -- calm (no longer sticky; clearDamped() still force-resets the detector).
+  local tripped = self.osc and self.osc:update(m.pitch, m.roll, dt) or false
+  self.mode = tripped and "DAMPED" or (grounded and "GROUND" or "NORMAL")
   if self.mode == "DAMPED" then
     demands.pitch, demands.roll, demands.yaw, demands.sway, demands.surge = 0, 0, 0, 0, 0
+    -- Hold vertical too: a genuine trip must not keep climbing off. Neutral = hoverDuty when
+    -- known; otherwise leave the scheme's heave (tests without a hoverDuty configured).
+    if self.hoverDuty then demands.heave = self.hoverDuty end
   end
   demands = envelope.clamp(demands, self.caps)
   local duties = self.mixer:mix(demands)

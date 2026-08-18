@@ -18,13 +18,16 @@ function Pid:update(sp, meas, dt, saturated)
     if self.i > self.iMax then self.i = self.iMax elseif self.i < self.iMin then self.i = self.iMin end
   end
   local d = 0
-  if self.kd ~= 0 and usable then
-    if self.lastMeas ~= nil then
+  if self.kd ~= 0 then
+    if usable and self.lastMeas ~= nil then
       local dMeas = (meas - self.lastMeas) / dt
       local alpha = dt / (self.tauD + dt)
       self.dFilt = self.dFilt + alpha * (dMeas - self.dFilt)
       d = -self.kd * self.dFilt
     end
+    -- Track the measurement EVERY tick (even a non-usable dt-gap/saturated one) so the next
+    -- usable tick differentiates against the immediately-preceding sample, not a stale one --
+    -- otherwise a single lag spike injects a huge derivative kick on recovery.
     self.lastMeas = meas
   end
   return self.kp * err + self.i + d

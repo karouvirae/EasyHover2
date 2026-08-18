@@ -23,7 +23,9 @@ local DEFAULTS = {
   },
   pwmPeriod = 0.3,
   caps = { pitch = 0.2, roll = 0.2, yaw = 0.6, sway = 0.9, surge = 1.0 },
-  osc = { window = 1.0, minChanges = 6 },
+  -- Oscillation detector: a crossing counts only past +/-deadband (rad) so level-flight sensor
+  -- dither can't false-trip; a trip auto-releases after calmTime (s) of calm. Per-axis (pitch/roll).
+  osc = { window = 1.0, minChanges = 6, deadband = 0.02, calmTime = 1.0 },
   dtMax = 0.5,
   attLimit = 0.6,
   groundIdle = { moveEps = 0.5 },
