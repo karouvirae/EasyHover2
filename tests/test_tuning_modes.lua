@@ -32,6 +32,23 @@ t.test("tuningdefaults CPL record carries trim feel", function()
   t.truthy(d.modes.CPL.feel.trimDir, "CPL trimDir exists")
 end)
 
+t.test("CPL/DCPL carry strengthened nose-down trim authority", function()
+  local cpl = tuning.forMode("CPL")
+  t.near(cpl.feel.trimGain, 0.35, 1e-9, "trimGain strengthened for real nose-down")
+  t.near(cpl.feel.trimCap, 0.5, 1e-9, "trimCap headroom beyond the manual tiltCap")
+  t.near(cpl.caps.pitch, 0.5, 1e-9, "pitch torque cap raised so the mixer isn't the limiter")
+  local dcpl = tuning.forMode("DCPL")
+  t.near(dcpl.feel.trimGain, 0.35, 1e-9, "DCPL trimGain strengthened")
+  t.near(dcpl.feel.trimCap, 0.5, 1e-9, "DCPL trimCap present")
+  t.near(dcpl.caps.pitch, 0.5, 1e-9, "DCPL pitch cap raised")
+end)
+
+t.test("yawStopLead is a live feel knob across the tilt modes (snappy-yaw release stop)", function()
+  t.truthy(tuning.forMode("PRECISION").feel.yawStopLead ~= nil, "PRECISION has yawStopLead")
+  t.truthy(tuning.forMode("MAN").feel.yawStopLead ~= nil, "MAN has yawStopLead")
+  t.truthy(tuning.forMode("CPL").feel.yawStopLead ~= nil, "CPL has yawStopLead")
+end)
+
 t.test("mode records are independent (mutating MAN never touches PRECISION/CRUISE)", function()
   local man = tuning.forMode("MAN")
   man.gains.yaw.kp = 999
