@@ -48,10 +48,10 @@ t.test("yaw defaults detuned for a crisp release stop (lower turn rate + more da
   -- raise yaw kd so the craft stops near release instead of ringing back 20-30deg.
   local p = tuning.forMode("PRECISION")
   t.near(p.gains.yaw.kd, 1.8, 1e-9, "yaw kd raised for damping")
-  t.near(p.feel.leadCapHeading, 0.35, 1e-9, "yaw turn rate (lead cap) halved")
+  t.near(p.feel.leadCapHeading, 0.45, 1e-9, "yaw turn rate (lead cap) reduced from 0.70, nudged up from 0.35")
   local man = tuning.forMode("MAN")
   t.near(man.gains.yaw.kd, 1.8, 1e-9, "MAN inherits the damped yaw")
-  t.near(man.feel.leadCapHeading, 0.35, 1e-9, "MAN inherits the lower turn rate")
+  t.near(man.feel.leadCapHeading, 0.45, 1e-9, "MAN inherits the turn rate")
 end)
 
 t.test("yawStopLead is a live feel knob across the tilt modes (snappy-yaw release stop)", function()
