@@ -84,8 +84,11 @@ function M.build(basalt, frame, runtime, nav)
     tapeLabel:setText(Tape.row(state.heading, w))
     lubberLabel:setText(Tape.lubberLabel(state.heading))
 
-    -- Attitude: craft cells are box-relative; bucket them by row for compositing.
-    local cells = Attitude.craftCells(state.pitch or 0, state.roll or 0, w, boxH)
+    -- Attitude: craft cells are box-relative; bucket them by row for compositing. The FCS reports
+    -- pitch/roll in RADIANS, but the attitude view-model is DEGREE-based (degPerRow/degPerStep), so
+    -- convert here at the page seam -- otherwise 0.35 rad (~20 deg bank) is read as 0.35 deg and the
+    -- wings never tilt. Mirrors the baroAlt bridge above (contract vs live-cadence units meet here).
+    local cells = Attitude.craftCells(math.deg(state.pitch or 0), math.deg(state.roll or 0), w, boxH)
     local byRow = {}
     for _, c in ipairs(cells) do
       byRow[c.y] = byRow[c.y] or {}

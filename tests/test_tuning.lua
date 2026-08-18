@@ -5,7 +5,7 @@ t.test("tuning exposes the flight-tuned gains", function()
   t.near(T.gains.hoverDuty, 0.26, 1e-9)   -- Flight #7 measured true hover (~0.257)
   t.near(T.gains.alt.kd, 0.15, 1e-9)
   t.near(T.gains.alt.tauD, 0.35, 1e-9)    -- Flight #9: filter the coarse vSpeed derivative
-  t.near(T.gains.yaw.kd, 1.0, 1e-9)
+  t.near(T.gains.yaw.kd, 1.8, 1e-9)   -- raised to damp the heavy craft's yaw-release ring
 end)
 t.test("attitude softened after the firm-up grew the oscillation (ki off, CoM centered)", function()
   t.near(T.gains.pitch.kp, 0.10, 1e-9); t.near(T.gains.pitch.kd, 0.22, 1e-9); t.eq(T.gains.pitch.ki, 0)

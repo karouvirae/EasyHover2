@@ -79,6 +79,25 @@ t.test("build + apply render without error and reflect state text", function()
   t.truthy(ok, "basalt.update should not error: " .. tostring(err))
 end)
 
+t.test("attitude indicator responds to a realistic RADIAN bank (rad->deg at the page seam)", function()
+  local basalt = BasaltApp.ensureBasalt()
+  local frame = basalt.createFrame()
+  local page = PFD.build(basalt, frame, {}, nil)
+
+  page.apply({ heading = 0, pitch = 0, roll = 0 })
+  local level = {}
+  for i, l in ipairs(page.elements.rowLabels) do level[i] = l:getText() end
+
+  -- 0.35 rad = ~20 degrees of right bank. The FCS reports pitch/roll in RADIANS; the attitude
+  -- view-model is degree-based, so the page must convert -- else 0.35 is read as 0.35 deg -> flat.
+  page.apply({ heading = 0, pitch = 0, roll = 0.35 })
+  local differ = false
+  for i, l in ipairs(page.elements.rowLabels) do
+    if l:getText() ~= level[i] then differ = true end
+  end
+  t.truthy(differ, "a 20-degree (0.35 rad) bank must visibly tilt the attitude indicator")
+end)
+
 t.test("buildState surfaces the PFD sensor + gps fields from runtime.state/runtime.nav", function()
   local BasaltApp = require("ui.basalt.app")
   local runtime = {

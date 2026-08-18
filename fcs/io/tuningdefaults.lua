@@ -15,7 +15,7 @@ local DEFAULTS = {
     alt   = { kp = 0.02, ki = 0.01, kd = 0.15, tauD = 0.35, iMax = 0.3, iMin = -0.3 },
     pitch = { kp = 0.10, ki = 0, kd = 0.22, tauD = 0.2 },
     roll  = { kp = 0.10, ki = 0, kd = 0.22, tauD = 0.2 },
-    yaw   = { kp = 0.95, ki = 0, kd = 1.0 },
+    yaw   = { kp = 0.95, ki = 0, kd = 1.8 },   -- kd 1.0->1.8: damp the heavy craft's release ring
     sway  = { kp = 0.2, ki = 0, kd = 0.25 },
     surge = { kp = 0.15, ki = 0, kd = 0.25 },
     heaveMin = 0.05,
@@ -31,7 +31,7 @@ local DEFAULTS = {
               landEps = 0.4, watchdog = 60, overshootMargin = 2, leadCap = 1.0 },
   feel = {
     headingRate    = 2.2,
-    leadCapHeading = 0.70,
+    leadCapHeading = 0.35,   -- 0.70->0.35: halve the standing yaw lead (turn rate) -> less momentum
     yawStopLead    = 0.15,   -- s of yaw-rate led into the release capture; LOWER = harder stop
 
     climbRate      = 4.5,

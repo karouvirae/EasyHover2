@@ -6,7 +6,10 @@
 -- (ui/basalt/instruments/horizon.lua); this module draws only the moving craft.
 local M = {}
 
-M.CFG = { degPerRow = 5, degPerStep = 5, maxStep = 3, wingSpan = 3,
+-- Inputs are DEGREES (the PFD page converts the radian sensor feed at its seam). degPerStep=7 with
+-- maxStep=3 lets bank read cleanly out to ~21deg before saturating; wingSpan=5 (longer wings) makes
+-- a given bank far more legible -- the tip deflects over more columns, so the slope is visible.
+M.CFG = { degPerRow = 5, degPerStep = 7, maxStep = 3, wingSpan = 5,
           circleCh = "O", wingCh = "-", tipCh = "|" }
 
 local function round(x) return math.floor(x + 0.5) end
