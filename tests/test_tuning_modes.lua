@@ -43,6 +43,17 @@ t.test("CPL/DCPL carry strengthened nose-down trim authority", function()
   t.near(dcpl.caps.pitch, 0.5, 1e-9, "DCPL pitch cap raised")
 end)
 
+t.test("yaw defaults detuned for a crisp release stop (lower turn rate + more damping)", function()
+  -- Higher-momentum heavy craft overshoots on release. Halve the turn rate (leadCapHeading) and
+  -- raise yaw kd so the craft stops near release instead of ringing back 20-30deg.
+  local p = tuning.forMode("PRECISION")
+  t.near(p.gains.yaw.kd, 1.8, 1e-9, "yaw kd raised for damping")
+  t.near(p.feel.leadCapHeading, 0.35, 1e-9, "yaw turn rate (lead cap) halved")
+  local man = tuning.forMode("MAN")
+  t.near(man.gains.yaw.kd, 1.8, 1e-9, "MAN inherits the damped yaw")
+  t.near(man.feel.leadCapHeading, 0.35, 1e-9, "MAN inherits the lower turn rate")
+end)
+
 t.test("yawStopLead is a live feel knob across the tilt modes (snappy-yaw release stop)", function()
   t.truthy(tuning.forMode("PRECISION").feel.yawStopLead ~= nil, "PRECISION has yawStopLead")
   t.truthy(tuning.forMode("MAN").feel.yawStopLead ~= nil, "MAN has yawStopLead")

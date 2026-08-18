@@ -302,9 +302,9 @@
         },
         {
           ["dst"] = "fcs/io/tuningdefaults.lua",
-          ["size"] = 3649,
+          ["size"] = 3777,
           ["src"] = "fcs/io/tuningdefaults.lua",
-          ["sum"] = "7241d542",
+          ["sum"] = "e6f6ef7e",
         },
         {
           ["dst"] = "fcs/leash.lua",
@@ -767,9 +767,9 @@
         },
         {
           ["dst"] = "fcs/io/tuningdefaults.lua",
-          ["size"] = 3649,
+          ["size"] = 3777,
           ["src"] = "fcs/io/tuningdefaults.lua",
-          ["sum"] = "7241d542",
+          ["sum"] = "e6f6ef7e",
         },
         {
           ["dst"] = "fcs/mixer/level_flight.lua",
@@ -989,9 +989,9 @@
         },
         {
           ["dst"] = "ui/basalt/instruments/attitude.lua",
-          ["size"] = 2148,
+          ["size"] = 2446,
           ["src"] = "ui/basalt/instruments/attitude.lua",
-          ["sum"] = "568bb365",
+          ["sum"] = "80924ea4",
         },
         {
           ["dst"] = "ui/basalt/instruments/horizon.lua",
@@ -1067,9 +1067,9 @@
         },
         {
           ["dst"] = "ui/basalt/pages/pfd.lua",
-          ["size"] = 7006,
+          ["size"] = 7347,
           ["src"] = "ui/basalt/pages/pfd.lua",
-          ["sum"] = "bf949fd1",
+          ["sum"] = "28cb2718",
         },
         {
           ["dst"] = "ui/basalt/picker.lua",
@@ -1273,9 +1273,9 @@
         },
         {
           ["dst"] = "fcs/io/tuningdefaults.lua",
-          ["size"] = 3649,
+          ["size"] = 3777,
           ["src"] = "fcs/io/tuningdefaults.lua",
-          ["sum"] = "7241d542",
+          ["sum"] = "e6f6ef7e",
         },
         {
           ["dst"] = "fcs2disk",
@@ -1319,9 +1319,9 @@
         },
         {
           ["dst"] = "fcs/io/tuningdefaults.lua",
-          ["size"] = 3649,
+          ["size"] = 3777,
           ["src"] = "fcs/io/tuningdefaults.lua",
-          ["sum"] = "7241d542",
+          ["sum"] = "e6f6ef7e",
         },
         {
           ["dst"] = "splitconfig",
@@ -1343,5 +1343,5 @@
     ["size"] = 71434,
     ["sum"] = "57671ad7",
   },
-  ["version"] = "6ed22109",
+  ["version"] = "879b292e",
 }
