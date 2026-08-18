@@ -30,6 +30,8 @@
      os.epoch itself.
 ]]
 
+local LATCH_LINE_MS = 150   -- ms a latch trigger line is held; >= 1 redstone tick + margin.
+
 local Engine = {}
 Engine.__index = Engine
 
@@ -44,13 +46,21 @@ function Engine.new(cfg, writer)
   self.nextPulseAt = nil
   self.pulses = 0
   self.lastWritten = nil        -- what we last told the relay, for write-on-change
+
+  self.mode = (cfg.mode == "latch") and "latch" or "basic"
+  self.lastFeeding = nil       -- latch: last logical state a pulse was fired for
+  self.feedLineDownAt = nil    -- latch: when to drop the FEED trigger line
+  self.blockLineDownAt = nil   -- latch: when to drop the BLOCK trigger line
+  self.lastNow = 0             -- latch: last tick timestamp (for now-less blockNow)
   return self
 end
 
 --- Write the physical output. `feeding` true means "let an item through" (the logical state).
 -- The single place the inversion is applied; `writer` receives the physical signal and applies
 -- no inversion of its own. Write-on-change is on the physical signal, not the logical one.
-function Engine:_write(feeding)
+function Engine:_write(feeding, now)
+  if self.mode == "latch" then return self:_writeLatch(feeding, now) end
+
   local signal = not feeding            -- blocked = signal HIGH, by default
   if self.cfg.invert then signal = not signal end
 
@@ -62,6 +72,36 @@ function Engine:_write(feeding)
   return ok
 end
 
+-- Latch mode: pulse the FEED (feeding=true) or BLOCK (feeding=false) trigger line on the logical
+-- transition only; the latch HOLDS between pulses. The raised line is dropped by tick() after
+-- LATCH_LINE_MS. now is threaded from tick/setMaster/_startPulse; blockNow passes nil -> lastNow.
+function Engine:_writeLatch(feeding, now)
+  now = now or self.lastNow
+  self.feeding = feeding
+  if self.lastFeeding == feeding then return true end
+
+  local line = feeding and "feed" or "block"
+  local ok = self.writer(line, true)
+  if ok then
+    self.lastFeeding = feeding
+    if feeding then self.feedLineDownAt = now + LATCH_LINE_MS
+    else self.blockLineDownAt = now + LATCH_LINE_MS end
+  end
+  return ok
+end
+
+-- Latch mode: drop any trigger line that has been held >= LATCH_LINE_MS. Retries next tick on
+-- write failure (down-at stays set).
+function Engine:_lowerDueLines(now)
+  if self.mode ~= "latch" then return end
+  if self.feedLineDownAt and now >= self.feedLineDownAt then
+    if self.writer("feed", false) then self.feedLineDownAt = nil end
+  end
+  if self.blockLineDownAt and now >= self.blockLineDownAt then
+    if self.writer("block", false) then self.blockLineDownAt = nil end
+  end
+end
+
 --- Turn the vehicle on or off. Returns the new master state.
 function Engine:setMaster(on, now)
   on = on and true or false
@@ -71,12 +111,12 @@ function Engine:setMaster(on, now)
   if not on then
     -- Off: block the funnel and hold it blocked. No pending pulse survives.
     self.pulseEndsAt, self.nextPulseAt = nil, nil
-    self:_write(false)
+    self:_write(false, now)
   else
     if self.cfg.kickstart then
       self:_startPulse(now)
     else
-      self:_write(false)
+      self:_write(false, now)
       self.nextPulseAt = now + self.cfg.intervalMs
     end
   end
@@ -91,16 +131,19 @@ function Engine:_startPulse(now)
   self.pulseEndsAt = now + self.cfg.pulseMs
   self.nextPulseAt = nil
   self.pulses = self.pulses + 1
-  self:_write(true)
+  self:_write(true, now)
 end
 
 --- Call once per control cycle. Drives the pulse state machine.
 function Engine:tick(now)
+  self.lastNow = now
+  self:_lowerDueLines(now)
+
   if not self.master then
     -- Held blocked. Re-assert rather than assume: a rescan or a relay reboot could have
     -- dropped the output, and an unblocked funnel with the master off would quietly drain
     -- the vault.
-    self:_write(false)
+    self:_write(false, now)
     return
   end
 
@@ -108,7 +151,7 @@ function Engine:tick(now)
     if now >= self.pulseEndsAt then
       self.pulseEndsAt = nil
       self.nextPulseAt = now + self.cfg.intervalMs
-      self:_write(false)
+      self:_write(false, now)
     end
     return
   end
@@ -121,7 +164,7 @@ function Engine:tick(now)
   if not self.nextPulseAt then
     self.nextPulseAt = now + self.cfg.intervalMs
   end
-  self:_write(false)
+  self:_write(false, now)
 end
 
 --- Force a feed now, without waiting for the interval. For a manual "prime" button.
@@ -134,7 +177,8 @@ end
 --- Put the output back to blocked. Called on shutdown and on hardware change.
 function Engine:blockNow()
   self.pulseEndsAt, self.nextPulseAt = nil, nil
-  self.lastWritten = nil          -- force the write
+  self.lastWritten = nil          -- basic: force the write
+  self.lastFeeding = nil          -- latch: force the BLOCK pulse
   return self:_write(false)
 end
 
