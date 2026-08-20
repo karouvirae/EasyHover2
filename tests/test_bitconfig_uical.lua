@@ -950,12 +950,12 @@ t.test("M.build: DEVICES screen exposes ENG MODE + BLOCK/FEED SIDE controls, lab
 
   local els = region.built.devices.handle.elements
   t.truthy(els.modeSw ~= nil and els.modeSw.button ~= nil, "ENG MODE control present")
-  t.truthy(els.blockSw ~= nil and els.blockSw.button ~= nil, "BLOCK SIDE control present")
-  t.truthy(els.feedSw ~= nil and els.feedSw.button ~= nil, "FEED SIDE control present")
+  t.truthy(els.blockPicker ~= nil, "BLOCK picker present")
+  t.truthy(els.feedPicker ~= nil, "FEED picker present")
 
-  t.truthy(tostring(els.modeSw.button:getText()):find("latch", 1, true) ~= nil, "ENG MODE label shows latch")
-  t.truthy(tostring(els.blockSw.button:getText()):find("front", 1, true) ~= nil, "BLOCK SIDE label shows front")
-  t.truthy(tostring(els.feedSw.button:getText()):find("top", 1, true) ~= nil, "FEED SIDE label shows top")
+  t.eq(els.modeSw.button:getText(), "latch")
+  t.eq(els.blockPicker.selectedItem().value, "front")
+  t.eq(els.feedPicker.selectedItem().value, "top")
 end)
 
 t.test("M.build: clicking ENG MODE / BLOCK SIDE / FEED SIDE applies the intent and re-blocks (DRAIN SAFETY)", function()
@@ -1011,6 +1011,108 @@ t.test("M.build: DEVICES screen's SCAN re-scans descriptors + refreshes pickers"
   M._onButton(runtime, "scan", os.epoch("utc"), deps)
   t.eq(runtime.config.relay.name, "relay_1")
   t.truthy(#saveCalls >= 1, "scan persisted via _applyOp")
+end)
+
+-- ===== _pickSide which= : latch BLOCK/FEED pickers SET those fields (same drain-safety) =====
+
+t.test("_pickSide which=block sets blockSide, re-blocks, saves", function()
+  local runtime, calls = newStubRuntime()
+  runtime.config.relay.blockSide = "back"
+  local save, saveCalls = newSaveSpy()
+
+  local ret = M._pickSide(runtime, "top", { save = save }, "block")
+
+  t.eq(ret, "top")
+  t.eq(runtime.config.relay.blockSide, "top")
+  t.eq(runtime.config.relay.side, nil, "basic side untouched")
+  t.eq(calls.rebind, 1)
+  t.eq(calls.blockNow, 1)
+  t.eq(#saveCalls, 1)
+end)
+
+t.test("_pickSide which=feed sets feedSide, re-blocks, saves", function()
+  local runtime, calls = newStubRuntime()
+  runtime.config.relay.feedSide = "left"
+  local save, saveCalls = newSaveSpy()
+
+  local ret = M._pickSide(runtime, "front", { save = save }, "feed")
+
+  t.eq(ret, "front")
+  t.eq(runtime.config.relay.feedSide, "front")
+  t.eq(runtime.config.relay.side, nil, "basic side untouched")
+  t.eq(calls.rebind, 1)
+  t.eq(calls.blockNow, 1)
+  t.eq(#saveCalls, 1)
+end)
+
+-- ===== Devices screen readability: left labels, no colon-strip, mode-gated sides, pinned BACK =====
+
+t.test("M.build: MODE/BLOCK/FEED use left labels; switch/picker values are not colon-stripped", function()
+  local basalt = BasaltApp.ensureBasalt()
+  local frame = basalt.createFrame()
+  local nav = Nav.new("bitconfig")
+  local runtime = newStubRuntime()
+  runtime.config.engine.mode = "latch"
+  runtime.config.relay.blockSide = "front"
+  runtime.config.relay.feedSide = "top"
+  local deps = { scan = descriptorsA, save = newSaveSpy() }
+
+  local h = M.build(basalt, frame, runtime, nav, deps)
+  local region = h.elements.region
+  region:push("devices")
+  h.apply({})
+  local els = region.built.devices.handle.elements
+
+  t.eq(els.modeLabel:getText(), "MODE")
+  t.eq(els.modeSw.button:getText(), "latch")
+  t.eq(els.blockLabel:getText(), "BLOCK")
+  t.eq(els.feedLabel:getText(), "FEED")
+  t.eq(els.blockPicker.selectedItem().value, "front")
+  t.eq(els.feedPicker.selectedItem().value, "top")
+end)
+
+t.test("M.build: devices BACK sits on the last row of its frame", function()
+  local basalt = BasaltApp.ensureBasalt()
+  local frame = basalt.createFrame()
+  local nav = Nav.new("bitconfig")
+  local runtime = newStubRuntime()
+  local deps = { scan = descriptorsA, save = newSaveSpy() }
+
+  local h = M.build(basalt, frame, runtime, nav, deps)
+  local region = h.elements.region
+  region:push("devices")
+  h.apply({})
+  local rec = region.built.devices
+  local els = rec.handle.elements
+  local _, fh = rec.frame:getSize()
+  t.eq(els.backRow.buttons[1].button:getY(), fh, "BACK pinned to last row")
+end)
+
+t.test("M.build: latch hides SIDE; basic hides BLOCK/FEED", function()
+  local basalt = BasaltApp.ensureBasalt()
+  local frame = basalt.createFrame()
+  local nav = Nav.new("bitconfig")
+  local runtime = newStubRuntime()
+  runtime.config.engine.mode = "latch"
+  local deps = { scan = descriptorsA, save = newSaveSpy() }
+
+  local h = M.build(basalt, frame, runtime, nav, deps)
+  local region = h.elements.region
+  region:push("devices")
+  h.apply({})
+  local els = region.built.devices.handle.elements
+
+  t.eq(els.sideLabel:getVisible(), false, "SIDE hidden in latch")
+  t.eq(els.sidePicker.trigger:getVisible(), false, "SIDE picker hidden in latch")
+  t.eq(els.blockLabel:getVisible(), true, "BLOCK shown in latch")
+  t.eq(els.feedLabel:getVisible(), true, "FEED shown in latch")
+
+  runtime.config.engine.mode = "basic"
+  h.apply({})
+  t.eq(els.sideLabel:getVisible(), true, "SIDE shown in basic")
+  t.eq(els.sidePicker.trigger:getVisible(), true, "SIDE picker shown in basic")
+  t.eq(els.blockLabel:getVisible(), false, "BLOCK hidden in basic")
+  t.eq(els.feedLabel:getVisible(), false, "FEED hidden in basic")
 end)
 
 return true

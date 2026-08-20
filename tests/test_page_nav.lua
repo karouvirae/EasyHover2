@@ -70,6 +70,39 @@ t.test("_wptArgs delete targets the selected name", function()
   t.eq(M._wptArgs("delete", {}, nil, nil), nil, "no selection -> nil")
 end)
 
+t.test("_wptArgs edit includes a new name when the form name is set", function()
+  local eff = M._wptArgs("edit", { name = "Hangar", x = "1", y = "2", z = "3", type = "base" }, nil, "Home")
+  t.eq(eff.args.name, "Home")
+  t.eq(eff.args.fields.name, "Hangar")
+end)
+
+t.test("_emptyDraft has blank name/coords so addManual cannot resurrect a deleted wpt", function()
+  local d = M._emptyDraft()
+  t.eq(d.name, ""); t.eq(d.x, ""); t.eq(d.y, ""); t.eq(d.z, "")
+  t.eq(d.type, "base"); t.eq(d.kind, "add"); t.eq(d.selectedName, nil)
+  t.eq(M._wptArgs("addManual", d), nil)
+end)
+
+t.test("_draftFromWpt fills strings + kind=edit; nil wpt is empty add", function()
+  local d = M._draftFromWpt({ name = "Home", x = 10, y = -47, z = 20, type = "poi" })
+  t.eq(d.name, "Home"); t.eq(d.x, "10"); t.eq(d.y, "-47"); t.eq(d.z, "20")
+  t.eq(d.type, "poi"); t.eq(d.kind, "edit"); t.eq(d.selectedName, "Home")
+  local e = M._draftFromWpt(nil)
+  t.eq(e.kind, "add"); t.eq(e.name, "")
+end)
+
+t.test("_nextType cycles the waypoint types", function()
+  t.eq(M._nextType("base"), "outpost")
+  t.eq(M._nextType("poi"), "base")
+  t.eq(M._nextType("nope"), "base")
+end)
+
+t.test("_hereName picks the next free hereN", function()
+  t.eq(M._hereName({ waypoints = {} }), "here1")
+  t.eq(M._hereName({ waypoints = { { name = "here1" } } }), "here2")
+  t.eq(M._hereName({ waypoints = { { name = "here1" }, { name = "here2" } } }), "here3")
+end)
+
 -- ===== Construction probe: real CraftOS-PC Basalt, no real peripherals =====
 
 t.test("M.build constructs the element tree; apply() + one render pass do not error", function()
@@ -104,12 +137,38 @@ t.test("drilling into each NAV sub-screen builds + renders without error (real b
   local frame = basalt.createFrame()
   local h = M.build(basalt, frame, nil, Nav.new("nav"))
   local region = h.elements.region
-  for _, screen in ipairs({ "wptedit", "dtc", "rtedit" }) do
+  for _, screen in ipairs({ "wptedit", "wptform", "dtc", "rtedit" }) do
     local ok, err = pcall(function()
       region:push(screen); h.apply({}); basalt.update("timer", -1); region:pop()
     end)
     t.truthy(ok, screen .. " sub-screen must build without error: " .. tostring(err))
   end
+end)
+
+t.test("wptform screen has NAME/TYPE/X/Y/Z rows and no console Inputs", function()
+  local basalt = BasaltApp.ensureBasalt()
+  local frame = basalt.createFrame()
+  local h = M.build(basalt, frame, nil, Nav.new("nav"))
+  local region = h.elements.region
+  region:push("wptform")
+  h.apply({})
+  local els = region.built.wptform.handle.elements
+  t.truthy(els.nameBtn and els.typeBtn and els.xBtn and els.yBtn and els.zBtn, "form field buttons")
+  t.truthy(els.saveRow and els.backRow, "SAVE + BACK")
+  t.eq(els.nameIn, nil, "no monitor Input (console keyboard) on the form")
+end)
+
+t.test("wptedit has HERE/MAN/EDIT/DEL and no console Inputs", function()
+  local basalt = BasaltApp.ensureBasalt()
+  local frame = basalt.createFrame()
+  local h = M.build(basalt, frame, nil, Nav.new("nav"))
+  local region = h.elements.region
+  region:push("wptedit")
+  h.apply({})
+  local els = region.built.wptedit.handle.elements
+  t.truthy(els.actionRow and #els.actionRow.buttons == 4, "HERE MAN EDIT DEL")
+  t.eq(els.nameIn, nil, "no leftover Input fields on wptedit")
+  t.eq(els.xIn, nil)
 end)
 
 t.test("M.build: clicking [BIT/CONFIG] button invokes M._onButton and pushes nav", function()

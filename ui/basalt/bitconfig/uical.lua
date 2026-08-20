@@ -317,12 +317,18 @@ function M._pickBind(runtime, role, name, descriptors, deps)
   return name
 end
 
-function M._pickSide(runtime, side, deps)
+function M._pickSide(runtime, side, deps, which)
   local BasaltApp = require("ui.basalt.app")
   deps = deps or {}
   local save = deps.save or Config.save
 
-  runtime.config.relay.side = side
+  if which == "block" then
+    runtime.config.relay.blockSide = side
+  elseif which == "feed" then
+    runtime.config.relay.feedSide = side
+  else
+    runtime.config.relay.side = side
+  end
   runtime.rebindRelay()
   runtime.engine:blockNow()
 
@@ -466,7 +472,7 @@ function M.build(basalt, frame, runtime, nav, deps)
   -- byte-identical effect, including the relay drain-safety re-block (rebindRelay + blockNow)
   -- those functions perform internally; only WHERE the controls live on screen changed.
   local function buildDevices(b, f, region)
-    local fw = ({ f:getSize() })[1]
+    local fw, fh = f:getSize()
     local fx = 2
     local fiw = math.max(1, fw - 2)
     local y = 1
@@ -486,6 +492,18 @@ function M.build(basalt, frame, runtime, nav, deps)
       })
       y = y + 1
       return lbl, picker
+    end
+
+    local function setRowY(label, widget, row)
+      if label and label.setY then label:setY(row) end
+      if widget.trigger and widget.trigger.setY then widget.trigger:setY(row)
+      elseif widget.button and widget.button.setY then widget.button:setY(row) end
+    end
+
+    local function setRowVisible(label, widget, vis)
+      if label and label.setVisible then label:setVisible(vis) end
+      if widget.trigger and widget.trigger.setVisible then widget.trigger:setVisible(vis)
+      elseif widget.button and widget.button.setVisible then widget.button:setVisible(vis) end
     end
 
     -- SCAN both auto-detect-proposes bindings (via M._onButton -> doScan, unchanged) AND re-scans
@@ -518,70 +536,68 @@ function M.build(basalt, frame, runtime, nav, deps)
         M._pickBind(runtime, "tank", value, descriptors, deps)
         refresh()
       end)
-    local sideLabel, sidePicker = pickerRow("SIDE",
-      M._sideOptions(), (cfg0.relay and cfg0.relay.side) or "back", "back", 6,
-      function(value)
-        M._pickSide(runtime, value, deps)
-        refresh()
-      end)
 
-    -- ===== ENG MODE switch + BLOCK/FEED SIDE cycle buttons (Task 6, latch-mode controls) =====
-    -- BLOCK SIDE / FEED SIDE emit a CYCLE op (M._sideIntent -> _applyOp's cycleRelaySide with
-    -- which="block"/"feed"), not a direct-pick like the SIDE Picker above -- a switchbtn matches
-    -- that "click to advance" semantics (mirrors ENG MODE below, and the click-to-cycle RELAY
-    -- SIDE button ui/panels/config.lua exposes to the other config surfaces); a Picker's
-    -- onPick(value) SET semantics would be a poor fit for a cycle op. Always shown -- per the
-    -- brief, harmless in basic mode since they only ever edit relay.blockSide/feedSide, fields
-    -- basic mode's write path never reads (ui/engine.lua's basic branch reads relay.side, the
-    -- SIDE picker above, unchanged). Text/state are set in refresh() below, same as every other
-    -- live-config readout on this screen.
-    local modeSw = switchbtn.make(f, { x = fx, y = y, width = fiw, height = 1, text = "" })
+    -- MODE + SIDE/BLOCK/FEED: left labels (never fitLabel'd with a colon -- fitLabel strips at
+    -- ":") and picker-row layout matching RELAY/PUMP/TANK. SIDE is basic-only; BLOCK/FEED are
+    -- latch-only. refresh() relayouts + toggles visibility so BACK (pinned to fh) stays on screen.
+    local modeLabel = f:addLabel({ x = fx, y = y, width = labelW, height = 1, autoSize = false, text = "MODE" })
+    local modeSw = switchbtn.make(f, { x = dropX, y = y, width = dropW, height = 1, text = "basic" })
     modeSw.button:onClick(function()
       M._applyOp(runtime, M._modeIntent(), deps)
       refresh()
     end)
     y = y + 1
 
-    local blockSw = switchbtn.make(f, { x = fx, y = y, width = fiw, height = 1, text = "" })
-    blockSw.button:onClick(function()
-      M._applyOp(runtime, M._sideIntent("block"), deps)
-      refresh()
-    end)
-    y = y + 1
+    local sideLabel, sidePicker = pickerRow("SIDE",
+      M._sideOptions(), (cfg0.relay and cfg0.relay.side) or "back", "back", 6,
+      function(value)
+        M._pickSide(runtime, value, deps)
+        refresh()
+      end)
+    local blockLabel, blockPicker = pickerRow("BLOCK",
+      M._sideOptions(), (cfg0.relay and cfg0.relay.blockSide) or "back", "back", 6,
+      function(value)
+        M._pickSide(runtime, value, deps, "block")
+        refresh()
+      end)
+    local feedLabel, feedPicker = pickerRow("FEED",
+      M._sideOptions(), (cfg0.relay and cfg0.relay.feedSide) or "back", "back", 6,
+      function(value)
+        M._pickSide(runtime, value, deps, "feed")
+        refresh()
+      end)
 
-    local feedSw = switchbtn.make(f, { x = fx, y = y, width = fiw, height = 1, text = "" })
-    feedSw.button:onClick(function()
-      M._applyOp(runtime, M._sideIntent("feed"), deps)
-      refresh()
-    end)
-    y = y + 1
-
-    local backRow = configkit.actionRow(f, { x = fx, y = y, w = fiw }, {
+    local backRow = configkit.actionRow(f, { x = fx, y = fh, w = fiw }, {
       { label = "<", onClick = function() region:pop() end },
     })
 
-    -- refresh(): idempotent repaint of the picker selections + ENG MODE/BLOCK/FEED SIDE labels
-    -- from runtime.config + the live `descriptors` upvalue. Never polls peripherals on its own --
-    -- config-only, like the old flat build (the candidate LISTS only change on SCAN; each
-    -- picker's CURRENT selection always tracks config here).
     refresh = function()
       local cfg = runtime.config or {}
       relayPicker.setOptions(M._toOptions(M._relayCandidates(descriptors)), cfg.relay and cfg.relay.name)
       pumpPicker.setOptions(M._toOptions(M._fuelCandidates(descriptors)), cfg.fuel and cfg.fuel.pump and cfg.fuel.pump.name)
       tankPicker.setOptions(M._toOptions(M._fuelCandidates(descriptors)), cfg.fuel and cfg.fuel.tank and cfg.fuel.tank.name)
       sidePicker.setOptions(M._sideOptions(), (cfg.relay and cfg.relay.side) or "back")
+      blockPicker.setOptions(M._sideOptions(), (cfg.relay and cfg.relay.blockSide) or "back")
+      feedPicker.setOptions(M._sideOptions(), (cfg.relay and cfg.relay.feedSide) or "back")
 
       local mode = (cfg.engine and cfg.engine.mode) or "basic"
-      modeSw.button:setText(configkit.fitLabel("ENG MODE: " .. mode, fiw))
-      modeSw.set(mode == "latch" and "on" or "off")
+      local latch = mode == "latch"
+      modeSw.button:setText(mode)
+      modeSw.set(latch and "on" or "off")
 
-      local blockSide = (cfg.relay and cfg.relay.blockSide) or "back"
-      blockSw.button:setText(configkit.fitLabel("BLOCK SIDE: " .. blockSide, fiw))
-      blockSw.set("off")
-
-      local feedSide = (cfg.relay and cfg.relay.feedSide) or "back"
-      feedSw.button:setText(configkit.fitLabel("FEED SIDE: " .. feedSide, fiw))
-      feedSw.set("off")
+      local row = 5
+      setRowY(modeLabel, modeSw, row)
+      row = row + 1
+      setRowVisible(sideLabel, sidePicker, not latch)
+      setRowVisible(blockLabel, blockPicker, latch)
+      setRowVisible(feedLabel, feedPicker, latch)
+      if latch then
+        setRowY(blockLabel, blockPicker, row)
+        row = row + 1
+        setRowY(feedLabel, feedPicker, row)
+      else
+        setRowY(sideLabel, sidePicker, row)
+      end
     end
     refresh()
 
@@ -593,7 +609,9 @@ function M.build(basalt, frame, runtime, nav, deps)
         pumpLabel = pumpLabel, pumpPicker = pumpPicker,
         tankLabel = tankLabel, tankPicker = tankPicker,
         sideLabel = sideLabel, sidePicker = sidePicker,
-        modeSw = modeSw, blockSw = blockSw, feedSw = feedSw,
+        modeLabel = modeLabel, modeSw = modeSw,
+        blockLabel = blockLabel, blockPicker = blockPicker,
+        feedLabel = feedLabel, feedPicker = feedPicker,
         backRow = backRow,
       },
     }

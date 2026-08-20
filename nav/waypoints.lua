@@ -58,14 +58,17 @@ function M.addWpt(store, spec)
   return w
 end
 
---- editWpt(store, name, fields) -> waypoint | nil, err. Updates x/y/z/type of an existing waypoint
---- (name is the key; renaming is delete+add). Validates the merged result.
+--- editWpt(store, name, fields) -> waypoint | nil, err. Updates x/y/z/type of an existing waypoint.
+--- fields.name renames (rejects if the new name already exists). Validates the merged result.
 function M.editWpt(store, name, fields)
   local i = indexOf(store, name)
   if not i then return nil, "not found" end
   local cur = store.waypoints[i]
   fields = fields or {}
-  local merged = { name = name,
+  local newName = name
+  if type(fields.name) == "string" and fields.name ~= "" then newName = fields.name end
+  if newName ~= name and indexOf(store, newName) then return nil, "name exists" end
+  local merged = { name = newName,
     x = fields.x ~= nil and fields.x or cur.x,
     y = fields.y ~= nil and fields.y or cur.y,
     z = fields.z ~= nil and fields.z or cur.z,

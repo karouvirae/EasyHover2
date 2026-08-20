@@ -22,6 +22,7 @@ local WL        = require("ui.basalt.waypointlist")
 local W         = require("nav.waypoints")
 local configkit = require("ui.basalt.configkit")
 local Picker    = require("ui.basalt.listpicker")
+local Keypad    = require("ui.basalt.keypad")
 
 local M = {}
 M.id = "nav"
@@ -53,12 +54,39 @@ function M._wptArgs(kind, form, craft, selectedName)
     if num(form.y) then fields.y = num(form.y) end
     if num(form.z) then fields.z = num(form.z) end
     if form.type then fields.type = form.type end
+    if type(form.name) == "string" and form.name ~= "" then fields.name = form.name end
     return { op = "editWpt", args = { name = selectedName, fields = fields } }
   elseif kind == "delete" then
     if not selectedName then return nil, "select a waypoint" end
     return { op = "deleteWpt", args = { name = selectedName } }
   end
   return nil, "unknown action"
+end
+
+function M._emptyDraft()
+  return { name = "", x = "", y = "", z = "", type = "base", kind = "add", selectedName = nil }
+end
+
+function M._draftFromWpt(wpt)
+  if type(wpt) ~= "table" then return M._emptyDraft() end
+  return {
+    name = tostring(wpt.name or ""),
+    x = tostring(wpt.x or ""), y = tostring(wpt.y or ""), z = tostring(wpt.z or ""),
+    type = wpt.type or "base", kind = "edit", selectedName = wpt.name,
+  }
+end
+
+function M._nextType(cur)
+  for i, tp in ipairs(W.TYPES) do
+    if tp == cur then return W.TYPES[(i % #W.TYPES) + 1] end
+  end
+  return W.TYPES[1]
+end
+
+function M._hereName(store)
+  local n = 1
+  while W.find(store or { waypoints = {} }, "here" .. n) do n = n + 1 end
+  return "here" .. n
 end
 
 -- ===== M._onButton: the TESTABLE intent seam. No Basalt here. =====
@@ -106,6 +134,8 @@ function M.build(basalt, frame, runtime, nav)
   local function mutateOp(op, args) if client() then client():mutate(op, args) end end
 
   local function bump() if runtime then runtime.uiRev = (runtime.uiRev or 0) + 1 end end
+  local draft = M._emptyDraft()
+  local selectedName = nil
   -- No "NAV" header row -- it wasted a line; the region uses the full frame above the BIT/CONFIG row.
 
   -- ---------- navmain: action row + type-filter row + waypoint list ----------
@@ -150,45 +180,39 @@ function M.build(basalt, frame, runtime, nav)
       elements = { actionRow = actionRow, filterBtn = filterBtn, list = list } }
   end
 
-  -- ---------- wptedit: form (name/x/y/z/type) + ADD here / ADD manual / EDIT / DEL + list ----------
+  -- ---------- wptedit: HERE / MAN / EDIT / DEL + list. MAN/EDIT drill into wptform. ----------
   local function buildWptedit(b, f, region)
     local fw, fh = f:getSize()
     local refresh
-    local selectedName, curType = nil, "base"
 
-    local nameIn = f:addInput({ x = 1, y = 1, width = fw, height = 1 }); nameIn:setPlaceholder("name")
-    local third = math.max(1, math.floor(fw / 3))
-    local xIn = f:addInput({ x = 1,           y = 2, width = third, height = 1 }); xIn:setPlaceholder("x")
-    local yIn = f:addInput({ x = 1 + third,   y = 2, width = third, height = 1 }); yIn:setPlaceholder("y")
-    local zIn = f:addInput({ x = 1 + 2*third, y = 2, width = math.max(1, fw - 2*third), height = 1 }); zIn:setPlaceholder("z")
-    local typeBtn = f:addButton({ x = 1, y = 3, width = fw, height = 1, text = "TYPE: " .. curType })
-    typeBtn:onClick(function()
-      local i = 1
-      for k, tp in ipairs(W.TYPES) do if tp == curType then i = k end end
-      curType = W.TYPES[(i % #W.TYPES) + 1]
-      typeBtn:setText("TYPE: " .. curType)
-    end)
-
-    local function form() return { name = nameIn:getText(), x = xIn:getText(), y = yIn:getText(),
-      z = zIn:getText(), type = curType } end
-    local function clearForm() nameIn:setText(""); xIn:setText(""); yIn:setText(""); zIn:setText("") end
-
-    local actionRow = configkit.actionRow(f, { x = 1, y = 4, w = fw, gap = 1 }, {
-      { label = "HERE", onClick = function() sendMutation("addHere", form()); clearForm(); refresh() end },
-      { label = "MAN",  onClick = function() sendMutation("addManual", form()); clearForm(); refresh() end },
-      { label = "EDIT", onClick = function() sendMutation("edit", form(), selectedName); refresh() end },
-      { label = "DEL",  onClick = function() sendMutation("delete", {}, selectedName); selectedName = nil; refresh() end },
+    local actionRow = configkit.actionRow(f, { x = 1, y = 1, w = fw, gap = 1 }, {
+      { label = "HERE", onClick = function()
+          sendMutation("addHere", { name = M._hereName(store()), type = "base" })
+          refresh()
+        end },
+      { label = "MAN",  onClick = function()
+          draft = M._emptyDraft()
+          region:push("wptform")
+        end },
+      { label = "EDIT", onClick = function()
+          local wpt = selectedName and W.find(store(), selectedName)
+          if not wpt then return end
+          draft = M._draftFromWpt(wpt)
+          region:push("wptform")
+        end },
+      { label = "DEL",  onClick = function()
+          sendMutation("delete", {}, selectedName)
+          selectedName = nil
+          draft = M._emptyDraft()
+          refresh()
+        end },
     })
 
-    local listTop = 5
-    local listH = math.max(3, fh - listTop)   -- leave the last row for BACK
+    local listTop = 2
+    local listH = math.max(3, fh - listTop)
     local listFrame = f:addFrame({ x = 1, y = listTop, width = fw, height = listH })
     local list = WL.make(listFrame, { rows = math.max(1, listH - 1), selColor = colors.green,
-      onSelect = function(it)
-        selectedName = it and it.name or nil
-        if it then nameIn:setText(it.name); xIn:setText(tostring(it.x)); yIn:setText(tostring(it.y))
-          zIn:setText(tostring(it.z)); curType = it.type; typeBtn:setText("TYPE: " .. curType) end
-      end })
+      onSelect = function(it) selectedName = it and it.name or nil end })
 
     local backRow = configkit.actionRow(f, { x = 1, y = fh, w = fw }, {
       { label = "< BACK", onClick = function() region:pop() end },
@@ -198,8 +222,74 @@ function M.build(basalt, frame, runtime, nav)
     refresh()
 
     return { apply = function(_s) refresh() end,
-      elements = { nameIn = nameIn, xIn = xIn, yIn = yIn, zIn = zIn, typeBtn = typeBtn,
-        actionRow = actionRow, list = list, backRow = backRow } }
+      elements = { actionRow = actionRow, list = list, backRow = backRow } }
+  end
+
+  -- ---------- wptform: tap NAME (keypad), TYPE (cycle), X/Y/Z (numpad); SAVE / BACK ----------
+  local function buildWptform(b, f, region)
+    local fw, fh = f:getSize()
+    local refresh
+    local keypad = Keypad.make(f)
+    local labelW = math.max(4, math.min(6, math.floor(fw * 0.25)))
+    local dropW = math.max(1, fw - labelW - 1)
+    local dropX = 1 + labelW + 1
+
+    local function fieldRow(labelText, y)
+      local lbl = f:addLabel({ x = 1, y = y, width = labelW, height = 1, autoSize = false, text = labelText })
+      local btn = f:addButton({ x = dropX, y = y, width = dropW, height = 1, text = "" })
+      return lbl, btn
+    end
+
+    local nameLbl, nameBtn = fieldRow("NAME", 1)
+    local typeLbl, typeBtn = fieldRow("TYPE", 2)
+    local xLbl, xBtn = fieldRow("X", 3)
+    local yLbl, yBtn = fieldRow("Y", 4)
+    local zLbl, zBtn = fieldRow("Z", 5)
+
+    nameBtn:onClick(function()
+      keypad.show({ title = "NAME", mode = "name", value = draft.name,
+        onOk = function(v) draft.name = v; refresh() end })
+    end)
+    typeBtn:onClick(function() draft.type = M._nextType(draft.type); refresh() end)
+    xBtn:onClick(function()
+      keypad.show({ title = "X", mode = "num", value = draft.x,
+        onOk = function(v) draft.x = v; refresh() end })
+    end)
+    yBtn:onClick(function()
+      keypad.show({ title = "Y", mode = "num", value = draft.y,
+        onOk = function(v) draft.y = v; refresh() end })
+    end)
+    zBtn:onClick(function()
+      keypad.show({ title = "Z", mode = "num", value = draft.z,
+        onOk = function(v) draft.z = v; refresh() end })
+    end)
+
+    local saveRow = configkit.actionRow(f, { x = 1, y = 6, w = fw }, {
+      { label = "SAVE", onClick = function()
+          local kind = (draft.kind == "edit") and "edit" or "addManual"
+          local eff = sendMutation(kind, draft, draft.selectedName)
+          if eff then draft = M._emptyDraft(); region:pop() end
+        end },
+    })
+    local backRow = configkit.actionRow(f, { x = 1, y = fh, w = fw }, {
+      { label = "< BACK", onClick = function() region:pop() end },
+    })
+
+    refresh = function()
+      nameBtn:setText(draft.name ~= "" and draft.name or "...")
+      typeBtn:setText(draft.type or "base")
+      xBtn:setText(draft.x ~= "" and draft.x or "...")
+      yBtn:setText(draft.y ~= "" and draft.y or "...")
+      zBtn:setText(draft.z ~= "" and draft.z or "...")
+    end
+    refresh()
+
+    return { apply = function(_s) refresh() end,
+      elements = {
+        nameLbl = nameLbl, nameBtn = nameBtn, typeLbl = typeLbl, typeBtn = typeBtn,
+        xLbl = xLbl, xBtn = xBtn, yLbl = yLbl, yBtn = yBtn, zLbl = zLbl, zBtn = zBtn,
+        saveRow = saveRow, backRow = backRow, keypad = keypad,
+      } }
   end
 
   -- ---------- dtc: NAV-PC disk courier (scan / import / export / clean) ----------
@@ -314,7 +404,7 @@ function M.build(basalt, frame, runtime, nav)
 
   local region = Region.new(basalt, frame, {
     x = 1, y = 1, width = w, height = math.max(1, h - 1), root = "navmain", onNav = bump,
-    screens = { navmain = buildNavmain, wptedit = buildWptedit, dtc = buildDtc, rtedit = buildRtedit },
+    screens = { navmain = buildNavmain, wptedit = buildWptedit, wptform = buildWptform, dtc = buildDtc, rtedit = buildRtedit },
   })
   region:apply(nil)
 
