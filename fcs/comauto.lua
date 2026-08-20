@@ -35,7 +35,11 @@ function M.missing(ctx)
   end
   local sc = ctx.senscal or {}
   if sc.signPitch == nil or sc.signHeading == nil then return "senscal" end
-  if type(ctx.comSpan) ~= "number" or ctx.comSpan < 0.1 then return "span" end
+  local spanFwd = ctx.comSpanFwd or ctx.comSpan
+  local spanRight = ctx.comSpanRight or ctx.comSpan
+  if type(spanFwd) ~= "number" or spanFwd < 0.1 or type(spanRight) ~= "number" or spanRight < 0.1 then
+    return "span"
+  end
   if not ctx.engineOn then return "engine" end
   if ctx.onGround ~= true then return "ground" end
   if ctx.gndSafety then return "gndSafe" end
@@ -60,7 +64,8 @@ function M.new(opts)
   opts = opts or {}
   return setmetatable({
     phase = "IDLE",
-    span = opts.span or 1,
+    spanFwd = opts.spanFwd or opts.span or 1,
+    spanRight = opts.spanRight or opts.span or 1,
     climbHeight = opts.climbHeight or 8,
     tiltLim = opts.tiltLim or 0.15,
     posLim = opts.posLim or 4,
@@ -140,7 +145,7 @@ function P:tick(dt, meas, duties, loopMode)
         and math.abs(meas.vSpeed or 0) < 0.3
     if level then self.held = self.held + dt else self.held = 0 end
     if self.held >= self.dwell then
-      self.captured = Mixer.offsetFromDuties(duties, self.span)
+      self.captured = Mixer.offsetFromDuties(duties, { spanFwd = self.spanFwd, spanRight = self.spanRight })
       self.phase = "DESCEND"
     end
   elseif self.phase == "DESCEND" then

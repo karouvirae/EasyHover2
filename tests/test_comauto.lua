@@ -6,7 +6,8 @@ local function ctx(over)
     thrusters = { FL = "a", FR = "b", RL = "c", RR = "d" },
     sensors = { altimeter = "alt", gimbal = "gim" },
     senscal = { signPitch = 1, signHeading = 1 },
-    comSpan = 4,
+    comSpanFwd = 4,
+    comSpanRight = 3,
     engineOn = true,
     onGround = true,
     gndSafety = false,
@@ -26,7 +27,8 @@ end)
 t.test("missing reports the first unmet prereq in order", function()
   t.eq(C.missing(ctx({ thrusters = { FL = false, FR = "b", RL = "c", RR = "d" } })), "bind")
   t.eq(C.missing(ctx({ senscal = {} })), "senscal")
-  t.eq(C.missing(ctx({ comSpan = 0 })), "span")
+  t.eq(C.missing(ctx({ comSpanFwd = 0 })), "span")
+  t.eq(C.missing(ctx({ comSpanRight = 0 })), "span")
   t.eq(C.missing(ctx({ engineOn = false })), "engine")
   t.eq(C.missing(ctx({ onGround = false })), "ground")
   t.eq(C.missing(ctx({ gndSafety = true })), "gndSafe")

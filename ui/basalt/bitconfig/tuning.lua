@@ -169,9 +169,10 @@ addRow("feel.swayLead",       "SWAY LEAD",        "FEEL", 0.5, 0, 100)
 M.ROW_SPEC = ROW_SPEC
 
 local COM_SPEC = {
-  { id = "com.fwd",   label = "FWD",   group = "COM", step = 0.1, min = -20, max = 20 },
-  { id = "com.right", label = "RIGHT", group = "COM", step = 0.1, min = -20, max = 20 },
-  { id = "com.span",  label = "SPAN",  group = "COM", step = 0.1, min = 0.1, max = 20 },
+  { id = "com.fwd",       label = "FWD",    group = "COM", step = 0.1, min = -20, max = 20 },
+  { id = "com.right",     label = "RIGHT",  group = "COM", step = 0.1, min = -20, max = 20 },
+  { id = "com.spanFwd",   label = "SP FWD", group = "COM", step = 0.1, min = 0.1, max = 20 },
+  { id = "com.spanRight", label = "SP LAT", group = "COM", step = 0.1, min = 0.1, max = 20 },
 }
 M.COM_SPEC = COM_SPEC
 
@@ -716,8 +717,12 @@ function M.build(basalt, frame, runtime, nav, read, write, delete)
 
   local function sendCom(op)
     if not (runtime and runtime.links and runtime.links.tel and runtime.sender) then return end
-    local span = (workingCfg.com and workingCfg.com.span) or 1
-    runtime.links.tel:send(runtime.sender:send({ k = "comAuto", op = op, span = span }))
+    local c = workingCfg.com or {}
+    runtime.links.tel:send(runtime.sender:send({
+      k = "comAuto", op = op,
+      spanFwd = c.spanFwd or c.span or 1,
+      spanRight = c.spanRight or c.span or 1,
+    }))
   end
 
   local function buildComScreen(b, f, region)
@@ -814,7 +819,8 @@ function M.build(basalt, frame, runtime, nav, read, write, delete)
       local running = ca.phase == "CLIMB" or ca.phase == "HOLD" or ca.phase == "DESCEND"
       local ctx = {
         thrusters = db.thrusters, sensors = db.sensors, senscal = sc,
-        comSpan = (workingCfg.com and workingCfg.com.span) or 0,
+        comSpanFwd = (workingCfg.com and workingCfg.com.spanFwd) or 0,
+        comSpanRight = (workingCfg.com and workingCfg.com.spanRight) or 0,
         engineOn = state.engineMaster and true or false,
         onGround = state.onGround == true,
         gndSafety = state.gndSafety,

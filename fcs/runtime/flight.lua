@@ -62,7 +62,10 @@ function Flight:handleCommand(cmd)
     end
     if cmd.op == "start" then
       if not self.engaged or self.gndSafety then return false end
-      self.comAuto = ComAuto.new({ span = cmd.span or 1 })
+      self.comAuto = ComAuto.new({
+        spanFwd = cmd.spanFwd or cmd.span or 1,
+        spanRight = cmd.spanRight or cmd.span or 1,
+      })
       self.comAuto:start(self._lastMeas or {})
       return true
     end
@@ -116,7 +119,8 @@ function Flight:step(dt, held, meas)
         end
         if ar.captured and self.loop.mixer and self.loop.mixer.setCom then
           self.loop.mixer:setCom({
-            fwd = ar.captured.fwd, right = ar.captured.right, span = self.comAuto.span,
+            fwd = ar.captured.fwd, right = ar.captured.right,
+            spanFwd = self.comAuto.spanFwd, spanRight = self.comAuto.spanRight,
           })
         end
         if ar.setpoints then self.loop:setpoints(ar.setpoints) end

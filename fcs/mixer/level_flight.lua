@@ -1,24 +1,29 @@
 local Mixer = {}
 Mixer.__index = Mixer
-function Mixer.new() return setmetatable({ com = { fwd = 0, right = 0, span = 0 } }, Mixer) end
+function Mixer.new() return setmetatable({ com = { fwd = 0, right = 0, spanFwd = 0, spanRight = 0 } }, Mixer) end
 function Mixer:setCom(com)
   com = com or {}
+  local legacy = tonumber(com.span)
   self.com = {
     fwd = tonumber(com.fwd) or 0,
     right = tonumber(com.right) or 0,
-    span = tonumber(com.span) or 0,
+    spanFwd = tonumber(com.spanFwd) or legacy or 0,
+    spanRight = tonumber(com.spanRight) or legacy or 0,
   }
   return self
 end
 
-function Mixer.offsetFromDuties(d, span)
-  span = span or 0
-  if not d or span < 0.05 then return { fwd = 0, right = 0 } end
+function Mixer.offsetFromDuties(d, arms)
+  if type(arms) == "number" then arms = { spanFwd = arms, spanRight = arms } end
+  arms = arms or {}
+  local armY = tonumber(arms.spanFwd) or tonumber(arms.span) or 0
+  local armX = tonumber(arms.spanRight) or tonumber(arms.span) or 0
+  if not d or armY < 0.05 or armX < 0.05 then return { fwd = 0, right = 0 } end
   local h = ((d.FL or 0) + (d.FR or 0) + (d.RL or 0) + (d.RR or 0)) / 4
   if math.abs(h) < 1e-6 then return { fwd = 0, right = 0 } end
   local p = ((d.FL or 0) + (d.FR or 0)) / 2 - h
   local r = ((d.FL or 0) + (d.RL or 0)) / 2 - h
-  return { fwd = span * p / h, right = -span * r / h }
+  return { fwd = armY * p / h, right = -armX * r / h }
 end
 local function clamp(v) if v < 0 then return 0 elseif v > 1 then return 1 else return v end end
 local YAW_DIR = { YFL = 1, YFR = -1, YRL = -1, YRR = 1 }
@@ -50,19 +55,21 @@ end
 -- (2) shift all four lift thrusters by one common offset to slide them into range, which keeps
 -- every pairwise difference (hence the torque) intact. Collective accuracy is sacrificed first.
 local function corners(h, p, r, com)
-  local arm = (com and com.span) or 0
-  if arm < 0.05 then
+  com = com or {}
+  local armY = com.spanFwd or com.span or 0
+  local armX = com.spanRight or com.span or 0
+  if armY < 0.05 or armX < 0.05 then
     return h + p + r, h + p - r, h - p + r, h - p - r
   end
-  local cap = arm * 0.9
   local cy = com.fwd or 0
   local cx = com.right or 0
-  if cy > cap then cy = cap elseif cy < -cap then cy = -cap end
-  if cx > cap then cx = cap elseif cx < -cap then cx = -cap end
-  local kyF = (arm + cy) / arm
-  local kyR = (arm - cy) / arm
-  local kxL = (arm - cx) / arm
-  local kxR = (arm + cx) / arm
+  local capY, capX = armY * 0.9, armX * 0.9
+  if cy > capY then cy = capY elseif cy < -capY then cy = -capY end
+  if cx > capX then cx = capX elseif cx < -capX then cx = -capX end
+  local kyF = (armY + cy) / armY
+  local kyR = (armY - cy) / armY
+  local kxL = (armX - cx) / armX
+  local kxR = (armX + cx) / armX
   return h * kyF * kxL + p + r, h * kyF * kxR + p - r,
          h * kyR * kxL - p + r, h * kyR * kxR - p - r
 end
