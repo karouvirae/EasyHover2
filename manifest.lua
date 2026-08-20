@@ -1031,9 +1031,9 @@
         },
         {
           ["dst"] = "ui/basalt/keypad.lua",
-          ["size"] = 2452,
+          ["size"] = 2660,
           ["src"] = "dist/ui/basalt/keypad.lua",
-          ["sum"] = "fb82f5f2",
+          ["sum"] = "d0daac2f",
         },
         {
           ["dst"] = "ui/basalt/listpicker.lua",
@@ -1361,5 +1361,5 @@
     ["size"] = 71434,
     ["sum"] = "57671ad7",
   },
-  ["version"] = "bf4dd73e",
+  ["version"] = "8aa91bcb",
 }
