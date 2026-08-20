@@ -1,4 +1,5 @@
 -- fcs/runtime/flight.lua
+local ComAuto = require("fcs.comauto")
 local Flight = {}
 Flight.__index = Flight
 
@@ -49,11 +50,23 @@ function Flight:handleCommand(cmd)
     self.flightMode = cmd.id
     self.trimDir = (d.feel and d.feel.trimDir) or self.trimDir
     return true
-  elseif k == "flightTrim" then
+    elseif k == "flightTrim" then
     local dir = (cmd.dir and cmd.dir < 0) and -1 or 1
     self.trimDir = dir
     if self.pilot.setTrimDir then self.pilot:setTrimDir(dir) end
     return true
+  elseif k == "comAuto" then
+    if cmd.op == "abort" then
+      if self.comAuto then self.comAuto:abort("ABORT") end
+      return true
+    end
+    if cmd.op == "start" then
+      if not self.engaged or self.gndSafety then return false end
+      self.comAuto = ComAuto.new({ span = cmd.span or 1 })
+      self.comAuto:start(self._lastMeas or {})
+      return true
+    end
+    return false
   end
   return false
 end
@@ -64,6 +77,7 @@ end
 -- as in-flight so the controller stays live. Isolated on purpose -- the next hardening (fuse baro /
 -- altitude-vs-liftoff for uneven ground) is a one-function change here.
 function Flight:_parked(held, meas)
+  if self.comAuto and self.comAuto:active() then return false end
   if not (meas and meas.onGround == true) then return false end
   if held and held.up == true then return false end        -- climb un-parks (liftoff)
   local eps = self.moveEps
@@ -73,15 +87,48 @@ function Flight:_parked(held, meas)
 end
 
 function Flight:step(dt, held, meas)
+  self._lastMeas = meas
+  local autoOn = self.comAuto and self.comAuto:active()
+  if autoOn then held = {} end
   if self.engaged then
     if self._needReset then self.pilot:reset(meas); self._needReset = false end
     self.parked = self:_parked(held, meas)
     if self.parked then
-      self.pilot:reset(meas)         -- hold setpoints at current (no ramp/windup while parked)
-      self.loop:arm(false)           -- engaged-but-idle: disarmed loop = zero thrust, no osc/DAMPED
+      self.pilot:reset(meas)
+      self.loop:arm(false)
     else
-      self.loop:setpoints(self.pilot:update(dt, held or {}, meas))
-      self.loop:arm(true)
+      if autoOn then
+        local duties = self.lastDiag and self.lastDiag.duties
+        local ar = self.comAuto:tick(dt, meas, duties, self.loop:getMode())
+        local sch = self.loop.scheme
+        if sch and sch.pitchPid then
+          if ar.captureKi and ar.captureKi > 0 then
+            if not self._comKiSaved then
+              self._comKiSaved = { p = sch.pitchPid.ki, r = sch.rollPid.ki }
+            end
+            sch.pitchPid.ki = ar.captureKi
+            sch.rollPid.ki = ar.captureKi
+          elseif self._comKiSaved then
+            sch.pitchPid.ki = self._comKiSaved.p
+            sch.rollPid.ki = self._comKiSaved.r
+            self._comKiSaved = nil
+          end
+        end
+        if ar.captured and self.loop.mixer and self.loop.mixer.setCom then
+          self.loop.mixer:setCom({
+            fwd = ar.captured.fwd, right = ar.captured.right, span = self.comAuto.span,
+          })
+        end
+        if ar.setpoints then self.loop:setpoints(ar.setpoints) end
+        self.loop:arm(true)
+        if ar.done then
+          self.engaged = false
+          self.loop:arm(false)
+        end
+      else
+        self.loop:setpoints(self.pilot:update(dt, held or {}, meas))
+        self.loop:arm(true)
+      end
     end
   else
     self.parked = false
@@ -109,6 +156,10 @@ function Flight:snapshot(r, meas)
     altitude = m.baroMsl or m.altitude, vSpeed = m.vSpeed, heading = m.heading,
     yawRate = m.yawRate, swayPos = m.swayPos, surgePos = m.surgePos,
     onGround = m.onGround, loopHz = self._loopHz,
+    comAuto = self.comAuto and {
+      phase = self.comAuto.phase, abortReason = self.comAuto.abortReason,
+      captured = self.comAuto.captured,
+    } or nil,
   }
 end
 

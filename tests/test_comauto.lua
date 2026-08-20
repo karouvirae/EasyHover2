@@ -1,0 +1,90 @@
+local t = require("tests.framework")
+local C = require("fcs.comauto")
+
+local function ctx(over)
+  local c = {
+    thrusters = { FL = "a", FR = "b", RL = "c", RR = "d" },
+    sensors = { altimeter = "alt", gimbal = "gim" },
+    senscal = { signPitch = 1, signHeading = 1 },
+    comSpan = 4,
+    engineOn = true,
+    onGround = true,
+    gndSafety = false,
+    moving = false,
+    fuelFrac = 0.5,
+    engaged = true,
+    flightMode = "PRECISION",
+  }
+  for k, v in pairs(over or {}) do c[k] = v end
+  return c
+end
+
+t.test("missing is nil when every prereq is met", function()
+  t.eq(C.missing(ctx()), nil)
+end)
+
+t.test("missing reports the first unmet prereq in order", function()
+  t.eq(C.missing(ctx({ thrusters = { FL = false, FR = "b", RL = "c", RR = "d" } })), "bind")
+  t.eq(C.missing(ctx({ senscal = {} })), "senscal")
+  t.eq(C.missing(ctx({ comSpan = 0 })), "span")
+  t.eq(C.missing(ctx({ engineOn = false })), "engine")
+  t.eq(C.missing(ctx({ onGround = false })), "ground")
+  t.eq(C.missing(ctx({ gndSafety = true })), "gndSafe")
+  t.eq(C.missing(ctx({ moving = true })), "still")
+  t.eq(C.missing(ctx({ fuelFrac = 0.1 })), "fuel")
+  t.eq(C.missing(ctx({ engaged = false })), "engaged")
+  t.eq(C.missing(ctx({ flightMode = "MAN" })), "mode")
+end)
+
+t.test("CPL is an allowed mode", function()
+  t.eq(C.missing(ctx({ flightMode = "CPL" })), nil)
+end)
+
+t.test("lamp is red/green/blue", function()
+  t.eq(C.lamp(ctx({ engineOn = false }), false), "red")
+  t.eq(C.lamp(ctx(), false), "green")
+  t.eq(C.lamp(ctx(), true), "blue")
+end)
+
+t.test("label is a short ASCII reason", function()
+  t.eq(C.label("engine"), "ENG MASTER")
+  t.truthy(#C.label("bind") > 0)
+end)
+
+t.test("procedure climbs, captures after dwell, then descends", function()
+  local p = C.new({ span = 4, climbHeight = 8, dwell = 0.4, climbRate = 8, descendRate = 8, landEps = 0.5 })
+  local meas = { altitude = 0, pitch = 0, roll = 0, onGround = true, swayPos = 0, surgePos = 0, heading = 0 }
+  t.eq(p:start(meas), true)
+  t.eq(p.phase, "CLIMB")
+  local r
+  for _ = 1, 20 do
+    meas.altitude = math.min(8, (meas.altitude or 0) + 1)
+    meas.onGround = meas.altitude < 0.5
+    r = p:tick(0.2, meas, { FL = 0.5, FR = 0.5, RL = 0.3, RR = 0.3 }, "NORMAL")
+  end
+  t.truthy(p.phase == "HOLD" or p.phase == "DESCEND", "reached hover")
+  for _ = 1, 10 do
+    r = p:tick(0.2, meas, { FL = 0.5, FR = 0.5, RL = 0.3, RR = 0.3 }, "NORMAL")
+  end
+  t.truthy(p.captured and p.captured.fwd > 0, "captured forward CoM from extra front duty")
+  t.truthy(p.phase == "DESCEND" or p.phase == "DONE")
+end)
+
+t.test("procedure aborts on DAMPED", function()
+  local p = C.new({ span = 4, climbHeight = 8 })
+  local meas = { altitude = 3, pitch = 0, roll = 0, onGround = false, swayPos = 0, surgePos = 0, heading = 0 }
+  p:start({ altitude = 0, pitch = 0, roll = 0, onGround = true, swayPos = 0, surgePos = 0, heading = 0 })
+  local r = p:tick(0.05, meas, { FL = 0.4, FR = 0.4, RL = 0.4, RR = 0.4 }, "DAMPED")
+  t.eq(p.phase, "DESCEND")
+  t.eq(r.abortReason, "DAMPED")
+end)
+
+t.test("procedure aborts on tilt", function()
+  local p = C.new({ span = 4, tiltLim = 0.1 })
+  local meas = { altitude = 1, pitch = 0.2, roll = 0, onGround = false, swayPos = 0, surgePos = 0, heading = 0 }
+  p:start({ altitude = 0, pitch = 0, roll = 0, onGround = true, swayPos = 0, surgePos = 0, heading = 0 })
+  p.phase = "CLIMB"
+  local r = p:tick(0.05, meas, { FL = 0.4, FR = 0.4, RL = 0.4, RR = 0.4 }, "NORMAL")
+  t.eq(p.phase, "DESCEND")
+  t.eq(r.abortReason, "TILT")
+end)

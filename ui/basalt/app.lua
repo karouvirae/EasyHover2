@@ -573,6 +573,8 @@ function M.buildState(runtime, now)
   return {
     engaged      = latest.engaged,
     gndSafety    = latest.gndSafety,
+    onGround     = latest.onGround,
+    comAuto      = latest.comAuto,
     positionHold = latest.positionHold,
     mode         = latest.mode,
     flightMode   = latest.flightMode,

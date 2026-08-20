@@ -69,6 +69,7 @@ local fsx             = require("fcs.io.fsx")
 local Region          = require("ui.basalt.region")
 local configkit       = require("ui.basalt.configkit")
 local switchbtn       = require("ui.basalt.switchbtn")
+local ComAuto         = require("fcs.comauto")
 
 local M = {}
 M.id = "tuning"
@@ -167,8 +168,16 @@ addRow("feel.swayLead",       "SWAY LEAD",        "FEEL", 0.5, 0, 100)
 
 M.ROW_SPEC = ROW_SPEC
 
+local COM_SPEC = {
+  { id = "com.fwd",   label = "FWD",   group = "COM", step = 0.1, min = -20, max = 20 },
+  { id = "com.right", label = "RIGHT", group = "COM", step = 0.1, min = -20, max = 20 },
+  { id = "com.span",  label = "SPAN",  group = "COM", step = 0.1, min = 0.1, max = 20 },
+}
+M.COM_SPEC = COM_SPEC
+
 local SPEC_BY_ID = {}
 for _, spec in ipairs(ROW_SPEC) do SPEC_BY_ID[spec.id] = spec end
+for _, spec in ipairs(COM_SPEC) do SPEC_BY_ID[spec.id] = spec end
 
 -- ===== per-mode tuning: PRECISION is the top-level gains/caps/feel (unchanged); MAN/CRUISE =====
 -- ===== live under modes.MAN / modes.CRUISE and carry their own extra FEEL rows on top      =====
@@ -179,6 +188,7 @@ M.MODES = { "PRECISION", "MAN", "CRUISE", "CPL", "DCPL" }
 -- M.pathFor(mode, dotted) -> dotted path into the cfg tree for that mode. PRECISION (or a nil
 -- mode) is the top-level path as-is; MAN/CRUISE are prefixed under modes.<mode>. PURE.
 function M.pathFor(mode, dotted)
+  if type(dotted) == "string" and dotted:sub(1, 4) == "com." then return dotted end
   if mode == nil or mode == "PRECISION" then return dotted end
   return "modes." .. mode .. "." .. dotted
 end
@@ -688,6 +698,11 @@ function M.build(basalt, frame, runtime, nav, read, write, delete)
       y = y + 1
     end
 
+    local comBtn = switchbtn.make(f, { x = fx, y = y, width = fiw, height = 1, text = "COM" })
+    comBtn.set("off")
+    comBtn.button:onClick(function() region:push("com") end)
+    y = y + 1
+
     local footerRow = configkit.actionRow(f, { x = fx, y = y, w = fiw }, {
       { label = "?", onClick = function() region:push("help_modes") end },
       { label = "<", onClick = function() if nav then nav:pop() end end },
@@ -695,12 +710,153 @@ function M.build(basalt, frame, runtime, nav, read, write, delete)
 
     return {
       apply = function(_state) end,
-      elements = { modeBtns = modeBtns, footerRow = footerRow, lastRowY = y },
+      elements = { modeBtns = modeBtns, comBtn = comBtn, footerRow = footerRow, lastRowY = y },
+    }
+  end
+
+  local function sendCom(op)
+    if not (runtime and runtime.links and runtime.links.tel and runtime.sender) then return end
+    local span = (workingCfg.com and workingCfg.com.span) or 1
+    runtime.links.tel:send(runtime.sender:send({ k = "comAuto", op = op, span = span }))
+  end
+
+  local function buildComScreen(b, f, region)
+    local fw = ({ f:getSize() })[1]
+    local fx = 2
+    local fiw = math.max(1, fw - 2)
+    local y = 1
+    local titleLabel = f:addLabel({ x = fx, y = y, width = fiw, height = 1, autoSize = false, text = "COM" })
+    y = y + 1
+    local labelW = math.max(1, fiw - 8)
+    local minusX = fx + labelW + 1
+    local plusX = minusX + 4
+    local refresh
+    local rowSlots = {}
+    for i, spec in ipairs(COM_SPEC) do
+      local yy = y + i - 1
+      local lbl = f:addLabel({ x = fx, y = yy, width = labelW, height = 1, autoSize = false, text = "" })
+      local minus = f:addButton({ x = minusX, y = yy, width = 3, height = 1, text = "-" })
+      local plus = f:addButton({ x = plusX, y = yy, width = 3, height = 1, text = "+" })
+      rowSlots[i] = { id = spec.id, label = lbl, minus = minus, plus = plus }
+      minus:onClick(function()
+        workingCfg = M.apply(workingCfg, spec.id, -1)
+        refresh()
+      end)
+      plus:onClick(function()
+        workingCfg = M.apply(workingCfg, spec.id, 1)
+        refresh()
+      end)
+    end
+    y = y + #COM_SPEC
+    local autoRow = configkit.actionRow(f, { x = fx, y = y, w = fiw }, {
+      { label = "AUTO", onClick = function() region:push("comauto") end },
+    })
+    y = y + 1
+    local saveRstRow = configkit.actionRow(f, { x = fx, y = y, w = fiw }, {
+      { label = "SAVE", onClick = function() M._save(workingCfg, write) end },
+      { label = "RST", onClick = function()
+          workingCfg.com = workingCfg.com or {}
+          workingCfg.com.fwd = 0
+          workingCfg.com.right = 0
+          refresh()
+        end },
+    })
+    y = y + 1
+    local footerRow = configkit.actionRow(f, { x = fx, y = y, w = fiw }, {
+      { label = "<", onClick = function() region:pop() end },
+    })
+    refresh = function()
+      for _, slot in ipairs(rowSlots) do
+        local spec = SPEC_BY_ID[slot.id]
+        local path = M.pathFor("PRECISION", slot.id)
+        local v = workingCfg
+        for key in path:gmatch("[^.]+") do v = v and v[key] end
+        if v == nil then v = 0 end
+        slot.label:setText(spec.label .. " " .. fmtVal(v, spec.step))
+      end
+    end
+    refresh()
+    return {
+      apply = function(_s) refresh() end,
+      elements = { titleLabel = titleLabel, rowSlots = rowSlots, autoRow = autoRow,
+        saveRstRow = saveRstRow, footerRow = footerRow, lastRowY = y },
+    }
+  end
+
+  local function buildComAutoScreen(b, f, region)
+    local fw = ({ f:getSize() })[1]
+    local fx = 2
+    local fiw = math.max(1, fw - 2)
+    local y = 1
+    local titleLabel = f:addLabel({ x = fx, y = y, width = fiw, height = 1, autoSize = false, text = "AUTO COM" })
+    y = y + 1
+    local lamp = switchbtn.make(f, { x = fx, y = y, width = fiw, height = 1, text = "LAMP" })
+    y = y + 1
+    local reason = f:addLabel({ x = fx, y = y, width = fiw, height = 1, autoSize = false, text = "" })
+    y = y + 1
+    local startRow = configkit.actionRow(f, { x = fx, y = y, w = fiw }, {
+      { label = "START", onClick = function() sendCom("start") end },
+    })
+    y = y + 1
+    local abortRow = configkit.actionRow(f, { x = fx, y = y, w = fiw }, {
+      { label = "ABORT", onClick = function() sendCom("abort") end },
+    })
+    y = y + 1
+    local footerRow = configkit.actionRow(f, { x = fx, y = y, w = fiw }, {
+      { label = "<", onClick = function() region:pop() end },
+    })
+    local savedCap = false
+    local function refresh(state)
+      state = state or {}
+      local db = cfgspec.load("devbind", read)
+      local sc = cfgspec.load("senscal", read)
+      local ca = state.comAuto or {}
+      local running = ca.phase == "CLIMB" or ca.phase == "HOLD" or ca.phase == "DESCEND"
+      local ctx = {
+        thrusters = db.thrusters, sensors = db.sensors, senscal = sc,
+        comSpan = (workingCfg.com and workingCfg.com.span) or 0,
+        engineOn = state.engineMaster and true or false,
+        onGround = state.onGround == true,
+        gndSafety = state.gndSafety,
+        moving = math.abs(state.vSpeed or 0) > 0.5,
+        fuelFrac = state.tankFrac or 0,
+        engaged = state.engaged and true or false,
+        flightMode = state.flightMode,
+      }
+      local miss = ComAuto.missing(ctx)
+      local color = ComAuto.lamp(ctx, running)
+      if color == "blue" then
+        lamp.set("on")
+        lamp.button:setBackground(colors.blue)
+        lamp.button:setText("RUN")
+      elseif color == "green" then
+        lamp.set("on")
+        lamp.button:setText("READY")
+      else
+        lamp.set("off")
+        lamp.button:setText("WAIT")
+      end
+      reason:setText(miss and ComAuto.label(miss) or (ca.phase or "READY"))
+      startRow.setState(1, (miss or running) and "disabled" or "off")
+      if ca.captured and not savedCap then
+        workingCfg.com = workingCfg.com or {}
+        workingCfg.com.fwd = ca.captured.fwd
+        workingCfg.com.right = ca.captured.right
+        M._save(workingCfg, write)
+        savedCap = true
+      end
+      if not running then savedCap = false end
+    end
+    refresh({})
+    return {
+      apply = function(state) refresh(state) end,
+      elements = { titleLabel = titleLabel, lamp = lamp, reason = reason,
+        startRow = startRow, abortRow = abortRow, footerRow = footerRow, lastRowY = y },
     }
   end
 
   -- ===== assemble the region's screens map =====
-  local screens = { modes = buildModesScreen }
+  local screens = { modes = buildModesScreen, com = buildComScreen, comauto = buildComAutoScreen }
   for _, mode in ipairs(M.MODES) do
     screens["cat_" .. mode] = buildCatScreen(mode)
     screens["gains_axis_" .. mode] = buildGainsAxisScreen(mode)

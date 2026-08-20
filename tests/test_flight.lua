@@ -119,3 +119,26 @@ t.test("step always cycles the loop and returns a snapshot with flags", function
   t.eq(snap.engaged, false); t.eq(snap.gndSafety, true)
   t.truthy(snap.altitude ~= nil, "snapshot carries telemetry")
 end)
+
+t.test("comAuto start un-parks and ignores stick", function()
+  local L = fakeLoop()
+  L.mixer = { com = { fwd = 0, right = 0, span = 4 }, setCom = function(self, c) self.com = c end }
+  local f = engagedFlight(L)
+  t.truthy(f:handleCommand({ k = "comAuto", op = "start", span = 4 }))
+  local snap = f:step(0.1, { up = true }, groundMeas())
+  t.eq(L.armed, true, "auto-trim unparks")
+  t.eq(snap.comAuto.phase, "CLIMB")
+  t.eq(L.sp.pitch, 0)
+end)
+
+t.test("comAuto abort forces a descent", function()
+  local L = fakeLoop()
+  L.mixer = { com = {}, setCom = function(self, c) self.com = c end }
+  local f = engagedFlight(L)
+  f:handleCommand({ k = "comAuto", op = "start", span = 4 })
+  f:step(0.1, {}, groundMeas{ onGround = false })
+  f:handleCommand({ k = "comAuto", op = "abort" })
+  local snap = f:step(0.1, { up = true }, groundMeas{ onGround = false })
+  t.eq(snap.comAuto.phase, "DESCEND")
+  t.eq(snap.comAuto.abortReason, "ABORT")
+end)

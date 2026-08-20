@@ -169,6 +169,12 @@
           ["sum"] = "4830e654",
         },
         {
+          ["dst"] = "fcs/comauto.lua",
+          ["size"] = 4170,
+          ["src"] = "dist/fcs/comauto.lua",
+          ["sum"] = "c3728d34",
+        },
+        {
           ["dst"] = "fcs/comms/cfgsync.lua",
           ["size"] = 1234,
           ["src"] = "dist/fcs/comms/cfgsync.lua",
@@ -302,9 +308,9 @@
         },
         {
           ["dst"] = "fcs/io/tuningdefaults.lua",
-          ["size"] = 1625,
+          ["size"] = 1652,
           ["src"] = "dist/fcs/io/tuningdefaults.lua",
-          ["sum"] = "94bb621c",
+          ["sum"] = "fdf1a373",
         },
         {
           ["dst"] = "fcs/leash.lua",
@@ -314,21 +320,21 @@
         },
         {
           ["dst"] = "fcs/mixer/level_flight.lua",
-          ["size"] = 1110,
+          ["size"] = 1915,
           ["src"] = "dist/fcs/mixer/level_flight.lua",
-          ["sum"] = "fa216b02",
+          ["sum"] = "59460b6f",
         },
         {
           ["dst"] = "fcs/modes/registry.lua",
-          ["size"] = 1064,
+          ["size"] = 1097,
           ["src"] = "dist/fcs/modes/registry.lua",
-          ["sum"] = "84f5f45f",
+          ["sum"] = "d66ab357",
         },
         {
           ["dst"] = "fcs/runtime/flight.lua",
-          ["size"] = 2628,
+          ["size"] = 3982,
           ["src"] = "dist/fcs/runtime/flight.lua",
-          ["sum"] = "5d89c170",
+          ["sum"] = "eb2f5a39",
         },
         {
           ["dst"] = "fcs/runtime/loop.lua",
@@ -652,6 +658,12 @@
           ["sum"] = "a75af8eb",
         },
         {
+          ["dst"] = "fcs/comauto.lua",
+          ["size"] = 4170,
+          ["src"] = "dist/fcs/comauto.lua",
+          ["sum"] = "c3728d34",
+        },
+        {
           ["dst"] = "fcs/comms/cfgsync.lua",
           ["size"] = 1234,
           ["src"] = "dist/fcs/comms/cfgsync.lua",
@@ -767,21 +779,21 @@
         },
         {
           ["dst"] = "fcs/io/tuningdefaults.lua",
-          ["size"] = 1625,
+          ["size"] = 1652,
           ["src"] = "dist/fcs/io/tuningdefaults.lua",
-          ["sum"] = "94bb621c",
+          ["sum"] = "fdf1a373",
         },
         {
           ["dst"] = "fcs/mixer/level_flight.lua",
-          ["size"] = 1110,
+          ["size"] = 1915,
           ["src"] = "dist/fcs/mixer/level_flight.lua",
-          ["sum"] = "fa216b02",
+          ["sum"] = "59460b6f",
         },
         {
           ["dst"] = "fcs/modes/registry.lua",
-          ["size"] = 1064,
+          ["size"] = 1097,
           ["src"] = "dist/fcs/modes/registry.lua",
-          ["sum"] = "84f5f45f",
+          ["sum"] = "d66ab357",
         },
         {
           ["dst"] = "fcs/runtime/loop.lua",
@@ -911,9 +923,9 @@
         },
         {
           ["dst"] = "ui/basalt/app.lua",
-          ["size"] = 14047,
+          ["size"] = 14087,
           ["src"] = "dist/ui/basalt/app.lua",
-          ["sum"] = "aa0cb2cd",
+          ["sum"] = "479a087d",
         },
         {
           ["dst"] = "ui/basalt/bitconfig/dtc.lua",
@@ -959,9 +971,9 @@
         },
         {
           ["dst"] = "ui/basalt/bitconfig/tuning.lua",
-          ["size"] = 12143,
+          ["size"] = 16008,
           ["src"] = "dist/ui/basalt/bitconfig/tuning.lua",
-          ["sum"] = "812a662e",
+          ["sum"] = "3fe324ea",
         },
         {
           ["dst"] = "ui/basalt/bitconfig/uical.lua",
@@ -1279,9 +1291,9 @@
         },
         {
           ["dst"] = "fcs/io/tuningdefaults.lua",
-          ["size"] = 1625,
+          ["size"] = 1652,
           ["src"] = "dist/fcs/io/tuningdefaults.lua",
-          ["sum"] = "94bb621c",
+          ["sum"] = "fdf1a373",
         },
         {
           ["dst"] = "fcs2disk",
@@ -1325,9 +1337,9 @@
         },
         {
           ["dst"] = "fcs/io/tuningdefaults.lua",
-          ["size"] = 1625,
+          ["size"] = 1652,
           ["src"] = "dist/fcs/io/tuningdefaults.lua",
-          ["sum"] = "94bb621c",
+          ["sum"] = "fdf1a373",
         },
         {
           ["dst"] = "splitconfig",
@@ -1349,5 +1361,5 @@
     ["size"] = 71434,
     ["sum"] = "57671ad7",
   },
-  ["version"] = "9c8abd7a",
+  ["version"] = "0f57ceb0",
 }

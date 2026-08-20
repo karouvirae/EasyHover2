@@ -169,6 +169,12 @@
           ["sum"] = "1fad5c6f",
         },
         {
+          ["dst"] = "fcs/comauto.lua",
+          ["size"] = 5481,
+          ["src"] = "fcs/comauto.lua",
+          ["sum"] = "27306e56",
+        },
+        {
           ["dst"] = "fcs/comms/cfgsync.lua",
           ["size"] = 2645,
           ["src"] = "fcs/comms/cfgsync.lua",
@@ -302,9 +308,9 @@
         },
         {
           ["dst"] = "fcs/io/tuningdefaults.lua",
-          ["size"] = 4013,
+          ["size"] = 4055,
           ["src"] = "fcs/io/tuningdefaults.lua",
-          ["sum"] = "3f0c55ce",
+          ["sum"] = "262468b1",
         },
         {
           ["dst"] = "fcs/leash.lua",
@@ -314,21 +320,21 @@
         },
         {
           ["dst"] = "fcs/mixer/level_flight.lua",
-          ["size"] = 2618,
+          ["size"] = 3747,
           ["src"] = "fcs/mixer/level_flight.lua",
-          ["sum"] = "9d81a0ab",
+          ["sum"] = "6ebccfd6",
         },
         {
           ["dst"] = "fcs/modes/registry.lua",
-          ["size"] = 1959,
+          ["size"] = 1952,
           ["src"] = "fcs/modes/registry.lua",
-          ["sum"] = "27e0ef93",
+          ["sum"] = "f906e558",
         },
         {
           ["dst"] = "fcs/runtime/flight.lua",
-          ["size"] = 5034,
+          ["size"] = 6803,
           ["src"] = "fcs/runtime/flight.lua",
-          ["sum"] = "165847f3",
+          ["sum"] = "af5a2eb1",
         },
         {
           ["dst"] = "fcs/runtime/loop.lua",
@@ -652,6 +658,12 @@
           ["sum"] = "103249cb",
         },
         {
+          ["dst"] = "fcs/comauto.lua",
+          ["size"] = 5481,
+          ["src"] = "fcs/comauto.lua",
+          ["sum"] = "27306e56",
+        },
+        {
           ["dst"] = "fcs/comms/cfgsync.lua",
           ["size"] = 2645,
           ["src"] = "fcs/comms/cfgsync.lua",
@@ -767,21 +779,21 @@
         },
         {
           ["dst"] = "fcs/io/tuningdefaults.lua",
-          ["size"] = 4013,
+          ["size"] = 4055,
           ["src"] = "fcs/io/tuningdefaults.lua",
-          ["sum"] = "3f0c55ce",
+          ["sum"] = "262468b1",
         },
         {
           ["dst"] = "fcs/mixer/level_flight.lua",
-          ["size"] = 2618,
+          ["size"] = 3747,
           ["src"] = "fcs/mixer/level_flight.lua",
-          ["sum"] = "9d81a0ab",
+          ["sum"] = "6ebccfd6",
         },
         {
           ["dst"] = "fcs/modes/registry.lua",
-          ["size"] = 1959,
+          ["size"] = 1952,
           ["src"] = "fcs/modes/registry.lua",
-          ["sum"] = "27e0ef93",
+          ["sum"] = "f906e558",
         },
         {
           ["dst"] = "fcs/runtime/loop.lua",
@@ -911,9 +923,9 @@
         },
         {
           ["dst"] = "ui/basalt/app.lua",
-          ["size"] = 42092,
+          ["size"] = 42163,
           ["src"] = "ui/basalt/app.lua",
-          ["sum"] = "f86dc218",
+          ["sum"] = "c5190230",
         },
         {
           ["dst"] = "ui/basalt/bitconfig/dtc.lua",
@@ -959,9 +971,9 @@
         },
         {
           ["dst"] = "ui/basalt/bitconfig/tuning.lua",
-          ["size"] = 34783,
+          ["size"] = 41120,
           ["src"] = "ui/basalt/bitconfig/tuning.lua",
-          ["sum"] = "3d12bfc7",
+          ["sum"] = "dd928042",
         },
         {
           ["dst"] = "ui/basalt/bitconfig/uical.lua",
@@ -1279,9 +1291,9 @@
         },
         {
           ["dst"] = "fcs/io/tuningdefaults.lua",
-          ["size"] = 4013,
+          ["size"] = 4055,
           ["src"] = "fcs/io/tuningdefaults.lua",
-          ["sum"] = "3f0c55ce",
+          ["sum"] = "262468b1",
         },
         {
           ["dst"] = "fcs2disk",
@@ -1325,9 +1337,9 @@
         },
         {
           ["dst"] = "fcs/io/tuningdefaults.lua",
-          ["size"] = 4013,
+          ["size"] = 4055,
           ["src"] = "fcs/io/tuningdefaults.lua",
-          ["sum"] = "3f0c55ce",
+          ["sum"] = "262468b1",
         },
         {
           ["dst"] = "splitconfig",
@@ -1349,5 +1361,5 @@
     ["size"] = 71434,
     ["sum"] = "57671ad7",
   },
-  ["version"] = "3c4f5539",
+  ["version"] = "228220c7",
 }

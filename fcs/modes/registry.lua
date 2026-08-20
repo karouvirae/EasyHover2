@@ -25,7 +25,8 @@ local SPECS = {
 
 -- tuning is a dot-function object: tuning.forMode(id) (matches fcs.tuning.forMode).
 function M.build(tuning)
-  local mixer = Mixer.new()               -- airframe-invariant; one shared instance
+  local mixer = Mixer.new()
+  if tuning.com then mixer:setCom(tuning.com) end
   local order, byId = {}, {}
   for _, s in ipairs(SPECS) do
     local cfg = tuning.forMode(s.id)

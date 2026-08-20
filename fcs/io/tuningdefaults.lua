@@ -28,6 +28,7 @@ local DEFAULTS = {
   osc = { window = 1.0, minChanges = 6, deadband = 0.02, calmTime = 1.0 },
   dtMax = 0.5,
   attLimit = 0.6,
+  com = { fwd = 0, right = 0, span = 1 },
   groundIdle = { moveEps = 0.5 },
   profile = { climbHeight = 6, climbRate = 0.6, holdTime = 20, descendRate = 0.7,
               landEps = 0.4, watchdog = 60, overshootMargin = 2, leadCap = 1.0 },

@@ -11,3 +11,10 @@ t.test("tuning defaults expose gains/caps/feel as a deep-copied table", function
   t.eq(b.gains.__scratch, nil, "get() returns an independent copy")
   t.truthy(a.gains.yaw and a.caps.pitch and a.feel.climbRate, "carries known keys")
 end)
+
+t.test("tuning defaults include com fwd/right/span", function()
+  local d = TD.get()
+  t.eq(d.com.fwd, 0)
+  t.eq(d.com.right, 0)
+  t.eq(d.com.span, 1)
+end)

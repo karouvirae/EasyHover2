@@ -65,6 +65,13 @@ t.test("apply(cfg, 'gains.pitch.kp', +1) raises gains.pitch.kp by exactly one st
   t.eq(out.feel.headingRate, cfg.feel.headingRate)
 end)
 
+t.test("apply com.fwd steps by 0.1 and stays on the top-level com table", function()
+  local cfg = tuningdefaults.get()
+  local out = M.apply(cfg, "com.fwd", 1)
+  t.near(out.com.fwd, 0.1, 1e-9)
+  t.eq(out.gains.hoverDuty, cfg.gains.hoverDuty, "other tuning untouched")
+end)
+
 t.test("apply at min with -1 clamps (does not go below min)", function()
   local cfg = tuningdefaults.get()
   cfg.caps.yaw = 0 -- already at min
@@ -466,6 +473,7 @@ t.test("M.build: modes screen (root) has PRECISION/MAN/CRUISE buttons + '?' + '<
     t.truthy(modesHandle.elements.modeBtns[mode] ~= nil, "modes screen has a button for " .. mode)
   end
   t.eq(#modesHandle.elements.footerRow.buttons, 2, "modes footer row has exactly '?' and '<'")
+  t.truthy(modesHandle.elements.comBtn ~= nil, "COM sibling on the modes root")
 
   local ok, err = pcall(h.apply, {})
   t.truthy(ok, "apply should not error: " .. tostring(err))
