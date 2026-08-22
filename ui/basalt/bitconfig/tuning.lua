@@ -555,19 +555,18 @@ function M.build(basalt, frame, runtime, nav, read, write, delete)
       local titleLabel = f:addLabel({ x = fx, y = y, width = fiw, height = 1, autoSize = false, text = configkit.fitLabel("GAINS " .. abbrev(mode), fiw) })
       y = y + 1
 
-      local axisBtns = {}
+      local items = {}
       for _, axis in ipairs(AXES) do
-        local sw = switchbtn.make(f, { x = fx, y = y, width = fiw, height = 1, text = configkit.fitLabel(AXIS_LABEL[axis], fiw) })
-        sw.set("off")
-        sw.button:onClick(function() region:push("edit_" .. mode .. "_GAINS_" .. axis) end)
-        axisBtns[axis] = sw
-        y = y + 1
+        items[#items + 1] = { id = axis, label = AXIS_LABEL[axis],
+          onClick = function() region:push("edit_" .. mode .. "_GAINS_" .. axis) end }
       end
-
-      local baseBtn = switchbtn.make(f, { x = fx, y = y, width = fiw, height = 1, text = configkit.fitLabel("BASE", fiw) })
-      baseBtn.set("off")
-      baseBtn.button:onClick(function() region:push("edit_" .. mode .. "_GAINS_base") end)
-      y = y + 1
+      items[#items + 1] = { id = "base", label = "BASE",
+        onClick = function() region:push("edit_" .. mode .. "_GAINS_base") end }
+      local menu = configkit.menuColumn(f, { y = y, items = items })
+      local axisBtns = {}
+      for _, axis in ipairs(AXES) do axisBtns[axis] = menu.buttons[axis] end
+      local baseBtn = menu.buttons.base
+      y = menu.nextY
 
       local footerRow = configkit.actionRow(f, { x = fx, y = y, w = fiw }, {
         { label = "?", onClick = function() region:push("help_gains") end },
@@ -598,15 +597,13 @@ function M.build(basalt, frame, runtime, nav, read, write, delete)
       local titleLabel = f:addLabel({ x = fx, y = y, width = fiw, height = 1, autoSize = false, text = configkit.fitLabel("FEEL " .. abbrev(mode), fiw) })
       y = y + 1
 
-      local baseBtn = switchbtn.make(f, { x = fx, y = y, width = fiw, height = 1, text = configkit.fitLabel("BASE FEEL", fiw) })
-      baseBtn.set("off")
-      baseBtn.button:onClick(function() region:push("edit_" .. mode .. "_FEEL_base") end)
-      y = y + 1
-
-      local extraBtn = switchbtn.make(f, { x = fx, y = y, width = fiw, height = 1, text = configkit.fitLabel("MODE FEEL", fiw) })
-      extraBtn.set("off")
-      extraBtn.button:onClick(function() region:push("edit_" .. mode .. "_FEEL_extra") end)
-      y = y + 1
+      local menu = configkit.menuColumn(f, { y = y, items = {
+        { id = "base",  label = "BASE FEEL", onClick = function() region:push("edit_" .. mode .. "_FEEL_base") end },
+        { id = "extra", label = "MODE FEEL", onClick = function() region:push("edit_" .. mode .. "_FEEL_extra") end },
+      } })
+      local baseBtn = menu.buttons.base
+      local extraBtn = menu.buttons.extra
+      y = menu.nextY
 
       local footerRow = configkit.actionRow(f, { x = fx, y = y, w = fiw }, {
         { label = "?", onClick = function() region:push("help_feel") end },
@@ -640,14 +637,14 @@ function M.build(basalt, frame, runtime, nav, read, write, delete)
         { id = "CAPS",  target = "edit_" .. mode .. "_CAPS" },
         { id = "FEEL",  target = feelTarget },
       }
-      local catBtns = {}
+      local catItems = {}
       for _, c in ipairs(CATS) do
-        local sw = switchbtn.make(f, { x = fx, y = y, width = fiw, height = 1, text = configkit.fitLabel(c.id, fiw) })
-        sw.set("off")
-        sw.button:onClick(function() region:push(c.target) end)
-        catBtns[c.id] = sw
-        y = y + 1
+        catItems[#catItems + 1] = { id = c.id, label = c.id, onClick = function() region:push(c.target) end }
       end
+      local catMenu = configkit.menuColumn(f, { y = y, items = catItems })
+      local catBtns = {}
+      for _, c in ipairs(CATS) do catBtns[c.id] = catMenu.buttons[c.id] end
+      y = catMenu.nextY
 
       -- doSave/doReset exposed directly on `elements` (not just wired into the row) so a test can
       -- invoke the EXACT effect SAVE/RST's onClick has, same convention as mdb.lua's exposed
@@ -688,22 +685,19 @@ function M.build(basalt, frame, runtime, nav, read, write, delete)
     local fw = ({ f:getSize() })[1]
     local fx = 2
     local fiw = math.max(1, fw - 2)
-    local y = 1
 
-    local modeBtns = {}
+    -- Compact centred menu column (sized to the widest mode label), not full-width bars.
+    local items = {}
     for _, mode in ipairs(M.MODES) do
-      local sw = switchbtn.make(f, { x = fx, y = y, width = fiw, height = 1, text = configkit.fitLabel(mode, fiw) })
-      sw.set("off")
-      sw.button:onClick(function() region:push("cat_" .. mode) end)
-      modeBtns[mode] = sw
-      y = y + 1
+      items[#items + 1] = { id = mode, label = mode, onClick = function() region:push("cat_" .. mode) end }
     end
+    items[#items + 1] = { id = "COM", label = "COM", onClick = function() region:push("com") end }
+    local menu = configkit.menuColumn(f, { y = 1, items = items })
+    local modeBtns = {}
+    for _, mode in ipairs(M.MODES) do modeBtns[mode] = menu.buttons[mode] end
+    local comBtn = menu.buttons.COM
 
-    local comBtn = switchbtn.make(f, { x = fx, y = y, width = fiw, height = 1, text = "COM" })
-    comBtn.set("off")
-    comBtn.button:onClick(function() region:push("com") end)
-    y = y + 1
-
+    local y = menu.nextY
     local footerRow = configkit.actionRow(f, { x = fx, y = y, w = fiw }, {
       { label = "?", onClick = function() region:push("help_modes") end },
       { label = "<", onClick = function() if nav then nav:pop() end end },

@@ -213,26 +213,29 @@ end
 -- consistent styling and a per-button set(state) -- default state is "off" unless spec.state is
 -- given. setState(i, state) forwards to the i-th button's set().
 function M.actionRow(frame, pos, specs)
-  -- Optional `pos.gap` (default 0): columns of frame-background left BETWEEN buttons so a row of
-  -- several same-coloured buttons reads as distinct cells instead of one merged bar. The gaps are
-  -- taken out of the usable width first, then splitWidths divides what remains among the buttons.
+  -- Compact + uniform: every button in the row is sized to the WIDEST label in the row (+padding),
+  -- and the row is CENTRED in pos.w -- so buttons take minimal space and read as a tidy group
+  -- instead of full-width bars. `pos.gap` (default 1) = columns between buttons. If the compact row
+  -- can't fit, it shrinks the button width to fit pos.w.
   local n = #specs
-  local gap = pos.gap or 0
-  local usable = math.max(n, pos.w - gap * math.max(0, n - 1))
-  local widths = M.splitWidths(usable, n)
+  local gap = pos.gap or 1
+  local maxLabel = 1
+  for _, spec in ipairs(specs) do maxLabel = math.max(maxLabel, #tostring(spec.label or "")) end
+  local avail = pos.w - gap * math.max(0, n - 1)
+  local bw = math.max(1, math.min(maxLabel + 2, math.floor(avail / math.max(1, n))))
+  local total = bw * n + gap * math.max(0, n - 1)
+  local px = pos.x + math.max(0, math.floor((pos.w - total) / 2))
   local buttons = {}
-  local px = pos.x
   for i, spec in ipairs(specs) do
-    local width = widths[i] or 1
     local sw = switchbtn.make(frame, {
-      x = px, y = pos.y, width = width, height = 1,
-      text = M.fitLabel(spec.label, width),
+      x = px, y = pos.y, width = bw, height = 1,
+      text = M.fitLabel(spec.label, bw),
     })
     local onClick = spec.onClick
     sw.button:onClick(function() if onClick then onClick() end end)
     sw.set(spec.state or "off")
     buttons[i] = sw
-    px = px + width + gap
+    px = px + bw + gap
   end
   local function setState(i, state)
     if buttons[i] then buttons[i].set(state) end

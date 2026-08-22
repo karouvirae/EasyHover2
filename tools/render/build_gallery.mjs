@@ -86,8 +86,9 @@ const html = `<title>Cockpit Colour Redesign</title>
     everywhere (the old cyan overhead is gone), <b>green font</b>, <b>dark-gray buttons</b>, inert
     buttons in <b>orange</b>, and the NAV cues <b>yellow (WPT)</b> / <b>blue (route)</b> — all editable
     in the new <b>UI CAL ▸ UI SETTINGS</b> submenu (font / button / NAV WPT / NAV RT / colourblind),
-    persisted to config. Menus are sized to their widest label (see the compact BIT/CONFIG hub), not
-    full-width bars. Defaults: green / dark-gray / yellow / blue / no colourblind.</p>
+    persisted to config. <b>Buttons and menus are sized to their labels</b> — centred compact columns
+    and rows across the hub, UI CAL, FCS TUNING, MDB-CONF, SENS SOURCE and the flight drilldowns, plus
+    capped-width picker blocks — not full-width bars. Defaults: green / dark-gray / yellow / blue / no colourblind.</p>
   <p class="lede"><b>Every label is the font colour</b> and every button (including the switch buttons —
     ENG SW, mode select) is the button colour, for one uniform look. Their on/off/disabled <b>state is
     still tracked in code</b> — a dedicated state-feedback treatment comes in the next task. Panels

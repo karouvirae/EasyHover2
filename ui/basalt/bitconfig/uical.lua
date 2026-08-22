@@ -469,14 +469,16 @@ function M.build(basalt, frame, runtime, nav, deps)
     local fiw = math.max(1, fw - 2)
     local y = 1
 
+    -- Compact: short label + a capped-width dropdown, centred as a block (not spanning the row).
     local dropW = math.max(6, math.min(14, math.floor(fiw * 0.5)))
-    local labelW = math.max(1, fiw - dropW - 1)
-    local dropX = fx + labelW + 1
+    local labelW = 6
+    local blockX = fx + math.max(0, math.floor((fiw - (labelW + 1 + dropW)) / 2))
+    local dropX = blockX + labelW + 1
 
     local refresh -- forward-declared: SCAN + every picker's onPick call this; assigned below.
 
     local function pickerRow(labelText, options, current, placeholder, dropdownHeight, onPick)
-      local lbl = f:addLabel({ x = fx, y = y, width = labelW, height = 1, autoSize = false, text = labelText })
+      local lbl = f:addLabel({ x = blockX, y = y, width = labelW, height = 1, autoSize = false, text = labelText })
       local picker = Picker.make(f, {
         x = dropX, y = y, width = dropW, dropdownHeight = dropdownHeight or 5,
         options = options, current = current, placeholder = placeholder,
@@ -532,7 +534,7 @@ function M.build(basalt, frame, runtime, nav, deps)
     -- MODE + SIDE/BLOCK/FEED: left labels (never fitLabel'd with a colon -- fitLabel strips at
     -- ":") and picker-row layout matching RELAY/PUMP/TANK. SIDE is basic-only; BLOCK/FEED are
     -- latch-only. refresh() relayouts + toggles visibility so BACK (pinned to fh) stays on screen.
-    local modeLabel = f:addLabel({ x = fx, y = y, width = labelW, height = 1, autoSize = false, text = "MODE" })
+    local modeLabel = f:addLabel({ x = blockX, y = y, width = labelW, height = 1, autoSize = false, text = "MODE" })
     local modeSw = switchbtn.make(f, { x = dropX, y = y, width = dropW, height = 1, text = "basic" })
     modeSw.button:onClick(function()
       M._applyOp(runtime, M._modeIntent(), deps)
@@ -717,9 +719,11 @@ function M.build(basalt, frame, runtime, nav, deps)
     local fx = 2
     local fiw = math.max(1, fw - 2)
     local y = 1
+    -- Compact: label + capped dropdown, centred as a block (not spanning the row).
     local dropW = math.max(8, math.min(14, math.floor(fiw * 0.45)))
-    local labelW = math.max(1, fiw - dropW - 1)
-    local dropX = fx + labelW + 1
+    local labelW = 10
+    local blockX = fx + math.max(0, math.floor((fiw - (labelW + 1 + dropW)) / 2))
+    local dropX = blockX + labelW + 1
 
     local function colorOpts()
       local o = {}
@@ -741,7 +745,7 @@ function M.build(basalt, frame, runtime, nav, deps)
     end
 
     local function row(labelText, options, current, role)
-      f:addLabel({ x = fx, y = y, width = labelW, height = 1, autoSize = false, text = labelText })
+      f:addLabel({ x = blockX, y = y, width = labelW, height = 1, autoSize = false, text = labelText })
       local picker = Picker.make(f, {
         x = dropX, y = y, width = dropW, dropdownHeight = 6,
         options = options, current = current, onPick = function(v) pick(role, v) end,

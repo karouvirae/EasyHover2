@@ -947,9 +947,9 @@
         },
         {
           ["dst"] = "ui/basalt/bitconfig/mdb.lua",
-          ["size"] = 4743,
+          ["size"] = 4805,
           ["src"] = "dist/ui/basalt/bitconfig/mdb.lua",
-          ["sum"] = "df74b3b6",
+          ["sum"] = "a0167377",
         },
         {
           ["dst"] = "ui/basalt/bitconfig/pfd.lua",
@@ -965,21 +965,21 @@
         },
         {
           ["dst"] = "ui/basalt/bitconfig/senssource.lua",
-          ["size"] = 4080,
+          ["size"] = 4137,
           ["src"] = "dist/ui/basalt/bitconfig/senssource.lua",
-          ["sum"] = "ac1da457",
+          ["sum"] = "d78741c0",
         },
         {
           ["dst"] = "ui/basalt/bitconfig/tuning.lua",
-          ["size"] = 16186,
+          ["size"] = 16122,
           ["src"] = "dist/ui/basalt/bitconfig/tuning.lua",
-          ["sum"] = "2902a458",
+          ["sum"] = "9a2368b8",
         },
         {
           ["dst"] = "ui/basalt/bitconfig/uical.lua",
-          ["size"] = 12978,
+          ["size"] = 13049,
           ["src"] = "dist/ui/basalt/bitconfig/uical.lua",
-          ["sum"] = "f334cda7",
+          ["sum"] = "88ed5a68",
         },
         {
           ["dst"] = "ui/basalt/btnfit.lua",
@@ -995,9 +995,9 @@
         },
         {
           ["dst"] = "ui/basalt/configkit.lua",
-          ["size"] = 4399,
+          ["size"] = 4536,
           ["src"] = "dist/ui/basalt/configkit.lua",
-          ["sum"] = "0d7973b5",
+          ["sum"] = "6055c129",
         },
         {
           ["dst"] = "ui/basalt/instruments/attitude.lua",
@@ -1103,9 +1103,9 @@
         },
         {
           ["dst"] = "ui/basalt/regions/emc.lua",
-          ["size"] = 8799,
+          ["size"] = 9281,
           ["src"] = "dist/ui/basalt/regions/emc.lua",
-          ["sum"] = "6df54d4a",
+          ["sum"] = "a01c6fc9",
         },
         {
           ["dst"] = "ui/basalt/regions/fcs.lua",
@@ -1367,5 +1367,5 @@
     ["size"] = 71434,
     ["sum"] = "57671ad7",
   },
-  ["version"] = "9b65df63",
+  ["version"] = "c5afea62",
 }

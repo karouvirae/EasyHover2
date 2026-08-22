@@ -131,7 +131,7 @@ end)
 
 -- ===== Basalt chrome: actionRow + helpScreen construction probe =====
 
-t.test("actionRow gap leaves a column between buttons so they don't merge", function()
+t.test("actionRow buttons are uniform (widest label +pad), gapped, and centred in the row", function()
   local BasaltApp = require("ui.basalt.app")
   local basalt = BasaltApp.ensureBasalt()
   local frame = basalt.createFrame()
@@ -141,13 +141,14 @@ t.test("actionRow gap leaves a column between buttons so they don't merge", func
     { label = "C", onClick = function() end },
   })
   local b = row.buttons
-  t.eq(b[1].button:getX(), 1)
+  -- uniform compact width = widest label (1) + 2 padding, all buttons the same width
+  t.eq(b[1].button:getWidth(), 3, "button sized to widest label + pad")
+  t.eq(b[2].button:getWidth(), b[1].button:getWidth(), "all buttons uniform width")
+  -- 1-col gap between buttons so they don't merge
   t.eq(b[2].button:getX(), b[1].button:getX() + b[1].button:getWidth() + 1, "1-col gap after button 1")
   t.eq(b[3].button:getX(), b[2].button:getX() + b[2].button:getWidth() + 1, "1-col gap after button 2")
-  -- and gap=0 (default) keeps the old edge-to-edge packing
-  local tight = ck.actionRow(frame, { x = 1, y = 2, w = 15 }, { { label = "X" }, { label = "Y" } })
-  t.eq(tight.buttons[2].button:getX(), tight.buttons[1].button:getX() + tight.buttons[1].button:getWidth(),
-    "no gap by default")
+  -- centred in w=15: total = 3*3 + 2*1 = 11, startX = 1 + floor((15-11)/2) = 3
+  t.eq(b[1].button:getX(), 3, "row centred in the available width")
 end)
 
 t.test("actionRow + helpScreen construction probe: builds, one render pass does not error", function()

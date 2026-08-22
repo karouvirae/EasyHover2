@@ -151,16 +151,15 @@ function M.build(basalt, frame, runtime, nav, read, write, sampler)
     local refreshSource -- forward-declared: every source button's onClick calls this.
 
     local SOURCES = { "FCS", "SELF", "OFF" }
-    local srcBtns = {}
+    local srcItems = {}
     for _, src in ipairs(SOURCES) do
-      local sw = switchbtn.make(f, { x = fx, y = y, width = fiw, height = 1, text = src })
-      sw.button:onClick(function()
-        M._select(config, src, save)
-        refreshSource()
-      end)
-      srcBtns[src] = sw
-      y = y + 1
+      srcItems[#srcItems + 1] = { id = src, label = src,
+        onClick = function() M._select(config, src, save); refreshSource() end }
     end
+    local srcMenu = configkit.menuColumn(f, { y = y, items = srcItems })
+    local srcBtns = {}
+    for _, src in ipairs(SOURCES) do srcBtns[src] = srcMenu.buttons[src] end
+    y = srcMenu.nextY
 
     local calRow = configkit.actionRow(f, { x = fx, y = y, w = fiw }, {
       { label = "CAL (SELF)", onClick = function() region:push("callist") end },

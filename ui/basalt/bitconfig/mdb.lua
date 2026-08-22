@@ -233,9 +233,11 @@ function M.build(basalt, frame, runtime, nav, read, write, scan)
   -- Give the picker a usable width for peripheral names; the trigger truncates ("~tail") anything
   -- longer than fits, per ui/basalt/picker.lua. dropdownHeight is kept modest -- with each group
   -- screen now at most 7 rows tall, an open overlay always has room below it.
+  -- Compact picker rows: short label + capped dropdown, centred as a block (not spanning the row).
   local dropW = math.max(6, math.min(12, math.floor(iw * 0.5)))
-  local labelW = math.max(1, iw - dropW - 1)
-  local dropX = x + labelW + 1
+  local labelW = 8
+  local blockX = x + math.max(0, math.floor((iw - (labelW + 1 + dropW)) / 2))
+  local dropX = blockX + labelW + 1
   local DROPDOWN_HEIGHT = 5
 
   -- ===== overview screen: 5 stacked group buttons + a full-width SAVE row, then a RESCAN/BACK row =====
@@ -244,17 +246,14 @@ function M.build(basalt, frame, runtime, nav, read, write, scan)
     local fx = 2
     local fiw = math.max(1, fw - 2)
 
-    local groupBtns = {}
-    local y = 1
+    local grpItems = {}
     for _, g in ipairs(M.GROUPS) do
-      local sw = switchbtn.make(f, {
-        x = fx, y = y, width = fiw, height = 1, text = configkit.fitLabel(g, fiw),
-      })
-      sw.set("off")
-      sw.button:onClick(function() region:push(g) end)
-      groupBtns[g] = sw
-      y = y + 1
+      grpItems[#grpItems + 1] = { id = g, label = g, onClick = function() region:push(g) end }
     end
+    local grpMenu = configkit.menuColumn(f, { y = 1, items = grpItems })
+    local groupBtns = {}
+    for _, g in ipairs(M.GROUPS) do groupBtns[g] = grpMenu.buttons[g] end
+    local y = grpMenu.nextY
 
     -- Named (not inline) so a test can invoke the EXACT effect RESCAN's onClick has --
     -- reassign the `descriptors` upvalue every group screen's refresh() reads -- without needing
@@ -295,7 +294,7 @@ function M.build(basalt, frame, runtime, nav, read, write, scan)
       local rowSlots = {}
       local y = 1
       for i, s in ipairs(slots) do
-        local lbl = f:addLabel({ x = fx, y = y, width = labelW, height = 1, autoSize = false, text = "" })
+        local lbl = f:addLabel({ x = blockX, y = y, width = labelW, height = 1, autoSize = false, text = "" })
         local picker = Picker.make(f, {
           x = dropX, y = y, width = dropW, dropdownHeight = DROPDOWN_HEIGHT,
           options = {}, current = false, placeholder = "(none)",

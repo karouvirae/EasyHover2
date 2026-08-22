@@ -224,7 +224,8 @@ function M.main(basalt, frame, region, runtime)
 
   -- y10: CONFIG drill-in.
   local configY = feedY + 1
-  local configBtn = frame:addButton({ x = 1, y = configY, width = w, height = 1, text = "CONFIG" })
+  local configGeo = btnfit.grid({ "CONFIG" }, { x0 = 1, availW = w, y0 = configY, gap = 1, align = "center" })
+  local configBtn = frame:addButton({ x = configGeo[1].x, y = configY, width = configGeo[1].w, height = 1, text = "CONFIG" })
 
   engSw.button:onClick(function()
     M._onEngine(runtime, "engSw", os.epoch("utc"))
@@ -306,18 +307,20 @@ function M.config(basalt, frame, region, runtime, deps)
   local rest = math.max(1, w - half)
   local y = 2 -- row 1 is a blank top margin, matching M.main's convention (Task 3/4).
 
-  local backBtn = frame:addButton({ x = 1, y = y, width = w, height = 1, text = "< BACK" })
+  local backGeo = btnfit.grid({ "< BACK" }, { x0 = 1, availW = w, y0 = y, gap = 1, align = "center" })
+  local backBtn = frame:addButton({ x = backGeo[1].x, y = y, width = backGeo[1].w, height = 1, text = "< BACK" })
   y = y + 1
 
   -- Dropdown pickers replace the old click-to-cycle RELAY SIDE / BIND PUMP/TANK/RELAY buttons --
-  -- reuses uical.lua's tested _sideOptions / _fuelCandidates / _relayCandidates / _toOptions
-  -- / _pickBind / _pickSide seams verbatim, no reimplementation. Label + dropdown share one row.
-  local labelW = math.min(4, math.max(1, w - 3))
-  local dropW  = math.max(3, w - labelW)
-  local dropX  = 1 + labelW
+  -- reuses uical.lua's tested seams verbatim. Compact: a short label + a capped-width dropdown,
+  -- centred as a block (not spanning the full line), so the picker column reads tidy.
+  local labelW = 4
+  local dropW  = math.max(6, math.min(16, w - labelW - 2))
+  local blockX = math.max(1, math.floor((w - (labelW + 1 + dropW)) / 2) + 1)
+  local dropX  = blockX + labelW + 1
 
   local function pickerRow(labelText, options, current, placeholder, dropdownHeight, onPick)
-    local lbl = frame:addLabel({ x = 1, y = y, width = labelW, height = 1, autoSize = false, text = labelText })
+    local lbl = frame:addLabel({ x = blockX, y = y, width = labelW, height = 1, autoSize = false, text = labelText })
     local picker = Picker.make(frame, {
       x = dropX, y = y, width = dropW, dropdownHeight = dropdownHeight or 5,
       options = options, current = current, placeholder = placeholder,
@@ -344,12 +347,14 @@ function M.config(basalt, frame, region, runtime, deps)
   local timingLabel = frame:addLabel({ x = 1, y = y, width = w, height = 1, autoSize = false, text = "" })
   y = y + 1
 
-  local pulseDnBtn = frame:addButton({ x = 1, y = y, width = half, height = 1, text = "PULSE-" })
-  local pulseUpBtn = frame:addButton({ x = 1 + half, y = y, width = rest, height = 1, text = "PULSE+" })
+  local pulseGeo = btnfit.grid({ "PULSE-", "PULSE+" }, { x0 = 1, availW = w, y0 = y, gap = 1, align = "center" })
+  local pulseDnBtn = frame:addButton({ x = pulseGeo[1].x, y = y, width = pulseGeo[1].w, height = 1, text = "PULSE-" })
+  local pulseUpBtn = frame:addButton({ x = pulseGeo[2].x, y = y, width = pulseGeo[2].w, height = 1, text = "PULSE+" })
   y = y + 1
 
-  local intDnBtn = frame:addButton({ x = 1, y = y, width = half, height = 1, text = "INT-" })
-  local intUpBtn = frame:addButton({ x = 1 + half, y = y, width = rest, height = 1, text = "INT+" })
+  local intGeo = btnfit.grid({ "INT-", "INT+" }, { x0 = 1, availW = w, y0 = y, gap = 1, align = "center" })
+  local intDnBtn = frame:addButton({ x = intGeo[1].x, y = y, width = intGeo[1].w, height = 1, text = "INT-" })
+  local intUpBtn = frame:addButton({ x = intGeo[2].x, y = y, width = intGeo[2].w, height = 1, text = "INT+" })
   y = y + 1
 
   y = y + 1 -- spacer
@@ -382,7 +387,8 @@ function M.config(basalt, frame, region, runtime, deps)
       bump()
     end)
 
-  local calFuelBtn = frame:addButton({ x = 1, y = y, width = w, height = 1, text = "CAL FUEL" })
+  local calGeo = btnfit.grid({ "CAL FUEL" }, { x0 = 1, availW = w, y0 = y, gap = 1, align = "center" })
+  local calFuelBtn = frame:addButton({ x = calGeo[1].x, y = y, width = calGeo[1].w, height = 1, text = "CAL FUEL" })
   y = y + 1
 
   backBtn:onClick(function() region:pop() end)
