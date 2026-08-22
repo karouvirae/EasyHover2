@@ -33,6 +33,7 @@
 -- NO peripheral/Basalt access at module LOAD -- everything lives inside M.build/M._onButton/the
 -- apply() closure, so `require("ui.basalt.pages.emc")` loads clean headless.
 local EnginePanel = require("ui.panels.engine")
+local Theme       = require("ui.theme")
 
 local M = {}
 M.id = "emc"
@@ -171,8 +172,8 @@ function M.build(basalt, frame, runtime)
     for _, id in ipairs(BUTTON_ORDER) do
       local style = BUTTON_STYLE[btnStates[id]] or BUTTON_STYLE.disabled
       local btn = buttons[id]
-      btn:setBackground(colors[style.bg])
-      btn:setForeground(colors[style.fg])
+      btn:setBackground(Theme.role("button"))
+      btn:setForeground(style.enabled == false and Theme.DISABLED_FG or Theme.role("font"))
       btn:setEnabled(style.enabled)
     end
   end

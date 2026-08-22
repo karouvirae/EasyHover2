@@ -2,6 +2,7 @@
 -- Color-state switch button: a Basalt button whose colours reflect a small state enum.
 -- Reused on the merged flight page for ENG SW / FCS / GND and the MODE placeholders.
 -- The pure STYLE map is unit-tested; the Basalt wiring is exercised by a construction probe.
+local Theme = require("ui.theme")
 local M = {}
 
 -- Pure state -> style. States:
@@ -35,8 +36,12 @@ function M.make(frame, opts)
   function ctrl.set(state)
     ctrl.state = state or "disabled"
     local s = M.styleFor(ctrl.state)
-    -- Colour comes from the theme (button colour + font colour) -- do NOT paint per state. Only the
-    -- enabled flag stays live; the state is tracked (ctrl.state) for the next-task feedback feature.
+    -- Uniform look: every switch button is the current BUTTON colour. Enabled buttons use the FONT
+    -- colour; inert (disabled) buttons use ORANGE text so they read as inert. Painted from the live
+    -- scheme (Theme.role) rather than left to Basalt's built-in disabled look. `enabled` stays live;
+    -- ctrl.state is tracked for the next-task state-feedback feature (the red/green STYLE map is kept).
+    btn:setBackground(Theme.role("button"))
+    btn:setForeground(ctrl.state == "disabled" and Theme.DISABLED_FG or Theme.role("font"))
     btn:setEnabled(s.enabled)
     return btn
   end

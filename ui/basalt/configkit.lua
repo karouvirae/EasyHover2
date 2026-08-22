@@ -240,6 +240,31 @@ function M.actionRow(frame, pos, specs)
   return { buttons = buttons, setState = setState }
 end
 
+-- M.menuColumn(frame, opts) -> { buttons = {[id]=switchbtn}, width, nextY }
+-- A CENTRED vertical menu whose buttons are ALL sized to the widest label in the set (+padding), so
+-- the column reads as a uniform stack that takes minimal width -- instead of full-width bars where
+-- "the whole menu is one button colour". Basalt centres each label within its button.
+-- opts = { y, items = {{ id, label, onClick, state? }, ...}, pad? (default 2), maxW? }.
+function M.menuColumn(frame, opts)
+  local fw = ({ frame:getSize() })[1]
+  local items = opts.items or {}
+  local pad = opts.pad or 2
+  local maxLabel = 1
+  for _, it in ipairs(items) do maxLabel = math.max(maxLabel, #(it.label or "")) end
+  local bw = math.max(1, math.min(opts.maxW or fw, maxLabel + pad))
+  local bx = math.max(1, math.floor((fw - bw) / 2) + 1)
+  local y = opts.y or 1
+  local buttons = {}
+  for _, it in ipairs(items) do
+    local sw = switchbtn.make(frame, { x = bx, y = y, width = bw, height = 1, text = M.fitLabel(it.label, bw) })
+    if it.onClick then sw.button:onClick(it.onClick) end
+    sw.set(it.state or "off")
+    buttons[it.id or it.label] = sw
+    y = y + 1
+  end
+  return { buttons = buttons, width = bw, nextY = y }
+end
+
 -- M.helpScreen(basalt, frame, region, entryId) -> { apply = function(state) end }
 -- A region screen (matches ui/basalt/region.lua's builder contract): stacks helpLines(entryId, w)
 -- as labels, paged through scrollWindow, with a bottom actionRow of [UP][DN][<]. UP/DN adjust a

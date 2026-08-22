@@ -25,7 +25,7 @@ function M.defaults()
     -- Cockpit colour scheme (BIT/CONFIG -> UI CAL -> UI SETTINGS). Background is hardcoded black in
     -- ui/theme.lua; these pick the font/button/NAV-cue colours + an optional colourblind palette.
     -- Values are ui/theme.lua colour keys / colourblind mode keys.
-    colors = { font = "green", button = "gray", wpt = "yellow", rt = "blue", colorblind = "none" },
+    colors = { font = "green", button = "darkGray", wpt = "yellow", rt = "blue", colorblind = "none" },
   }
 end
 

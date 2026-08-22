@@ -83,10 +83,11 @@ const html = `<title>Cockpit Colour Redesign</title>
   <h1>One uniform colour scheme</h1>
   <p class="lede">Tweak #1: a single glass-cockpit colour system across <b>every</b> panel — pages,
     region drilldowns, BIT/CONFIG submenus, and the entry scratchpads. <b>Black background</b>
-    everywhere (the old cyan overhead is gone), <b>green font</b>, <b>gray buttons</b>, and the NAV
-    cues coloured <b>yellow (WPT)</b> / <b>blue (route)</b> — all editable in the new
-    <b>UI CAL ▸ UI SETTINGS</b> submenu (font / button / NAV WPT / NAV RT / colourblind), persisted to
-    config. Defaults shown here: green / gray / yellow / blue / no colourblind.</p>
+    everywhere (the old cyan overhead is gone), <b>green font</b>, <b>dark-gray buttons</b>, inert
+    buttons in <b>orange</b>, and the NAV cues <b>yellow (WPT)</b> / <b>blue (route)</b> — all editable
+    in the new <b>UI CAL ▸ UI SETTINGS</b> submenu (font / button / NAV WPT / NAV RT / colourblind),
+    persisted to config. Menus are sized to their widest label (see the compact BIT/CONFIG hub), not
+    full-width bars. Defaults: green / dark-gray / yellow / blue / no colourblind.</p>
   <p class="lede"><b>Every label is the font colour</b> and every button (including the switch buttons —
     ENG SW, mode select) is the button colour, for one uniform look. Their on/off/disabled <b>state is
     still tracked in code</b> — a dedicated state-feedback treatment comes in the next task. Panels

@@ -12,6 +12,8 @@
 -- NO peripheral/Basalt access at module LOAD -- everything lives inside M.build/M._onButton/the
 -- apply() closure, so `require("ui.basalt.bitconfig.hub")` loads clean headless.
 
+local configkit = require("ui.basalt.configkit")
+
 local M = {}
 M.id = "bitconfig"
 M.title = "BIT/CONFIG"
@@ -56,61 +58,30 @@ end
 -- ===== M.build: construct the element tree =====
 
 function M.build(basalt, frame, runtime, nav)
-  local w, h = frame:getSize()
-  local x = 2
-  local iw = math.max(1, w - 2)
-  local y = 2
-
-  -- Build one button per menu item (left-aligned, column layout)
-  local elements = {}
+  -- A centred menu column whose buttons are all sized to the widest label ("SENS SOURCE"), so the
+  -- hub is a compact uniform stack rather than full-width bars. One item per M.ITEMS + a "< BACK".
+  local items = {}
   for _, item in ipairs(M.ITEMS) do
-    local btn = frame:addButton({
-      x = x,
-      y = y,
-      width = iw,
-      height = 1,
-      text = item.label,
-    })
-    btn:setEnabled(true)
-    -- Capture item.id in a closure to preserve it for the onClick handler
     local itemId = item.id
-    btn:onClick(function()
-      M._onButton(nav, itemId, os.epoch("utc"))
-    end)
-    elements[itemId] = btn
-    y = y + 1
+    items[#items + 1] = { id = itemId, label = item.label,
+      onClick = function() M._onButton(nav, itemId, os.epoch("utc")) end }
+  end
+  items[#items + 1] = { id = "back", label = "< BACK",
+    onClick = function() M._onButton(nav, "back", os.epoch("utc")) end }
+
+  local menu = configkit.menuColumn(frame, { y = 2, items = items })
+
+  -- Expose the raw Basalt buttons under the item id (backBtn for the back row), matching the old
+  -- element shape the tests + callers use.
+  local elements = {}
+  for id, sw in pairs(menu.buttons) do
+    elements[id == "back" and "backBtn" or id] = sw.button
   end
 
-  -- Back button: positioned after all menu items
-  local backBtn = frame:addButton({
-    x = x,
-    y = y,
-    width = iw,
-    height = 1,
-    text = "< BACK",
-  })
-  backBtn:setEnabled(true)
-  backBtn:onClick(function()
-    M._onButton(nav, "back", os.epoch("utc"))
-  end)
-  elements.backBtn = backBtn
+  -- This menu has no live telemetry; apply() is a no-op. Signature kept consistent with other pages.
+  local function apply(state) end
 
-  -- apply(state): update elements from the canonical flat cadence state. Idempotent -- safe to
-  -- call repeatedly; only ever SETS element props, never polls peripherals (that discipline lives
-  -- in ui/basalt/app.lua's scheduled loops, off this render-gated path).
-  --
-  -- This menu page has no live telemetry values; apply() is a no-op (or trivial
-  -- idempotent refresh). Keep the signature/shape consistent with the other pages.
-  local function apply(state)
-    state = state or {}
-    -- No live state updates needed for this menu page.
-  end
-
-  return {
-    id = M.id,
-    apply = apply,
-    elements = elements,
-  }
+  return { id = M.id, apply = apply, elements = elements }
 end
 
 return M

@@ -15,16 +15,16 @@ local M = {}
 M.COLOR_TO_SLOT = {
   lime = colors.lime, green = colors.green, blue = colors.blue, lightBlue = colors.lightBlue,
   cyan = colors.cyan, magenta = colors.magenta, white = colors.white, gray = colors.lightGray,
-  darkGray = colors.gray, red = colors.red, lightRed = colors.orange, pink = colors.pink,
-  purple = colors.purple, yellow = colors.yellow,
+  darkGray = colors.gray, red = colors.red, orange = colors.orange, lightRed = colors.brown,
+  pink = colors.pink, purple = colors.purple, yellow = colors.yellow,
 }
 
 -- Ordered { key, label } for the pickers (labels are what the user reads).
 M.COLOR_CHOICES = {
   { "lime", "LIME" }, { "green", "GREEN" }, { "blue", "BLUE" }, { "lightBlue", "LIGHT BLUE" },
   { "cyan", "CYAN" }, { "magenta", "MAGENTA" }, { "white", "WHITE" }, { "gray", "GRAY" },
-  { "darkGray", "DARK GRAY" }, { "red", "RED" }, { "lightRed", "LIGHT RED" }, { "pink", "PINK" },
-  { "purple", "PURPLE" }, { "yellow", "YELLOW" },
+  { "darkGray", "DARK GRAY" }, { "red", "RED" }, { "orange", "ORANGE" }, { "lightRed", "LIGHT RED" },
+  { "pink", "PINK" }, { "purple", "PURPLE" }, { "yellow", "YELLOW" },
 }
 
 -- CC:T default RGBs (dan200 Colour.java) -- needed to compute the grayscale colourblind palette.
@@ -36,11 +36,14 @@ M.DEFAULT_RGB = {
   [colors.brown] = 0x7f664c, [colors.green] = 0x57a64e, [colors.red] = 0xcc4c4c, [colors.black] = 0x111111,
 }
 
--- Base palette overrides applied in every mode: recolour the repurposed `orange` slot to a bright
--- "light red" so lightRed is visibly distinct from red (0xcc4c4c).
-M.PALETTE_BASE = { [colors.orange] = 0xff6a6a }
+-- Base palette overrides applied in every mode: recolour the repurposed `brown` slot to a bright
+-- "light red" so lightRed is distinct from red (0xcc4c4c) -- and orange keeps its native slot.
+M.PALETTE_BASE = { [colors.brown] = 0xff6a6a }
 
-M.DEFAULTS = { font = "green", button = "gray", wpt = "yellow", rt = "blue", colorblind = "none" }
+M.DEFAULTS = { font = "green", button = "darkGray", wpt = "yellow", rt = "blue", colorblind = "none" }
+
+-- Disabled/inert buttons carry ORANGE text (enabled buttons use the font colour). Fixed for now.
+M.DISABLED_FG = colors.orange
 
 -- ===== colourblind palette remaps (setPaletteColour slot -> rgb). First pass, refinable: each
 -- deficiency FAMILY gets an appropriate colourblind-safe recolour of the confusable hues using
@@ -105,6 +108,11 @@ function M.resolve(colorsCfg, role)
   return M.COLOR_TO_SLOT[name] or M.COLOR_TO_SLOT[M.DEFAULTS[role]]
 end
 
+-- Live-applied colours (set by applyTheme) so state components (switchbtn) can read the current
+-- font/button colour without per-call plumbing. Falls back to defaults before the first apply.
+local current = nil
+function M.role(role) return M.resolve(current, role) end
+
 -- Merged palette overrides to write (base + the selected colourblind mode).
 function M.paletteFor(colorsCfg)
   colorsCfg = colorsCfg or {}
@@ -121,7 +129,16 @@ function M.buildTheme(colorsCfg)
   local FONT = M.resolve(colorsCfg, "font")
   local BUTTON = M.resolve(colorsCfg, "button")
   local BLACK = colors.black
-  local btn = { background = BUTTON, foreground = FONT, states = { clicked = { background = BUTTON, foreground = FONT } } }
+  -- Enabled buttons: button colour + font colour. DISABLED buttons: same button colour + ORANGE
+  -- text (Basalt's built-in 'disabled' state, top priority) -- so inert buttons read distinctly
+  -- without dimming, and enabled buttons stay the font colour.
+  local btn = {
+    background = BUTTON, foreground = FONT,
+    states = {
+      clicked  = { background = BUTTON, foreground = FONT },
+      disabled = { background = BUTTON, foreground = M.DISABLED_FG },
+    },
+  }
   local container = {
     default = { background = BLACK, foreground = FONT },
     background = BLACK, foreground = FONT,
@@ -144,6 +161,7 @@ end
 -- reached via basalt.getAPI("theme"), NOT as basalt.setTheme. Elements pick the theme up at creation
 -- (applyTheme during init), so call this BEFORE building frames/pages.
 function M.applyTheme(basalt, colorsCfg)
+  current = colorsCfg   -- so M.role(...) reflects the live scheme (switchbtn reads it)
   local api = basalt and basalt.getAPI and basalt.getAPI("theme")
   if api and api.setTheme then api.setTheme(M.buildTheme(colorsCfg)) end
 end

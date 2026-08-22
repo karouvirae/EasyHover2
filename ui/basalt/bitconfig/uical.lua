@@ -441,32 +441,22 @@ function M.build(basalt, frame, runtime, nav, deps)
 
   -- ===== overview screen: DEVICES / FUEL / TIMING + "<" (pops the FRAME-level nav) =====
   local function buildOverview(b, f, region)
-    local fw = ({ f:getSize() })[1]
-    local fx = 2
-    local fiw = math.max(1, fw - 2)
-    local y = 1
-
     local LABELS = { devices = "DEVICES", fuel = "FUEL", timing = "TIMING", settings = "UI SETTINGS" }
-    local catBtns = {}
+    -- Centred menu column, all buttons sized to the widest label ("UI SETTINGS") -- compact + uniform.
+    local items = {}
     for _, cat in ipairs(M.CATEGORIES) do
-      local sw = switchbtn.make(f, {
-        x = fx, y = y, width = fiw, height = 1, text = configkit.fitLabel(LABELS[cat] or cat, fiw),
-      })
-      sw.set("off")
-      sw.button:onClick(function() region:push(cat) end)
-      catBtns[cat] = sw
-      y = y + 1
+      items[#items + 1] = { id = cat, label = LABELS[cat] or cat, onClick = function() region:push(cat) end }
     end
+    items[#items + 1] = { id = "back", label = "< BACK", onClick = function() if nav then nav:pop() end end }
 
-    local backRow = configkit.actionRow(f, { x = fx, y = y, w = fiw }, {
-      { label = "<", onClick = function() if nav then nav:pop() end end },
-    })
+    local menu = configkit.menuColumn(f, { y = 1, items = items })
+    local catBtns = {}
+    for _, cat in ipairs(M.CATEGORIES) do catBtns[cat] = menu.buttons[cat] end
 
-    -- apply(state): overview shows only static category labels + the back row -- nothing here
-    -- tracks live cfg state, so a no-op repaint is all that's needed.
+    -- apply(state): overview is static category labels + the back row -- a no-op repaint suffices.
     local function apply(_state) end
 
-    return { apply = apply, elements = { catBtns = catBtns, backRow = backRow } }
+    return { apply = apply, elements = { catBtns = catBtns, backRow = { buttons = { menu.buttons.back } } } }
   end
 
   -- ===== devices screen: SCAN + RELAY/PUMP/TANK/SIDE pickers + "<" (pops the region's own nav) =====

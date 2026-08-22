@@ -13,6 +13,7 @@
 -- NO peripheral/Basalt access at module LOAD -- everything lives inside M.build/M._onButton/the
 -- apply() closure, so `require("ui.basalt.pages.ap")` loads clean headless.
 local FcsPanel = require("ui.panels.fcs")
+local Theme    = require("ui.theme")
 
 local M = {}
 M.id = "ap"
@@ -120,8 +121,8 @@ function M.build(basalt, frame, runtime)
   -- no live state; a future task wires real A/P flight modes onto this row).
   for _, id in ipairs(PLACEHOLDER_ORDER) do
     local btn = placeholders[id]
-    btn:setBackground(colors.gray)
-    btn:setForeground(colors.lightGray)
+    btn:setBackground(Theme.role("button"))   -- uniform: button colour bg + ORANGE (inert) text
+    btn:setForeground(Theme.DISABLED_FG)
     btn:setEnabled(false)
   end
 
@@ -139,8 +140,10 @@ function M.build(basalt, frame, runtime)
     for _, id in ipairs(CTRL_ORDER) do
       local style = BUTTON_STYLE[btnStates[id]] or BUTTON_STYLE.disabled
       local btn = buttons[id]
-      btn:setBackground(colors[style.bg])
-      btn:setForeground(colors[style.fg])
+      -- Uniform scheme: button colour bg, ORANGE text when inert (disabled), font colour otherwise.
+      -- The state (style.enabled) is still tracked for the next-task state-feedback treatment.
+      btn:setBackground(Theme.role("button"))
+      btn:setForeground(style.enabled == false and Theme.DISABLED_FG or Theme.role("font"))
       btn:setEnabled(style.enabled)
     end
   end

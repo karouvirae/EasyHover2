@@ -123,7 +123,9 @@ t.test("M.build's apply() reflects positionHold state: on -> button green active
     positionHold = true, mode = "FLIGHT", uiRev = 1,
   })
   t.truthy(ok, "apply should not error with positionHold on: " .. tostring(err))
-  t.eq(h.elements.posHoldBtn:getBackground(), colors.green, "posHold green when on")
+  -- Uniform scheme: enabled buttons carry the FONT colour (green) on the button colour; state is no
+  -- longer shown by a green background (a dedicated state-feedback treatment comes later).
+  t.eq(h.elements.posHoldBtn:getForeground(), colors.green, "posHold uses font colour when enabled")
   t.eq(h.elements.posHoldBtn:getEnabled(), true, "posHold enabled when on")
 end)
 
@@ -138,7 +140,7 @@ t.test("M.build's apply() reflects clearDamped active when mode==DAMPED", functi
     positionHold = false, mode = "DAMPED", uiRev = 1,
   })
   t.truthy(ok, "apply should not error with mode==DAMPED: " .. tostring(err))
-  t.eq(h.elements.clrDampBtn:getBackground(), colors.green, "clrDamp green when mode==DAMPED")
+  t.eq(h.elements.clrDampBtn:getForeground(), colors.green, "clrDamp uses font colour when enabled")
   t.eq(h.elements.clrDampBtn:getEnabled(), true, "clrDamp enabled when mode==DAMPED")
 end)
 

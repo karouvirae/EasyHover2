@@ -48,6 +48,7 @@
 -- NO peripheral/Basalt access at module LOAD -- everything lives inside M.main/M.config/M.calfuel/
 -- M._onEngine/M._cfg/M._setMax, so `require("ui.basalt.regions.emc")` loads clean headless.
 local Switch = require("ui.basalt.switchbtn")
+local Theme  = require("ui.theme")
 local Fuel   = require("ui.fuel")
 local Uical  = require("ui.basalt.bitconfig.uical")
 local Config = require("ui.config")
@@ -259,10 +260,11 @@ function M.main(basalt, frame, region, runtime)
     local bound = relayBound(runtime)
     engSw.set(bound and (state.engineMaster and "on" or "off") or "disabled")
 
+    -- PRIME follows the uniform scheme: button colour bg, font colour when enabled, ORANGE when inert.
     local primeEnabled = bound and (state.engineMaster and true or false)
     primeBtn:setEnabled(primeEnabled)
-    primeBtn:setBackground(primeEnabled and colors.lightBlue or colors.gray)
-    primeBtn:setForeground(primeEnabled and colors.black or colors.lightGray)
+    primeBtn:setBackground(Theme.role("button"))
+    primeBtn:setForeground(primeEnabled and Theme.role("font") or Theme.DISABLED_FG)
 
     masterBlock:setBackground(state.engineMaster and colors.green or colors.red)
     masterText:setText(fit(state.engineMaster and "ENG ON" or "ENG OFF", w - 1))
