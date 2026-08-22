@@ -7,7 +7,9 @@
 <rect x="280" y="0" width="14" height="21" fill="#111111"/>
 <rect x="294" y="0" width="70" height="21" fill="#4c4c4c"/>
 <rect x="364" y="0" width="140" height="21" fill="#111111"/>
-<rect x="0" y="21" width="504" height="21" fill="#4c4c4c"/>
+<rect x="0" y="21" width="126" height="21" fill="#111111"/>
+<rect x="126" y="21" width="252" height="21" fill="#4c4c4c"/>
+<rect x="378" y="21" width="126" height="21" fill="#111111"/>
 <rect x="0" y="42" width="504" height="21" fill="#111111"/>
 <rect x="0" y="63" width="504" height="21" fill="#111111"/>
 <rect x="0" y="84" width="504" height="21" fill="#111111"/>
@@ -19,9 +21,9 @@
 <rect x="224" y="168" width="28" height="21" fill="#111111"/>
 <rect x="252" y="168" width="84" height="21" fill="#4c4c4c"/>
 <rect x="336" y="168" width="168" height="21" fill="#111111"/>
-<rect x="0" y="189" width="14" height="21" fill="#111111"/>
-<rect x="14" y="189" width="476" height="21" fill="#4c4c4c"/>
-<rect x="490" y="189" width="14" height="21" fill="#111111"/>
+<rect x="0" y="189" width="154" height="21" fill="#111111"/>
+<rect x="154" y="189" width="196" height="21" fill="#4c4c4c"/>
+<rect x="350" y="189" width="154" height="21" fill="#111111"/>
 <text x="147" y="10.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">W</text>
 <text x="161" y="10.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">P</text>
 <text x="175" y="10.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">T</text>

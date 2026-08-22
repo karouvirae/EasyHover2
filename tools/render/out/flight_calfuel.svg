@@ -1,7 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="504" height="798" viewBox="0 0 504 798" font-family="'DejaVu Sans Mono','Consolas',monospace" shape-rendering="crispEdges">
 <rect x="0" y="0" width="504" height="798" fill="#111111"/>
 <rect x="0" y="0" width="504" height="21" fill="#111111"/>
-<rect x="0" y="21" width="504" height="21" fill="#4c4c4c"/>
+<rect x="0" y="21" width="210" height="21" fill="#111111"/>
+<rect x="210" y="21" width="84" height="21" fill="#4c4c4c"/>
+<rect x="294" y="21" width="210" height="21" fill="#111111"/>
 <rect x="0" y="42" width="504" height="21" fill="#111111"/>
 <rect x="0" y="63" width="196" height="21" fill="#111111"/>
 <rect x="196" y="63" width="42" height="21" fill="#4c4c4c"/>

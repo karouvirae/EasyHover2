@@ -4,9 +4,9 @@
 <rect x="0" y="21" width="210" height="21" fill="#111111"/>
 <rect x="210" y="21" width="84" height="21" fill="#4c4c4c"/>
 <rect x="294" y="21" width="210" height="21" fill="#111111"/>
-<rect x="0" y="42" width="168" height="21" fill="#111111"/>
-<rect x="168" y="42" width="224" height="21" fill="#4c4c4c"/>
-<rect x="392" y="42" width="112" height="21" fill="#111111"/>
+<rect x="0" y="42" width="224" height="21" fill="#111111"/>
+<rect x="224" y="42" width="112" height="21" fill="#4c4c4c"/>
+<rect x="336" y="42" width="168" height="21" fill="#111111"/>
 <rect x="0" y="63" width="504" height="21" fill="#111111"/>
 <rect x="0" y="84" width="154" height="21" fill="#111111"/>
 <rect x="154" y="84" width="84" height="21" fill="#4c4c4c"/>
@@ -81,10 +81,10 @@
 <text x="259" y="31.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">A</text>
 <text x="273" y="31.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">C</text>
 <text x="287" y="31.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">K</text>
-<text x="105" y="52.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">S</text>
-<text x="119" y="52.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">I</text>
-<text x="133" y="52.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">D</text>
-<text x="147" y="52.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">E</text>
+<text x="161" y="52.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">S</text>
+<text x="175" y="52.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">I</text>
+<text x="189" y="52.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">D</text>
+<text x="203" y="52.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">E</text>
 <text x="259" y="52.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">b</text>
 <text x="273" y="52.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">a</text>
 <text x="287" y="52.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">c</text>

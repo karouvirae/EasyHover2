@@ -319,10 +319,15 @@ function M.config(basalt, frame, region, runtime, deps)
   local blockX = math.max(1, math.floor((w - (labelW + 1 + dropW)) / 2) + 1)
   local dropX  = blockX + labelW + 1
 
-  local function pickerRow(labelText, options, current, placeholder, dropdownHeight, onPick)
-    local lbl = frame:addLabel({ x = blockX, y = y, width = labelW, height = 1, autoSize = false, text = labelText })
+  -- dropWidth (optional) overrides the default dropW for short-value pickers (e.g. SIDE, whose values
+  -- are <=6 chars), re-centring that row's own label+dropdown block.
+  local function pickerRow(labelText, options, current, placeholder, dropdownHeight, onPick, dropWidth)
+    local dw = dropWidth or dropW
+    local bx = math.max(1, math.floor((w - (labelW + 1 + dw)) / 2) + 1)
+    local dx = bx + labelW + 1
+    local lbl = frame:addLabel({ x = bx, y = y, width = labelW, height = 1, autoSize = false, text = labelText })
     local picker = Picker.make(frame, {
-      x = dropX, y = y, width = dropW, dropdownHeight = dropdownHeight or 5,
+      x = dx, y = y, width = dw, dropdownHeight = dropdownHeight or 5,
       options = options, current = current, placeholder = placeholder,
       onPick = onPick,
     })
@@ -342,7 +347,7 @@ function M.config(basalt, frame, region, runtime, deps)
     function(value)
       Uical._pickSide(runtime, value, deps)
       bump()
-    end)
+    end, 8)  -- narrow: side values are <= 6 chars
 
   local timingLabel = frame:addLabel({ x = 1, y = y, width = w, height = 1, autoSize = false, text = "" })
   y = y + 1
@@ -445,7 +450,8 @@ function M.calfuel(basalt, frame, region, runtime)
   local w = ({ frame:getSize() })[1]
   local y = 2
 
-  local backBtn = frame:addButton({ x = 1, y = y, width = w, height = 1, text = "< BACK" })
+  local calBackGeo = btnfit.grid({ "< BACK" }, { x0 = 1, availW = w, y0 = y, gap = 1, align = "center" })
+  local backBtn = frame:addButton({ x = calBackGeo[1].x, y = y, width = calBackGeo[1].w, height = 1, text = "< BACK" })
   y = y + 1
 
   -- SOLID group: label, then a decrements row and an increments row (fine +/-1, stack +/-64).

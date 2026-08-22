@@ -14,6 +14,7 @@
 -- apply() closure, so `require("ui.basalt.pages.ap")` loads clean headless.
 local FcsPanel = require("ui.panels.fcs")
 local Theme    = require("ui.theme")
+local btnfit   = require("ui.basalt.btnfit")
 
 local M = {}
 M.id = "ap"
@@ -80,26 +81,20 @@ function M.build(basalt, frame, runtime)
   local x = 2
   local iw = math.max(1, w - 2)
 
-  -- Two full-width control buttons, stacked -- reserve room below for the placeholder MODE row
-  -- (1 line + 1 gap) and an optional status Label.
-  local rows = #CTRL_ORDER
+  -- Control buttons (POS HOLD / CLR DAMP): sized to their label, centred, stacked one per row --
+  -- not full-width tall bars. A blank row separates them from the placeholder MODE row below.
   local ctrlTop = 2
-  local reserved = 2 + 1
-  local ctrlAreaH = h - ctrlTop - reserved
-  if ctrlAreaH < rows then ctrlAreaH = rows end
-  local btnH = math.floor(ctrlAreaH / rows)
-  if btnH < 1 then btnH = 1 end
-
+  local ctrlLabels = {}
+  for i, id in ipairs(CTRL_ORDER) do ctrlLabels[i] = CTRL_LABEL[id] end
+  local ctrlGeo = btnfit.grid(ctrlLabels, { x0 = 1, availW = w, y0 = ctrlTop, perRow = 1, gap = 0, align = "center" })
   local buttons = {}
-  local y = ctrlTop
-  for _, id in ipairs(CTRL_ORDER) do
-    buttons[id] = frame:addButton({ x = x, y = y, width = iw, height = btnH, text = CTRL_LABEL[id] })
-    y = y + btnH
+  for i, id in ipairs(CTRL_ORDER) do
+    buttons[id] = frame:addButton({ x = ctrlGeo[i].x, y = ctrlGeo[i].y, width = ctrlGeo[i].w, height = 1, text = CTRL_LABEL[id] })
   end
 
-  -- Placeholder MODE row: three buttons side-by-side, splitting the interior width (the last one
-  -- absorbs any remainder so the row never overshoots iw).
-  local phTop = y + 1
+  -- Placeholder MODE row: three buttons split across the (narrow, 15-col) interior -- a compact
+  -- label-sized+gapped row would overflow this width, so an even split that exactly fits is tightest.
+  local phTop = ctrlGeo[#ctrlGeo].y + 2
   local phCount = #PLACEHOLDER_ORDER
   local phW = math.max(1, math.floor(iw / phCount))
   local placeholders = {}

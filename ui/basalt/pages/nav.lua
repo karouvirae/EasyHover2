@@ -162,7 +162,10 @@ function M.build(basalt, frame, runtime, nav)
     -- monitor (OUT/FAC/POI truncated to ~T/~C/~I); a single button shows the FULL type name and
     -- clicking cycles all -> base -> outpost -> facility -> poi -> all.
     local FILTER_CYCLE = { "all", "base", "outpost", "facility", "poi" }
-    local filterBtn = f:addButton({ x = 1, y = 2, width = fw, height = 1, text = "FILTER: " .. activeType })
+    -- FILTER: compact, sized to the longest value ("FILTER: facility"), centred.
+    local fbW = math.min(fw, 18)
+    local fbX = math.max(1, math.floor((fw - fbW) / 2) + 1)
+    local filterBtn = f:addButton({ x = fbX, y = 2, width = fbW, height = 1, text = "FILTER: " .. activeType })
     filterBtn:onClick(function()
       local i = 1
       for k, tp in ipairs(FILTER_CYCLE) do if tp == activeType then i = k end end
@@ -417,7 +420,9 @@ function M.build(basalt, frame, runtime, nav)
 
   -- BIT/CONFIG entry (frame-level nav push) -- the NAV page was its only entry; kept reachable at the
   -- bottom row (relocate to CONFIG later if the NAV menu needs the space).
-  local bitconfigBtn = frame:addButton({ x = 2, y = h, width = math.max(1, w - 2), height = 1, text = "[BIT/CONFIG]" })
+  local bcW = math.min(w, #"[BIT/CONFIG]" + 2)   -- compact, centred
+  local bcX = math.max(1, math.floor((w - bcW) / 2) + 1)
+  local bitconfigBtn = frame:addButton({ x = bcX, y = h, width = bcW, height = 1, text = "[BIT/CONFIG]" })
   bitconfigBtn:onClick(function() M._onButton(nav, "bitconfig", os.epoch("utc")) end)
 
   return { id = M.id, apply = function(state) region:apply(state) end,

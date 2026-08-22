@@ -1,7 +1,7 @@
 36 38
 PAL c=ff6a6a
 dddddddddddddddddddddddddddddddddddd	ffffffffffffffffffffffffffffffffffff	32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32
-dddddddddddddddddddddddddddddddddddd	777777777777777777777777777777777777	32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 60 32 66 65 67 75 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32
+dddddddddddddddddddddddddddddddddddd	fffffffffffffff777777fffffffffffffff	32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 60 32 66 65 67 75 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32
 dddddddddddddddddddddddddddddddddddd	ffffffffffffffffffffffffffffffffffff	83 79 76 73 68 32 49 48 48 120 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32
 dddddddddddddddddddddddddddddddddddd	ffffffffffffff777f777fffffffffffffff	32 32 32 32 32 32 32 32 32 32 32 32 32 32 45 54 52 32 45 49 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32
 dddddddddddddddddddddddddddddddddddd	ffffffffffffff777f777fffffffffffffff	32 32 32 32 32 32 32 32 32 32 32 32 32 32 43 49 32 32 43 54 52 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32

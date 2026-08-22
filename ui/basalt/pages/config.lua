@@ -119,9 +119,12 @@ function M.build(basalt, frame, runtime)
   local monPickers = {}
   for _, name in ipairs(monitors) do
     local nameW = math.min(#name + 1, math.max(4, math.floor(iw / 2)))
+    -- Assignment dropdown sized to the page names it shows (emc/fcs/nav/flight/(none) <= ~6 chars),
+    -- not spanning the whole shell width.
+    local assignW = math.min(math.max(4, iw - nameW - 1), 10)
     frame:addLabel({ x = x, y = y, width = nameW, height = 1, autoSize = false, text = name })
     monPickers[name] = Picker.make(frame, {
-      x = x + nameW, y = y, width = math.max(4, iw - nameW),
+      x = x + nameW + 1, y = y, width = assignW,
       options = assignOpts, current = runtime.config.assign[name] or false, placeholder = "(none)",
       onPick = function(value) M._pickAssign(runtime, name, value) end,
     })
