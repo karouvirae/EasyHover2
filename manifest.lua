@@ -1121,9 +1121,9 @@
         },
         {
           ["dst"] = "ui/basalt/switchbtn.lua",
-          ["size"] = 486,
+          ["size"] = 480,
           ["src"] = "dist/ui/basalt/switchbtn.lua",
-          ["sum"] = "ed5e2486",
+          ["sum"] = "b1811000",
         },
         {
           ["dst"] = "ui/basalt/uilog.lua",
@@ -1367,5 +1367,5 @@
     ["size"] = 71434,
     ["sum"] = "57671ad7",
   },
-  ["version"] = "7381e68c",
+  ["version"] = "c0950ab6",
 }

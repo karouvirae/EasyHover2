@@ -20,7 +20,7 @@
 <rect x="0" y="147" width="504" height="21" fill="#111111"/>
 <rect x="0" y="168" width="504" height="21" fill="#111111"/>
 <rect x="0" y="189" width="14" height="21" fill="#111111"/>
-<rect x="14" y="189" width="476" height="21" fill="#cc4c4c"/>
+<rect x="14" y="189" width="476" height="21" fill="#999999"/>
 <rect x="490" y="189" width="14" height="21" fill="#111111"/>
 <text x="21" y="31.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">U</text>
 <text x="35" y="31.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">I</text>
@@ -89,5 +89,5 @@
 <text x="385" y="136.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">O</text>
 <text x="399" y="136.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">N</text>
 <text x="413" y="136.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">E</text>
-<text x="245" y="199.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">&lt;</text>
+<text x="245" y="199.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">&lt;</text>
 </svg>

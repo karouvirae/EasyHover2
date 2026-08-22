@@ -10,7 +10,7 @@
 <rect x="14" y="84" width="406" height="21" fill="#4c4c4c"/>
 <rect x="420" y="84" width="84" height="21" fill="#111111"/>
 <rect x="0" y="105" width="154" height="21" fill="#111111"/>
-<rect x="154" y="105" width="84" height="21" fill="#cc4c4c"/>
+<rect x="154" y="105" width="84" height="21" fill="#999999"/>
 <rect x="238" y="105" width="14" height="21" fill="#111111"/>
 <rect x="252" y="105" width="84" height="21" fill="#4c4c4c"/>
 <rect x="336" y="105" width="168" height="21" fill="#111111"/>
@@ -78,11 +78,11 @@
 <text x="217" y="73.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">L</text>
 <text x="483" y="94.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">0</text>
 <text x="497" y="94.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">B</text>
-<text x="161" y="115.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">E</text>
-<text x="175" y="115.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">N</text>
-<text x="189" y="115.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">G</text>
-<text x="217" y="115.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">S</text>
-<text x="231" y="115.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">W</text>
+<text x="161" y="115.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">E</text>
+<text x="175" y="115.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">N</text>
+<text x="189" y="115.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">G</text>
+<text x="217" y="115.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">S</text>
+<text x="231" y="115.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">W</text>
 <text x="259" y="115.5" fill="#999999" font-size="17" text-anchor="middle" dominant-baseline="central">P</text>
 <text x="273" y="115.5" fill="#999999" font-size="17" text-anchor="middle" dominant-baseline="central">R</text>
 <text x="287" y="115.5" fill="#999999" font-size="17" text-anchor="middle" dominant-baseline="central">I</text>

@@ -1,4 +1,4 @@
-<title>Cockpit Panel Gallery</title>
+<title>Cockpit Colour Redesign</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
@@ -48,10 +48,11 @@
     cues coloured <b>yellow (WPT)</b> / <b>blue (route)</b> — all editable in the new
     <b>UI CAL ▸ UI SETTINGS</b> submenu (font / button / NAV WPT / NAV RT / colourblind), persisted to
     config. Defaults shown here: green / gray / yellow / blue / no colourblind.</p>
-  <p class="lede"><b>State feedback is preserved</b> — the red/green switch buttons (ENG SW, mode
-    select) still carry their state; a separate state-feedback treatment comes later. Panels render at
-    <b><code>default / unbound</code></b> state, so values are placeholders — layout, chrome, and
-    colour are exact.</p>
+  <p class="lede"><b>Every label is the font colour</b> and every button (including the switch buttons —
+    ENG SW, mode select) is the button colour, for one uniform look. Their on/off/disabled <b>state is
+    still tracked in code</b> — a dedicated state-feedback treatment comes in the next task. Panels
+    render at <b><code>default / unbound</code></b> state, so values are placeholders — layout, chrome,
+    and colour are exact.</p>
 
     <section class="group">
       <header class="grouphd">
@@ -176,7 +177,7 @@
 <rect x="14" y="84" width="406" height="21" fill="#4c4c4c"/>
 <rect x="420" y="84" width="84" height="21" fill="#111111"/>
 <rect x="0" y="105" width="154" height="21" fill="#111111"/>
-<rect x="154" y="105" width="84" height="21" fill="#cc4c4c"/>
+<rect x="154" y="105" width="84" height="21" fill="#999999"/>
 <rect x="238" y="105" width="14" height="21" fill="#111111"/>
 <rect x="252" y="105" width="84" height="21" fill="#4c4c4c"/>
 <rect x="336" y="105" width="168" height="21" fill="#111111"/>
@@ -193,27 +194,27 @@
 <rect x="0" y="336" width="504" height="21" fill="#111111"/>
 <rect x="0" y="357" width="504" height="21" fill="#111111"/>
 <rect x="0" y="378" width="154" height="21" fill="#111111"/>
-<rect x="154" y="378" width="56" height="21" fill="#cc4c4c"/>
+<rect x="154" y="378" width="56" height="21" fill="#999999"/>
 <rect x="210" y="378" width="14" height="21" fill="#111111"/>
-<rect x="224" y="378" width="56" height="21" fill="#cc4c4c"/>
+<rect x="224" y="378" width="56" height="21" fill="#999999"/>
 <rect x="280" y="378" width="14" height="21" fill="#111111"/>
 <rect x="294" y="378" width="56" height="21" fill="#999999"/>
 <rect x="350" y="378" width="154" height="21" fill="#111111"/>
 <rect x="0" y="399" width="504" height="21" fill="#111111"/>
 <rect x="0" y="420" width="154" height="21" fill="#111111"/>
-<rect x="154" y="420" width="56" height="21" fill="#cc4c4c"/>
+<rect x="154" y="420" width="56" height="21" fill="#999999"/>
 <rect x="210" y="420" width="14" height="21" fill="#111111"/>
-<rect x="224" y="420" width="56" height="21" fill="#cc4c4c"/>
+<rect x="224" y="420" width="56" height="21" fill="#999999"/>
 <rect x="280" y="420" width="14" height="21" fill="#111111"/>
-<rect x="294" y="420" width="56" height="21" fill="#cc4c4c"/>
+<rect x="294" y="420" width="56" height="21" fill="#999999"/>
 <rect x="350" y="420" width="154" height="21" fill="#111111"/>
 <rect x="0" y="441" width="182" height="21" fill="#111111"/>
-<rect x="182" y="441" width="56" height="21" fill="#cc4c4c"/>
+<rect x="182" y="441" width="56" height="21" fill="#999999"/>
 <rect x="238" y="441" width="14" height="21" fill="#111111"/>
-<rect x="252" y="441" width="56" height="21" fill="#cc4c4c"/>
+<rect x="252" y="441" width="56" height="21" fill="#999999"/>
 <rect x="308" y="441" width="196" height="21" fill="#111111"/>
 <rect x="0" y="462" width="196" height="21" fill="#111111"/>
-<rect x="196" y="462" width="98" height="21" fill="#4c4c4c"/>
+<rect x="196" y="462" width="98" height="21" fill="#999999"/>
 <rect x="294" y="462" width="210" height="21" fill="#111111"/>
 <rect x="0" y="483" width="504" height="21" fill="#111111"/>
 <rect x="0" y="504" width="504" height="21" fill="#111111"/>
@@ -260,11 +261,11 @@
 <text x="217" y="73.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">L</text>
 <text x="483" y="94.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">0</text>
 <text x="497" y="94.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">B</text>
-<text x="161" y="115.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">E</text>
-<text x="175" y="115.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">N</text>
-<text x="189" y="115.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">G</text>
-<text x="217" y="115.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">S</text>
-<text x="231" y="115.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">W</text>
+<text x="161" y="115.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">E</text>
+<text x="175" y="115.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">N</text>
+<text x="189" y="115.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">G</text>
+<text x="217" y="115.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">S</text>
+<text x="231" y="115.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">W</text>
 <text x="259" y="115.5" fill="#999999" font-size="17" text-anchor="middle" dominant-baseline="central">P</text>
 <text x="273" y="115.5" fill="#999999" font-size="17" text-anchor="middle" dominant-baseline="central">R</text>
 <text x="287" y="115.5" fill="#999999" font-size="17" text-anchor="middle" dominant-baseline="central">I</text>
@@ -288,38 +289,38 @@
 <text x="259" y="199.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">F</text>
 <text x="273" y="199.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">I</text>
 <text x="287" y="199.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">G</text>
-<text x="161" y="388.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">F</text>
-<text x="175" y="388.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">C</text>
-<text x="189" y="388.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">S</text>
-<text x="231" y="388.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">G</text>
-<text x="245" y="388.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">N</text>
-<text x="259" y="388.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">D</text>
+<text x="161" y="388.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">F</text>
+<text x="175" y="388.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">C</text>
+<text x="189" y="388.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">S</text>
+<text x="231" y="388.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">G</text>
+<text x="245" y="388.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">N</text>
+<text x="259" y="388.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">D</text>
 <text x="301" y="388.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">P</text>
 <text x="315" y="388.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">A</text>
 <text x="329" y="388.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">R</text>
 <text x="343" y="388.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">M</text>
-<text x="161" y="430.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">P</text>
-<text x="175" y="430.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">R</text>
-<text x="189" y="430.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">E</text>
-<text x="231" y="430.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">M</text>
-<text x="245" y="430.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">A</text>
-<text x="259" y="430.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">N</text>
-<text x="301" y="430.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">C</text>
-<text x="315" y="430.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">R</text>
-<text x="329" y="430.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">U</text>
-<text x="189" y="451.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">C</text>
-<text x="203" y="451.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">P</text>
-<text x="217" y="451.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">L</text>
-<text x="259" y="451.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">D</text>
-<text x="273" y="451.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">C</text>
-<text x="287" y="451.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">P</text>
-<text x="301" y="451.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">L</text>
-<text x="203" y="472.5" fill="#999999" font-size="17" text-anchor="middle" dominant-baseline="central">T</text>
-<text x="217" y="472.5" fill="#999999" font-size="17" text-anchor="middle" dominant-baseline="central">R</text>
-<text x="231" y="472.5" fill="#999999" font-size="17" text-anchor="middle" dominant-baseline="central">I</text>
-<text x="245" y="472.5" fill="#999999" font-size="17" text-anchor="middle" dominant-baseline="central">M</text>
-<text x="273" y="472.5" fill="#999999" font-size="17" text-anchor="middle" dominant-baseline="central">-</text>
-<text x="287" y="472.5" fill="#999999" font-size="17" text-anchor="middle" dominant-baseline="central">-</text>
+<text x="161" y="430.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">P</text>
+<text x="175" y="430.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">R</text>
+<text x="189" y="430.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">E</text>
+<text x="231" y="430.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">M</text>
+<text x="245" y="430.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">A</text>
+<text x="259" y="430.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">N</text>
+<text x="301" y="430.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">C</text>
+<text x="315" y="430.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">R</text>
+<text x="329" y="430.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">U</text>
+<text x="189" y="451.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">C</text>
+<text x="203" y="451.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">P</text>
+<text x="217" y="451.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">L</text>
+<text x="259" y="451.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">D</text>
+<text x="273" y="451.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">C</text>
+<text x="287" y="451.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">P</text>
+<text x="301" y="451.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">L</text>
+<text x="203" y="472.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">T</text>
+<text x="217" y="472.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">R</text>
+<text x="231" y="472.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">I</text>
+<text x="245" y="472.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">M</text>
+<text x="273" y="472.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">-</text>
+<text x="287" y="472.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">-</text>
 </svg></div>
         <figcaption>FLIGHT — EMC over FCS</figcaption>
       </figure>
@@ -349,27 +350,27 @@
 <rect x="0" y="336" width="504" height="21" fill="#111111"/>
 <rect x="0" y="357" width="504" height="21" fill="#111111"/>
 <rect x="0" y="378" width="154" height="21" fill="#111111"/>
-<rect x="154" y="378" width="56" height="21" fill="#cc4c4c"/>
+<rect x="154" y="378" width="56" height="21" fill="#999999"/>
 <rect x="210" y="378" width="14" height="21" fill="#111111"/>
-<rect x="224" y="378" width="56" height="21" fill="#cc4c4c"/>
+<rect x="224" y="378" width="56" height="21" fill="#999999"/>
 <rect x="280" y="378" width="14" height="21" fill="#111111"/>
 <rect x="294" y="378" width="56" height="21" fill="#999999"/>
 <rect x="350" y="378" width="154" height="21" fill="#111111"/>
 <rect x="0" y="399" width="504" height="21" fill="#111111"/>
 <rect x="0" y="420" width="154" height="21" fill="#111111"/>
-<rect x="154" y="420" width="56" height="21" fill="#cc4c4c"/>
+<rect x="154" y="420" width="56" height="21" fill="#999999"/>
 <rect x="210" y="420" width="14" height="21" fill="#111111"/>
-<rect x="224" y="420" width="56" height="21" fill="#cc4c4c"/>
+<rect x="224" y="420" width="56" height="21" fill="#999999"/>
 <rect x="280" y="420" width="14" height="21" fill="#111111"/>
-<rect x="294" y="420" width="56" height="21" fill="#cc4c4c"/>
+<rect x="294" y="420" width="56" height="21" fill="#999999"/>
 <rect x="350" y="420" width="154" height="21" fill="#111111"/>
 <rect x="0" y="441" width="182" height="21" fill="#111111"/>
-<rect x="182" y="441" width="56" height="21" fill="#cc4c4c"/>
+<rect x="182" y="441" width="56" height="21" fill="#999999"/>
 <rect x="238" y="441" width="14" height="21" fill="#111111"/>
-<rect x="252" y="441" width="56" height="21" fill="#cc4c4c"/>
+<rect x="252" y="441" width="56" height="21" fill="#999999"/>
 <rect x="308" y="441" width="196" height="21" fill="#111111"/>
 <rect x="0" y="462" width="196" height="21" fill="#111111"/>
-<rect x="196" y="462" width="98" height="21" fill="#4c4c4c"/>
+<rect x="196" y="462" width="98" height="21" fill="#999999"/>
 <rect x="294" y="462" width="210" height="21" fill="#111111"/>
 <rect x="0" y="483" width="504" height="21" fill="#111111"/>
 <rect x="0" y="504" width="504" height="21" fill="#111111"/>
@@ -478,38 +479,38 @@
 <text x="273" y="220.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">U</text>
 <text x="287" y="220.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">E</text>
 <text x="301" y="220.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">L</text>
-<text x="161" y="388.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">F</text>
-<text x="175" y="388.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">C</text>
-<text x="189" y="388.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">S</text>
-<text x="231" y="388.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">G</text>
-<text x="245" y="388.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">N</text>
-<text x="259" y="388.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">D</text>
+<text x="161" y="388.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">F</text>
+<text x="175" y="388.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">C</text>
+<text x="189" y="388.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">S</text>
+<text x="231" y="388.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">G</text>
+<text x="245" y="388.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">N</text>
+<text x="259" y="388.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">D</text>
 <text x="301" y="388.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">P</text>
 <text x="315" y="388.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">A</text>
 <text x="329" y="388.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">R</text>
 <text x="343" y="388.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">M</text>
-<text x="161" y="430.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">P</text>
-<text x="175" y="430.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">R</text>
-<text x="189" y="430.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">E</text>
-<text x="231" y="430.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">M</text>
-<text x="245" y="430.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">A</text>
-<text x="259" y="430.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">N</text>
-<text x="301" y="430.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">C</text>
-<text x="315" y="430.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">R</text>
-<text x="329" y="430.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">U</text>
-<text x="189" y="451.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">C</text>
-<text x="203" y="451.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">P</text>
-<text x="217" y="451.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">L</text>
-<text x="259" y="451.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">D</text>
-<text x="273" y="451.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">C</text>
-<text x="287" y="451.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">P</text>
-<text x="301" y="451.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">L</text>
-<text x="203" y="472.5" fill="#999999" font-size="17" text-anchor="middle" dominant-baseline="central">T</text>
-<text x="217" y="472.5" fill="#999999" font-size="17" text-anchor="middle" dominant-baseline="central">R</text>
-<text x="231" y="472.5" fill="#999999" font-size="17" text-anchor="middle" dominant-baseline="central">I</text>
-<text x="245" y="472.5" fill="#999999" font-size="17" text-anchor="middle" dominant-baseline="central">M</text>
-<text x="273" y="472.5" fill="#999999" font-size="17" text-anchor="middle" dominant-baseline="central">-</text>
-<text x="287" y="472.5" fill="#999999" font-size="17" text-anchor="middle" dominant-baseline="central">-</text>
+<text x="161" y="430.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">P</text>
+<text x="175" y="430.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">R</text>
+<text x="189" y="430.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">E</text>
+<text x="231" y="430.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">M</text>
+<text x="245" y="430.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">A</text>
+<text x="259" y="430.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">N</text>
+<text x="301" y="430.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">C</text>
+<text x="315" y="430.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">R</text>
+<text x="329" y="430.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">U</text>
+<text x="189" y="451.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">C</text>
+<text x="203" y="451.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">P</text>
+<text x="217" y="451.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">L</text>
+<text x="259" y="451.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">D</text>
+<text x="273" y="451.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">C</text>
+<text x="287" y="451.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">P</text>
+<text x="301" y="451.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">L</text>
+<text x="203" y="472.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">T</text>
+<text x="217" y="472.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">R</text>
+<text x="231" y="472.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">I</text>
+<text x="245" y="472.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">M</text>
+<text x="273" y="472.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">-</text>
+<text x="287" y="472.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">-</text>
 </svg></div>
         <figcaption>Engine config ▸ EMC region</figcaption>
       </figure>
@@ -555,27 +556,27 @@
 <rect x="0" y="336" width="504" height="21" fill="#111111"/>
 <rect x="0" y="357" width="504" height="21" fill="#111111"/>
 <rect x="0" y="378" width="154" height="21" fill="#111111"/>
-<rect x="154" y="378" width="56" height="21" fill="#cc4c4c"/>
+<rect x="154" y="378" width="56" height="21" fill="#999999"/>
 <rect x="210" y="378" width="14" height="21" fill="#111111"/>
-<rect x="224" y="378" width="56" height="21" fill="#cc4c4c"/>
+<rect x="224" y="378" width="56" height="21" fill="#999999"/>
 <rect x="280" y="378" width="14" height="21" fill="#111111"/>
 <rect x="294" y="378" width="56" height="21" fill="#999999"/>
 <rect x="350" y="378" width="154" height="21" fill="#111111"/>
 <rect x="0" y="399" width="504" height="21" fill="#111111"/>
 <rect x="0" y="420" width="154" height="21" fill="#111111"/>
-<rect x="154" y="420" width="56" height="21" fill="#cc4c4c"/>
+<rect x="154" y="420" width="56" height="21" fill="#999999"/>
 <rect x="210" y="420" width="14" height="21" fill="#111111"/>
-<rect x="224" y="420" width="56" height="21" fill="#cc4c4c"/>
+<rect x="224" y="420" width="56" height="21" fill="#999999"/>
 <rect x="280" y="420" width="14" height="21" fill="#111111"/>
-<rect x="294" y="420" width="56" height="21" fill="#cc4c4c"/>
+<rect x="294" y="420" width="56" height="21" fill="#999999"/>
 <rect x="350" y="420" width="154" height="21" fill="#111111"/>
 <rect x="0" y="441" width="182" height="21" fill="#111111"/>
-<rect x="182" y="441" width="56" height="21" fill="#cc4c4c"/>
+<rect x="182" y="441" width="56" height="21" fill="#999999"/>
 <rect x="238" y="441" width="14" height="21" fill="#111111"/>
-<rect x="252" y="441" width="56" height="21" fill="#cc4c4c"/>
+<rect x="252" y="441" width="56" height="21" fill="#999999"/>
 <rect x="308" y="441" width="196" height="21" fill="#111111"/>
 <rect x="0" y="462" width="196" height="21" fill="#111111"/>
-<rect x="196" y="462" width="98" height="21" fill="#4c4c4c"/>
+<rect x="196" y="462" width="98" height="21" fill="#999999"/>
 <rect x="294" y="462" width="210" height="21" fill="#111111"/>
 <rect x="0" y="483" width="504" height="21" fill="#111111"/>
 <rect x="0" y="504" width="504" height="21" fill="#111111"/>
@@ -639,38 +640,38 @@
 <text x="315" y="178.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">1</text>
 <text x="329" y="178.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">0</text>
 <text x="343" y="178.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">0</text>
-<text x="161" y="388.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">F</text>
-<text x="175" y="388.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">C</text>
-<text x="189" y="388.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">S</text>
-<text x="231" y="388.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">G</text>
-<text x="245" y="388.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">N</text>
-<text x="259" y="388.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">D</text>
+<text x="161" y="388.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">F</text>
+<text x="175" y="388.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">C</text>
+<text x="189" y="388.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">S</text>
+<text x="231" y="388.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">G</text>
+<text x="245" y="388.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">N</text>
+<text x="259" y="388.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">D</text>
 <text x="301" y="388.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">P</text>
 <text x="315" y="388.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">A</text>
 <text x="329" y="388.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">R</text>
 <text x="343" y="388.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">M</text>
-<text x="161" y="430.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">P</text>
-<text x="175" y="430.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">R</text>
-<text x="189" y="430.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">E</text>
-<text x="231" y="430.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">M</text>
-<text x="245" y="430.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">A</text>
-<text x="259" y="430.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">N</text>
-<text x="301" y="430.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">C</text>
-<text x="315" y="430.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">R</text>
-<text x="329" y="430.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">U</text>
-<text x="189" y="451.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">C</text>
-<text x="203" y="451.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">P</text>
-<text x="217" y="451.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">L</text>
-<text x="259" y="451.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">D</text>
-<text x="273" y="451.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">C</text>
-<text x="287" y="451.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">P</text>
-<text x="301" y="451.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">L</text>
-<text x="203" y="472.5" fill="#999999" font-size="17" text-anchor="middle" dominant-baseline="central">T</text>
-<text x="217" y="472.5" fill="#999999" font-size="17" text-anchor="middle" dominant-baseline="central">R</text>
-<text x="231" y="472.5" fill="#999999" font-size="17" text-anchor="middle" dominant-baseline="central">I</text>
-<text x="245" y="472.5" fill="#999999" font-size="17" text-anchor="middle" dominant-baseline="central">M</text>
-<text x="273" y="472.5" fill="#999999" font-size="17" text-anchor="middle" dominant-baseline="central">-</text>
-<text x="287" y="472.5" fill="#999999" font-size="17" text-anchor="middle" dominant-baseline="central">-</text>
+<text x="161" y="430.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">P</text>
+<text x="175" y="430.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">R</text>
+<text x="189" y="430.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">E</text>
+<text x="231" y="430.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">M</text>
+<text x="245" y="430.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">A</text>
+<text x="259" y="430.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">N</text>
+<text x="301" y="430.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">C</text>
+<text x="315" y="430.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">R</text>
+<text x="329" y="430.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">U</text>
+<text x="189" y="451.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">C</text>
+<text x="203" y="451.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">P</text>
+<text x="217" y="451.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">L</text>
+<text x="259" y="451.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">D</text>
+<text x="273" y="451.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">C</text>
+<text x="287" y="451.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">P</text>
+<text x="301" y="451.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">L</text>
+<text x="203" y="472.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">T</text>
+<text x="217" y="472.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">R</text>
+<text x="231" y="472.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">I</text>
+<text x="245" y="472.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">M</text>
+<text x="273" y="472.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">-</text>
+<text x="287" y="472.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">-</text>
 </svg></div>
         <figcaption>Fuel calibration ▸ EMC region</figcaption>
       </figure>
@@ -687,7 +688,7 @@
 <rect x="14" y="84" width="406" height="21" fill="#4c4c4c"/>
 <rect x="420" y="84" width="84" height="21" fill="#111111"/>
 <rect x="0" y="105" width="154" height="21" fill="#111111"/>
-<rect x="154" y="105" width="84" height="21" fill="#cc4c4c"/>
+<rect x="154" y="105" width="84" height="21" fill="#999999"/>
 <rect x="238" y="105" width="14" height="21" fill="#111111"/>
 <rect x="252" y="105" width="84" height="21" fill="#4c4c4c"/>
 <rect x="336" y="105" width="168" height="21" fill="#111111"/>
@@ -755,11 +756,11 @@
 <text x="217" y="73.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">L</text>
 <text x="483" y="94.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">0</text>
 <text x="497" y="94.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">B</text>
-<text x="161" y="115.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">E</text>
-<text x="175" y="115.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">N</text>
-<text x="189" y="115.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">G</text>
-<text x="217" y="115.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">S</text>
-<text x="231" y="115.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">W</text>
+<text x="161" y="115.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">E</text>
+<text x="175" y="115.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">N</text>
+<text x="189" y="115.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">G</text>
+<text x="217" y="115.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">S</text>
+<text x="231" y="115.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">W</text>
 <text x="259" y="115.5" fill="#999999" font-size="17" text-anchor="middle" dominant-baseline="central">P</text>
 <text x="273" y="115.5" fill="#999999" font-size="17" text-anchor="middle" dominant-baseline="central">R</text>
 <text x="287" y="115.5" fill="#999999" font-size="17" text-anchor="middle" dominant-baseline="central">I</text>
@@ -839,11 +840,11 @@
       <figure class="card">
         <div class="screen"><svg xmlns="http://www.w3.org/2000/svg" width="504" height="210" viewBox="0 0 504 210" font-family="'DejaVu Sans Mono','Consolas',monospace" shape-rendering="crispEdges">
 <rect x="0" y="0" width="504" height="210" fill="#111111"/>
-<rect x="0" y="0" width="168" height="21" fill="#cc4c4c"/>
+<rect x="0" y="0" width="168" height="21" fill="#999999"/>
 <rect x="168" y="0" width="14" height="21" fill="#111111"/>
-<rect x="182" y="0" width="154" height="21" fill="#cc4c4c"/>
+<rect x="182" y="0" width="154" height="21" fill="#999999"/>
 <rect x="336" y="0" width="14" height="21" fill="#111111"/>
-<rect x="350" y="0" width="154" height="21" fill="#cc4c4c"/>
+<rect x="350" y="0" width="154" height="21" fill="#999999"/>
 <rect x="0" y="21" width="504" height="21" fill="#999999"/>
 <rect x="0" y="42" width="504" height="21" fill="#111111"/>
 <rect x="0" y="63" width="504" height="21" fill="#111111"/>
@@ -855,14 +856,14 @@
 <rect x="0" y="189" width="14" height="21" fill="#111111"/>
 <rect x="14" y="189" width="476" height="21" fill="#999999"/>
 <rect x="490" y="189" width="14" height="21" fill="#111111"/>
-<text x="63" y="10.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">W</text>
-<text x="77" y="10.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">P</text>
-<text x="91" y="10.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">T</text>
-<text x="245" y="10.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">R</text>
-<text x="259" y="10.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">T</text>
-<text x="413" y="10.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">D</text>
-<text x="427" y="10.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">T</text>
-<text x="441" y="10.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">C</text>
+<text x="63" y="10.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">W</text>
+<text x="77" y="10.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">P</text>
+<text x="91" y="10.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">T</text>
+<text x="245" y="10.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">R</text>
+<text x="259" y="10.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">T</text>
+<text x="413" y="10.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">D</text>
+<text x="427" y="10.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">T</text>
+<text x="441" y="10.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">C</text>
 <text x="175" y="31.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">F</text>
 <text x="189" y="31.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">I</text>
 <text x="203" y="31.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">L</text>
@@ -995,25 +996,25 @@
 <rect x="0" y="0" width="504" height="21" fill="#111111"/>
 <rect x="0" y="21" width="504" height="21" fill="#111111"/>
 <rect x="0" y="42" width="14" height="21" fill="#111111"/>
-<rect x="14" y="42" width="476" height="21" fill="#cc4c4c"/>
+<rect x="14" y="42" width="476" height="21" fill="#999999"/>
 <rect x="490" y="42" width="14" height="21" fill="#111111"/>
 <rect x="0" y="63" width="14" height="21" fill="#111111"/>
-<rect x="14" y="63" width="476" height="21" fill="#cc4c4c"/>
+<rect x="14" y="63" width="476" height="21" fill="#999999"/>
 <rect x="490" y="63" width="14" height="21" fill="#111111"/>
 <rect x="0" y="84" width="14" height="21" fill="#111111"/>
-<rect x="14" y="84" width="476" height="21" fill="#cc4c4c"/>
+<rect x="14" y="84" width="476" height="21" fill="#999999"/>
 <rect x="490" y="84" width="14" height="21" fill="#111111"/>
 <rect x="0" y="105" width="14" height="21" fill="#111111"/>
-<rect x="14" y="105" width="476" height="21" fill="#cc4c4c"/>
+<rect x="14" y="105" width="476" height="21" fill="#999999"/>
 <rect x="490" y="105" width="14" height="21" fill="#111111"/>
 <rect x="0" y="126" width="14" height="21" fill="#111111"/>
-<rect x="14" y="126" width="476" height="21" fill="#cc4c4c"/>
+<rect x="14" y="126" width="476" height="21" fill="#999999"/>
 <rect x="490" y="126" width="14" height="21" fill="#111111"/>
 <rect x="0" y="147" width="14" height="21" fill="#111111"/>
-<rect x="14" y="147" width="476" height="21" fill="#cc4c4c"/>
+<rect x="14" y="147" width="476" height="21" fill="#999999"/>
 <rect x="490" y="147" width="14" height="21" fill="#111111"/>
 <rect x="0" y="168" width="14" height="21" fill="#111111"/>
-<rect x="14" y="168" width="476" height="21" fill="#cc4c4c"/>
+<rect x="14" y="168" width="476" height="21" fill="#999999"/>
 <rect x="490" y="168" width="14" height="21" fill="#111111"/>
 <rect x="0" y="189" width="504" height="21" fill="#111111"/>
 <text x="21" y="31.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">F</text>
@@ -1025,36 +1026,36 @@
 <text x="119" y="31.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">I</text>
 <text x="133" y="31.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">N</text>
 <text x="147" y="31.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">G</text>
-<text x="189" y="52.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">P</text>
-<text x="203" y="52.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">R</text>
-<text x="217" y="52.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">E</text>
-<text x="231" y="52.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">C</text>
-<text x="245" y="52.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">I</text>
-<text x="259" y="52.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">S</text>
-<text x="273" y="52.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">I</text>
-<text x="287" y="52.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">O</text>
-<text x="301" y="52.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">N</text>
-<text x="231" y="73.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">M</text>
-<text x="245" y="73.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">A</text>
-<text x="259" y="73.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">N</text>
-<text x="217" y="94.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">C</text>
-<text x="231" y="94.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">R</text>
-<text x="245" y="94.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">U</text>
-<text x="259" y="94.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">I</text>
-<text x="273" y="94.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">S</text>
-<text x="287" y="94.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">E</text>
-<text x="231" y="115.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">C</text>
-<text x="245" y="115.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">P</text>
-<text x="259" y="115.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">L</text>
-<text x="231" y="136.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">D</text>
-<text x="245" y="136.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">C</text>
-<text x="259" y="136.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">P</text>
-<text x="273" y="136.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">L</text>
-<text x="231" y="157.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">C</text>
-<text x="245" y="157.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">O</text>
-<text x="259" y="157.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">M</text>
-<text x="133" y="178.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">?</text>
-<text x="371" y="178.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">&lt;</text>
+<text x="189" y="52.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">P</text>
+<text x="203" y="52.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">R</text>
+<text x="217" y="52.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">E</text>
+<text x="231" y="52.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">C</text>
+<text x="245" y="52.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">I</text>
+<text x="259" y="52.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">S</text>
+<text x="273" y="52.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">I</text>
+<text x="287" y="52.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">O</text>
+<text x="301" y="52.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">N</text>
+<text x="231" y="73.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">M</text>
+<text x="245" y="73.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">A</text>
+<text x="259" y="73.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">N</text>
+<text x="217" y="94.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">C</text>
+<text x="231" y="94.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">R</text>
+<text x="245" y="94.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">U</text>
+<text x="259" y="94.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">I</text>
+<text x="273" y="94.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">S</text>
+<text x="287" y="94.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">E</text>
+<text x="231" y="115.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">C</text>
+<text x="245" y="115.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">P</text>
+<text x="259" y="115.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">L</text>
+<text x="231" y="136.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">D</text>
+<text x="245" y="136.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">C</text>
+<text x="259" y="136.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">P</text>
+<text x="273" y="136.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">L</text>
+<text x="231" y="157.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">C</text>
+<text x="245" y="157.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">O</text>
+<text x="259" y="157.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">M</text>
+<text x="133" y="178.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">?</text>
+<text x="371" y="178.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">&lt;</text>
 </svg></div>
         <figcaption>FCS TUNING</figcaption>
       </figure>
@@ -1064,25 +1065,25 @@
 <rect x="0" y="0" width="504" height="21" fill="#111111"/>
 <rect x="0" y="21" width="504" height="21" fill="#111111"/>
 <rect x="0" y="42" width="14" height="21" fill="#111111"/>
-<rect x="14" y="42" width="476" height="21" fill="#cc4c4c"/>
+<rect x="14" y="42" width="476" height="21" fill="#999999"/>
 <rect x="490" y="42" width="14" height="21" fill="#111111"/>
 <rect x="0" y="63" width="14" height="21" fill="#111111"/>
-<rect x="14" y="63" width="476" height="21" fill="#cc4c4c"/>
+<rect x="14" y="63" width="476" height="21" fill="#999999"/>
 <rect x="490" y="63" width="14" height="21" fill="#111111"/>
 <rect x="0" y="84" width="14" height="21" fill="#111111"/>
-<rect x="14" y="84" width="476" height="21" fill="#cc4c4c"/>
+<rect x="14" y="84" width="476" height="21" fill="#999999"/>
 <rect x="490" y="84" width="14" height="21" fill="#111111"/>
 <rect x="0" y="105" width="14" height="21" fill="#111111"/>
-<rect x="14" y="105" width="476" height="21" fill="#cc4c4c"/>
+<rect x="14" y="105" width="476" height="21" fill="#999999"/>
 <rect x="490" y="105" width="14" height="21" fill="#111111"/>
 <rect x="0" y="126" width="14" height="21" fill="#111111"/>
-<rect x="14" y="126" width="476" height="21" fill="#cc4c4c"/>
+<rect x="14" y="126" width="476" height="21" fill="#999999"/>
 <rect x="490" y="126" width="14" height="21" fill="#111111"/>
 <rect x="0" y="147" width="14" height="21" fill="#111111"/>
-<rect x="14" y="147" width="476" height="21" fill="#cc4c4c"/>
+<rect x="14" y="147" width="476" height="21" fill="#999999"/>
 <rect x="490" y="147" width="14" height="21" fill="#111111"/>
 <rect x="0" y="168" width="14" height="21" fill="#111111"/>
-<rect x="14" y="168" width="476" height="21" fill="#cc4c4c"/>
+<rect x="14" y="168" width="476" height="21" fill="#999999"/>
 <rect x="490" y="168" width="14" height="21" fill="#111111"/>
 <rect x="0" y="189" width="504" height="21" fill="#111111"/>
 <text x="21" y="31.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">M</text>
@@ -1093,48 +1094,48 @@
 <text x="91" y="31.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">O</text>
 <text x="105" y="31.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">N</text>
 <text x="119" y="31.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">F</text>
-<text x="231" y="52.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">L</text>
-<text x="245" y="52.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">I</text>
-<text x="259" y="52.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">F</text>
-<text x="273" y="52.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">T</text>
-<text x="203" y="73.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">L</text>
-<text x="217" y="73.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">A</text>
-<text x="231" y="73.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">T</text>
-<text x="245" y="73.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">E</text>
-<text x="259" y="73.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">R</text>
-<text x="273" y="73.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">A</text>
-<text x="287" y="73.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">L</text>
-<text x="203" y="94.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">M</text>
-<text x="217" y="94.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">A</text>
-<text x="231" y="94.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">I</text>
-<text x="245" y="94.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">N</text>
-<text x="259" y="94.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">/</text>
-<text x="273" y="94.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">F</text>
-<text x="287" y="94.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">R</text>
-<text x="203" y="115.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">S</text>
-<text x="217" y="115.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">E</text>
-<text x="231" y="115.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">N</text>
-<text x="245" y="115.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">S</text>
-<text x="259" y="115.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">O</text>
-<text x="273" y="115.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">R</text>
-<text x="287" y="115.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">S</text>
-<text x="217" y="136.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">R</text>
-<text x="231" y="136.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">E</text>
-<text x="245" y="136.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">L</text>
-<text x="259" y="136.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">A</text>
-<text x="273" y="136.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">Y</text>
-<text x="231" y="157.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">S</text>
-<text x="245" y="157.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">A</text>
-<text x="259" y="157.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">V</text>
-<text x="273" y="157.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">E</text>
-<text x="91" y="178.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">R</text>
-<text x="105" y="178.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">E</text>
-<text x="119" y="178.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">-</text>
-<text x="133" y="178.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">S</text>
-<text x="147" y="178.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">C</text>
-<text x="161" y="178.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">A</text>
-<text x="175" y="178.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">N</text>
-<text x="371" y="178.5" fill="#f0f0f0" font-size="15" text-anchor="middle" dominant-baseline="central">←</text>
+<text x="231" y="52.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">L</text>
+<text x="245" y="52.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">I</text>
+<text x="259" y="52.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">F</text>
+<text x="273" y="52.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">T</text>
+<text x="203" y="73.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">L</text>
+<text x="217" y="73.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">A</text>
+<text x="231" y="73.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">T</text>
+<text x="245" y="73.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">E</text>
+<text x="259" y="73.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">R</text>
+<text x="273" y="73.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">A</text>
+<text x="287" y="73.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">L</text>
+<text x="203" y="94.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">M</text>
+<text x="217" y="94.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">A</text>
+<text x="231" y="94.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">I</text>
+<text x="245" y="94.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">N</text>
+<text x="259" y="94.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">/</text>
+<text x="273" y="94.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">F</text>
+<text x="287" y="94.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">R</text>
+<text x="203" y="115.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">S</text>
+<text x="217" y="115.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">E</text>
+<text x="231" y="115.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">N</text>
+<text x="245" y="115.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">S</text>
+<text x="259" y="115.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">O</text>
+<text x="273" y="115.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">R</text>
+<text x="287" y="115.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">S</text>
+<text x="217" y="136.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">R</text>
+<text x="231" y="136.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">E</text>
+<text x="245" y="136.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">L</text>
+<text x="259" y="136.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">A</text>
+<text x="273" y="136.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">Y</text>
+<text x="231" y="157.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">S</text>
+<text x="245" y="157.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">A</text>
+<text x="259" y="157.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">V</text>
+<text x="273" y="157.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">E</text>
+<text x="91" y="178.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">R</text>
+<text x="105" y="178.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">E</text>
+<text x="119" y="178.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">-</text>
+<text x="133" y="178.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">S</text>
+<text x="147" y="178.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">C</text>
+<text x="161" y="178.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">A</text>
+<text x="175" y="178.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">N</text>
+<text x="371" y="178.5" fill="#57a64e" font-size="15" text-anchor="middle" dominant-baseline="central">←</text>
 </svg></div>
         <figcaption>MDB-CONF</figcaption>
       </figure>
@@ -1144,19 +1145,19 @@
 <rect x="0" y="0" width="504" height="21" fill="#111111"/>
 <rect x="0" y="21" width="504" height="21" fill="#111111"/>
 <rect x="0" y="42" width="14" height="21" fill="#111111"/>
-<rect x="14" y="42" width="476" height="21" fill="#cc4c4c"/>
+<rect x="14" y="42" width="476" height="21" fill="#999999"/>
 <rect x="490" y="42" width="14" height="21" fill="#111111"/>
 <rect x="0" y="63" width="14" height="21" fill="#111111"/>
-<rect x="14" y="63" width="476" height="21" fill="#cc4c4c"/>
+<rect x="14" y="63" width="476" height="21" fill="#999999"/>
 <rect x="490" y="63" width="14" height="21" fill="#111111"/>
 <rect x="0" y="84" width="14" height="21" fill="#111111"/>
-<rect x="14" y="84" width="476" height="21" fill="#cc4c4c"/>
+<rect x="14" y="84" width="476" height="21" fill="#999999"/>
 <rect x="490" y="84" width="14" height="21" fill="#111111"/>
 <rect x="0" y="105" width="14" height="21" fill="#111111"/>
-<rect x="14" y="105" width="476" height="21" fill="#cc4c4c"/>
+<rect x="14" y="105" width="476" height="21" fill="#999999"/>
 <rect x="490" y="105" width="14" height="21" fill="#111111"/>
 <rect x="0" y="126" width="14" height="21" fill="#111111"/>
-<rect x="14" y="126" width="476" height="21" fill="#cc4c4c"/>
+<rect x="14" y="126" width="476" height="21" fill="#999999"/>
 <rect x="490" y="126" width="14" height="21" fill="#111111"/>
 <rect x="0" y="147" width="504" height="21" fill="#111111"/>
 <rect x="0" y="168" width="504" height="21" fill="#111111"/>
@@ -1166,34 +1167,34 @@
 <text x="63" y="31.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">C</text>
 <text x="77" y="31.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">A</text>
 <text x="91" y="31.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">L</text>
-<text x="203" y="52.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">D</text>
-<text x="217" y="52.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">E</text>
-<text x="231" y="52.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">V</text>
-<text x="245" y="52.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">I</text>
-<text x="259" y="52.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">C</text>
-<text x="273" y="52.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">E</text>
-<text x="287" y="52.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">S</text>
-<text x="231" y="73.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">F</text>
-<text x="245" y="73.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">U</text>
-<text x="259" y="73.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">E</text>
-<text x="273" y="73.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">L</text>
-<text x="217" y="94.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">T</text>
-<text x="231" y="94.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">I</text>
-<text x="245" y="94.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">M</text>
-<text x="259" y="94.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">I</text>
-<text x="273" y="94.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">N</text>
-<text x="287" y="94.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">G</text>
-<text x="175" y="115.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">U</text>
-<text x="189" y="115.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">I</text>
-<text x="217" y="115.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">S</text>
-<text x="231" y="115.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">E</text>
-<text x="245" y="115.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">T</text>
-<text x="259" y="115.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">T</text>
-<text x="273" y="115.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">I</text>
-<text x="287" y="115.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">N</text>
-<text x="301" y="115.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">G</text>
-<text x="315" y="115.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">S</text>
-<text x="245" y="136.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">&lt;</text>
+<text x="203" y="52.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">D</text>
+<text x="217" y="52.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">E</text>
+<text x="231" y="52.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">V</text>
+<text x="245" y="52.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">I</text>
+<text x="259" y="52.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">C</text>
+<text x="273" y="52.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">E</text>
+<text x="287" y="52.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">S</text>
+<text x="231" y="73.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">F</text>
+<text x="245" y="73.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">U</text>
+<text x="259" y="73.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">E</text>
+<text x="273" y="73.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">L</text>
+<text x="217" y="94.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">T</text>
+<text x="231" y="94.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">I</text>
+<text x="245" y="94.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">M</text>
+<text x="259" y="94.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">I</text>
+<text x="273" y="94.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">N</text>
+<text x="287" y="94.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">G</text>
+<text x="175" y="115.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">U</text>
+<text x="189" y="115.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">I</text>
+<text x="217" y="115.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">S</text>
+<text x="231" y="115.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">E</text>
+<text x="245" y="115.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">T</text>
+<text x="259" y="115.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">T</text>
+<text x="273" y="115.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">I</text>
+<text x="287" y="115.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">N</text>
+<text x="301" y="115.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">G</text>
+<text x="315" y="115.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">S</text>
+<text x="245" y="136.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">&lt;</text>
 </svg></div>
         <figcaption>UI CAL</figcaption>
       </figure>
@@ -1220,7 +1221,7 @@
 <rect x="0" y="147" width="504" height="21" fill="#111111"/>
 <rect x="0" y="168" width="504" height="21" fill="#111111"/>
 <rect x="0" y="189" width="14" height="21" fill="#111111"/>
-<rect x="14" y="189" width="476" height="21" fill="#cc4c4c"/>
+<rect x="14" y="189" width="476" height="21" fill="#999999"/>
 <rect x="490" y="189" width="14" height="21" fill="#111111"/>
 <text x="21" y="31.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">U</text>
 <text x="35" y="31.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">I</text>
@@ -1289,7 +1290,7 @@
 <text x="385" y="136.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">O</text>
 <text x="399" y="136.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">N</text>
 <text x="413" y="136.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">E</text>
-<text x="245" y="199.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">&lt;</text>
+<text x="245" y="199.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">&lt;</text>
 </svg></div>
         <figcaption>UI CAL ▸ UI SETTINGS (new)</figcaption>
       </figure>
@@ -1299,25 +1300,25 @@
 <rect x="0" y="0" width="504" height="21" fill="#111111"/>
 <rect x="0" y="21" width="504" height="21" fill="#111111"/>
 <rect x="0" y="42" width="14" height="21" fill="#111111"/>
-<rect x="14" y="42" width="476" height="21" fill="#cc4c4c"/>
+<rect x="14" y="42" width="476" height="21" fill="#999999"/>
 <rect x="490" y="42" width="14" height="21" fill="#111111"/>
 <rect x="0" y="63" width="14" height="21" fill="#111111"/>
-<rect x="14" y="63" width="476" height="21" fill="#cc4c4c"/>
+<rect x="14" y="63" width="476" height="21" fill="#999999"/>
 <rect x="490" y="63" width="14" height="21" fill="#111111"/>
 <rect x="0" y="84" width="14" height="21" fill="#111111"/>
-<rect x="14" y="84" width="476" height="21" fill="#cc4c4c"/>
+<rect x="14" y="84" width="476" height="21" fill="#999999"/>
 <rect x="490" y="84" width="14" height="21" fill="#111111"/>
 <rect x="0" y="105" width="14" height="21" fill="#111111"/>
-<rect x="14" y="105" width="476" height="21" fill="#cc4c4c"/>
+<rect x="14" y="105" width="476" height="21" fill="#999999"/>
 <rect x="490" y="105" width="14" height="21" fill="#111111"/>
 <rect x="0" y="126" width="14" height="21" fill="#111111"/>
-<rect x="14" y="126" width="476" height="21" fill="#cc4c4c"/>
+<rect x="14" y="126" width="476" height="21" fill="#999999"/>
 <rect x="490" y="126" width="14" height="21" fill="#111111"/>
 <rect x="0" y="147" width="14" height="21" fill="#111111"/>
-<rect x="14" y="147" width="476" height="21" fill="#cc4c4c"/>
+<rect x="14" y="147" width="476" height="21" fill="#999999"/>
 <rect x="490" y="147" width="14" height="21" fill="#111111"/>
 <rect x="0" y="168" width="14" height="21" fill="#111111"/>
-<rect x="14" y="168" width="476" height="21" fill="#cc4c4c"/>
+<rect x="14" y="168" width="476" height="21" fill="#999999"/>
 <rect x="490" y="168" width="14" height="21" fill="#111111"/>
 <rect x="0" y="189" width="504" height="21" fill="#111111"/>
 <text x="21" y="31.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">S</text>
@@ -1327,77 +1328,77 @@
 <text x="91" y="31.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">C</text>
 <text x="105" y="31.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">A</text>
 <text x="119" y="31.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">L</text>
-<text x="77" y="52.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">[</text>
-<text x="105" y="52.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">]</text>
-<text x="133" y="52.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">A</text>
-<text x="147" y="52.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">T</text>
-<text x="161" y="52.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">T</text>
-<text x="175" y="52.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">I</text>
-<text x="189" y="52.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">T</text>
-<text x="203" y="52.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">U</text>
-<text x="217" y="52.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">D</text>
-<text x="231" y="52.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">E</text>
-<text x="259" y="52.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">(</text>
-<text x="273" y="52.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">P</text>
-<text x="287" y="52.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">I</text>
-<text x="301" y="52.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">T</text>
-<text x="315" y="52.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">C</text>
-<text x="329" y="52.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">H</text>
-<text x="343" y="52.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">+</text>
-<text x="357" y="52.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">R</text>
-<text x="371" y="52.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">O</text>
-<text x="385" y="52.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">L</text>
-<text x="399" y="52.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">L</text>
-<text x="413" y="52.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">)</text>
-<text x="175" y="73.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">[</text>
-<text x="203" y="73.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">]</text>
-<text x="231" y="73.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">L</text>
-<text x="245" y="73.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">A</text>
-<text x="259" y="73.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">T</text>
-<text x="273" y="73.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">E</text>
-<text x="287" y="73.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">R</text>
-<text x="301" y="73.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">A</text>
-<text x="315" y="73.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">L</text>
-<text x="189" y="94.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">[</text>
-<text x="217" y="94.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">]</text>
-<text x="245" y="94.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">S</text>
-<text x="259" y="94.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">U</text>
-<text x="273" y="94.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">R</text>
-<text x="287" y="94.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">G</text>
-<text x="301" y="94.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">E</text>
-<text x="175" y="115.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">[</text>
-<text x="203" y="115.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">]</text>
-<text x="231" y="115.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">H</text>
-<text x="245" y="115.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">E</text>
-<text x="259" y="115.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">A</text>
-<text x="273" y="115.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">D</text>
-<text x="287" y="115.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">I</text>
-<text x="301" y="115.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">N</text>
-<text x="315" y="115.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">G</text>
-<text x="189" y="136.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">[</text>
-<text x="217" y="136.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">]</text>
-<text x="245" y="136.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">G</text>
-<text x="259" y="136.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">R</text>
-<text x="273" y="136.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">O</text>
-<text x="287" y="136.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">U</text>
-<text x="301" y="136.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">N</text>
-<text x="315" y="136.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">D</text>
-<text x="161" y="157.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">[</text>
-<text x="189" y="157.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">]</text>
-<text x="217" y="157.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">C</text>
-<text x="231" y="157.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">O</text>
-<text x="245" y="157.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">N</text>
-<text x="259" y="157.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">S</text>
-<text x="273" y="157.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">T</text>
-<text x="287" y="157.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">A</text>
-<text x="301" y="157.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">N</text>
-<text x="315" y="157.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">T</text>
-<text x="329" y="157.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">S</text>
-<text x="105" y="178.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">S</text>
-<text x="119" y="178.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">A</text>
-<text x="133" y="178.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">V</text>
-<text x="147" y="178.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">E</text>
-<text x="371" y="178.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">&lt;</text>
+<text x="77" y="52.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">[</text>
+<text x="105" y="52.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">]</text>
+<text x="133" y="52.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">A</text>
+<text x="147" y="52.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">T</text>
+<text x="161" y="52.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">T</text>
+<text x="175" y="52.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">I</text>
+<text x="189" y="52.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">T</text>
+<text x="203" y="52.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">U</text>
+<text x="217" y="52.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">D</text>
+<text x="231" y="52.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">E</text>
+<text x="259" y="52.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">(</text>
+<text x="273" y="52.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">P</text>
+<text x="287" y="52.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">I</text>
+<text x="301" y="52.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">T</text>
+<text x="315" y="52.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">C</text>
+<text x="329" y="52.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">H</text>
+<text x="343" y="52.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">+</text>
+<text x="357" y="52.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">R</text>
+<text x="371" y="52.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">O</text>
+<text x="385" y="52.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">L</text>
+<text x="399" y="52.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">L</text>
+<text x="413" y="52.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">)</text>
+<text x="175" y="73.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">[</text>
+<text x="203" y="73.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">]</text>
+<text x="231" y="73.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">L</text>
+<text x="245" y="73.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">A</text>
+<text x="259" y="73.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">T</text>
+<text x="273" y="73.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">E</text>
+<text x="287" y="73.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">R</text>
+<text x="301" y="73.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">A</text>
+<text x="315" y="73.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">L</text>
+<text x="189" y="94.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">[</text>
+<text x="217" y="94.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">]</text>
+<text x="245" y="94.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">S</text>
+<text x="259" y="94.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">U</text>
+<text x="273" y="94.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">R</text>
+<text x="287" y="94.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">G</text>
+<text x="301" y="94.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">E</text>
+<text x="175" y="115.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">[</text>
+<text x="203" y="115.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">]</text>
+<text x="231" y="115.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">H</text>
+<text x="245" y="115.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">E</text>
+<text x="259" y="115.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">A</text>
+<text x="273" y="115.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">D</text>
+<text x="287" y="115.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">I</text>
+<text x="301" y="115.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">N</text>
+<text x="315" y="115.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">G</text>
+<text x="189" y="136.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">[</text>
+<text x="217" y="136.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">]</text>
+<text x="245" y="136.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">G</text>
+<text x="259" y="136.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">R</text>
+<text x="273" y="136.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">O</text>
+<text x="287" y="136.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">U</text>
+<text x="301" y="136.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">N</text>
+<text x="315" y="136.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">D</text>
+<text x="161" y="157.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">[</text>
+<text x="189" y="157.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">]</text>
+<text x="217" y="157.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">C</text>
+<text x="231" y="157.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">O</text>
+<text x="245" y="157.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">N</text>
+<text x="259" y="157.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">S</text>
+<text x="273" y="157.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">T</text>
+<text x="287" y="157.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">A</text>
+<text x="301" y="157.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">N</text>
+<text x="315" y="157.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">T</text>
+<text x="329" y="157.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">S</text>
+<text x="105" y="178.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">S</text>
+<text x="119" y="178.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">A</text>
+<text x="133" y="178.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">V</text>
+<text x="147" y="178.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">E</text>
+<text x="371" y="178.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">&lt;</text>
 </svg></div>
         <figcaption>SENS CAL</figcaption>
       </figure>
@@ -1407,19 +1408,19 @@
 <rect x="0" y="0" width="504" height="21" fill="#111111"/>
 <rect x="0" y="21" width="504" height="21" fill="#111111"/>
 <rect x="0" y="42" width="14" height="21" fill="#111111"/>
-<rect x="14" y="42" width="476" height="21" fill="#57a64e"/>
+<rect x="14" y="42" width="476" height="21" fill="#999999"/>
 <rect x="490" y="42" width="14" height="21" fill="#111111"/>
 <rect x="0" y="63" width="14" height="21" fill="#111111"/>
-<rect x="14" y="63" width="476" height="21" fill="#cc4c4c"/>
+<rect x="14" y="63" width="476" height="21" fill="#999999"/>
 <rect x="490" y="63" width="14" height="21" fill="#111111"/>
 <rect x="0" y="84" width="14" height="21" fill="#111111"/>
-<rect x="14" y="84" width="476" height="21" fill="#cc4c4c"/>
+<rect x="14" y="84" width="476" height="21" fill="#999999"/>
 <rect x="490" y="84" width="14" height="21" fill="#111111"/>
 <rect x="0" y="105" width="14" height="21" fill="#111111"/>
-<rect x="14" y="105" width="476" height="21" fill="#cc4c4c"/>
+<rect x="14" y="105" width="476" height="21" fill="#999999"/>
 <rect x="490" y="105" width="14" height="21" fill="#111111"/>
 <rect x="0" y="126" width="14" height="21" fill="#111111"/>
-<rect x="14" y="126" width="476" height="21" fill="#cc4c4c"/>
+<rect x="14" y="126" width="476" height="21" fill="#999999"/>
 <rect x="490" y="126" width="14" height="21" fill="#111111"/>
 <rect x="0" y="147" width="504" height="21" fill="#111111"/>
 <rect x="0" y="168" width="504" height="21" fill="#111111"/>
@@ -1434,26 +1435,26 @@
 <text x="133" y="31.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">R</text>
 <text x="147" y="31.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">C</text>
 <text x="161" y="31.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">E</text>
-<text x="231" y="52.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">F</text>
-<text x="245" y="52.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">C</text>
-<text x="259" y="52.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">S</text>
-<text x="231" y="73.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">S</text>
-<text x="245" y="73.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">E</text>
-<text x="259" y="73.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">L</text>
-<text x="273" y="73.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">F</text>
-<text x="231" y="94.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">O</text>
-<text x="245" y="94.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">F</text>
-<text x="259" y="94.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">F</text>
-<text x="189" y="115.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">C</text>
-<text x="203" y="115.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">A</text>
-<text x="217" y="115.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">L</text>
-<text x="245" y="115.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">(</text>
-<text x="259" y="115.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">S</text>
-<text x="273" y="115.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">E</text>
-<text x="287" y="115.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">L</text>
-<text x="301" y="115.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">F</text>
-<text x="315" y="115.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">)</text>
-<text x="245" y="136.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">&lt;</text>
+<text x="231" y="52.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">F</text>
+<text x="245" y="52.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">C</text>
+<text x="259" y="52.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">S</text>
+<text x="231" y="73.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">S</text>
+<text x="245" y="73.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">E</text>
+<text x="259" y="73.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">L</text>
+<text x="273" y="73.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">F</text>
+<text x="231" y="94.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">O</text>
+<text x="245" y="94.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">F</text>
+<text x="259" y="94.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">F</text>
+<text x="189" y="115.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">C</text>
+<text x="203" y="115.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">A</text>
+<text x="217" y="115.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">L</text>
+<text x="245" y="115.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">(</text>
+<text x="259" y="115.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">S</text>
+<text x="273" y="115.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">E</text>
+<text x="287" y="115.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">L</text>
+<text x="301" y="115.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">F</text>
+<text x="315" y="115.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">)</text>
+<text x="245" y="136.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">&lt;</text>
 </svg></div>
         <figcaption>SENS SOURCE</figcaption>
       </figure>
@@ -1464,19 +1465,19 @@
 <rect x="0" y="21" width="504" height="21" fill="#111111"/>
 <rect x="0" y="42" width="504" height="21" fill="#111111"/>
 <rect x="0" y="63" width="14" height="21" fill="#111111"/>
-<rect x="14" y="63" width="476" height="21" fill="#4c4c4c"/>
+<rect x="14" y="63" width="476" height="21" fill="#999999"/>
 <rect x="490" y="63" width="14" height="21" fill="#111111"/>
 <rect x="0" y="84" width="14" height="21" fill="#111111"/>
-<rect x="14" y="84" width="476" height="21" fill="#cc4c4c"/>
+<rect x="14" y="84" width="476" height="21" fill="#999999"/>
 <rect x="490" y="84" width="14" height="21" fill="#111111"/>
 <rect x="0" y="105" width="14" height="21" fill="#111111"/>
-<rect x="14" y="105" width="476" height="21" fill="#4c4c4c"/>
+<rect x="14" y="105" width="476" height="21" fill="#999999"/>
 <rect x="490" y="105" width="14" height="21" fill="#111111"/>
 <rect x="0" y="126" width="14" height="21" fill="#111111"/>
-<rect x="14" y="126" width="476" height="21" fill="#4c4c4c"/>
+<rect x="14" y="126" width="476" height="21" fill="#999999"/>
 <rect x="490" y="126" width="14" height="21" fill="#111111"/>
 <rect x="0" y="147" width="14" height="21" fill="#111111"/>
-<rect x="14" y="147" width="476" height="21" fill="#cc4c4c"/>
+<rect x="14" y="147" width="476" height="21" fill="#999999"/>
 <rect x="490" y="147" width="14" height="21" fill="#111111"/>
 <rect x="0" y="168" width="504" height="21" fill="#111111"/>
 <rect x="0" y="189" width="504" height="21" fill="#111111"/>
@@ -1489,39 +1490,39 @@
 <text x="77" y="52.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">i</text>
 <text x="91" y="52.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">s</text>
 <text x="105" y="52.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">k</text>
-<text x="91" y="73.5" fill="#999999" font-size="17" text-anchor="middle" dominant-baseline="central">E</text>
-<text x="105" y="73.5" fill="#999999" font-size="17" text-anchor="middle" dominant-baseline="central">X</text>
-<text x="119" y="73.5" fill="#999999" font-size="17" text-anchor="middle" dominant-baseline="central">P</text>
-<text x="133" y="73.5" fill="#999999" font-size="17" text-anchor="middle" dominant-baseline="central">O</text>
-<text x="147" y="73.5" fill="#999999" font-size="17" text-anchor="middle" dominant-baseline="central">R</text>
-<text x="161" y="73.5" fill="#999999" font-size="17" text-anchor="middle" dominant-baseline="central">T</text>
-<text x="329" y="73.5" fill="#999999" font-size="17" text-anchor="middle" dominant-baseline="central">I</text>
-<text x="343" y="73.5" fill="#999999" font-size="17" text-anchor="middle" dominant-baseline="central">M</text>
-<text x="357" y="73.5" fill="#999999" font-size="17" text-anchor="middle" dominant-baseline="central">P</text>
-<text x="371" y="73.5" fill="#999999" font-size="17" text-anchor="middle" dominant-baseline="central">O</text>
-<text x="385" y="73.5" fill="#999999" font-size="17" text-anchor="middle" dominant-baseline="central">R</text>
-<text x="399" y="73.5" fill="#999999" font-size="17" text-anchor="middle" dominant-baseline="central">T</text>
-<text x="203" y="94.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">R</text>
-<text x="217" y="94.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">E</text>
-<text x="231" y="94.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">F</text>
-<text x="245" y="94.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">R</text>
-<text x="259" y="94.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">E</text>
-<text x="273" y="94.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">S</text>
-<text x="287" y="94.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">H</text>
-<text x="189" y="115.5" fill="#999999" font-size="17" text-anchor="middle" dominant-baseline="central">I</text>
-<text x="203" y="115.5" fill="#999999" font-size="17" text-anchor="middle" dominant-baseline="central">M</text>
-<text x="217" y="115.5" fill="#999999" font-size="17" text-anchor="middle" dominant-baseline="central">P</text>
-<text x="231" y="115.5" fill="#999999" font-size="17" text-anchor="middle" dominant-baseline="central">O</text>
-<text x="245" y="115.5" fill="#999999" font-size="17" text-anchor="middle" dominant-baseline="central">R</text>
-<text x="259" y="115.5" fill="#999999" font-size="17" text-anchor="middle" dominant-baseline="central">T</text>
-<text x="287" y="115.5" fill="#999999" font-size="17" text-anchor="middle" dominant-baseline="central">A</text>
-<text x="301" y="115.5" fill="#999999" font-size="17" text-anchor="middle" dominant-baseline="central">L</text>
-<text x="315" y="115.5" fill="#999999" font-size="17" text-anchor="middle" dominant-baseline="central">L</text>
-<text x="231" y="136.5" fill="#999999" font-size="17" text-anchor="middle" dominant-baseline="central">S</text>
-<text x="245" y="136.5" fill="#999999" font-size="17" text-anchor="middle" dominant-baseline="central">C</text>
-<text x="259" y="136.5" fill="#999999" font-size="17" text-anchor="middle" dominant-baseline="central">A</text>
-<text x="273" y="136.5" fill="#999999" font-size="17" text-anchor="middle" dominant-baseline="central">N</text>
-<text x="245" y="157.5" fill="#f0f0f0" font-size="15" text-anchor="middle" dominant-baseline="central">←</text>
+<text x="91" y="73.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">E</text>
+<text x="105" y="73.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">X</text>
+<text x="119" y="73.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">P</text>
+<text x="133" y="73.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">O</text>
+<text x="147" y="73.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">R</text>
+<text x="161" y="73.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">T</text>
+<text x="329" y="73.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">I</text>
+<text x="343" y="73.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">M</text>
+<text x="357" y="73.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">P</text>
+<text x="371" y="73.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">O</text>
+<text x="385" y="73.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">R</text>
+<text x="399" y="73.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">T</text>
+<text x="203" y="94.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">R</text>
+<text x="217" y="94.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">E</text>
+<text x="231" y="94.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">F</text>
+<text x="245" y="94.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">R</text>
+<text x="259" y="94.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">E</text>
+<text x="273" y="94.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">S</text>
+<text x="287" y="94.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">H</text>
+<text x="189" y="115.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">I</text>
+<text x="203" y="115.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">M</text>
+<text x="217" y="115.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">P</text>
+<text x="231" y="115.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">O</text>
+<text x="245" y="115.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">R</text>
+<text x="259" y="115.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">T</text>
+<text x="287" y="115.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">A</text>
+<text x="301" y="115.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">L</text>
+<text x="315" y="115.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">L</text>
+<text x="231" y="136.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">S</text>
+<text x="245" y="136.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">C</text>
+<text x="259" y="136.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">A</text>
+<text x="273" y="136.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">N</text>
+<text x="245" y="157.5" fill="#57a64e" font-size="15" text-anchor="middle" dominant-baseline="central">←</text>
 </svg></div>
         <figcaption>DTC</figcaption>
       </figure>
@@ -1533,12 +1534,12 @@
 <rect x="0" y="42" width="504" height="21" fill="#111111"/>
 <rect x="0" y="63" width="504" height="21" fill="#111111"/>
 <rect x="0" y="84" width="14" height="21" fill="#111111"/>
-<rect x="14" y="84" width="238" height="21" fill="#cc4c4c"/>
+<rect x="14" y="84" width="238" height="21" fill="#999999"/>
 <rect x="252" y="84" width="14" height="21" fill="#111111"/>
-<rect x="266" y="84" width="224" height="21" fill="#cc4c4c"/>
+<rect x="266" y="84" width="224" height="21" fill="#999999"/>
 <rect x="490" y="84" width="14" height="21" fill="#111111"/>
 <rect x="0" y="105" width="14" height="21" fill="#111111"/>
-<rect x="14" y="105" width="476" height="21" fill="#cc4c4c"/>
+<rect x="14" y="105" width="476" height="21" fill="#999999"/>
 <rect x="490" y="105" width="14" height="21" fill="#111111"/>
 <rect x="0" y="126" width="504" height="21" fill="#111111"/>
 <rect x="0" y="147" width="504" height="21" fill="#111111"/>
@@ -1566,21 +1567,21 @@
 <text x="231" y="73.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">m</text>
 <text x="245" y="73.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">s</text>
 <text x="259" y="73.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">)</text>
-<text x="77" y="94.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">-</text>
-<text x="105" y="94.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">S</text>
-<text x="119" y="94.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">L</text>
-<text x="133" y="94.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">O</text>
-<text x="147" y="94.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">W</text>
-<text x="161" y="94.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">E</text>
-<text x="175" y="94.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">R</text>
-<text x="329" y="94.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">+</text>
-<text x="357" y="94.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">F</text>
-<text x="371" y="94.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">A</text>
-<text x="385" y="94.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">S</text>
-<text x="399" y="94.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">T</text>
-<text x="413" y="94.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">E</text>
-<text x="427" y="94.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">R</text>
-<text x="245" y="115.5" fill="#f0f0f0" font-size="17" text-anchor="middle" dominant-baseline="central">&lt;</text>
+<text x="77" y="94.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">-</text>
+<text x="105" y="94.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">S</text>
+<text x="119" y="94.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">L</text>
+<text x="133" y="94.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">O</text>
+<text x="147" y="94.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">W</text>
+<text x="161" y="94.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">E</text>
+<text x="175" y="94.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">R</text>
+<text x="329" y="94.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">+</text>
+<text x="357" y="94.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">F</text>
+<text x="371" y="94.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">A</text>
+<text x="385" y="94.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">S</text>
+<text x="399" y="94.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">T</text>
+<text x="413" y="94.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">E</text>
+<text x="427" y="94.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">R</text>
+<text x="245" y="115.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">&lt;</text>
 </svg></div>
         <figcaption>PFD RATE</figcaption>
       </figure></div>

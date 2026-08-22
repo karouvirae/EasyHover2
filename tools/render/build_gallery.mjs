@@ -37,7 +37,7 @@ const section = (g) => `
       <div class="grid">${g.panels.map(([id, t]) => card(id, t)).join("")}</div>
     </section>`;
 
-const html = `<title>Cockpit Panel Gallery</title>
+const html = `<title>Cockpit Colour Redesign</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
@@ -87,10 +87,11 @@ const html = `<title>Cockpit Panel Gallery</title>
     cues coloured <b>yellow (WPT)</b> / <b>blue (route)</b> — all editable in the new
     <b>UI CAL ▸ UI SETTINGS</b> submenu (font / button / NAV WPT / NAV RT / colourblind), persisted to
     config. Defaults shown here: green / gray / yellow / blue / no colourblind.</p>
-  <p class="lede"><b>State feedback is preserved</b> — the red/green switch buttons (ENG SW, mode
-    select) still carry their state; a separate state-feedback treatment comes later. Panels render at
-    <b><code>default / unbound</code></b> state, so values are placeholders — layout, chrome, and
-    colour are exact.</p>
+  <p class="lede"><b>Every label is the font colour</b> and every button (including the switch buttons —
+    ENG SW, mode select) is the button colour, for one uniform look. Their on/off/disabled <b>state is
+    still tracked in code</b> — a dedicated state-feedback treatment comes in the next task. Panels
+    render at <b><code>default / unbound</code></b> state, so values are placeholders — layout, chrome,
+    and colour are exact.</p>
 ${GROUPS.map(section).join("\n")}
   <footer>
     tools/render/ · <b>rec_term.lua</b> → <b>render_panel.lua</b> → <b>grid_to_svg.mjs</b> · one CraftOS-PC boot<br>

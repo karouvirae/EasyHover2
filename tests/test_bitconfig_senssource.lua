@@ -59,9 +59,11 @@ t.test("M.build: source screen shows FCS/SELF/OFF + CAL(SELF)/< ; active source 
   t.truthy(els.calRow ~= nil and #els.calRow.buttons == 1, "CAL (SELF) row present")
   t.truthy(els.backRow ~= nil and #els.backRow.buttons == 1, "'<' back row present")
 
-  t.eq(els.srcBtns.FCS.button:getBackground(), colors.green, "FCS starts active (config.sens.source=FCS)")
-  t.eq(els.srcBtns.SELF.button:getBackground(), colors.red, "SELF starts inactive")
-  t.eq(els.srcBtns.OFF.button:getBackground(), colors.red, "OFF starts inactive")
+  -- Active source is tracked via switchbtn state (on/off) rather than colour (colours are now the
+  -- uniform theme; a separate state-feedback treatment comes later).
+  t.eq(els.srcBtns.FCS.state, "on", "FCS starts active (config.sens.source=FCS)")
+  t.eq(els.srcBtns.SELF.state, "off", "SELF starts inactive")
+  t.eq(els.srcBtns.OFF.state, "off", "OFF starts inactive")
 
   local ok, err = pcall(h.apply, {})
   t.truthy(ok, "apply should not error: " .. tostring(err))
@@ -96,8 +98,8 @@ t.test("M.build: _select via SELF button's own seam flips the active marker on r
   local parsed = textutils.unserialise(stored["eh2_ui_config.tbl"])
   t.eq(parsed.sens.source, "SELF", "persisted body reflects the new source")
 
-  t.eq(els.srcBtns.SELF.button:getBackground(), colors.green, "SELF now shows active")
-  t.eq(els.srcBtns.FCS.button:getBackground(), colors.red, "FCS now shows inactive")
+  t.eq(els.srcBtns.SELF.state, "on", "SELF now active")
+  t.eq(els.srcBtns.FCS.state, "off", "FCS now inactive")
 end)
 
 t.test("M.build: CAL drilldown -- callist shows all 4 selfSteps() pending, drilling+capturing "
@@ -138,7 +140,7 @@ t.test("M.build: CAL drilldown -- callist shows all 4 selfSteps() pending, drill
     t.truthy(text:find("%[ %]") ~= nil, "step " .. i .. " starts pending, got: " .. tostring(text))
   end
   -- APPLY is gated off (disabled) until every step is captured.
-  t.eq(listEls.applyRow.buttons[1].button:getBackground(), colors.gray, "APPLY starts disabled")
+  t.eq(listEls.applyRow.buttons[1].state, "disabled", "APPLY starts disabled")
 
   -- Drill into each step (mirrors the step row's own onClick: push "cal_<id>") and CAPTURE
   -- (mirrors CAPTURE's own onClick: wrap sensors via the injected sampler, store the sample).
@@ -175,7 +177,7 @@ t.test("M.build: CAL drilldown -- callist shows all 4 selfSteps() pending, drill
     local text = listEls.stepBtns[i].button:getText()
     t.truthy(text:find("%[x%]", 1, false) ~= nil, "step " .. i .. " marked done, got: " .. tostring(text))
   end
-  t.eq(listEls.applyRow.buttons[1].button:getBackground(), colors.green, "APPLY now enabled")
+  t.eq(listEls.applyRow.buttons[1].state, "on", "APPLY now enabled")
 
   -- APPLY: fire its registered click directly (same pattern as CAPTURE above).
   listEls.applyRow.buttons[1].button:fireEvent("mouse_click", 1, 1, 1)

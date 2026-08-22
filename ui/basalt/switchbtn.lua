@@ -5,10 +5,14 @@
 local M = {}
 
 -- Pure state -> style. States:
---   "on"       active/engaged  -> green
---   "off"      inactive        -> red
---   "disabled" inert           -> gray (used for the MODE placeholders and gated controls)
+--   "on"       active/engaged
+--   "off"      inactive
+--   "disabled" inert (MODE placeholders, gated controls) -- not clickable
 -- Anything unknown falls back to disabled (never throws).
+--
+-- The bg/fg here are RETAINED as data for the state enum + the upcoming (next-task) state-feedback
+-- feature, but are NO LONGER painted: every switch button now renders in the THEME's button colour +
+-- font colour for a uniform look (ui/theme.lua). Only `enabled` still has a live effect. See make().
 local STYLE = {
   on       = { bg = "green", fg = "white",     enabled = true },
   off      = { bg = "red",   fg = "white",     enabled = true },
@@ -27,15 +31,17 @@ function M.make(frame, opts)
     x = opts.x, y = opts.y, width = opts.width, height = opts.height or 1,
     text = opts.text or "",
   })
-  local function set(state)
-    local s = M.styleFor(state)
-    btn:setBackground(colors[s.bg])
-    btn:setForeground(colors[s.fg])
+  local ctrl = { button = btn, state = "disabled" }
+  function ctrl.set(state)
+    ctrl.state = state or "disabled"
+    local s = M.styleFor(ctrl.state)
+    -- Colour comes from the theme (button colour + font colour) -- do NOT paint per state. Only the
+    -- enabled flag stays live; the state is tracked (ctrl.state) for the next-task feedback feature.
     btn:setEnabled(s.enabled)
     return btn
   end
-  set("disabled")   -- construct inert until the first apply() sets a real state
-  return { button = btn, set = set }
+  ctrl.set("disabled")   -- construct inert until the first apply() sets a real state
+  return ctrl
 end
 
 return M
