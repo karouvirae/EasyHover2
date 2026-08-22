@@ -1,0 +1,25 @@
+36 24
+00000000000000000000000005000000000f	ffffffffffffffffffffffffffffffffffff	124 32 48 49 32 32 124 32 32 32 124 32 48 52 32 32 124 32 32 32 124 32 48 55 32 118 124 32 32 32 124 32 49 48 32 32
+fffffffffffffffff0ffffffffffffffffff	ffffffffffffffffffffffffffffffffffff	32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 94 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32
+ffffffffffffffff000fffffffffffffffff	ffffffffffffffffffffffffffffffffffff	32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 48 52 53 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32
+ffffffffffffffffffffffffffffffffffff	ffffffffffffffffffffffffffffffffffff	32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32
+ffffffffffffffffffffffffffffffffffff	ffffffffffffffffffffffffffffffffffff	32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32
+ffffffffffffffffffffffffffffffffffff	ffffffffffffffffffffffffffffffffffff	32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32
+ffffffffffffffffffffffffffffffffffff	ffffffffffffffffffffffffffffffffffff	32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32
+ffffffffffffffffffffffffffffffffffff	ffffffffffffffffffffffffffffffffffff	32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32
+ffffffffffffffffffffffffffffffffffff	ffffffffffffffffffffffffffffffffffff	32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32
+ffffffffffffffffffffffffffffffffffff	ffffffffffffffffffffffffffffffffffff	32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32
+ffffffffffffffffffffffffffffffffffff	ffffffffffffffffffffffffffffffffffff	32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32
+ffffffffffffffffffffffffffffffffffff	ffffffffffffffffffffffffffffffffffff	32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32
+000000000000000000000000000000000000	ffffffffffffffffffffffffffffffffffff	45 32 45 32 45 32 45 32 45 32 45 32 124 45 45 45 45 79 45 45 45 45 124 32 45 32 45 32 45 32 45 32 45 32 45 32
+ffffffffffffffffffffffffffffffffffff	ffffffffffffffffffffffffffffffffffff	32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32
+ffffffffffffffffffffffffffffffffffff	ffffffffffffffffffffffffffffffffffff	32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32
+ffffffffffffffffffffffffffffffffffff	ffffffffffffffffffffffffffffffffffff	32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32
+ffffffffffffffffffffffffffffffffffff	ffffffffffffffffffffffffffffffffffff	32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32
+ffffffffffffffffffffffffffffffffffff	ffffffffffffffffffffffffffffffffffff	32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32
+ffffffffffffffffffffffffffffffffffff	ffffffffffffffffffffffffffffffffffff	32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32
+ffffffffffffffffffffffffffffffffffff	ffffffffffffffffffffffffffffffffffff	32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32
+ffffffffffffffffffffffffffffffffffff	ffffffffffffffffffffffffffffffffffff	32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32
+ffffffffffffffffffffffffffffffffffff	ffffffffffffffffffffffffffffffffffff	32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32
+55555fffffffffffffffffff00000000000f	ffffffffffffffffffffffffffffffffffff	84 71 84 32 63 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 65 76 84 32 49 50 57 66 97 114 111 32
+5555555fffffffffffffffff000000000fff	ffffffffffffffffffffffffffffffffffff	45 45 32 32 32 32 62 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 83 80 68 32 49 52 83 65 83 32 32 32

@@ -1,0 +1,11 @@
+36 10
+ffffffffffffffffffffffffffffffffffff	ffffffffffffffffffffffffffffffffffff	32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32
+f00000000fffffffffffffffffffffffffff	ffffffffffffffffffffffffffffffffffff	32 80 70 68 32 82 65 84 69 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32
+ffffffffffffffffffffffffffffffffffff	ffffffffffffffffffffffffffffffffffff	32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32
+f000000000000000000fffffffffffffffff	ffffffffffffffffffffffffffffffffffff	32 82 65 84 69 32 49 48 72 122 32 32 40 49 48 48 109 115 41 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32
+f00000000000000000f0000000000000000f	feeeeeeeeeeeeeeeeefeeeeeeeeeeeeeeeef	32 32 32 32 32 45 32 83 76 79 87 69 82 32 32 32 32 32 32 32 32 32 32 43 32 70 65 83 84 69 82 32 32 32 32 32
+f0000000000000000000000000000000000f	feeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeef	32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 60 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32
+ffffffffffffffffffffffffffffffffffff	ffffffffffffffffffffffffffffffffffff	32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32
+ffffffffffffffffffffffffffffffffffff	ffffffffffffffffffffffffffffffffffff	32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32
+ffffffffffffffffffffffffffffffffffff	ffffffffffffffffffffffffffffffffffff	32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32
+ffffffffffffffffffffffffffffffffffff	ffffffffffffffffffffffffffffffffffff	32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32
