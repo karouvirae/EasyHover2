@@ -31,6 +31,7 @@
 -- `require("ui.basalt.bitconfig.uical")` loads clean headless.
 
 local Config      = require("ui.config")
+local Theme        = require("ui.theme")
 local Detect       = require("ui.detect")
 local Fuel         = require("ui.fuel")
 local ConfigPanel  = require("ui.panels.config")
@@ -373,12 +374,13 @@ end
 -- DEVICES pickers (driven by M._pickBind/M._pickSide directly, never through ConfigPanel.action --
 -- see those functions' header notes), while "scan"/"calFuel"/"pulseDn"/"pulseUp"/"intervalDn"/
 -- "intervalUp"/"toggleInvert"/"toggleKick" ARE the exact ids M._onButton/ConfigPanel.action expect.
-M.CATEGORIES = { "devices", "fuel", "timing" }
+M.CATEGORIES = { "devices", "fuel", "timing", "settings" }
 
 M.CONTROLS_BY_CATEGORY = {
-  devices = { "scan", "relay", "pump", "tank", "side" },
-  fuel    = { "calFuel" },
-  timing  = { "pulseDn", "pulseUp", "intervalDn", "intervalUp", "toggleInvert", "toggleKick" },
+  devices  = { "scan", "relay", "pump", "tank", "side" },
+  fuel     = { "calFuel" },
+  timing   = { "pulseDn", "pulseUp", "intervalDn", "intervalUp", "toggleInvert", "toggleKick" },
+  settings = { "font", "button", "wpt", "rt", "colorblind" },
 }
 
 -- M.categoryOf(control) -> the category id owning `control`, or nil if it belongs to none. PURE.
@@ -444,7 +446,7 @@ function M.build(basalt, frame, runtime, nav, deps)
     local fiw = math.max(1, fw - 2)
     local y = 1
 
-    local LABELS = { devices = "DEVICES", fuel = "FUEL", timing = "TIMING" }
+    local LABELS = { devices = "DEVICES", fuel = "FUEL", timing = "TIMING", settings = "UI SETTINGS" }
     local catBtns = {}
     for _, cat in ipairs(M.CATEGORIES) do
       local sw = switchbtn.make(f, {
@@ -715,6 +717,68 @@ function M.build(basalt, frame, runtime, nav, deps)
     }
   end
 
+  -- ===== settings screen: UI colour scheme -- FONT/BUTTON/NAV WPT/NAV RT/COLORBLIND pickers + "<" =====
+  -- Each picker writes runtime.config.colors.<role>, persists the whole config (same file + save as
+  -- every other UI CAL control), and re-applies the live theme+palette via runtime.applyColors (set
+  -- by ui/basalt/app.lua's M.run; absent headless, so guarded). Background stays hardcoded black
+  -- (ui/theme.lua). State-feedback colours are set on their own elements and are unaffected.
+  local function buildSettings(b, f, region)
+    local fw, fh = f:getSize()
+    local fx = 2
+    local fiw = math.max(1, fw - 2)
+    local y = 1
+    local dropW = math.max(8, math.min(14, math.floor(fiw * 0.45)))
+    local labelW = math.max(1, fiw - dropW - 1)
+    local dropX = fx + labelW + 1
+
+    local function colorOpts()
+      local o = {}
+      for _, c in ipairs(Theme.COLOR_CHOICES) do o[#o + 1] = { text = c[2], value = c[1] } end
+      return o
+    end
+    local function cbOpts()
+      local o = {}
+      for _, c in ipairs(Theme.COLORBLIND_MODES) do o[#o + 1] = { text = c[2], value = c[1] } end
+      return o
+    end
+
+    local function pick(role, value)
+      runtime.config.colors = runtime.config.colors or {}
+      runtime.config.colors[role] = value
+      local save = deps.save or Config.save
+      save(require("ui.basalt.app").CONFIG_PATH, runtime.config)
+      if runtime.applyColors then runtime.applyColors() end
+    end
+
+    local function row(labelText, options, current, role)
+      f:addLabel({ x = fx, y = y, width = labelW, height = 1, autoSize = false, text = labelText })
+      local picker = Picker.make(f, {
+        x = dropX, y = y, width = dropW, dropdownHeight = 6,
+        options = options, current = current, onPick = function(v) pick(role, v) end,
+      })
+      y = y + 1
+      return picker
+    end
+
+    local c = runtime.config.colors or {}
+    local d = Theme.DEFAULTS
+    local fontPicker   = row("FONT COLOR", colorOpts(), c.font or d.font, "font")
+    local buttonPicker = row("BUTTON COL", colorOpts(), c.button or d.button, "button")
+    local wptPicker    = row("NAV WPT", colorOpts(), c.wpt or d.wpt, "wpt")
+    local rtPicker     = row("NAV RT", colorOpts(), c.rt or d.rt, "rt")
+    local cbPicker     = row("COLORBLIND", cbOpts(), c.colorblind or d.colorblind, "colorblind")
+
+    local backRow = configkit.actionRow(f, { x = fx, y = fh, w = fiw }, {
+      { label = "<", onClick = function() region:pop() end },
+    })
+
+    return {
+      apply = function(_state) end,
+      elements = { fontPicker = fontPicker, buttonPicker = buttonPicker, wptPicker = wptPicker,
+                   rtPicker = rtPicker, cbPicker = cbPicker, backRow = backRow },
+    }
+  end
+
   local region = Region.new(basalt, frame, {
     x = 1, y = 3, width = w, height = math.max(1, h - 2),
     root = "overview", onNav = bump,
@@ -723,6 +787,7 @@ function M.build(basalt, frame, runtime, nav, deps)
       devices  = buildDevices,
       fuel     = buildFuel,
       timing   = buildTiming,
+      settings = buildSettings,
     },
   })
 

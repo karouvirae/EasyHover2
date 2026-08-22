@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
-# Render a real EasyHover 2 Basalt panel to an SVG (and an ASCII preview) via CraftOS-PC.
-# Usage: bash tools/render/render.sh <panel> <cols> <rows>   e.g. bash tools/render/render.sh pfd 36 24
+# Render ONE real EasyHover 2 Basalt panel (from the render_panel RECIPES) to an SVG via CraftOS-PC.
+# The recipe fixes the panel's monitor size; the id is all that matters. Usage:
+#   bash tools/render/render.sh <panel-id>            e.g. bash tools/render/render.sh uical_settings
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-PANEL="${1:-pfd}"; W="${2:-36}"; H="${3:-24}"
+PANEL="${1:-pfd}"
 OUTDIR="${EH2_RENDER_OUT:-$ROOT/tools/render/out}"
 mkdir -p "$OUTDIR"
 
@@ -17,14 +18,14 @@ done
 cat > "$COMP/startup.lua" <<LUA
 package.path = "/?.lua;/?/init.lua;" .. package.path
 _G.EH2_RENDER_PANEL = "$PANEL"
-_G.EH2_RENDER_W = $W
-_G.EH2_RENDER_H = $H
 require("tools.render.render_panel")
 LUA
 
 timeout 60 "/c/Program Files/CraftOS-PC/CraftOS-PC_console.exe" --headless -d "$DATA" >/dev/null 2>&1 || true
 
-if [ ! -f "$COMP/render_out.txt" ]; then echo "NO OUTPUT (render did not run)"; exit 1; fi
-cp "$COMP/render_out.txt" "$OUTDIR/${PANEL}.txt"
-node "$ROOT/tools/render/grid_to_svg.mjs" "$OUTDIR/${PANEL}.txt" "$OUTDIR/${PANEL}.svg"
+# render_panel writes /render_out_<id>.txt (same as the batch path).
+if [ ! -f "$COMP/render_out_${PANEL}.txt" ]; then echo "NO OUTPUT (render did not run for '$PANEL')"; exit 1; fi
+cp "$COMP/render_out_${PANEL}.txt" "$OUTDIR/${PANEL}.txt"
+if head -1 "$OUTDIR/${PANEL}.txt" | grep -q '^ERR '; then echo "BUILD ERROR: $(head -1 "$OUTDIR/${PANEL}.txt")"; exit 1; fi
+node "$ROOT/tools/render/grid_to_svg.mjs" "$OUTDIR/${PANEL}.txt" "$OUTDIR/${PANEL}.svg" >/dev/null
 echo "==> $OUTDIR/${PANEL}.svg"

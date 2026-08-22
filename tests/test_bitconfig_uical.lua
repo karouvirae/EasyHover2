@@ -659,11 +659,20 @@ end)
 
 -- ===== M.CATEGORIES / M.CONTROLS_BY_CATEGORY: pure overview->category drilldown mapping =====
 
-t.test("CATEGORIES: exactly DEVICES/FUEL/TIMING, in that order", function()
-  t.eq(#M.CATEGORIES, 3)
+t.test("CATEGORIES: exactly DEVICES/FUEL/TIMING/SETTINGS, in that order", function()
+  t.eq(#M.CATEGORIES, 4)
   t.eq(M.CATEGORIES[1], "devices")
   t.eq(M.CATEGORIES[2], "fuel")
   t.eq(M.CATEGORIES[3], "timing")
+  t.eq(M.CATEGORIES[4], "settings")
+end)
+
+t.test("CONTROLS_BY_CATEGORY: settings owns the 5 UI colour pickers", function()
+  local set = {}
+  for _, c in ipairs(M.CONTROLS_BY_CATEGORY.settings) do set[c] = true end
+  t.eq(#M.CONTROLS_BY_CATEGORY.settings, 5)
+  t.truthy(set.font and set.button and set.wpt and set.rt and set.colorblind,
+    "settings has font/button/wpt/rt/colorblind")
 end)
 
 t.test("CONTROLS_BY_CATEGORY: devices owns SCAN + the 4 bind/side pickers", function()
@@ -688,7 +697,7 @@ t.test("CONTROLS_BY_CATEGORY: timing owns the pulse/interval/toggle sextet", fun
   end
 end)
 
-t.test("categoryOf: every control across all 3 categories resolves back to its own category, no overlap", function()
+t.test("categoryOf: every control across all categories resolves back to its own category, no overlap", function()
   local total = 0
   for _, cat in ipairs(M.CATEGORIES) do
     for _, c in ipairs(M.CONTROLS_BY_CATEGORY[cat]) do
@@ -696,7 +705,7 @@ t.test("categoryOf: every control across all 3 categories resolves back to its o
       total = total + 1
     end
   end
-  t.eq(total, 12, "5 devices + 1 fuel + 6 timing controls, no drops or duplicates")
+  t.eq(total, 17, "5 devices + 1 fuel + 6 timing + 5 settings controls, no drops or duplicates")
 end)
 
 t.test("categoryOf: an unknown control returns nil", function()

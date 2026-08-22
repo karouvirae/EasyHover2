@@ -14,7 +14,8 @@ const GROUPS = [
     ["flight_calfuel", "Fuel calibration ▸ EMC region"], ["flight_params", "FCS parameters ▸ FCS region"] ] },
   { name: "NAV & BIT/CONFIG", sub: "2w×1h monitors · 36×10 · NAV page + its drilldowns", panels: [
     ["nav", "NAV"], ["hub", "BIT/CONFIG Hub"], ["tuning", "FCS TUNING"], ["mdb", "MDB-CONF"],
-    ["uical", "UI CAL"], ["senscal", "SENS CAL"], ["senssource", "SENS SOURCE"], ["dtc", "DTC"], ["pfdrate", "PFD RATE"] ] },
+    ["uical", "UI CAL"], ["uical_settings", "UI CAL ▸ UI SETTINGS (new)"], ["senscal", "SENS CAL"],
+    ["senssource", "SENS SOURCE"], ["dtc", "DTC"], ["pfdrate", "PFD RATE"] ] },
   { name: "Entry panels", sub: "overlays over NAV · 36×10", panels: [
     ["waypointlist", "Waypoint list"], ["keypad_name", "Name keypad"],
     ["keypad_num", "Coord numpad"], ["listpicker", "List picker"] ] },
@@ -78,14 +79,18 @@ const html = `<title>Cockpit Panel Gallery</title>
 </style>
 
 <div class="wrap">
-  <p class="eyebrow">EasyHover 2 · Cockpit</p>
-  <h1>Every panel, rendered from code</h1>
-  <p class="lede">Every current cockpit screen — pages, region drilldowns, BIT/CONFIG submenus, and the
-    keypad / numpad / list entry panels — captured headless from the live Basalt source via CraftOS-PC.
-    No screenshots. Each is a faithful white-on-black cell grid framed at <b>its parent surface's true
-    resolution</b> (monitors at text scale 0.5; the UI-PC shell at native 51×19).</p>
-  <p class="lede">Panels render at their <b><code>default / unbound</code></b> state (no live telemetry
-    or saved config), so values read as placeholders — the layout, chrome, and text are exact.</p>
+  <p class="eyebrow">EasyHover 2 · Cockpit · Colour redesign</p>
+  <h1>One uniform colour scheme</h1>
+  <p class="lede">Tweak #1: a single glass-cockpit colour system across <b>every</b> panel — pages,
+    region drilldowns, BIT/CONFIG submenus, and the entry scratchpads. <b>Black background</b>
+    everywhere (the old cyan overhead is gone), <b>green font</b>, <b>gray buttons</b>, and the NAV
+    cues coloured <b>yellow (WPT)</b> / <b>blue (route)</b> — all editable in the new
+    <b>UI CAL ▸ UI SETTINGS</b> submenu (font / button / NAV WPT / NAV RT / colourblind), persisted to
+    config. Defaults shown here: green / gray / yellow / blue / no colourblind.</p>
+  <p class="lede"><b>State feedback is preserved</b> — the red/green switch buttons (ENG SW, mode
+    select) still carry their state; a separate state-feedback treatment comes later. Panels render at
+    <b><code>default / unbound</code></b> state, so values are placeholders — layout, chrome, and
+    colour are exact.</p>
 ${GROUPS.map(section).join("\n")}
   <footer>
     tools/render/ · <b>rec_term.lua</b> → <b>render_panel.lua</b> → <b>grid_to_svg.mjs</b> · one CraftOS-PC boot<br>

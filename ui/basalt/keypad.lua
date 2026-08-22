@@ -43,9 +43,7 @@ function M.make(frame)
     local s = ctrl.buf or ""
     if s == "" then s = "_" end
     if #s > w then s = s:sub(#s - w + 1) end
-    el.value:setBackground(colors.white)
-    el.value:setForeground(colors.black)
-    el.value:setText(s)
+    el.value:setText(s)   -- colours come from the theme (button colour bar + font colour text)
   end
 
   local function build()
@@ -55,10 +53,8 @@ function M.make(frame)
     overlay:setBackground(colors.black)
     overlay:setVisible(false)
     local title = overlay:addLabel({ x = 1, y = 1, width = w, height = 1, autoSize = false, text = "" })
-    title:setForeground(colors.white)
+    -- title + value colours come from the theme (font colour text; the value is a button-coloured bar)
     local value = overlay:addButton({ x = 1, y = 2, width = w, height = 1, text = "_" })
-    value:setBackground(colors.white)
-    value:setForeground(colors.black)
     local half = math.max(1, math.floor(w / 2))
     local okBtn = overlay:addButton({ x = 1, y = h, width = half, height = 1, text = "OK" })
     local xBtn = overlay:addButton({ x = 1 + half, y = h, width = math.max(1, w - half), height = 1, text = "X" })

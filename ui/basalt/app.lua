@@ -38,6 +38,7 @@ local Monitors = require("ui.monitors")
 local fnv1a = require("tools.fnv1a")
 
 local Config    = require("ui.config")
+local Theme     = require("ui.theme")
 local Engine    = require("ui.engine")
 local RelayWriter = require("ui.relaywriter")
 local Fuel      = require("ui.fuel")
@@ -236,7 +237,7 @@ function M.buildFrames(basalt, assign, present, wrap)
     if mon and mon.setTextScale then pcall(mon.setTextScale, 0.5) end
     local frame = basalt.createFrame()
     frame:setTerm(mon)
-    monitors[name] = { frame = frame, panelId = panelId }
+    monitors[name] = { frame = frame, panelId = panelId, term = mon }
   end
   local terminal = basalt.getMainFrame()
   return { terminal = terminal, monitors = monitors, resolved = resolved }
@@ -829,6 +830,18 @@ function M.run(deps)
   for name, rec in pairs(built.monitors) do
     frameRecs[name] = M.newFrameRec(rec.frame, M.rootForMonitor(runtime.config.assign, name))
   end
+
+  -- Uniform colour scheme (ui/theme): a custom Basalt theme paints black on every element/nesting
+  -- depth with the configured font colour, and the palette overrides (lightRed + any colourblind
+  -- remap) are written to the terminal and every monitor term. Exposed as runtime.applyColors so the
+  -- UI SETTINGS submenu can re-apply live after a colour change; called once now for the first render.
+  runtime.applyColors = function()
+    Theme.applyTheme(basalt, runtime.config.colors)
+    Theme.applyPalette(term, runtime.config.colors)
+    for _, rec in pairs(built.monitors) do Theme.applyPalette(rec.term, runtime.config.colors) end
+    runtime.uiRev = (runtime.uiRev or 0) + 1
+  end
+  runtime.applyColors()
 
   local function applyState(state, _frames)
     for _, frameRec in pairs(frameRecs) do

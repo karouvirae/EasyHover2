@@ -22,6 +22,10 @@ function M.defaults()
     -- kept (only unchanged frames are skipped); this sets how often it checks/repaints. Faster =
     -- smoother but more shared-server render budget (watch the FCS loopHz). See ui/basalt/app.lua.
     pfd = { renderMs = 100 },
+    -- Cockpit colour scheme (BIT/CONFIG -> UI CAL -> UI SETTINGS). Background is hardcoded black in
+    -- ui/theme.lua; these pick the font/button/NAV-cue colours + an optional colourblind palette.
+    -- Values are ui/theme.lua colour keys / colourblind mode keys.
+    colors = { font = "green", button = "gray", wpt = "yellow", rt = "blue", colorblind = "none" },
   }
 end
 

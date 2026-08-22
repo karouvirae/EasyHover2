@@ -923,9 +923,9 @@
         },
         {
           ["dst"] = "ui/basalt/app.lua",
-          ["size"] = 42163,
+          ["size"] = 42930,
           ["src"] = "ui/basalt/app.lua",
-          ["sum"] = "c5190230",
+          ["sum"] = "fd3c8247",
         },
         {
           ["dst"] = "ui/basalt/bitconfig/dtc.lua",
@@ -977,9 +977,9 @@
         },
         {
           ["dst"] = "ui/basalt/bitconfig/uical.lua",
-          ["size"] = 33127,
+          ["size"] = 36019,
           ["src"] = "ui/basalt/bitconfig/uical.lua",
-          ["sum"] = "0bc4ca70",
+          ["sum"] = "9d83ebc5",
         },
         {
           ["dst"] = "ui/basalt/btnfit.lua",
@@ -1031,9 +1031,9 @@
         },
         {
           ["dst"] = "ui/basalt/keypad.lua",
-          ["size"] = 4201,
+          ["size"] = 4181,
           ["src"] = "ui/basalt/keypad.lua",
-          ["sum"] = "0b2ae157",
+          ["sum"] = "fce5403f",
         },
         {
           ["dst"] = "ui/basalt/listpicker.lua",
@@ -1079,15 +1079,15 @@
         },
         {
           ["dst"] = "ui/basalt/pages/nav.lua",
-          ["size"] = 20198,
+          ["size"] = 20564,
           ["src"] = "ui/basalt/pages/nav.lua",
-          ["sum"] = "65d5ff83",
+          ["sum"] = "c65cb347",
         },
         {
           ["dst"] = "ui/basalt/pages/pfd.lua",
-          ["size"] = 7347,
+          ["size"] = 7679,
           ["src"] = "ui/basalt/pages/pfd.lua",
-          ["sum"] = "28cb2718",
+          ["sum"] = "cd802510",
         },
         {
           ["dst"] = "ui/basalt/picker.lua",
@@ -1151,9 +1151,9 @@
         },
         {
           ["dst"] = "ui/config.lua",
-          ["size"] = 2821,
+          ["size"] = 3189,
           ["src"] = "ui/config.lua",
-          ["sum"] = "99ac6880",
+          ["sum"] = "ff7dcb18",
         },
         {
           ["dst"] = "ui/detect.lua",
@@ -1214,6 +1214,12 @@
           ["size"] = 2055,
           ["src"] = "ui/routefollow.lua",
           ["sum"] = "76a3fbde",
+        },
+        {
+          ["dst"] = "ui/theme.lua",
+          ["size"] = 7677,
+          ["src"] = "ui/theme.lua",
+          ["sum"] = "7f6dc6c0",
         },
         {
           ["dst"] = "ui/toolkit.lua",
@@ -1361,5 +1367,5 @@
     ["size"] = 71434,
     ["sum"] = "57671ad7",
   },
-  ["version"] = "1e790d3c",
+  ["version"] = "ca9da1fa",
 }

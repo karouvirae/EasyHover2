@@ -6,8 +6,14 @@
 local Rec = require("tools.render.rec_term")
 local Nav = require("ui.basalt.nav")
 local basalt = require("ui.basalt.app").ensureBasalt()
+local Theme = require("ui.theme")
 
 local PANEL = _G.EH2_RENDER_PANEL or "pfd"
+-- Apply the cockpit colour scheme exactly like ui/basalt/app.lua's M.run: a global custom theme
+-- (black bg everywhere + font/button colours) + palette overrides per recording term. Override
+-- _G.EH2_RENDER_COLORS to preview a specific choice / colourblind mode; defaults otherwise.
+local COLORS = _G.EH2_RENDER_COLORS or Theme.DEFAULTS
+Theme.applyTheme(basalt, COLORS)
 
 -- ---- permissive mocks (deps the various build()s take; enough to render a default form) ----
 local function noop() end
@@ -55,7 +61,9 @@ local RECIPES = {
   hub        = { W = 36, H = 10, build = function(b, f) return P("ui.basalt.bitconfig.hub").build(b, f, nil, Nav.new("hub")) end },
   tuning     = { W = 36, H = 10, build = function(b, f) return P("ui.basalt.bitconfig.tuning").build(b, f, nil, Nav.new("tuning"), readStub, noop, noop) end },
   mdb        = { W = 36, H = 10, build = function(b, f) return P("ui.basalt.bitconfig.mdb").build(b, f, nil, Nav.new("mdb"), readStub, noop, scanStub) end },
-  uical      = { W = 36, H = 10, build = function(b, f) return P("ui.basalt.bitconfig.uical").build(b, f, {}, Nav.new("uical"), deps) end },
+  uical      = { W = 36, H = 10, build = function(b, f) return P("ui.basalt.bitconfig.uical").build(b, f, runtime, Nav.new("uical"), deps) end },
+  uical_settings = { W = 36, H = 10, build = function(b, f) return P("ui.basalt.bitconfig.uical").build(b, f, runtime, Nav.new("uical"), deps) end,
+                     postBuild = function(h) h.elements.region:push("settings") end },
   senscal    = { W = 36, H = 10, build = function(b, f) return P("ui.basalt.bitconfig.senscal").build(b, f, nil, Nav.new("senscal"), readStub, noop, sampler) end },
   senssource = { W = 36, H = 10, build = function(b, f) return P("ui.basalt.bitconfig.senssource").build(b, f, {}, Nav.new("senssource"), readStub, noop, sampler) end },
   dtc        = { W = 36, H = 10, build = function(b, f) return P("ui.basalt.bitconfig.dtc").build(b, f, nil, Nav.new("dtc"), deps) end },
@@ -84,7 +92,7 @@ local RECIPES = {
 }
 
 local ORDER = { "pfd", "flight", "flight_engine", "flight_calfuel", "flight_params",
-                "nav", "hub", "tuning", "mdb", "uical", "senscal", "senssource", "dtc", "pfdrate",
+                "nav", "hub", "tuning", "mdb", "uical", "uical_settings", "senscal", "senssource", "dtc", "pfdrate",
                 "waypointlist", "keypad_name", "keypad_num", "listpicker", "config", "ap" }
 
 -- Render one recipe into a fresh rec-term and serialise it to /render_out_<id>.txt.
@@ -92,6 +100,7 @@ local function renderOne(id)
   local r = RECIPES[id]
   if not r then return end
   local rec = Rec.new(r.W, r.H)
+  Theme.applyPalette(rec, COLORS)   -- lightRed + colourblind palette overrides into the capture
   local err
   local ok, e = pcall(function()
     -- Mount like the real app (app.lua showScreen): BaseFrame bound via setTerm, page in a child Frame.

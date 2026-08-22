@@ -5,7 +5,7 @@ ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 OUTDIR="$ROOT/tools/render/out"
 mkdir -p "$OUTDIR"
 
-IDS="pfd flight flight_engine flight_calfuel flight_params nav hub tuning mdb uical senscal senssource dtc pfdrate waypointlist keypad_name keypad_num listpicker config ap"
+IDS="pfd flight flight_engine flight_calfuel flight_params nav hub tuning mdb uical uical_settings senscal senssource dtc pfdrate waypointlist keypad_name keypad_num listpicker config ap"
 
 DATA="$(mktemp -d)"
 COMP="$DATA/computer/0"

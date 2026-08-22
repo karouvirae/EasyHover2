@@ -1,5 +1,5 @@
 36 24
-PAL 1=ff6a6a
+PAL 1=e69f00 2=cc79a7 d=009e73 e=d55e00 6=cc79a7 5=f0e442
 ddddddddddddddddddddddddd4dddddddddd	ffffffffffffffffffffffffffffffffffff	124 32 48 49 32 32 124 32 32 32 124 32 48 52 32 32 124 32 32 32 124 32 48 55 32 118 124 32 32 32 124 32 49 48 32 32
 dddddddddddddddddddddddddddddddddddd	ffffffffffffffffffffffffffffffffffff	32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 94 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32
 dddddddddddddddddddddddddddddddddddd	ffffffffffffffffffffffffffffffffffff	32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 48 52 53 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32

@@ -23,6 +23,7 @@ local W         = require("nav.waypoints")
 local configkit = require("ui.basalt.configkit")
 local Picker    = require("ui.basalt.listpicker")
 local Keypad    = require("ui.basalt.keypad")
+local Theme     = require("ui.theme")
 
 local M = {}
 M.id = "nav"
@@ -114,6 +115,12 @@ function M.build(basalt, frame, runtime, nav)
   local w, h = frame:getSize()
   local activeType = "all"
 
+  -- NAV cue colours from config (WPT list highlight = NAV WPT colour, route list = NAV RT colour).
+  -- Defaults (wpt=yellow, rt=blue) apply with no runtime/config (tests / render harness).
+  local cc = runtime and runtime.config and runtime.config.colors
+  local wptColor = Theme.resolve(cc, "wpt")
+  local rtColor = Theme.resolve(cc, "rt")
+
   local function client() return runtime and runtime.wptClient end
   local function store() local c = client(); return (c and c.store) or { waypoints = {}, routes = {} } end
 
@@ -167,7 +174,7 @@ function M.build(basalt, frame, runtime, nav)
     local listTop = 3
     local listH = math.max(4, fh - listTop + 1)
     local listFrame = f:addFrame({ x = 1, y = listTop, width = fw, height = listH })
-    local list = WL.make(listFrame, { rows = math.max(1, listH - 1), selColor = colors.green,
+    local list = WL.make(listFrame, { rows = math.max(1, listH - 1), selColor = wptColor,
       onSelect = function(it)
         if runtime then runtime.nav = runtime.nav or {}; runtime.nav.target = it end   -- PFD target (task 1d)
         bump()
@@ -211,7 +218,7 @@ function M.build(basalt, frame, runtime, nav)
     local listTop = 2
     local listH = math.max(3, fh - listTop)
     local listFrame = f:addFrame({ x = 1, y = listTop, width = fw, height = listH })
-    local list = WL.make(listFrame, { rows = math.max(1, listH - 1), selColor = colors.green,
+    local list = WL.make(listFrame, { rows = math.max(1, listH - 1), selColor = wptColor,
       onSelect = function(it) selectedName = it and it.name or nil end })
 
     local backRow = configkit.actionRow(f, { x = 1, y = fh, w = fw }, {
@@ -346,7 +353,7 @@ function M.build(basalt, frame, runtime, nav)
               runtime.nav.routeActive = { name = sel, i = 1 }; runtime.nav.target = nil; bump() end end },
       })
       local listFrame = ff:addFrame({ x = 1, y = 3, width = ffw, height = math.max(3, ffh - 3) })
-      local list = WL.make(listFrame, { rows = math.max(1, ffh - 4), selColor = colors.blue,
+      local list = WL.make(listFrame, { rows = math.max(1, ffh - 4), selColor = rtColor,
         fmt = function(r) return tostring(r.name) end, onSelect = function(r) sel = r and r.name or nil end })
       local backRow = configkit.actionRow(ff, { x = 1, y = ffh, w = ffw }, {
         { label = "< BACK", onClick = function() region:pop() end } })
@@ -381,7 +388,7 @@ function M.build(basalt, frame, runtime, nav)
         { label = "DN",   onClick = function() if selLeg then mutateOp("moveLeg", { route = openRoute, i = selLeg, dir = 1 }); selLeg = selLeg + 1; refresh() end end },
       })
       local listFrame = ff:addFrame({ x = 1, y = 3, width = ffw, height = math.max(3, ffh - 3) })
-      local list = WL.make(listFrame, { rows = math.max(1, ffh - 4), selColor = colors.blue,
+      local list = WL.make(listFrame, { rows = math.max(1, ffh - 4), selColor = rtColor,
         fmt = function(it) return (it.wpt or "?") .. " @" .. tostring(it.alt) end,
         keyOf = function(it) return it._i end,
         onSelect = function(it) selLeg = it and it._i or nil end })

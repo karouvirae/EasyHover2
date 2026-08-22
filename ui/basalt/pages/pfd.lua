@@ -12,6 +12,7 @@ local Horizon  = require("ui.basalt.instruments.horizon")
 local Tape     = require("ui.basalt.instruments.tape")
 local Attitude = require("ui.basalt.instruments.attitude")
 local Readout  = require("ui.basalt.instruments.readout")
+local Theme    = require("ui.theme")
 
 local M = {}
 M.id = "pfd"
@@ -110,7 +111,10 @@ function M.build(basalt, frame, runtime, nav)
     -- Waypoint target cue: bearing bug on the tape + TGT readout. Colored by source (green wpt /
     -- blue route). Hidden when there is no target or no heading to reference.
     local tgt = state.target
-    local tgtColor = (tgt and tgt.color == "blue") and colors.blue or colors.lime
+    -- Cue colour from config: a route leg (tgt.color=="blue") uses the NAV RT colour, a waypoint uses
+    -- the NAV WPT colour. Defaults (rt=blue, wpt=yellow) apply when no runtime/config is present.
+    local cc = runtime and runtime.config and runtime.config.colors
+    local tgtColor = (tgt and tgt.color == "blue") and Theme.resolve(cc, "rt") or Theme.resolve(cc, "wpt")
     local haveHdg = tgt and type(state.heading) == "number"
     local bugCol = haveHdg and Tape.bugCol(tgt.bearing, state.heading, w) or nil
     if bugCol then

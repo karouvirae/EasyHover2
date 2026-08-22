@@ -68,16 +68,17 @@ t.test("show() + tap keys + OK fires onOk with the buffer", function()
   t.eq(ctrl.visible(), false)
 end)
 
-t.test("value readout is not black-on-black and shows the buffer", function()
+t.test("value readout is a paintable Button bar and shows the buffer", function()
   local basalt = BasaltApp.ensureBasalt()
   local frame = basalt.createFrame()
   local ctrl = K.make(frame)
   ctrl.show({ title = "NAME", mode = "name", value = "Home" })
   t.eq(ctrl.elements.value:getText(), "Home")
-  t.eq(ctrl.elements.value:getBackground(), colors.white, "value is a Button bar, not a transparent Label")
-  t.eq(ctrl.elements.value:getForeground(), colors.black, "value text is black")
+  -- The value is a Button (paints its own background), not a transparent Label -- so the buffer is
+  -- always visible. Its colours now come from the theme (button-colour bar + font-colour text)
+  -- rather than a hardcoded white/black, so we assert the ELEMENT TYPE, not specific colours.
+  t.eq(ctrl.elements.value.get("type"), "Button", "value is a Button bar, not a transparent Label")
   t.eq(ctrl.elements.title:getText(), "NAME")
-  t.eq(ctrl.elements.title:getForeground(), colors.white, "title is white on the black overlay")
 end)
 
 t.test("cancel hides without onOk; reuse keeps one overlay", function()
