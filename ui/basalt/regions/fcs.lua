@@ -139,7 +139,8 @@ function M.params(basalt, frame, region, runtime)
   local iw = math.max(1, w - 2)
   local x = 2
 
-  local back = frame:addButton({ x = x, y = 2, width = math.min(iw, 8), height = 1, text = "< BACK" })
+  local pBackGeo = btnfit.grid({ "< BACK" }, { x0 = 1, availW = w, y0 = 2, gap = 1, align = "center" })
+  local back = frame:addButton({ x = pBackGeo[1].x, y = 2, width = pBackGeo[1].w, height = 1, text = "< BACK" })
   back:onClick(function() region:pop() end)
 
   local labels = {}

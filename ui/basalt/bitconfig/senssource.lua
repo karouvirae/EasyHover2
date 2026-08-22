@@ -193,14 +193,17 @@ function M.build(basalt, frame, runtime, nav, read, write, sampler)
 
     local refreshList -- forward-declared: step buttons + APPLY's onClick call this.
 
-    local stepBtns = {}
+    -- Compact centred column sized to the widest step ("[ ] " + label); the marker is refreshed live.
+    local stepItems = {}
     for i, step in ipairs(steps) do
-      local sw = switchbtn.make(f, { x = fx, y = y, width = fiw, height = 1, text = "" })
-      sw.set("off")
-      sw.button:onClick(function() region:push("cal_" .. step.id) end)
-      stepBtns[i] = sw
-      y = y + 1
+      stepItems[#stepItems + 1] = { id = i, label = "[ ] " .. step.label,
+        onClick = function() region:push("cal_" .. step.id) end }
     end
+    local stepMenu = configkit.menuColumn(f, { y = y, items = stepItems })
+    local stepBtns = {}
+    for i = 1, #steps do stepBtns[i] = stepMenu.buttons[i] end
+    local stepBtnW = stepMenu.width
+    y = stepMenu.nextY
 
     local applyRow = configkit.actionRow(f, { x = fx, y = y, w = fiw }, {
       { label = "APPLY", onClick = function()
@@ -225,7 +228,7 @@ function M.build(basalt, frame, runtime, nav, read, write, sampler)
       local allDone = true
       for i, step in ipairs(steps) do
         local marker = calCompleted[step.id] and "[x] " or "[ ] "
-        stepBtns[i].button:setText(configkit.fitLabel(marker .. step.label, fiw))
+        stepBtns[i].button:setText(configkit.fitLabel(marker .. step.label, stepBtnW))
         if not calCompleted[step.id] then allDone = false end
       end
       applyRow.setState(1, allDone and "on" or "disabled")

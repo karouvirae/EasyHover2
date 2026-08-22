@@ -789,7 +789,7 @@ function M.build(basalt, frame, runtime, nav, read, write, delete)
     local y = 1
     local titleLabel = f:addLabel({ x = fx, y = y, width = fiw, height = 1, autoSize = false, text = "AUTO COM" })
     y = y + 1
-    local lamp = switchbtn.make(f, { x = fx, y = y, width = fiw, height = 1, text = "LAMP" })
+    local lamp = switchbtn.make(f, { x = fx, y = y, width = fiw, height = 1, text = "LAMP" }) -- audit:full-width-ok status lamp (readout, not a pick target)
     y = y + 1
     local reason = f:addLabel({ x = fx, y = y, width = fiw, height = 1, autoSize = false, text = "" })
     y = y + 1

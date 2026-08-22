@@ -54,7 +54,7 @@ function M.make(frame)
     overlay:setVisible(false)
     local title = overlay:addLabel({ x = 1, y = 1, width = w, height = 1, autoSize = false, text = "" })
     -- title + value colours come from the theme (font colour text; the value is a button-coloured bar)
-    local value = overlay:addButton({ x = 1, y = 2, width = w, height = 1, text = "_" })
+    local value = overlay:addButton({ x = 1, y = 2, width = w, height = 1, text = "_" }) -- audit:full-width-ok value readout bar (entry display, spans overlay)
     -- OK / X compact + centred at the bottom (not a full-width split).
     local okW, xW, obGap = 4, 3, 2
     local obX = math.max(1, math.floor((w - (okW + obGap + xW)) / 2) + 1)

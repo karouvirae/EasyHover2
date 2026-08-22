@@ -101,7 +101,7 @@ function M.make(frame, opts)
 
   -- Build the fixed row buttons + UP/DOWN.
   for r = 1, rowsN do
-    local btn = frame:addButton({ x = 1, y = r, width = w, height = 1, text = "" })
+    local btn = frame:addButton({ x = 1, y = r, width = w, height = 1, text = "" }) -- audit:full-width-ok list row (each row spans the list)
     btn:onClick(function() ctrl.selectRow(r) end)
     ctrl.rowBtns[r] = btn
   end

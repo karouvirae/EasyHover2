@@ -51,7 +51,17 @@ EH2 Basalt Lua            CraftOS-PC (headless)           Node                  
   wraps it on the cockpit ground, screenshots at 2× into `out/<id>.png`. **This is how the model does
   visual self-review** — after generating, `Read` the PNG to see the panel as an image and catch
   anything that deviates from intent, before showing the user.
-- **`out/`** — committed clean base: per-panel `.txt` + `.svg` + `.png`, and `gallery.html`.
+- **`contact_sheet.mjs` + `contact_sheet.sh`** — the **whole-cockpit contact sheet**: every `out/*.svg`
+  as a uniform labelled thumbnail in one grid, rasterised to a single `out/contact_sheet.png`. Run
+  `bash tools/render/contact_sheet.sh` then `Read out/contact_sheet.png` to eyeball EVERY panel in one
+  view — the fast path for a class-wide visual sweep (sizing/colour), where stragglers pop out that a
+  single-panel PNG would hide. `.mjs` prints the exact pixel size for the screenshot on stdout.
+- **`audit_sizing.mjs`** — **sizing lint**: `node tools/render/audit_sizing.mjs` flags every clickable/
+  pickable element (`addButton`/`addList`/`Picker.make`/`switchbtn.make`) built at full/most-of-line
+  width instead of through a helper. Call-scoped + multiline-aware (catches wrapped calls a one-line
+  grep misses). Legit full-width sites carry an inline `-- audit:full-width-ok <reason>` marker it skips,
+  so a **clean run means nothing UNREVIEWED**. Run it before declaring any sizing sweep done.
+- **`out/`** — committed clean base: per-panel `.txt` + `.svg` + `.png`, `gallery.html`, `contact_sheet.png`.
 
 ## Regenerate
 

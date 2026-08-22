@@ -15,6 +15,7 @@
 local FcsPanel = require("ui.panels.fcs")
 local Theme    = require("ui.theme")
 local Switch   = require("ui.basalt.switchbtn")
+local btnfit   = require("ui.basalt.btnfit")
 
 local M = {}
 M.id = "fcs"
@@ -97,23 +98,18 @@ function M.build(basalt, frame, runtime)
   local x = 2
   local iw = math.max(1, w - 2)
 
-  -- Three full-width control buttons, stacked -- same composition as emc.lua's engine controls.
-  -- Reserve room below for the mode-selector row (1 line + 1 gap) and the six status Labels.
-  local rows = #CTRL_ORDER
+  -- Compact label-sized control buttons, centred, one per row (was full-width tall bars) --
+  -- same composition as emc.lua's engine controls.
   local ctrlTop = 2
-  local statusWant = #FIELD_ORDER
-  local reserved = 2 + statusWant
-  local ctrlAreaH = h - ctrlTop - reserved
-  if ctrlAreaH < rows then ctrlAreaH = rows end
-  local btnH = math.floor(ctrlAreaH / rows)
-  if btnH < 1 then btnH = 1 end
+  local ctrlLabels = {}
+  for i, id in ipairs(CTRL_ORDER) do ctrlLabels[i] = CTRL_LABEL[id] end
+  local ctrlGeo = btnfit.grid(ctrlLabels, { x0 = 1, availW = w, y0 = ctrlTop, perRow = 1, gap = 0, align = "center" })
 
   local buttons = {}
-  local y = ctrlTop
-  for _, id in ipairs(CTRL_ORDER) do
-    buttons[id] = frame:addButton({ x = x, y = y, width = iw, height = btnH, text = CTRL_LABEL[id] })
-    y = y + btnH
+  for i, id in ipairs(CTRL_ORDER) do
+    buttons[id] = frame:addButton({ x = ctrlGeo[i].x, y = ctrlGeo[i].y, width = ctrlGeo[i].w, height = 1, text = CTRL_LABEL[id] })
   end
+  local y = ctrlGeo[#ctrlGeo].y + 1
 
   -- Mode-selector row: one switch per MODE_ORDER id, side-by-side, splitting the interior width
   -- (the last one absorbs any remainder so the row never overshoots iw) -- same row-splitting
@@ -143,6 +139,7 @@ function M.build(basalt, frame, runtime)
   end)
 
   -- statusTop shifted down one row (bumped from phTop+2) to make room for the trim button above.
+  local statusWant = #FIELD_ORDER
   local statusTop = phTop + 3
   if statusTop + statusWant - 1 > h then statusTop = math.max(phTop + 2, h - statusWant + 1) end
 

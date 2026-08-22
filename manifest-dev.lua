@@ -935,9 +935,9 @@
         },
         {
           ["dst"] = "ui/basalt/bitconfig/fcssync.lua",
-          ["size"] = 4695,
+          ["size"] = 5015,
           ["src"] = "ui/basalt/bitconfig/fcssync.lua",
-          ["sum"] = "51d572e3",
+          ["sum"] = "c36c9b2f",
         },
         {
           ["dst"] = "ui/basalt/bitconfig/hub.lua",
@@ -965,15 +965,15 @@
         },
         {
           ["dst"] = "ui/basalt/bitconfig/senssource.lua",
-          ["size"] = 13866,
+          ["size"] = 14116,
           ["src"] = "ui/basalt/bitconfig/senssource.lua",
-          ["sum"] = "f79a504a",
+          ["sum"] = "f779358b",
         },
         {
           ["dst"] = "ui/basalt/bitconfig/tuning.lua",
-          ["size"] = 41359,
+          ["size"] = 41423,
           ["src"] = "ui/basalt/bitconfig/tuning.lua",
-          ["sum"] = "8cd3b3d4",
+          ["sum"] = "cb74bf4d",
         },
         {
           ["dst"] = "ui/basalt/bitconfig/uical.lua",
@@ -1031,15 +1031,15 @@
         },
         {
           ["dst"] = "ui/basalt/keypad.lua",
-          ["size"] = 4532,
+          ["size"] = 4604,
           ["src"] = "ui/basalt/keypad.lua",
-          ["sum"] = "6e47117c",
+          ["sum"] = "21f0a7b8",
         },
         {
           ["dst"] = "ui/basalt/listpicker.lua",
-          ["size"] = 4719,
+          ["size"] = 4783,
           ["src"] = "ui/basalt/listpicker.lua",
-          ["sum"] = "1d236de0",
+          ["sum"] = "7b260eac",
         },
         {
           ["dst"] = "ui/basalt/nav.lua",
@@ -1061,15 +1061,15 @@
         },
         {
           ["dst"] = "ui/basalt/pages/emc.lua",
-          ["size"] = 9546,
+          ["size"] = 9606,
           ["src"] = "ui/basalt/pages/emc.lua",
-          ["sum"] = "e780e194",
+          ["sum"] = "560bea6d",
         },
         {
           ["dst"] = "ui/basalt/pages/fcs.lua",
-          ["size"] = 10846,
+          ["size"] = 10860,
           ["src"] = "ui/basalt/pages/fcs.lua",
-          ["sum"] = "7283c4f1",
+          ["sum"] = "361727af",
         },
         {
           ["dst"] = "ui/basalt/pages/flight.lua",
@@ -1109,9 +1109,9 @@
         },
         {
           ["dst"] = "ui/basalt/regions/fcs.lua",
-          ["size"] = 7701,
+          ["size"] = 7815,
           ["src"] = "ui/basalt/regions/fcs.lua",
-          ["sum"] = "3850ebdc",
+          ["sum"] = "fa25d2a2",
         },
         {
           ["dst"] = "ui/basalt/senssource.lua",
@@ -1133,9 +1133,9 @@
         },
         {
           ["dst"] = "ui/basalt/waypointlist.lua",
-          ["size"] = 4850,
+          ["size"] = 4908,
           ["src"] = "ui/basalt/waypointlist.lua",
-          ["sum"] = "eb11e52f",
+          ["sum"] = "d51d5689",
         },
         {
           ["dst"] = "ui/basalt/wptclient.lua",
@@ -1367,5 +1367,5 @@
     ["size"] = 71434,
     ["sum"] = "57671ad7",
   },
-  ["version"] = "1eb1a9a2",
+  ["version"] = "0092fa18",
 }

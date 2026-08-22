@@ -34,6 +34,7 @@
 -- apply() closure, so `require("ui.basalt.pages.emc")` loads clean headless.
 local EnginePanel = require("ui.panels.engine")
 local Theme       = require("ui.theme")
+local btnfit      = require("ui.basalt.btnfit")
 
 local M = {}
 M.id = "emc"
@@ -108,20 +109,16 @@ function M.build(basalt, frame, runtime)
   local tankLabel = frame:addLabel({ x = x, y = 5, width = iw, height = 1, autoSize = false, text = "TANK --" })
 
   local btnTop = 7
-  local rows = #BUTTON_ORDER
-  local statusWant = 5   -- MASTER / FEED / NEXT / PULSES / RELAY
-  local statusTop = h - statusWant
-  if statusTop < btnTop + rows then statusTop = btnTop + rows end
-  local btnAreaH = statusTop - btnTop
-  local btnH = math.floor(btnAreaH / rows)
-  if btnH < 1 then btnH = 1 end
+  -- Compact label-sized buttons, centred, one per row (was full-width tall bars).
+  local btnLabels = {}
+  for i, id in ipairs(BUTTON_ORDER) do btnLabels[i] = BUTTON_LABEL[id] end
+  local btnGeo = btnfit.grid(btnLabels, { x0 = 1, availW = w, y0 = btnTop, perRow = 1, gap = 0, align = "center" })
 
   local buttons = {}
-  local y = btnTop
-  for _, id in ipairs(BUTTON_ORDER) do
-    buttons[id] = frame:addButton({ x = x, y = y, width = iw, height = btnH, text = BUTTON_LABEL[id] })
-    y = y + btnH
+  for i, id in ipairs(BUTTON_ORDER) do
+    buttons[id] = frame:addButton({ x = btnGeo[i].x, y = btnGeo[i].y, width = btnGeo[i].w, height = 1, text = BUTTON_LABEL[id] })
   end
+  local y = btnGeo[#btnGeo].y + 1
 
   local statusY = y
   if statusY > h then statusY = math.max(btnTop, h - statusWant + 1) end

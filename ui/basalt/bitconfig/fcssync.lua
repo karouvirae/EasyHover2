@@ -11,6 +11,8 @@
 -- NO peripheral/Basalt access at module LOAD -- everything lives inside M.build/the closures it
 -- returns, so `require("ui.basalt.bitconfig.fcssync")` loads clean headless.
 
+local btnfit = require("ui.basalt.btnfit")
+
 local M = {}
 M.id = "fcssync"
 M.title = "FCS SYNC"
@@ -69,12 +71,14 @@ function M.build(basalt, frame, runtime, nav)
   local linkLbl   = frame:addLabel({ x = x, y = dataTop + 1, width = iw, height = 1, autoSize = false, text = "LINK: --" })
 
   local footerY = dataTop + 3
-  local halfW = math.max(1, math.floor(iw / 2))
 
-  local startBtn = frame:addButton({ x = x, y = footerY, width = halfW, height = 1, text = "START" })
-  local stopBtn  = frame:addButton({ x = x + halfW, y = footerY, width = math.max(1, iw - halfW), height = 1, text = "STOP" })
+  -- Compact, label-sized + centred (was a full-width split / bar).
+  local ssGeo = btnfit.grid({ "START", "STOP" }, { x0 = 1, availW = w, y0 = footerY, gap = 1, align = "center" })
+  local startBtn = frame:addButton({ x = ssGeo[1].x, y = footerY, width = ssGeo[1].w, height = 1, text = "START" })
+  local stopBtn  = frame:addButton({ x = ssGeo[2].x, y = footerY, width = ssGeo[2].w, height = 1, text = "STOP" })
 
-  local backBtn = frame:addButton({ x = x, y = footerY + 1, width = iw, height = 1, text = "< BACK" })
+  local ssBackGeo = btnfit.grid({ "< BACK" }, { x0 = 1, availW = w, y0 = footerY + 1, gap = 1, align = "center" })
+  local backBtn = frame:addButton({ x = ssBackGeo[1].x, y = footerY + 1, width = ssBackGeo[1].w, height = 1, text = "< BACK" })
 
   startBtn:onClick(function()
     M._onButton(runtime, "start", os.epoch("utc"))

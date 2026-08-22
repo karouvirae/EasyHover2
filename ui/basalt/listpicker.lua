@@ -46,7 +46,7 @@ function M.make(frame)
 
     local title = overlay:addLabel({ x = 1, y = 1, width = w, height = 1, autoSize = false, text = "" })
     local listH = math.max(1, h - 2)  -- rows 2..h-1
-    local list  = overlay:addList({ x = 1, y = 2, width = w, height = listH })
+    local list  = overlay:addList({ x = 1, y = 2, width = w, height = listH }) -- audit:full-width-ok scrolling list (spans overlay by design)
     list:setShowScrollBar(false)      -- kill the 1-col mis-hittable bar; UP/DOWN + wheel instead
 
     -- UP / DOWN / BACK compact + centred (not a full-width thirds split).
