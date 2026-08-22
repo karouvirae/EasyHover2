@@ -534,22 +534,24 @@ function M.build(basalt, frame, runtime, nav, read, write, sampler)
     local fiw = math.max(1, fw - 2)
     local y = 1
 
-    local stepBtns = {}
+    -- Compact centred column sized to the widest step ("[ ] " + label); the marker is refreshed live.
+    local stepItems = {}
     for i, step in ipairs(steps) do
-      local sw = switchbtn.make(f, { x = fx, y = y, width = fiw, height = 1, text = "" })
-      sw.set("off")
       local targetIdx = i
-      sw.button:onClick(function()
-        -- Walk the controller to the tapped step via the SAME single-step nav STEP </> uses --
-        -- just composed to reach an arbitrary target from the list.
-        while ctrl.stepIdx() < targetIdx do ctrl.nextStep() end
-        while ctrl.stepIdx() > targetIdx do ctrl.prevStep() end
-        region:push("step_" .. step.id)
-        region:apply(nil)
-      end)
-      stepBtns[i] = sw
-      y = y + 1
+      stepItems[#stepItems + 1] = { id = i, label = "[ ] " .. step.label,
+        onClick = function()
+          -- Walk the controller to the tapped step via the SAME single-step nav STEP </> uses.
+          while ctrl.stepIdx() < targetIdx do ctrl.nextStep() end
+          while ctrl.stepIdx() > targetIdx do ctrl.prevStep() end
+          region:push("step_" .. step.id)
+          region:apply(nil)
+        end }
     end
+    local stepMenu = configkit.menuColumn(f, { y = y, items = stepItems })
+    local stepBtns = {}
+    for i = 1, #steps do stepBtns[i] = stepMenu.buttons[i] end
+    local stepBtnW = stepMenu.width
+    y = stepMenu.nextY
 
     local footerRow = configkit.actionRow(f, { x = fx, y = y, w = fiw }, {
       { label = "SAVE", onClick = function() M._save(ctrl.cfg(), write) end },
@@ -559,7 +561,7 @@ function M.build(basalt, frame, runtime, nav, read, write, sampler)
     local function refresh()
       for i, step in ipairs(steps) do
         local marker = completed[step.id] and "[x] " or "[ ] "
-        stepBtns[i].button:setText(configkit.fitLabel(marker .. step.label, fiw))
+        stepBtns[i].button:setText(configkit.fitLabel(marker .. step.label, stepBtnW))
       end
     end
     refresh()

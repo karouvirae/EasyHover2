@@ -49,10 +49,12 @@ function M.make(frame)
     local list  = overlay:addList({ x = 1, y = 2, width = w, height = listH })
     list:setShowScrollBar(false)      -- kill the 1-col mis-hittable bar; UP/DOWN + wheel instead
 
-    local third = math.max(1, math.floor(w / 3))
-    local upBtn   = overlay:addButton({ x = 1,             y = h, width = third, height = 1, text = "UP" })
-    local downBtn = overlay:addButton({ x = 1 + third,     y = h, width = third, height = 1, text = "DOWN" })
-    local backBtn = overlay:addButton({ x = 1 + 2 * third, y = h, width = math.max(1, w - 2 * third), height = 1, text = "BACK" })
+    -- UP / DOWN / BACK compact + centred (not a full-width thirds split).
+    local upW, downW, backW, fgap = 4, 6, 6, 2
+    local fx0 = math.max(1, math.floor((w - (upW + downW + backW + 2 * fgap)) / 2) + 1)
+    local upBtn   = overlay:addButton({ x = fx0,                          y = h, width = upW,   height = 1, text = "UP" })
+    local downBtn = overlay:addButton({ x = fx0 + upW + fgap,             y = h, width = downW, height = 1, text = "DOWN" })
+    local backBtn = overlay:addButton({ x = fx0 + upW + downW + 2 * fgap, y = h, width = backW, height = 1, text = "BACK" })
 
     list:onSelect(function(_self, index) ctrl.pick(index) end)
     upBtn:onClick(function() ctrl.scrollBy(-listH) end)

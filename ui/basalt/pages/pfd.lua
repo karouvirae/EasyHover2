@@ -82,7 +82,15 @@ function M.build(basalt, frame, runtime, nav)
 
     -- Tape. Pass heading through nil-safe: a nil (no fresh nav bearing) renders a blank scale +
     -- "---" lubber rather than a fabricated 000/N. See ui/basalt/instruments/tape.lua.
-    tapeLabel:setText(Tape.row(state.heading, w))
+    -- GUARD (vertical-tape glitch): the tape has spaces, so if the label's resolved width ever comes
+    -- back smaller than the text (frame width not settled during a rebuild), Basalt's wrapText breaks
+    -- it into a VERTICAL column (and blits every wrapped line). Render the tape at the LIVE frame
+    -- width and match the label width to it, so text length always == label width -> it can never
+    -- wrap, and it self-heals once the frame settles.
+    local tw = ({ frame:getSize() })[1] or w
+    if tw < 1 then tw = w end
+    tapeLabel:setWidth(tw)
+    tapeLabel:setText(Tape.row(state.heading, tw))
     lubberLabel:setText(Tape.lubberLabel(state.heading))
 
     -- Attitude: craft cells are box-relative; bucket them by row for compositing. The FCS reports

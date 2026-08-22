@@ -105,9 +105,11 @@ function M.make(frame, opts)
     btn:onClick(function() ctrl.selectRow(r) end)
     ctrl.rowBtns[r] = btn
   end
-  local half = math.max(1, math.floor(w / 2))
-  ctrl.upBtn   = frame:addButton({ x = 1,        y = rowsN + 1, width = half,            height = 1, text = "UP" })
-  ctrl.downBtn = frame:addButton({ x = 1 + half, y = rowsN + 1, width = math.max(1, w - half), height = 1, text = "DOWN" })
+  -- UP / DOWN compact + centred (not a full-width split).
+  local upW, downW, fgap = 4, 6, 2
+  local fx0 = math.max(1, math.floor((w - (upW + fgap + downW)) / 2) + 1)
+  ctrl.upBtn   = frame:addButton({ x = fx0,               y = rowsN + 1, width = upW,   height = 1, text = "UP" })
+  ctrl.downBtn = frame:addButton({ x = fx0 + upW + fgap,  y = rowsN + 1, width = downW, height = 1, text = "DOWN" })
   ctrl.upBtn:onClick(function() ctrl.scrollBy(-rowsN) end)
   ctrl.downBtn:onClick(function() ctrl.scrollBy(rowsN) end)
 

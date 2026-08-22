@@ -55,9 +55,11 @@ function M.make(frame)
     local title = overlay:addLabel({ x = 1, y = 1, width = w, height = 1, autoSize = false, text = "" })
     -- title + value colours come from the theme (font colour text; the value is a button-coloured bar)
     local value = overlay:addButton({ x = 1, y = 2, width = w, height = 1, text = "_" })
-    local half = math.max(1, math.floor(w / 2))
-    local okBtn = overlay:addButton({ x = 1, y = h, width = half, height = 1, text = "OK" })
-    local xBtn = overlay:addButton({ x = 1 + half, y = h, width = math.max(1, w - half), height = 1, text = "X" })
+    -- OK / X compact + centred at the bottom (not a full-width split).
+    local okW, xW, obGap = 4, 3, 2
+    local obX = math.max(1, math.floor((w - (okW + obGap + xW)) / 2) + 1)
+    local okBtn = overlay:addButton({ x = obX, y = h, width = okW, height = 1, text = "OK" })
+    local xBtn = overlay:addButton({ x = obX + okW + obGap, y = h, width = xW, height = 1, text = "X" })
     okBtn:onClick(function() ctrl.ok() end)
     xBtn:onClick(function() ctrl.cancel() end)
     ctrl.elements = {
@@ -75,9 +77,13 @@ function M.make(frame)
     local overlay = el.overlay
     local w, h = overlay:getSize()
     local keys = M.keys(mode)
-    local cols = (mode == "num") and 3 or math.min(7, math.max(1, w))
-    local keyW = math.max(1, math.floor(w / cols))
-    local y, x, col = 3, 1, 0
+    -- Compact keys: each is a small fixed cell (1 glyph + padding), laid out in a centred grid with
+    -- gaps -- not stretched to w/cols. cols keys per row.
+    local cols = (mode == "num") and 3 or 7
+    local keyW, gap = 3, 1
+    local gridW = cols * keyW + (cols - 1) * gap
+    local x0 = math.max(1, math.floor((w - gridW) / 2) + 1)
+    local y, x, col = 3, x0, 0
     for _, key in ipairs(keys) do
       if y >= h then break end
       local label = (key == "BKSP") and "<" or key
@@ -88,10 +94,10 @@ function M.make(frame)
       col = col + 1
       if col >= cols then
         col = 0
-        x = 1
+        x = x0
         y = y + 1
       else
-        x = x + keyW
+        x = x + keyW + gap
       end
     end
   end

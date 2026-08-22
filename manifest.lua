@@ -959,9 +959,9 @@
         },
         {
           ["dst"] = "ui/basalt/bitconfig/senscal.lua",
-          ["size"] = 12433,
+          ["size"] = 12495,
           ["src"] = "dist/ui/basalt/bitconfig/senscal.lua",
-          ["sum"] = "c373361d",
+          ["sum"] = "67b88270",
         },
         {
           ["dst"] = "ui/basalt/bitconfig/senssource.lua",
@@ -1031,15 +1031,15 @@
         },
         {
           ["dst"] = "ui/basalt/keypad.lua",
-          ["size"] = 2461,
+          ["size"] = 2498,
           ["src"] = "dist/ui/basalt/keypad.lua",
-          ["sum"] = "87a8923b",
+          ["sum"] = "22e82fab",
         },
         {
           ["dst"] = "ui/basalt/listpicker.lua",
-          ["size"] = 1973,
+          ["size"] = 2001,
           ["src"] = "dist/ui/basalt/listpicker.lua",
-          ["sum"] = "b9ea9e45",
+          ["sum"] = "7e364f62",
         },
         {
           ["dst"] = "ui/basalt/nav.lua",
@@ -1085,9 +1085,9 @@
         },
         {
           ["dst"] = "ui/basalt/pages/pfd.lua",
-          ["size"] = 2565,
+          ["size"] = 2629,
           ["src"] = "dist/ui/basalt/pages/pfd.lua",
-          ["sum"] = "31ebf4e0",
+          ["sum"] = "e1d43b67",
         },
         {
           ["dst"] = "ui/basalt/picker.lua",
@@ -1133,9 +1133,9 @@
         },
         {
           ["dst"] = "ui/basalt/waypointlist.lua",
-          ["size"] = 2106,
+          ["size"] = 2124,
           ["src"] = "dist/ui/basalt/waypointlist.lua",
-          ["sum"] = "cd2b2b57",
+          ["sum"] = "02493497",
         },
         {
           ["dst"] = "ui/basalt/wptclient.lua",
@@ -1367,5 +1367,5 @@
     ["size"] = 71434,
     ["sum"] = "57671ad7",
   },
-  ["version"] = "c5afea62",
+  ["version"] = "6913d0ac",
 }
