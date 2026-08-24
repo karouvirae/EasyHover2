@@ -995,9 +995,9 @@
         },
         {
           ["dst"] = "ui/basalt/configkit.lua",
-          ["size"] = 12982,
+          ["size"] = 14857,
           ["src"] = "ui/basalt/configkit.lua",
-          ["sum"] = "0c6992a9",
+          ["sum"] = "92c62964",
         },
         {
           ["dst"] = "ui/basalt/instruments/adi.lua",
@@ -1079,9 +1079,9 @@
         },
         {
           ["dst"] = "ui/basalt/pages/nav.lua",
-          ["size"] = 20855,
+          ["size"] = 21680,
           ["src"] = "ui/basalt/pages/nav.lua",
-          ["sum"] = "0bfcd6cf",
+          ["sum"] = "62d3685d",
         },
         {
           ["dst"] = "ui/basalt/pages/pfd.lua",
@@ -1133,9 +1133,9 @@
         },
         {
           ["dst"] = "ui/basalt/waypointlist.lua",
-          ["size"] = 4908,
+          ["size"] = 6260,
           ["src"] = "ui/basalt/waypointlist.lua",
-          ["sum"] = "d51d5689",
+          ["sum"] = "a622cf12",
         },
         {
           ["dst"] = "ui/basalt/wptclient.lua",
@@ -1367,5 +1367,5 @@
     ["size"] = 71434,
     ["sum"] = "57671ad7",
   },
-  ["version"] = "8b2825b3",
+  ["version"] = "1838329f",
 }

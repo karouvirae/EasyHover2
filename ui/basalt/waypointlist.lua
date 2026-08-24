@@ -8,6 +8,10 @@
 -- module LOAD.
 local M = {}
 
+local Theme     = require("ui.theme")
+local configkit = require("ui.basalt.configkit")
+local BULLET    = string.char(16)   -- ► right-pointing triangle: the list-row bullet
+
 --- default row text: "name  type".
 function M.defaultFmt(it) return tostring(it.name) .. "  " .. tostring(it.type or "") end
 
@@ -50,14 +54,24 @@ function M.make(frame, opts)
   local w, h = frame:getSize()
   local ctrl = { items = {}, offset = 0, selectedKey = nil, rowBtns = {} }
 
+  local FONT = Theme.role("font")
+  local rowW = math.max(1, w - 2)
   local function refresh()
     local v = M.view(ctrl.items, ctrl.offset, rowsN, ctrl.selectedKey, fmt, keyOf)
     ctrl.offset = v.offset
     for r = 1, rowsN do
-      local btn, row = ctrl.rowBtns[r], v.rows[r]
-      btn:setText(row.text)
-      btn:setBackground(row.selected and selColor or colors.black)
-      btn:setForeground(colors.white)
+      local lbl, row = ctrl.rowBtns[r], v.rows[r]
+      -- ► bullet per item over the grey band; a selected row turns to its cue colour (selColor =
+      -- yellow WPT / blue RT) with <> brackets. Empty (padded) rows show no bullet. Width guard
+      -- against the unsettled-rebuild wrap-clip.
+      lbl:setWidth(rowW)
+      if row.text == "" then
+        lbl:setText(""); lbl:setForeground(FONT)
+      elseif row.selected then
+        lbl:setText(BULLET .. " <" .. row.text .. ">"); lbl:setForeground(selColor)
+      else
+        lbl:setText(BULLET .. " " .. row.text); lbl:setForeground(FONT)
+      end
     end
   end
   ctrl.refresh = refresh
@@ -99,17 +113,25 @@ function M.make(frame, opts)
     return nil
   end
 
-  -- Build the fixed row buttons + UP/DOWN.
+  -- Grey list band behind the item rows (Image, low z). Only the item rows are grey -- the UP/DOWN
+  -- row below stays on the black frame (a distinct element, per the design).
+  local band = frame:addImage({ x = 1, y = 1, width = w, height = rowsN }); band:resizeImage(w, rowsN); band.set("z", 1)
+  local G = colors.toBlit(colors.gray)
+  for yy = 1, rowsN do for xx = 1, w do band:setPixel(xx, yy, " ", G, G) end end
+  ctrl.band = band
+  -- Rows are LEFT-ALIGNED transparent, clickable labels over the band (Basalt buttons centre their
+  -- text; labels left-align). Inset one column so the bullet has a small left margin.
   for r = 1, rowsN do
-    local btn = frame:addButton({ x = 1, y = r, width = w, height = 1, text = "" }) -- audit:full-width-ok list row (each row spans the list)
-    btn:onClick(function() ctrl.selectRow(r) end)
-    ctrl.rowBtns[r] = btn
+    local lbl = frame:addLabel({ x = 2, y = r, width = math.max(1, w - 2), height = 1, autoSize = false, text = "" }) -- audit:full-width-ok list row (each row spans the list)
+    lbl:onClick(function() ctrl.selectRow(r) end)
+    ctrl.rowBtns[r] = lbl
   end
-  -- UP / DOWN compact + centred (not a full-width split).
-  local upW, downW, fgap = 4, 6, 2
+  -- UP / DOWN as orange bracket buttons (functions), compact + centred on the row below the band.
+  local upW, downW, fgap = 2 + #"UP", 2 + #"DOWN", 2
   local fx0 = math.max(1, math.floor((w - (upW + fgap + downW)) / 2) + 1)
-  ctrl.upBtn   = frame:addButton({ x = fx0,               y = rowsN + 1, width = upW,   height = 1, text = "UP" })
-  ctrl.downBtn = frame:addButton({ x = fx0 + upW + fgap,  y = rowsN + 1, width = downW, height = 1, text = "DOWN" })
+  local up   = configkit.bracketBtn(frame, fx0,              rowsN + 1, "UP",   colors.orange)
+  local down = configkit.bracketBtn(frame, fx0 + upW + fgap, rowsN + 1, "DOWN", colors.orange)
+  ctrl.upBtn, ctrl.downBtn = up.button, down.button
   ctrl.upBtn:onClick(function() ctrl.scrollBy(-rowsN) end)
   ctrl.downBtn:onClick(function() ctrl.scrollBy(rowsN) end)
 

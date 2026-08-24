@@ -24,6 +24,7 @@ local configkit = require("ui.basalt.configkit")
 local Picker    = require("ui.basalt.listpicker")
 local Keypad    = require("ui.basalt.keypad")
 local Theme     = require("ui.theme")
+local PG        = require("ui.basalt.instruments.panelgfx")
 
 local M = {}
 M.id = "nav"
@@ -115,6 +116,13 @@ function M.build(basalt, frame, runtime, nav)
   local w, h = frame:getSize()
   local activeType = "all"
 
+  -- Green subpixel panel border around the whole strip (matches the flight/cockpit panels). It costs
+  -- the top + bottom rows: the region insets to rows 2..h-2, BIT/CONFIG drops to row h-1, and the
+  -- border owns rows 1 & h (and cols 1 & w). Drawn low-z so the region + buttons sit on top.
+  local border = frame:addImage({ x = 1, y = 1, width = w, height = h }); border:resizeImage(w, h); border.set("z", 1)
+  PG.clear(border, w, h)
+  PG.border(border, w, h, colors.green, { top = true, bottom = true, left = true, right = true })
+
   -- NAV cue colours from config (WPT list highlight = NAV WPT colour, route list = NAV RT colour).
   -- Defaults (wpt=yellow, rt=blue) apply with no runtime/config (tests / render harness).
   local cc = runtime and runtime.config and runtime.config.colors
@@ -145,36 +153,35 @@ function M.build(basalt, frame, runtime, nav)
   local selectedName = nil
   -- No "NAV" header row -- it wasted a line; the region uses the full frame above the BIT/CONFIG row.
 
-  -- ---------- navmain: action row + type-filter row + waypoint list ----------
+  -- ---------- navmain: menu tabs + cycling filter (row 1) + waypoint list ----------
   local function buildNavmain(b, f, region)
     local fw, fh = f:getSize()
-    local refresh   -- forward decl (filter buttons call it)
+    local refresh   -- forward decl (filter cycles call it)
 
-    -- Short labels that fit their cell without fitLabel truncation, + a 1-col gap so the buttons
-    -- read as separate cells instead of one merged bar.
-    local actionRow = configkit.actionRow(f, { x = 1, y = 1, w = fw, gap = 1 }, {
-      { label = "WPT", onClick = function() region:push("wptedit") end },
-      { label = "RT",  onClick = function() region:push("rtedit") end },
-      { label = "DTC", onClick = function() region:push("dtc") end },
-    })
+    -- Row 1: [WPT] [RT] [DTC] menu tabs (blue brackets) drilling into their sub-screens, packed left.
+    local tabWpt = configkit.bracketBtn(f, 1, 1, "WPT", colors.blue)
+    tabWpt.button:onClick(function() region:push("wptedit") end)
+    local tabRt = configkit.bracketBtn(f, tabWpt.x + tabWpt.width + 1, 1, "RT", colors.blue)
+    tabRt.button:onClick(function() region:push("rtedit") end)
+    local tabDtc = configkit.bracketBtn(f, tabRt.x + tabRt.width + 1, 1, "DTC", colors.blue)
+    tabDtc.button:onClick(function() region:push("dtc") end)
 
-    -- Filter: ONE full-width cycling button. Five tiny type buttons were unreadable on a narrow
-    -- monitor (OUT/FAC/POI truncated to ~T/~C/~I); a single button shows the FULL type name and
-    -- clicking cycles all -> base -> outpost -> facility -> poi -> all.
+    -- Filter: ONE cycling button on the same row, {value} in orange (a function), right-aligned.
+    -- Clicking cycles all -> base -> outpost -> facility -> poi. (Tiny per-type buttons were
+    -- unreadable on a narrow monitor; one button shows the FULL type name.)
     local FILTER_CYCLE = { "all", "base", "outpost", "facility", "poi" }
-    -- FILTER: compact, sized to the longest value ("FILTER: facility"), centred.
-    local fbW = math.min(fw, 18)
-    local fbX = math.max(1, math.floor((fw - fbW) / 2) + 1)
-    local filterBtn = f:addButton({ x = fbX, y = 2, width = fbW, height = 1, text = "FILTER: " .. activeType })
-    filterBtn:onClick(function()
+    local fbX = math.max(tabDtc.x + tabDtc.width + 1, fw - (2 + #"facility") + 1)
+    local filter = configkit.bracketBtn(f, fbX, 1, activeType, colors.orange, { open = "{", close = "}" })
+    filter.button:onClick(function()
       local i = 1
       for k, tp in ipairs(FILTER_CYCLE) do if tp == activeType then i = k end end
       activeType = FILTER_CYCLE[(i % #FILTER_CYCLE) + 1]
-      filterBtn:setText("FILTER: " .. activeType)
+      filter.setLabel(activeType)
       refresh()
     end)
 
-    local listTop = 3
+    -- Waypoint list on the grey band (rows 2..), with its own UP/DOWN. selColor = the WPT cue (yellow).
+    local listTop = 2
     local listH = math.max(4, fh - listTop + 1)
     local listFrame = f:addFrame({ x = 1, y = listTop, width = fw, height = listH })
     local list = WL.make(listFrame, { rows = math.max(1, listH - 1), selColor = wptColor,
@@ -187,7 +194,7 @@ function M.build(basalt, frame, runtime, nav)
     refresh()
 
     return { apply = function(_s) refresh() end,
-      elements = { actionRow = actionRow, filterBtn = filterBtn, list = list } }
+      elements = { tabWpt = tabWpt, tabRt = tabRt, tabDtc = tabDtc, filterBtn = filter.button, filter = filter, list = list } }
   end
 
   -- ---------- wptedit: HERE / MAN / EDIT / DEL + list. MAN/EDIT drill into wptform. ----------
@@ -413,16 +420,17 @@ function M.build(basalt, frame, runtime, nav)
   end
 
   local region = Region.new(basalt, frame, {
-    x = 1, y = 1, width = w, height = math.max(1, h - 1), root = "navmain", onNav = bump,
+    x = 2, y = 2, width = math.max(1, w - 2), height = math.max(1, h - 3), root = "navmain", onNav = bump,
     screens = { navmain = buildNavmain, wptedit = buildWptedit, wptform = buildWptform, dtc = buildDtc, rtedit = buildRtedit },
   })
   region:apply(nil)
 
   -- BIT/CONFIG entry (frame-level nav push) -- the NAV page was its only entry; kept reachable at the
   -- bottom row (relocate to CONFIG later if the NAV menu needs the space).
-  local bcW = math.min(w, #"[BIT/CONFIG]" + 2)   -- compact, centred
-  local bcX = math.max(1, math.floor((w - bcW) / 2) + 1)
-  local bitconfigBtn = frame:addButton({ x = bcX, y = h, width = bcW, height = 1, text = "[BIT/CONFIG]" })
+  local bcW = 2 + #"BIT/CONFIG"                   -- compact, centred; blue brackets = menu button
+  local bcX = math.max(2, math.floor((w - bcW) / 2) + 1)
+  local bc = configkit.bracketBtn(frame, bcX, h - 1, "BIT/CONFIG", colors.blue)   -- row h-1 (above the bottom border)
+  local bitconfigBtn = bc.button
   bitconfigBtn:onClick(function() M._onButton(nav, "bitconfig", os.epoch("utc")) end)
 
   return { id = M.id, apply = function(state) region:apply(state) end,

@@ -57,7 +57,14 @@ local RECIPES = {
   flight_params = { W = 36, H = 38, build = flightBuild, postBuild = function(h) h.elements.bottom:push("fcs_params") end },
 
   -- NAV surface (2w x 1h = 36x10): NAV page + BIT/CONFIG drilldowns + WPT entry panels
-  nav        = { W = 36, H = 10, build = function(b, f) return P("ui.basalt.pages.nav").build(b, f, nil, Nav.new("nav")) end },
+  nav        = { W = 36, H = 10, build = function(b, f)
+      local rt = { wptClient = { store = { routes = {}, waypoints = {
+        { name = "Home",  type = "base",     x = 0,    y = 64, z = 0 },
+        { name = "Pad-2", type = "pad",      x = 120,  y = 70, z = -40 },
+        { name = "Ridge", type = "wp",       x = -200, y = 92, z = 310 },
+        { name = "North", type = "outpost",  x = 40,   y = 80, z = 500 },
+        { name = "Depot", type = "facility", x = 88,   y = 61, z = 12 } } } } }
+      return P("ui.basalt.pages.nav").build(b, f, rt, Nav.new("nav")) end },
   hub        = { W = 36, H = 10, build = function(b, f) return P("ui.basalt.bitconfig.hub").build(b, f, nil, Nav.new("hub")) end },
   tuning     = { W = 36, H = 10, build = function(b, f) return P("ui.basalt.bitconfig.tuning").build(b, f, nil, Nav.new("tuning"), readStub, noop, noop) end },
   mdb        = { W = 36, H = 10, build = function(b, f) return P("ui.basalt.bitconfig.mdb").build(b, f, nil, Nav.new("mdb"), readStub, noop, scanStub) end },
@@ -70,10 +77,11 @@ local RECIPES = {
   pfdrate    = { W = 36, H = 10, build = function(b, f) return P("ui.basalt.bitconfig.pfd").build(b, f, {}, Nav.new("pfdrate"), { save = noop }) end },
   -- WPT / entry panels that open over the NAV surface (overlays fill the 36x10 frame)
   waypointlist = { W = 36, H = 10, build = function(b, f)
-      local l = P("ui.basalt.waypointlist").make(f, { rows = 8, selColor = colors.green })
+      local l = P("ui.basalt.waypointlist").make(f, { rows = 8, selColor = colors.yellow })
       l.setItems({ { name = "Home", type = "base", x = 0, y = 64, z = 0 },
                    { name = "Pad-2", type = "pad", x = 120, y = 70, z = -40 },
                    { name = "Ridge", type = "wp", x = -200, y = 92, z = 310 } })
+      l.selectRow(2)   -- demo the WPT selection (yellow + <>)
       return {} end },
   keypad_name = { W = 36, H = 10, build = function(b, f)
       P("ui.basalt.keypad").make(f).show({ title = "WPT NAME", mode = "name", value = "Home" }); return {} end },
@@ -162,6 +170,55 @@ local RECIPES = {
     return {} end },
 
 }
+
+-- DESIGN PROTO: the NAV strip redesign. NO button fills (monitors give only tap + no hover, so a cell
+-- is either a glyph or a 2-colour block, never both) -- instead font-on-background buttons wrapped in
+-- COLOURED BRACKETS: blue [] for menu buttons (WPT/RT/DTC, BIT/CONFIG), orange [] for functions
+-- (UP/DOWN), orange {} for the cycling FILTER. The WPT/RT list sits on a distinct bg colour with a
+-- right-triangle bullet per row; a selected row turns to its cue colour (WPT=yellow, RT=blue) with <>
+-- brackets and a matching triangle. Rendered against every list-bg slot (except A/P's pink+purple).
+local function navProto(basalt, frame, listBg)
+  local img = frame:addImage({ x = 1, y = 1, width = 36, height = 10 }); img:resizeImage(36, 10); img.set("z", 1)
+  local FG   = colors.toBlit(Theme.role("font"))   -- green font
+  local MENU = colors.toBlit(colors.blue)          -- menu-button brackets
+  local FUNC = colors.toBlit(colors.orange)        -- function-button brackets + filter braces
+  local SELW = colors.toBlit(colors.yellow)        -- selected WPT (cue colour)
+  local SELR = colors.toBlit(colors.blue)          -- selected RT  (cue colour)
+  local K    = colors.toBlit(colors.black)         -- panel background
+  local LB   = colors.toBlit(listBg)               -- list background
+  local TRI  = string.char(16)                      -- right-pointing triangle bullet
+  local function put(x, y, text, fg, bg) for i = 1, #text do img:setPixel(x + i - 1, y, text:sub(i, i), fg, bg) end end
+  local function brk(x, y, open, label, close, br, bg) put(x, y, open, br, bg); put(x + 1, y, label, FG, bg); put(x + 1 + #label, y, close, br, bg) end
+  -- fill: black panel, then the coloured list band (rows 2-8)
+  for y = 1, 10 do for x = 1, 36 do img:setPixel(x, y, " ", FG, K) end end
+  for y = 2, 8 do for x = 1, 36 do img:setPixel(x, y, " ", FG, LB) end end
+  -- header: menu tabs (blue) + cycling filter (orange braces)
+  brk(1, 1, "[", "WPT", "]", MENU, K); brk(7, 1, "[", "RT", "]", MENU, K); brk(12, 1, "[", "DTC", "]", MENU, K)
+  brk(30, 1, "{", "all", "}", FUNC, K)
+  -- list rows: triangle bullet + name; a selected row uses its cue colour + <> brackets
+  local function item(y, name, sel)
+    local col = FG; if sel == "wpt" then col = SELW elseif sel == "rt" then col = SELR end
+    put(2, y, TRI, col, LB)
+    if sel then put(4, y, "<" .. name .. ">", col, LB) else put(4, y, name, col, LB) end
+  end
+  item(2, "Home", nil); item(3, "Pad-2", "wpt"); item(4, "Ridge", nil)
+  item(5, "Route-1", "rt"); item(6, "North", nil); item(7, "Vault", nil)
+  -- footer: UP/DOWN (orange functions) + BIT/CONFIG (blue menu)
+  brk(1, 10, "[", "UP", "]", FUNC, K); brk(6, 10, "[", "DOWN", "]", FUNC, K); brk(24, 10, "[", "BIT/CONFIG", "]", MENU, K)
+  return {}
+end
+
+-- one recipe per list-bg colour slot (A/P's pink + purple excluded)
+local NAV_BG = {
+  { "white", colors.white }, { "orange", colors.orange }, { "magenta", colors.magenta },
+  { "lightBlue", colors.lightBlue }, { "yellow", colors.yellow }, { "lime", colors.lime },
+  { "gray", colors.gray }, { "lightGray", colors.lightGray }, { "cyan", colors.cyan },
+  { "blue", colors.blue }, { "brown", colors.brown }, { "green", colors.green },
+  { "red", colors.red }, { "black", colors.black },
+}
+for _, e in ipairs(NAV_BG) do
+  RECIPES["nav_bg_" .. e[1]] = { W = 36, H = 10, build = function(b, f) return navProto(b, f, e[2]) end }
+end
 
 local ORDER = { "pfd", "flight", "flight_engine", "flight_calfuel", "flight_params",
                 "nav", "hub", "tuning", "mdb", "uical", "uical_settings", "senscal", "senssource", "dtc", "pfdrate",

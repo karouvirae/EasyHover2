@@ -7,8 +7,39 @@
 -- ("ui.basalt.configkit")` still loads clean headless -- Basalt objects only ever flow through
 -- M.actionRow/M.helpScreen's own parameters, never touched at module load.
 local switchbtn = require("ui.basalt.switchbtn")
+local Theme     = require("ui.theme")
 
 local M = {}
+
+-- M.bracketBtn: a fill-less button for the tight NAV/BIT-CONFIG strips. On a monitor a cell is either a
+-- glyph OR a 2-colour block (never both) and there's no hover, so instead of a coloured fill we draw a
+-- centred label in the FONT colour flanked by COLOURED BRACKETS (blue = menu button, orange = function;
+-- {} for the cycling filter). The whole span is one clickable Basalt button on the black panel; the
+-- brackets are label overlays on its (blank) edge cells. Returns { button, open, close, width, x, y,
+-- setLabel(text) } -- setLabel re-fits + repositions the close bracket so a variable-width value (the
+-- filter) stays wrapped. Load-safe: Basalt objects flow only through the `frame` parameter.
+function M.bracketBtn(frame, x, y, label, brColor, opts)
+  opts = opts or {}
+  local open, close = opts.open or "[", opts.close or "]"
+  local fontCol = opts.labelColor or Theme.role("font")
+  local lbl = tostring(label)
+  -- Brackets sit OUTSIDE the button span (not overlapping it) -- a button's fill otherwise paints over
+  -- an overlapping label. Open bracket, then the clickable label button, then the close bracket.
+  local ob = frame:addLabel({ x = x, y = y, width = 1, height = 1, autoSize = false, text = open })
+  ob:setForeground(brColor)
+  local btn = frame:addButton({ x = x + 1, y = y, width = math.max(1, #lbl), height = 1, text = lbl })
+  btn:setBackground(colors.black); btn:setForeground(fontCol)
+  local cb = frame:addLabel({ x = x + 1 + #lbl, y = y, width = 1, height = 1, autoSize = false, text = close })
+  cb:setForeground(brColor)
+  local ctrl = { button = btn, open = ob, close = cb, width = 2 + #lbl, x = x, y = y }
+  function ctrl.setLabel(t)
+    t = tostring(t)
+    btn:setText(t); btn:setWidth(math.max(1, #t))
+    cb:setPosition(x + 1 + #t, y)
+    ctrl.width = 2 + #t
+  end
+  return ctrl
+end
 
 -- M.GLYPH: named button glyph/label constants (Feature 1). CC:Tweaked's font does NOT reliably
 -- render ⟳/✓/✕, so every non-native action ships a short WORD by default; flip an entry to a real
