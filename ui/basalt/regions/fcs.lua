@@ -158,27 +158,68 @@ end
 -- ===== fcs_params =====
 function M.params(basalt, frame, region, runtime)
   local w, h = frame:getSize()
-  local iw = math.max(1, w - 2)
-  local x = 2
 
-  local pBackGeo = btnfit.grid({ "< BACK" }, { x0 = 1, availW = w, y0 = 2, gap = 1, align = "center" })
-  local back = frame:addButton({ x = pBackGeo[1].x, y = 2, width = pBackGeo[1].w, height = 1, text = "< BACK" })
+  -- Background: panel border (BOTTOM+LEFT+RIGHT -- the EMC region above draws the top, so it stays
+  -- visible) + two equal orange checkered status boxes filling the region: flight params (top) and
+  -- telemetry/UI/autopilot (bottom).
+  local bg = frame:addImage({ x = 1, y = 1, width = w, height = h }); bg:resizeImage(w, h); bg.set("z", 1)
+  Gfx.clear(bg, w, h)
+  Gfx.border(bg, w, h, colors.green, { top = false, bottom = true, left = true, right = true })
+  Gfx.checkerBox(bg, 3, 2, 34, 8, colors.orange)     -- flight parameters
+  Gfx.checkerBox(bg, 3, 10, 34, 16, colors.orange)   -- telemetry / UI / autopilot
+
+  -- One status label. Width guard is re-asserted in apply (aligned/spaced text otherwise wrap-clips
+  -- on an unsettled rebuild).
+  local W2 = 14
+  local L = {}
+  local function mk(name, x, y, wd) local lbl = frame:addLabel({ x = x, y = y, width = wd, height = 1, autoSize = false, text = "" }); lbl:setForeground(Theme.role("font")); L[name] = { lbl = lbl, w = wd } end
+  -- Top box: FCS MODE full width, then a 2-column grid.
+  mk("MODE", 5, 3, 28)
+  mk("ALT", 5, 4, W2);    mk("TRUSPD", 20, 4, W2)
+  mk("VSPD", 5, 5, W2);   mk("HDG", 20, 5, W2)
+  mk("FCS", 5, 6, W2);    mk("GNDSAF", 20, 6, W2)
+  mk("PROXWRN", 5, 7, W2); mk("FCSLOOP", 20, 7, W2)
+  -- Bottom box: 2-column grid.
+  mk("UILOOP", 5, 11, W2);  mk("NAVLOOP", 20, 11, W2)
+  mk("APLOOP", 5, 12, W2);  mk("DEVWRN", 20, 12, W2)
+  mk("GPSSIG", 5, 13, W2);  mk("APMODE", 20, 13, W2)
+  mk("DSKFCS", 5, 14, W2);  mk("DSKNAV", 20, 14, W2)
+
+  -- BACK (blue outlined, 3-row) centred at the bottom.
+  local back = ctrlButton(frame, math.max(1, math.floor((w - 10) / 2) + 1), 18, 10, "< BACK", colors.blue)
   back:onClick(function() region:pop() end)
-
-  local labels = {}
-  for i, name in ipairs(FIELD_ORDER) do
-    labels[name] = frame:addLabel({ x = x, y = 3 + i, width = iw, height = 1, autoSize = false, text = name .. " --" })
-  end
 
   local function apply(state)
     state = state or {}
-    local values = FcsPanel.fieldValues(state)
-    for _, name in ipairs(FIELD_ORDER) do
-      labels[name]:setText(name .. " " .. values[name])
+    local v = FcsPanel.fieldValues(state)
+    local function set(name, label, pad, value)
+      local e = L[name]; e.lbl:setWidth(e.w)
+      e.lbl:setText(string.format("%-" .. pad .. "s%s", label, value))
     end
+    -- Flight parameters (live where a source exists; placeholders otherwise).
+    set("MODE", "FCS MODE", 10, tostring(v.MODE or "--") .. "/----")   -- master/flight (flight = placeholder)
+    set("ALT", "ALT", 9, v.ALT .. "m")
+    set("TRUSPD", "TRU SPD", 9, "--ms")
+    set("VSPD", "VSPD", 9, v.VSPD .. "ms")
+    set("HDG", "HDG", 9, v.HDG .. "deg")
+    set("FCS", "FCS", 9, v.LINK == "UP" and "OP" or "NO-OP")
+    set("GNDSAF", "GND SAF", 9, state.gndSafety and "ON" or "OFF")
+    set("PROXWRN", "PROX WRN", 9, "OFF")
+    set("FCSLOOP", "FCS LOOP", 9, "--ms")
+    -- Telemetry / UI / autopilot (placeholders -- no source yet).
+    set("UILOOP", "UI LOOP", 9, "--ms")
+    set("NAVLOOP", "NAV LOOP", 9, "--ms")
+    set("APLOOP", "A/P LOOP", 9, "--ms")
+    set("DEVWRN", "DEV WRN", 9, "OFF")
+    set("GPSSIG", "GPS SIG", 9, "----")
+    set("APMODE", "A/P MODE", 9, "IDLE")
+    set("DSKFCS", "DSK FCS", 9, "NO")
+    set("DSKNAV", "DSK NAV", 9, "NO")
   end
 
-  return { id = "fcs_params", apply = apply, elements = { labels = labels, back = back } }
+  apply({})
+
+  return { id = "fcs_params", apply = apply, elements = { labels = L, back = back } }
 end
 
 return M

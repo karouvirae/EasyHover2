@@ -1103,15 +1103,15 @@
         },
         {
           ["dst"] = "ui/basalt/regions/emc.lua",
-          ["size"] = 26863,
+          ["size"] = 26295,
           ["src"] = "ui/basalt/regions/emc.lua",
-          ["sum"] = "92fb2af2",
+          ["sum"] = "fc32f0b3",
         },
         {
           ["dst"] = "ui/basalt/regions/fcs.lua",
-          ["size"] = 9000,
+          ["size"] = 11251,
           ["src"] = "ui/basalt/regions/fcs.lua",
-          ["sum"] = "aead27e1",
+          ["sum"] = "1820ec1c",
         },
         {
           ["dst"] = "ui/basalt/senssource.lua",
@@ -1367,5 +1367,5 @@
     ["size"] = 71434,
     ["sum"] = "57671ad7",
   },
-  ["version"] = "e6a7e6cd",
+  ["version"] = "8b2825b3",
 }
