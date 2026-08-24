@@ -10,6 +10,8 @@
 -- selectedItem()/getValue() resolve purely from the last setOptions via M.indexOf -- the drop-in
 -- replacement for the old dropdown:getSelectedItem(). The pure M.indexOf is unit-tested.
 local ListPicker = require("ui.basalt.listpicker")
+local configkit  = require("ui.basalt.configkit")
+local Theme      = require("ui.theme")
 local M = {}
 
 -- Index of the option whose value == current. nil if none match.
@@ -28,20 +30,22 @@ function M.make(frame, opts)
   local state = { options = opts.options or {}, current = opts.current }
   local overlay = ListPicker.make(frame)
 
-  local trigger = frame:addButton({
-    x = opts.x, y = opts.y, width = btnW, height = opts.height or 1, text = "",
-  })
+  -- Blue bracket trigger (a picker OPENS a menu). The value is LEFT-aligned in a fixed field so a
+  -- column of pickers lines up on the same column; no fill.
+  local br = configkit.bracketBtn(frame, opts.x, opts.y, "", colors.blue, { width = btnW })
+  local trigger = br.button
 
   local function currentText()
     local idx = M.indexOf(state.options, state.current)
     local text = idx and state.options[idx].text or placeholder
-    return ListPicker.formatLabel(text, btnW)
+    text = ListPicker.formatLabel(text, btnW)
+    return text .. string.rep(" ", math.max(0, btnW - #text))
   end
 
   local function setOptions(options, current)
     state.options = options or {}
     state.current = current
-    trigger:setText(currentText())
+    br.setLabel(currentText())
   end
 
   trigger:onClick(function()
@@ -57,6 +61,8 @@ function M.make(frame, opts)
 
   local function setEnabled(enabled)
     trigger:setEnabled(enabled and true or false)
+    if enabled then br.setBrackets(colors.blue); br.setFont(Theme.role("font"))
+    else br.setBrackets(colors.gray); br.setFont(colors.gray) end
   end
 
   local function selectedItem()

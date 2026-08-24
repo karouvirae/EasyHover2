@@ -12,8 +12,9 @@ local Theme     = require("ui.theme")
 local configkit = require("ui.basalt.configkit")
 local BULLET    = string.char(16)   -- ► right-pointing triangle: the list-row bullet
 
---- default row text: "name  type".
-function M.defaultFmt(it) return tostring(it.name) .. "  " .. tostring(it.type or "") end
+--- default row text: name left-padded to a fixed field so the TYPE (upper-cased, to set it apart from
+--- the name) always starts in the same column, with a wide gap between them ("Home         BASE").
+function M.defaultFmt(it) return string.format("%-13s%s", tostring(it.name), string.upper(tostring(it.type or ""))) end
 
 local function clampOffset(offset, n, rows)
   local maxOff = math.max(0, n - rows)

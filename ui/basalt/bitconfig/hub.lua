@@ -69,6 +69,8 @@ function M.build(basalt, frame, runtime, nav)
   items[#items + 1] = { id = "back", label = "< BACK",
     onClick = function() M._onButton(nav, "back", os.epoch("utc")) end }
 
+  local w = ({ frame:getSize() })[1]
+  configkit.titleRow(frame, w, M.title)                 -- ||BIT/CONFIG|| on the top row
   local menu = configkit.menuColumn(frame, { y = 2, items = items })
 
   -- Expose the raw Basalt buttons under the item id (backBtn for the back row), matching the old

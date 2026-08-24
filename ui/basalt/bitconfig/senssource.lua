@@ -114,7 +114,7 @@ function M.build(basalt, frame, runtime, nav, read, write, sampler)
   local x = 2
   local iw = math.max(1, w - 2)
 
-  local headerLabel = frame:addLabel({ x = x, y = 2, width = iw, height = 1, autoSize = false, text = M.title })
+  local headerLabel = configkit.titleRow(frame, ({ frame:getSize() })[1], M.title)
 
   -- A region-internal nav push/pop isn't a FRAME-level nav change, so it wouldn't otherwise wake
   -- the dirty-gated render loop -- bump runtime.uiRev, exactly like senscal.lua's/uical.lua's
@@ -167,7 +167,7 @@ function M.build(basalt, frame, runtime, nav, read, write, sampler)
     y = y + 1
 
     local backRow = configkit.actionRow(f, { x = fx, y = y, w = fiw }, {
-      { label = "<", onClick = function() if nav then nav:pop() end end },
+      { id = "back", label = "<", onClick = function() if nav then nav:pop() end end },
     })
 
     refreshSource = function()
@@ -221,7 +221,7 @@ function M.build(basalt, frame, runtime, nav, read, write, sampler)
     y = y + 1
 
     local backRow = configkit.actionRow(f, { x = fx, y = y, w = fiw }, {
-      { label = "<", onClick = function() region:pop() end },
+      { id = "back", label = "<", onClick = function() region:pop() end },
     })
 
     refreshList = function()

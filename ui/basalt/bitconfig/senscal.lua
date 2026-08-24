@@ -174,7 +174,7 @@ end
 function M.steps()
   return {
     {
-      id = "attitude", label = "ATTITUDE (PITCH+ROLL)",
+      id = "attitude", label = "PITCH/ROLL",
       prompts = {
         "Hold craft LEVEL, press CAPTURE (pitch neutral)",
         "Tilt NOSE UP ~20 deg and HOLD, press CAPTURE",
@@ -486,7 +486,7 @@ function M.build(basalt, frame, runtime, nav, read, write, sampler)
   local x = 2
   local iw = math.max(1, w - 2)
 
-  local headerLabel = frame:addLabel({ x = x, y = 2, width = iw, height = 1, autoSize = false, text = M.title })
+  local headerLabel = configkit.titleRow(frame, ({ frame:getSize() })[1], M.title)
 
   -- A region-internal nav push/pop (drilling a step, stepping </>, or backing out of one) isn't a
   -- FRAME-level nav change, so it wouldn't otherwise wake the dirty-gated render loop -- bump
@@ -555,7 +555,7 @@ function M.build(basalt, frame, runtime, nav, read, write, sampler)
 
     local footerRow = configkit.actionRow(f, { x = fx, y = y, w = fiw }, {
       { label = "SAVE", onClick = function() M._save(ctrl.cfg(), write) end },
-      { label = "<",    onClick = function() if nav then nav:pop() end end },
+      { id = "back", label = "<", onClick = function() if nav then nav:pop() end end },
     })
 
     local function refresh()

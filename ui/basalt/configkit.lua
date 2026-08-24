@@ -23,22 +23,60 @@ function M.bracketBtn(frame, x, y, label, brColor, opts)
   local open, close = opts.open or "[", opts.close or "]"
   local fontCol = opts.labelColor or Theme.role("font")
   local lbl = tostring(label)
+  local fixed = opts.width ~= nil            -- a fixed label field (uniform rows) vs tight-to-label
+  local fieldW = math.max(1, opts.width or #lbl)
   -- Brackets sit OUTSIDE the button span (not overlapping it) -- a button's fill otherwise paints over
-  -- an overlapping label. Open bracket, then the clickable label button, then the close bracket.
+  -- an overlapping label. Open bracket, then the clickable label button (label centred in fieldW), then
+  -- the close bracket.
   local ob = frame:addLabel({ x = x, y = y, width = 1, height = 1, autoSize = false, text = open })
   ob:setForeground(brColor)
-  local btn = frame:addButton({ x = x + 1, y = y, width = math.max(1, #lbl), height = 1, text = lbl })
+  local btn = frame:addButton({ x = x + 1, y = y, width = fieldW, height = 1, text = lbl })
   btn:setBackground(colors.black); btn:setForeground(fontCol)
-  local cb = frame:addLabel({ x = x + 1 + #lbl, y = y, width = 1, height = 1, autoSize = false, text = close })
+  local cb = frame:addLabel({ x = x + 1 + fieldW, y = y, width = 1, height = 1, autoSize = false, text = close })
   cb:setForeground(brColor)
-  local ctrl = { button = btn, open = ob, close = cb, width = 2 + #lbl, x = x, y = y }
+  local ctrl = { button = btn, open = ob, close = cb, width = 2 + fieldW, x = x, y = y }
   function ctrl.setLabel(t)
     t = tostring(t)
-    btn:setText(t); btn:setWidth(math.max(1, #t))
-    cb:setPosition(x + 1 + #t, y)
-    ctrl.width = 2 + #t
+    if fixed then btn:setText(t)             -- field fixed: label re-centres, brackets stay put
+    else btn:setText(t); btn:setWidth(math.max(1, #t)); cb:setPosition(x + 1 + #t, y); ctrl.width = 2 + #t end
+  end
+  function ctrl.setBrackets(c) ob:setForeground(c); cb:setForeground(c) end   -- recolour the brackets
+  function ctrl.setFont(c) btn:setForeground(c) end                          -- recolour the label
+  return ctrl
+end
+
+-- M.bracketSwitch(frame, {x,y,width,text,id?,kind?}) -> bracketBtn with the NAV/BIT-CONFIG state
+-- vocabulary + a switchbtn-compatible API ({ button, set(state) }), so actionRow/menuColumn can swap to
+-- it without touching callers. `kind` sets the resting bracket colour: "menu"=blue (opens a screen),
+-- "function"=orange (does something), "state"=orange resting but off->red. An item id "back" is forced
+-- to the uniform left-arrow in blue. set(state): "on"->green, "off"->resting (red if kind "state"),
+-- "disabled"->grey brackets + grey font.
+local KIND = { menu = colors.blue, ["function"] = colors.orange, state = colors.orange }
+function M.bracketSwitch(frame, o)
+  local kind = o.kind or "function"
+  local label = o.text
+  local width = o.width
+  if o.id == "back" then label, kind, width = M.GLYPH.BACK, "menu", 1 end   -- back is always a tight [<-]
+  local base = KIND[kind] or colors.orange
+  label = M.fitLabel(label, width or #tostring(label))
+  local ctrl = M.bracketBtn(frame, o.x, o.y, label, base, { width = width })
+  ctrl.kind = kind
+  function ctrl.set(state)
+    if state == "disabled" then ctrl.setBrackets(colors.gray); ctrl.setFont(colors.gray)
+    elseif state == "on" then ctrl.setBrackets(colors.green); ctrl.setFont(Theme.role("font"))
+    else ctrl.setBrackets(kind == "state" and colors.red or base); ctrl.setFont(Theme.role("font")) end
   end
   return ctrl
+end
+
+-- M.titleRow(frame, w, text) -> the menu title on the TOP row, centred, wrapped in || || markers
+-- (e.g. ||FCS TUNING||). Font colour.
+function M.titleRow(frame, w, text)
+  local t = "||" .. tostring(text) .. "||"
+  local x = math.max(1, math.floor((w - #t) / 2) + 1)
+  local lbl = frame:addLabel({ x = x, y = 1, width = #t, height = 1, autoSize = false, text = t })
+  lbl:setForeground(Theme.role("font"))
+  return lbl
 end
 
 -- M.GLYPH: named button glyph/label constants (Feature 1). CC:Tweaked's font does NOT reliably
@@ -248,25 +286,30 @@ function M.actionRow(frame, pos, specs)
   -- and the row is CENTRED in pos.w -- so buttons take minimal space and read as a tidy group
   -- instead of full-width bars. `pos.gap` (default 1) = columns between buttons. If the compact row
   -- can't fit, it shrinks the button width to fit pos.w.
+  local _, fh = frame:getSize()
   local n = #specs
   local gap = pos.gap or 1
-  local maxLabel = 1
-  for _, spec in ipairs(specs) do maxLabel = math.max(maxLabel, #tostring(spec.label or "")) end
-  local avail = pos.w - gap * math.max(0, n - 1)
-  local bw = math.max(1, math.min(maxLabel + 2, math.floor(avail / math.max(1, n))))
-  local total = bw * n + gap * math.max(0, n - 1)
+  -- A row containing the back is pinned to the BOTTOM row; the back itself is a tight [<-] (3 cells),
+  -- other buttons share a label field sized to the widest non-back label.
+  local hasBack, nNon, maxLabel = false, 0, 1
+  for _, spec in ipairs(specs) do
+    if spec.id == "back" then hasBack = true
+    else nNon = nNon + 1; maxLabel = math.max(maxLabel, #tostring(spec.label or "")) end
+  end
+  local rowY = hasBack and fh or pos.y
+  local nBack = n - nNon
+  local avail = pos.w - (2 * nNon) - (3 * nBack) - gap * math.max(0, n - 1)
+  local fieldW = (nNon > 0) and math.max(1, math.min(maxLabel, math.floor(avail / nNon))) or maxLabel
+  local total = nNon * (2 + fieldW) + nBack * 3 + gap * math.max(0, n - 1)
   local px = pos.x + math.max(0, math.floor((pos.w - total) / 2))
   local buttons = {}
   for i, spec in ipairs(specs) do
-    local sw = switchbtn.make(frame, {
-      x = px, y = pos.y, width = bw, height = 1,
-      text = M.fitLabel(spec.label, bw),
-    })
-    local onClick = spec.onClick
-    sw.button:onClick(function() if onClick then onClick() end end)
+    local isBack = spec.id == "back"
+    local sw = M.bracketSwitch(frame, { x = px, y = rowY, width = fieldW, text = spec.label, id = spec.id, kind = spec.kind })
+    if spec.onClick then sw.button:onClick(function() spec.onClick() end) end
     sw.set(spec.state or "off")
     buttons[i] = sw
-    px = px + bw + gap
+    px = px + (isBack and 3 or (2 + fieldW)) + gap
   end
   local function setState(i, state)
     if buttons[i] then buttons[i].set(state) end
@@ -280,23 +323,34 @@ end
 -- "the whole menu is one button colour". Basalt centres each label within its button.
 -- opts = { y, items = {{ id, label, onClick, state? }, ...}, pad? (default 2), maxW? }.
 function M.menuColumn(frame, opts)
-  local fw = ({ frame:getSize() })[1]
+  local fw, fh = frame:getSize()
   local items = opts.items or {}
-  local pad = opts.pad or 2
+  -- the "back" item is PINNED to the bottom row as a tight [<-]; the rest stack from opts.y.
+  local menuItems, backItem = {}, nil
+  for _, it in ipairs(items) do
+    if it.id == "back" then backItem = it else menuItems[#menuItems + 1] = it end
+  end
   local maxLabel = 1
-  for _, it in ipairs(items) do maxLabel = math.max(maxLabel, #(it.label or "")) end
-  local bw = math.max(1, math.min(opts.maxW or fw, maxLabel + pad))
-  local bx = math.max(1, math.floor((fw - bw) / 2) + 1)
+  for _, it in ipairs(menuItems) do maxLabel = math.max(maxLabel, #(it.label or "")) end
+  -- bracket menu buttons (blue by default -- these open screens)
+  local fieldW = math.max(1, math.min((opts.maxW or fw) - 2, maxLabel))
+  local bx = math.max(1, math.floor((fw - (fieldW + 2)) / 2) + 1)
   local y = opts.y or 1
   local buttons = {}
-  for _, it in ipairs(items) do
-    local sw = switchbtn.make(frame, { x = bx, y = y, width = bw, height = 1, text = M.fitLabel(it.label, bw) })
+  for _, it in ipairs(menuItems) do
+    local sw = M.bracketSwitch(frame, { x = bx, y = y, width = fieldW, text = it.label, id = it.id, kind = it.kind or "menu" })
     if it.onClick then sw.button:onClick(it.onClick) end
     sw.set(it.state or "off")
     buttons[it.id or it.label] = sw
     y = y + 1
   end
-  return { buttons = buttons, width = bw, nextY = y }
+  if backItem then
+    local bxb = math.max(1, math.floor((fw - 3) / 2) + 1)   -- "[<-]" is 3 cells; centre it
+    local sw = M.bracketSwitch(frame, { x = bxb, y = fh, width = 1, id = "back" })
+    if backItem.onClick then sw.button:onClick(backItem.onClick) end
+    buttons["back"] = sw
+  end
+  return { buttons = buttons, width = fieldW + 2, nextY = y }
 end
 
 -- M.helpScreen(basalt, frame, region, entryId) -> { apply = function(state) end }

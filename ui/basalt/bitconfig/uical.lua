@@ -421,7 +421,7 @@ function M.build(basalt, frame, runtime, nav, deps)
   local x = 2
   local iw = math.max(1, w - 2)
 
-  local headerLabel = frame:addLabel({ x = x, y = 2, width = iw, height = 1, autoSize = false, text = M.title })
+  local headerLabel = configkit.titleRow(frame, ({ frame:getSize() })[1], M.title)   -- persists on every screen
 
   -- A region-internal nav push/pop (drilling a category, or backing out of one) isn't a
   -- FRAME-level nav change, so it wouldn't otherwise wake the dirty-gated render loop -- bump
@@ -449,7 +449,7 @@ function M.build(basalt, frame, runtime, nav, deps)
     end
     items[#items + 1] = { id = "back", label = "< BACK", onClick = function() if nav then nav:pop() end end }
 
-    local menu = configkit.menuColumn(f, { y = 1, items = items })
+    local menu = configkit.menuColumn(f, { y = 2, items = items })   -- gap at row 1 (detach from title)
     local catBtns = {}
     for _, cat in ipairs(M.CATEGORIES) do catBtns[cat] = menu.buttons[cat] end
 
@@ -472,7 +472,7 @@ function M.build(basalt, frame, runtime, nav, deps)
     -- Compact: short label + a capped-width dropdown, centred as a block (not spanning the row).
     local dropW = math.max(6, math.min(14, math.floor(fiw * 0.5)))
     local labelW = 6
-    local blockX = fx + math.max(0, math.floor((fiw - (labelW + 1 + dropW)) / 2))
+    local blockX = fx + math.max(0, math.floor((fiw - (labelW + 1 + dropW + 2)) / 2))   -- +2 = picker brackets
     local dropX = blockX + labelW + 1
 
     local refresh -- forward-declared: SCAN + every picker's onPick call this; assigned below.
@@ -562,7 +562,7 @@ function M.build(basalt, frame, runtime, nav, deps)
       end)
 
     local backRow = configkit.actionRow(f, { x = fx, y = fh, w = fiw }, {
-      { label = "<", onClick = function() region:pop() end },
+      { id = "back", label = "<", onClick = function() region:pop() end },
     })
 
     refresh = function()
@@ -636,7 +636,7 @@ function M.build(basalt, frame, runtime, nav, deps)
     y = y + 1
 
     local backRow = configkit.actionRow(f, { x = fx, y = y, w = fiw }, {
-      { label = "<", onClick = function() region:pop() end },
+      { id = "back", label = "<", onClick = function() region:pop() end },
     })
 
     refresh = function()
@@ -692,7 +692,7 @@ function M.build(basalt, frame, runtime, nav, deps)
     y = y + 1
 
     local backRow = configkit.actionRow(f, { x = fx, y = y, w = fiw }, {
-      { label = "<", onClick = function() region:pop() end },
+      { id = "back", label = "<", onClick = function() region:pop() end },
     })
 
     refresh = function()
@@ -722,7 +722,7 @@ function M.build(basalt, frame, runtime, nav, deps)
     -- Compact: label + capped dropdown, centred as a block (not spanning the row).
     local dropW = math.max(8, math.min(14, math.floor(fiw * 0.45)))
     local labelW = 10
-    local blockX = fx + math.max(0, math.floor((fiw - (labelW + 1 + dropW)) / 2))
+    local blockX = fx + math.max(0, math.floor((fiw - (labelW + 1 + dropW + 2)) / 2))   -- +2 = picker brackets
     local dropX = blockX + labelW + 1
 
     local function colorOpts()
@@ -763,7 +763,7 @@ function M.build(basalt, frame, runtime, nav, deps)
     local cbPicker     = row("COLORBLIND", cbOpts(), c.colorblind or d.colorblind, "colorblind")
 
     local backRow = configkit.actionRow(f, { x = fx, y = fh, w = fiw }, {
-      { label = "<", onClick = function() region:pop() end },
+      { id = "back", label = "<", onClick = function() region:pop() end },
     })
 
     return {
@@ -774,7 +774,7 @@ function M.build(basalt, frame, runtime, nav, deps)
   end
 
   local region = Region.new(basalt, frame, {
-    x = 1, y = 3, width = w, height = math.max(1, h - 2),
+    x = 1, y = 2, width = w, height = math.max(1, h - 1),
     root = "overview", onNav = bump,
     screens = {
       overview = buildOverview,

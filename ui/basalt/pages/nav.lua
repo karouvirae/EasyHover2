@@ -171,12 +171,12 @@ function M.build(basalt, frame, runtime, nav)
     -- unreadable on a narrow monitor; one button shows the FULL type name.)
     local FILTER_CYCLE = { "all", "base", "outpost", "facility", "poi" }
     local fbX = math.max(tabDtc.x + tabDtc.width + 1, fw - (2 + #"facility") + 1)
-    local filter = configkit.bracketBtn(f, fbX, 1, activeType, colors.orange, { open = "{", close = "}" })
+    local filter = configkit.bracketBtn(f, fbX, 1, string.upper(activeType), colors.orange, { open = "{", close = "}" })
     filter.button:onClick(function()
       local i = 1
       for k, tp in ipairs(FILTER_CYCLE) do if tp == activeType then i = k end end
       activeType = FILTER_CYCLE[(i % #FILTER_CYCLE) + 1]
-      filter.setLabel(activeType)
+      filter.setLabel(string.upper(activeType))   -- display upper-case; activeType stays lower for filtering
       refresh()
     end)
 

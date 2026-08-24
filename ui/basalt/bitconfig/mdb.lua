@@ -220,7 +220,7 @@ function M.build(basalt, frame, runtime, nav, read, write, scan)
   local x = 2
   local iw = math.max(1, w - 2)
 
-  local headerLabel = frame:addLabel({ x = x, y = 2, width = iw, height = 1, autoSize = false, text = M.title })
+  local headerLabel = configkit.titleRow(frame, ({ frame:getSize() })[1], M.title)
 
   -- A region-internal nav push/pop (drilling a group, or backing out of one) isn't a FRAME-level
   -- nav change, so it wouldn't otherwise wake the dirty-gated render loop (ui/basalt/app.lua's
@@ -270,7 +270,7 @@ function M.build(basalt, frame, runtime, nav, read, write, scan)
     y = y + 1
     local footerRow = configkit.actionRow(f, { x = fx, y = y, w = fiw }, {
       { label = configkitGlyph.RESCAN, onClick = doRescan },
-      { label = configkitGlyph.BACK,   onClick = function() if nav then nav:pop() end end },
+      { id = "back", label = configkitGlyph.BACK, onClick = function() if nav then nav:pop() end end },
     })
 
     -- apply(state): the overview shows only static group labels + action buttons -- nothing here
@@ -307,7 +307,7 @@ function M.build(basalt, frame, runtime, nav, read, write, scan)
       end
 
       local backRow = configkit.actionRow(f, { x = fx, y = y, w = fiw }, {
-        { label = "<", onClick = function() region:pop() end },
+        { id = "back", label = "<", onClick = function() region:pop() end },
       })
 
       -- refresh(): idempotent repaint of this group's rows from workingCfg/descriptors, via the

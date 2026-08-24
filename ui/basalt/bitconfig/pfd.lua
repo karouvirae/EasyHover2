@@ -53,22 +53,26 @@ function M.build(basalt, frame, runtime, nav, deps)
   local w, h = frame:getSize()
   local x, iw = 2, math.max(1, w - 2)
 
-  local headerLabel = frame:addLabel({ x = x, y = 2, width = iw, height = 1, autoSize = false, text = M.title })
-  local valueLabel  = frame:addLabel({ x = x, y = 4, width = iw, height = 1, autoSize = false, text = "" })
+  local headerLabel = configkit.titleRow(frame, ({ frame:getSize() })[1], M.title)
+  local valueLabel  = frame:addLabel({ x = x, y = 3, width = iw, height = 1, autoSize = false, text = "" })
 
   local function refresh()
     local cfg = (runtime and runtime.config) or {}
-    valueLabel:setText(configkit.fitLabel(string.format("RATE %dHz  (%dms)", M.hz(cfg),
-      (cfg.pfd and cfg.pfd.renderMs) or M.DEFAULT_MS), iw))
+    local ms = (cfg.pfd and cfg.pfd.renderMs) or M.DEFAULT_MS
+    local t = string.format("<RATE %dHz> <%dms>", M.hz(cfg), ms)   -- rate + interval, each in <> brackets
+    valueLabel:setWidth(#t)                                          -- centre by positioning (leading
+    valueLabel:setPosition(math.max(1, math.floor((w - #t) / 2) + 1), 3)   -- spaces get trimmed)
+    valueLabel:setText(t)
   end
 
-  -- SLOWER = -1 Hz (more ms), FASTER = +1 Hz (fewer ms) -- higher Hz = more renders/second.
+  -- SLOWER = -1 Hz (more ms), FASTER = +1 Hz (fewer ms) -- higher Hz = more renders/second. One row
+  -- below the status (gap at y=4).
   local stepRow = configkit.actionRow(frame, { x = x, y = 5, w = iw, gap = 1 }, {
     { label = "- SLOWER", onClick = function() M._applyStep(runtime, -1, deps); refresh() end },
     { label = "+ FASTER", onClick = function() M._applyStep(runtime,  1, deps); refresh() end },
   })
   local backRow = configkit.actionRow(frame, { x = x, y = 6, w = iw }, {
-    { label = "<", onClick = function() if nav then nav:pop() end end },
+    { id = "back", label = "<", onClick = function() if nav then nav:pop() end end },
   })
 
   refresh()

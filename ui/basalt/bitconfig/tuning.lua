@@ -462,7 +462,9 @@ function M.build(basalt, frame, runtime, nav, read, write, delete)
   local x = 2
   local iw = math.max(1, w - 2)
 
-  local headerLabel = frame:addLabel({ x = x, y = 2, width = iw, height = 1, autoSize = false, text = M.title })
+  -- No persistent frame-level title: each region screen owns its single ||title|| (root = "FCS TUNING"),
+  -- so sub-screens don't double up + the region gets the full frame (2 more rows for the stepper lists).
+  local headerLabel = nil
 
   -- A region-internal nav push/pop (drilling a mode/category/axis, or backing out of one) isn't a
   -- FRAME-level nav change, so it wouldn't otherwise wake the dirty-gated render loop -- bump
@@ -482,7 +484,7 @@ function M.build(basalt, frame, runtime, nav, read, write, delete)
       local fiw = math.max(1, fw - 2)
       local y = 1
 
-      local titleLabel = f:addLabel({ x = fx, y = y, width = fiw, height = 1, autoSize = false, text = configkit.fitLabel(screenTitle, fiw) })
+      local titleLabel = configkit.titleRow(f, fw, screenTitle)   -- ||screenTitle|| centred, top row
       y = y + 1
 
       local labelW = math.max(1, fiw - 8)
@@ -501,8 +503,8 @@ function M.build(basalt, frame, runtime, nav, read, write, delete)
       for i, rid in ipairs(rowIds) do
         local yy = y + i - 1
         local lbl   = f:addLabel({ x = fx, y = yy, width = labelW, height = 1, autoSize = false, text = "" })
-        local minus = f:addButton({ x = minusX, y = yy, width = 3, height = 1, text = "-" })
-        local plus  = f:addButton({ x = plusX,  y = yy, width = 3, height = 1, text = "+" })
+        local minus = configkit.bracketBtn(f, minusX, yy, "-", colors.orange).button   -- [-] orange function
+        local plus  = configkit.bracketBtn(f, plusX,  yy, "+", colors.orange).button   -- [+]
         rowSlots[i] = { id = rid, label = lbl, minus = minus, plus = plus }
 
         minus:onClick(function()
@@ -518,7 +520,7 @@ function M.build(basalt, frame, runtime, nav, read, write, delete)
 
       local footerRow = configkit.actionRow(f, { x = fx, y = y, w = fiw }, {
         { label = "?", onClick = function() region:push("help_" .. helpId) end },
-        { label = "<", onClick = function() region:pop() end },
+        { id = "back", label = "<", onClick = function() region:pop() end },
       })
 
       refresh = function()
@@ -552,7 +554,7 @@ function M.build(basalt, frame, runtime, nav, read, write, delete)
       local fiw = math.max(1, fw - 2)
       local y = 1
 
-      local titleLabel = f:addLabel({ x = fx, y = y, width = fiw, height = 1, autoSize = false, text = configkit.fitLabel("GAINS " .. abbrev(mode), fiw) })
+      local titleLabel = configkit.titleRow(f, ({ f:getSize() })[1], "GAINS " .. abbrev(mode))
       y = y + 1
 
       local items = {}
@@ -570,7 +572,7 @@ function M.build(basalt, frame, runtime, nav, read, write, delete)
 
       local footerRow = configkit.actionRow(f, { x = fx, y = y, w = fiw }, {
         { label = "?", onClick = function() region:push("help_gains") end },
-        { label = "<", onClick = function() region:pop() end },
+        { id = "back", label = "<", onClick = function() region:pop() end },
       })
 
       return {
@@ -594,7 +596,7 @@ function M.build(basalt, frame, runtime, nav, read, write, delete)
       local fiw = math.max(1, fw - 2)
       local y = 1
 
-      local titleLabel = f:addLabel({ x = fx, y = y, width = fiw, height = 1, autoSize = false, text = configkit.fitLabel("FEEL " .. abbrev(mode), fiw) })
+      local titleLabel = configkit.titleRow(f, ({ f:getSize() })[1], "FEEL " .. abbrev(mode))
       y = y + 1
 
       local menu = configkit.menuColumn(f, { y = y, items = {
@@ -607,7 +609,7 @@ function M.build(basalt, frame, runtime, nav, read, write, delete)
 
       local footerRow = configkit.actionRow(f, { x = fx, y = y, w = fiw }, {
         { label = "?", onClick = function() region:push("help_feel") end },
-        { label = "<", onClick = function() region:pop() end },
+        { id = "back", label = "<", onClick = function() region:pop() end },
       })
 
       return {
@@ -625,7 +627,7 @@ function M.build(basalt, frame, runtime, nav, read, write, delete)
       local fiw = math.max(1, fw - 2)
       local y = 1
 
-      local titleLabel = f:addLabel({ x = fx, y = y, width = fiw, height = 1, autoSize = false, text = configkit.fitLabel("TUNE " .. abbrev(mode), fiw) })
+      local titleLabel = configkit.titleRow(f, ({ f:getSize() })[1], "TUNE " .. abbrev(mode))
       y = y + 1
 
       -- FEEL's target depends on the mode: PRECISION's flat 8-row screen fits the region budget
@@ -665,7 +667,7 @@ function M.build(basalt, frame, runtime, nav, read, write, delete)
 
       local helpBackRow = configkit.actionRow(f, { x = fx, y = y, w = fiw }, {
         { label = "?", onClick = function() region:push("help_modes") end },
-        { label = "<", onClick = function() region:pop() end },
+        { id = "back", label = "<", onClick = function() region:pop() end },
       })
 
       return {
@@ -692,7 +694,8 @@ function M.build(basalt, frame, runtime, nav, read, write, delete)
       items[#items + 1] = { id = mode, label = mode, onClick = function() region:push("cat_" .. mode) end }
     end
     items[#items + 1] = { id = "COM", label = "COM", onClick = function() region:push("com") end }
-    local menu = configkit.menuColumn(f, { y = 1, items = items })
+    configkit.titleRow(f, fw, M.title)                             -- ||FCS TUNING||
+    local menu = configkit.menuColumn(f, { y = 3, items = items }) -- gap at row 2 (detach from title)
     local modeBtns = {}
     for _, mode in ipairs(M.MODES) do modeBtns[mode] = menu.buttons[mode] end
     local comBtn = menu.buttons.COM
@@ -700,7 +703,7 @@ function M.build(basalt, frame, runtime, nav, read, write, delete)
     local y = menu.nextY
     local footerRow = configkit.actionRow(f, { x = fx, y = y, w = fiw }, {
       { label = "?", onClick = function() region:push("help_modes") end },
-      { label = "<", onClick = function() if nav then nav:pop() end end },
+      { id = "back", label = "<", onClick = function() if nav then nav:pop() end end },
     })
 
     return {
@@ -724,7 +727,7 @@ function M.build(basalt, frame, runtime, nav, read, write, delete)
     local fx = 2
     local fiw = math.max(1, fw - 2)
     local y = 1
-    local titleLabel = f:addLabel({ x = fx, y = y, width = fiw, height = 1, autoSize = false, text = "COM" })
+    local titleLabel = configkit.titleRow(f, ({ f:getSize() })[1], "COM")
     y = y + 1
     local labelW = math.max(1, fiw - 8)
     local minusX = fx + labelW + 1
@@ -762,7 +765,7 @@ function M.build(basalt, frame, runtime, nav, read, write, delete)
     })
     y = y + 1
     local footerRow = configkit.actionRow(f, { x = fx, y = y, w = fiw }, {
-      { label = "<", onClick = function() region:pop() end },
+      { id = "back", label = "<", onClick = function() region:pop() end },
     })
     refresh = function()
       for _, slot in ipairs(rowSlots) do
@@ -787,7 +790,7 @@ function M.build(basalt, frame, runtime, nav, read, write, delete)
     local fx = 2
     local fiw = math.max(1, fw - 2)
     local y = 1
-    local titleLabel = f:addLabel({ x = fx, y = y, width = fiw, height = 1, autoSize = false, text = "AUTO COM" })
+    local titleLabel = configkit.titleRow(f, ({ f:getSize() })[1], "AUTO COM")
     y = y + 1
     local lamp = switchbtn.make(f, { x = fx, y = y, width = fiw, height = 1, text = "LAMP" }) -- audit:full-width-ok status lamp (readout, not a pick target)
     y = y + 1
@@ -802,7 +805,7 @@ function M.build(basalt, frame, runtime, nav, read, write, delete)
     })
     y = y + 1
     local footerRow = configkit.actionRow(f, { x = fx, y = y, w = fiw }, {
-      { label = "<", onClick = function() region:pop() end },
+      { id = "back", label = "<", onClick = function() region:pop() end },
     })
     local savedCap = false
     local function refresh(state)
@@ -881,7 +884,7 @@ function M.build(basalt, frame, runtime, nav, read, write, delete)
   end
 
   local region = Region.new(basalt, frame, {
-    x = 1, y = 3, width = w, height = math.max(1, h - 2),
+    x = 1, y = 1, width = w, height = h,
     root = "modes", screens = screens, onNav = bump,
   })
 

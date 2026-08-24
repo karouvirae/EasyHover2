@@ -929,9 +929,9 @@
         },
         {
           ["dst"] = "ui/basalt/bitconfig/dtc.lua",
-          ["size"] = 36615,
+          ["size"] = 37425,
           ["src"] = "ui/basalt/bitconfig/dtc.lua",
-          ["sum"] = "def16244",
+          ["sum"] = "7be635a8",
         },
         {
           ["dst"] = "ui/basalt/bitconfig/fcssync.lua",
@@ -941,45 +941,45 @@
         },
         {
           ["dst"] = "ui/basalt/bitconfig/hub.lua",
-          ["size"] = 3466,
+          ["size"] = 3592,
           ["src"] = "ui/basalt/bitconfig/hub.lua",
-          ["sum"] = "4877abe2",
+          ["sum"] = "fc07ced3",
         },
         {
           ["dst"] = "ui/basalt/bitconfig/mdb.lua",
-          ["size"] = 16355,
+          ["size"] = 16349,
           ["src"] = "ui/basalt/bitconfig/mdb.lua",
-          ["sum"] = "4e68adf0",
+          ["sum"] = "d890449f",
         },
         {
           ["dst"] = "ui/basalt/bitconfig/pfd.lua",
-          ["size"] = 3538,
+          ["size"] = 3813,
           ["src"] = "ui/basalt/bitconfig/pfd.lua",
-          ["sum"] = "921a0bb1",
+          ["sum"] = "861a78be",
         },
         {
           ["dst"] = "ui/basalt/bitconfig/senscal.lua",
-          ["size"] = 32436,
+          ["size"] = 32405,
           ["src"] = "ui/basalt/bitconfig/senscal.lua",
-          ["sum"] = "ff570bae",
+          ["sum"] = "dcef2a5d",
         },
         {
           ["dst"] = "ui/basalt/bitconfig/senssource.lua",
-          ["size"] = 14116,
+          ["size"] = 14112,
           ["src"] = "ui/basalt/bitconfig/senssource.lua",
-          ["sum"] = "f779358b",
+          ["sum"] = "170c59a6",
         },
         {
           ["dst"] = "ui/basalt/bitconfig/tuning.lua",
-          ["size"] = 41423,
+          ["size"] = 41465,
           ["src"] = "ui/basalt/bitconfig/tuning.lua",
-          ["sum"] = "cb74bf4d",
+          ["sum"] = "fcbd3e87",
         },
         {
           ["dst"] = "ui/basalt/bitconfig/uical.lua",
-          ["size"] = 36261,
+          ["size"] = 36411,
           ["src"] = "ui/basalt/bitconfig/uical.lua",
-          ["sum"] = "c2aad347",
+          ["sum"] = "7e9d4280",
         },
         {
           ["dst"] = "ui/basalt/btnfit.lua",
@@ -995,9 +995,9 @@
         },
         {
           ["dst"] = "ui/basalt/configkit.lua",
-          ["size"] = 14857,
+          ["size"] = 18262,
           ["src"] = "ui/basalt/configkit.lua",
-          ["sum"] = "92c62964",
+          ["sum"] = "2dce5576",
         },
         {
           ["dst"] = "ui/basalt/instruments/adi.lua",
@@ -1079,9 +1079,9 @@
         },
         {
           ["dst"] = "ui/basalt/pages/nav.lua",
-          ["size"] = 21680,
+          ["size"] = 21770,
           ["src"] = "ui/basalt/pages/nav.lua",
-          ["sum"] = "62d3685d",
+          ["sum"] = "9a8fca0d",
         },
         {
           ["dst"] = "ui/basalt/pages/pfd.lua",
@@ -1091,9 +1091,9 @@
         },
         {
           ["dst"] = "ui/basalt/picker.lua",
-          ["size"] = 2857,
+          ["size"] = 3309,
           ["src"] = "ui/basalt/picker.lua",
-          ["sum"] = "848090a8",
+          ["sum"] = "c68ba4a7",
         },
         {
           ["dst"] = "ui/basalt/region.lua",
@@ -1133,9 +1133,9 @@
         },
         {
           ["dst"] = "ui/basalt/waypointlist.lua",
-          ["size"] = 6260,
+          ["size"] = 6457,
           ["src"] = "ui/basalt/waypointlist.lua",
-          ["sum"] = "a622cf12",
+          ["sum"] = "bd60b1fd",
         },
         {
           ["dst"] = "ui/basalt/wptclient.lua",
@@ -1367,5 +1367,5 @@
     ["size"] = 71434,
     ["sum"] = "57671ad7",
   },
-  ["version"] = "1838329f",
+  ["version"] = "29a74df1",
 }

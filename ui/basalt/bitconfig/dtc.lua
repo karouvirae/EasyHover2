@@ -527,9 +527,7 @@ function M.build(basalt, frame, runtime, nav, deps)
 
   local w, h = frame:getSize()
 
-  local headerLabel = frame:addLabel({
-    x = 2, y = 2, width = math.max(1, w - 2), height = 1, autoSize = false, text = M.title,
-  })
+  local headerLabel = configkit.titleRow(frame, w, M.title)
 
   -- A region-internal nav push/pop isn't a FRAME-level nav change, so it wouldn't otherwise wake
   -- the dirty-gated render loop -- bump runtime.uiRev, exactly like senssource.lua's/senscal.lua's
@@ -572,52 +570,51 @@ function M.build(basalt, frame, runtime, nav, deps)
     local fiw = math.max(1, fw - 2)
     local y = 1
 
+    -- Disk status row, centred, in <> brackets, with an indicator alongside: -( )- empty / -(*)- (a
+    -- solid filled circle, string.char(7)) when a disk is found.
     local diskLabel = f:addLabel({ x = fx, y = y, width = fiw, height = 1, autoSize = false, text = "" })
-    y = y + 1
 
-    local ioRow = configkit.actionRow(f, { x = fx, y = y, w = fiw }, {
-      { label = "EXPORT", onClick = function() region:push("export") end },
-      { label = "IMPORT", onClick = function() region:push("import") end },
-    })
-    y = y + 1
+    -- 1-row gap, then two columns: REFRESH / SCAN on the LEFT, EXPORT / IMPORT / IMPORT ALL on the RIGHT.
+    local topY = y + 2
+    local leftX  = fx + 1
+    local rightX = fx + math.floor(fiw / 2) + 1
+    local refreshBtn   = configkit.bracketSwitch(f, { x = leftX,  y = topY,     width = 7,  text = "REFRESH",    kind = "function" })
+    local scanBtn      = configkit.bracketSwitch(f, { x = leftX,  y = topY + 1, width = 7,  text = "SCAN",       kind = "function" })
+    local exportBtn    = configkit.bracketSwitch(f, { x = rightX, y = topY,     width = 10, text = "EXPORT",     kind = "function" })
+    local importBtn    = configkit.bracketSwitch(f, { x = rightX, y = topY + 1, width = 10, text = "IMPORT",     kind = "function" })
+    local importAllBtn = configkit.bracketSwitch(f, { x = rightX, y = topY + 2, width = 10, text = "IMPORT ALL", kind = "function" })
+    refreshBtn.button:onClick(function() doDetect(); region:apply(nil) end)
+    scanBtn.button:onClick(function() region:push("scan") end)
+    exportBtn.button:onClick(function() region:push("export") end)
+    importBtn.button:onClick(function() region:push("import") end)
+    importAllBtn.button:onClick(function() region:push("confirm_importall") end)
 
-    local refreshRow = configkit.actionRow(f, { x = fx, y = y, w = fiw }, {
-      { label = configkit.GLYPH.REFRESH, onClick = function() doDetect(); region:apply(nil) end },
-    })
-    y = y + 1
-
-    local importAllRow = configkit.actionRow(f, { x = fx, y = y, w = fiw }, {
-      { label = "IMPORT ALL", onClick = function() region:push("confirm_importall") end },
-    })
-    y = y + 1
-
-    local scanRow = configkit.actionRow(f, { x = fx, y = y, w = fiw }, {
-      { label = "SCAN", onClick = function() region:push("scan") end },
-    })
-    y = y + 1
-
-    local backRow = configkit.actionRow(f, { x = fx, y = y, w = fiw }, {
-      { label = configkit.GLYPH.BACK, onClick = function() if nav then nav:pop() end end },
+    local backRow = configkit.actionRow(f, { x = fx, y = topY + 3, w = fiw }, {
+      { id = "back", label = configkit.GLYPH.BACK, onClick = function() if nav then nav:pop() end end },
     })
 
     local function refreshTop()
-      diskLabel:setText(clampText(summaryText(), fiw))
-      ioRow.setState(1, drive.present and "off" or "disabled")
-      ioRow.setState(2, drive.present and "off" or "disabled")
+      local present = drive.present
+      local ind = present and ("-(" .. string.char(7) .. ")-") or "-( )-"
+      local t = "<DISK STATE: " .. (present and "DISK FOUND" or "NO DISK") .. "> " .. ind
+      diskLabel:setWidth(fiw)
+      diskLabel:setText(string.rep(" ", math.max(0, math.floor((fiw - #t) / 2))) .. t)
+      exportBtn.set(present and "off" or "disabled")
+      importBtn.set(present and "off" or "disabled")
       local anyValid = false
       for _, kind in ipairs(M.KINDS) do
         if scanKindResults[kind].diskHas and scanKindResults[kind].diskValid then anyValid = true end
       end
-      importAllRow.setState(1, (drive.present and anyValid) and "off" or "disabled")
-      scanRow.setState(1, drive.present and "off" or "disabled")
+      importAllBtn.set((present and anyValid) and "off" or "disabled")
+      scanBtn.set(present and "off" or "disabled")
     end
     refreshTop()
 
     return {
       apply = function(_state) refreshTop() end,
       elements = {
-        diskLabel = diskLabel, ioRow = ioRow, refreshRow = refreshRow,
-        importAllRow = importAllRow, scanRow = scanRow, backRow = backRow,
+        diskLabel = diskLabel, refreshBtn = refreshBtn, scanBtn = scanBtn,
+        exportBtn = exportBtn, importBtn = importBtn, importAllBtn = importAllBtn, backRow = backRow,
       },
     }
   end
@@ -646,7 +643,7 @@ function M.build(basalt, frame, runtime, nav, deps)
       y = y + 1
 
       local backRow = configkit.actionRow(f, { x = fx, y = y, w = fiw }, {
-        { label = "<", onClick = function() region:pop() end },
+        { id = "back", label = "<", onClick = function() region:pop() end },
       })
 
       local function refreshList()
@@ -711,7 +708,7 @@ function M.build(basalt, frame, runtime, nav, deps)
       y = y + 1
 
       local backRow = configkit.actionRow(f, { x = fx, y = y, w = fiw }, {
-        { label = "<", onClick = function() region:pop() end },
+        { id = "back", label = "<", onClick = function() region:pop() end },
       })
 
       local function refresh()
@@ -772,7 +769,7 @@ function M.build(basalt, frame, runtime, nav, deps)
     })
     y = y + 1
     local backRow = configkit.actionRow(f, { x = fx, y = y, w = fiw }, {
-      { label = configkit.GLYPH.BACK, onClick = function() region:pop() end },
+      { id = "back", label = configkit.GLYPH.BACK, onClick = function() region:pop() end },
     })
     local function refresh()
       local scan = M._scanDisk(drive.mount, deps)
@@ -820,7 +817,7 @@ function M.build(basalt, frame, runtime, nav, deps)
   screens.confirm_clean = buildCleanConfirm
 
   local region = Region.new(basalt, frame, {
-    x = 1, y = 3, width = w, height = math.max(1, h - 2),
+    x = 1, y = 2, width = w, height = math.max(1, h - 1),
     root = "top", screens = screens, onNav = bump,
   })
 
