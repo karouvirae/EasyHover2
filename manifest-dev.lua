@@ -1000,22 +1000,22 @@
           ["sum"] = "0c6992a9",
         },
         {
-          ["dst"] = "ui/basalt/instruments/attitude.lua",
-          ["size"] = 2446,
-          ["src"] = "ui/basalt/instruments/attitude.lua",
-          ["sum"] = "80924ea4",
+          ["dst"] = "ui/basalt/instruments/adi.lua",
+          ["size"] = 5573,
+          ["src"] = "ui/basalt/instruments/adi.lua",
+          ["sum"] = "44bfd68a",
         },
         {
-          ["dst"] = "ui/basalt/instruments/horizon.lua",
-          ["size"] = 880,
-          ["src"] = "ui/basalt/instruments/horizon.lua",
-          ["sum"] = "22403e70",
+          ["dst"] = "ui/basalt/instruments/panelgfx.lua",
+          ["size"] = 5139,
+          ["src"] = "ui/basalt/instruments/panelgfx.lua",
+          ["sum"] = "098723ce",
         },
         {
           ["dst"] = "ui/basalt/instruments/readout.lua",
-          ["size"] = 2022,
+          ["size"] = 2026,
           ["src"] = "ui/basalt/instruments/readout.lua",
-          ["sum"] = "fbc240af",
+          ["sum"] = "b27517ab",
         },
         {
           ["dst"] = "ui/basalt/instruments/sensread.lua",
@@ -1085,9 +1085,9 @@
         },
         {
           ["dst"] = "ui/basalt/pages/pfd.lua",
-          ["size"] = 8240,
+          ["size"] = 8031,
           ["src"] = "ui/basalt/pages/pfd.lua",
-          ["sum"] = "30040270",
+          ["sum"] = "55690c37",
         },
         {
           ["dst"] = "ui/basalt/picker.lua",
@@ -1103,15 +1103,15 @@
         },
         {
           ["dst"] = "ui/basalt/regions/emc.lua",
-          ["size"] = 27901,
+          ["size"] = 26863,
           ["src"] = "ui/basalt/regions/emc.lua",
-          ["sum"] = "70520364",
+          ["sum"] = "92fb2af2",
         },
         {
           ["dst"] = "ui/basalt/regions/fcs.lua",
-          ["size"] = 7815,
+          ["size"] = 9000,
           ["src"] = "ui/basalt/regions/fcs.lua",
-          ["sum"] = "fa25d2a2",
+          ["sum"] = "aead27e1",
         },
         {
           ["dst"] = "ui/basalt/senssource.lua",
@@ -1367,5 +1367,5 @@
     ["size"] = 71434,
     ["sum"] = "57671ad7",
   },
-  ["version"] = "0092fa18",
+  ["version"] = "e6a7e6cd",
 }

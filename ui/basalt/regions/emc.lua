@@ -48,6 +48,7 @@
 -- NO peripheral/Basalt access at module LOAD -- everything lives inside M.main/M.config/M.calfuel/
 -- M._onEngine/M._cfg/M._setMax, so `require("ui.basalt.regions.emc")` loads clean headless.
 local Switch = require("ui.basalt.switchbtn")
+local Gfx    = require("ui.basalt.instruments.panelgfx")
 local Theme  = require("ui.theme")
 local Fuel   = require("ui.fuel")
 local Uical  = require("ui.basalt.bitconfig.uical")
@@ -168,83 +169,93 @@ end
 --   y8  MASTER light (1-char colored block + text) -- logic unchanged, shifted down
 --   y9  FEED light -- unchanged, shifted
 --   y10 CONFIG full-width drill -- unchanged, shifted
+-- Outlined 3-row button: a Basalt button with a subpixel rounded border (native addBorder). Returns
+-- the button; call btn:addBorder(colour) to recolour the outline on state change.
+local function outlinedButton(frame, x, y, wd, text, borderColor)
+  local btn = frame:addButton({ x = x, y = y, width = wd, height = 3, text = text })
+  btn:setBackground(Theme.role("button")); btn:setForeground(Theme.role("font"))
+  btn:addBorder(borderColor)
+  return btn
+end
+
+-- 2-row chip button (matches the FCS region): a feedback-coloured CHIP bar over a label button.
+-- Returns { chip, label, setChip(colour), setText(t), onClick(fn) }.
+local function chipButton(frame, x, y, wd, text, chipColor)
+  local chip = frame:addButton({ x = x, y = y, width = wd, height = 1, text = "" })
+  chip:setBackground(chipColor or Theme.role("button"))
+  local label = frame:addButton({ x = x, y = y + 1, width = wd, height = 1, text = text })
+  label:setBackground(Theme.role("button")); label:setForeground(Theme.role("font"))
+  local ctrl = { chip = chip, label = label }
+  function ctrl.setChip(color) chip:setBackground(color); return ctrl end
+  function ctrl.setText(t) label:setText(t); return ctrl end
+  function ctrl.onClick(fn) chip:onClick(fn); label:onClick(fn); return ctrl end
+  return ctrl
+end
+
+-- Compact interval format for the config status box: "5m30s" (minutes + zero-padded seconds).
+local function fmtIntervalCompact(ms)
+  local s = math.floor((ms or 0) / 1000)
+  return string.format("%dm%02ds", math.floor(s / 60), s % 60)
+end
+
 function M.main(basalt, frame, region, runtime)
-  local w = ({ frame:getSize() })[1]
+  local w, h = frame:getSize()
 
-  -- Bar/value geometry, shared by both gauge rows: bar starts one column off the left border
-  -- (x=2), a right-side value field (~5 cols: fits "9999x"/"9999B" etc) sits flush against the
-  -- frame's right edge, with a 1-col gap between them. valLabel is built at this field's fixed
-  -- width/x but apply() below re-sizes/re-positions it to the EXACT text length each call so the
-  -- rendered text is genuinely right-justified against `valRight` (getText() itself stays
-  -- unpadded -- easier to assert in tests and consistent with every other label in this module).
-  local barX, gap, valW = 2, 1, 5
-  local barW = math.max(1, w - (barX - 1) - gap - valW)
-  local valX = barX + barW + gap
-  local valRight = valX + valW - 1
+  -- ===== Background decoration (low z, behind the interactive elements) =====
+  -- Panel border: black / green line / black, on TOP+LEFT+RIGHT only -- the FCS region below draws
+  -- the BOTTOM edge, so the frame wraps the whole flight panel with no line between the two regions.
+  -- Plus the orange double-border checkered STATUS box (lower-left), inset from the border.
+  local bg = frame:addImage({ x = 1, y = 1, width = w, height = h }); bg:resizeImage(w, h); bg.set("z", 1)
+  Gfx.clear(bg, w, h)
+  Gfx.border(bg, w, h, colors.green, { top = true, left = true, right = true, bottom = false })
+  -- Status box detached from the ENG SW button above (gap at h-7); 2-subpixel checkered orange border.
+  local boxC0, boxR0, boxC1, boxR1 = 3, math.max(4, h - 6), 17, h - 2
+  Gfx.checkerBox(bg, boxC0, boxR0, boxC1, boxR1, colors.orange)
 
-  -- y2: solid gauge label.
-  local pmpLabel = frame:addLabel({ x = 1, y = 2, width = w, height = 1, autoSize = false, text = fit("Solid Pump " .. M.SOLID_ABBR, w) })
+  -- ===== Fuel gauges: label (left) + amount (right) on one row, full-width bar below =====
+  local ix0, ix1 = 3, w - 2                    -- inner content x-range (inside the L/R border, 1-col gap)
+  local iw = ix1 - ix0 + 1
+  local pmpLabel = frame:addLabel({ x = ix0, y = 2, width = iw, height = 1, autoSize = false, text = fit("Solid Pump " .. M.SOLID_ABBR, iw) })
+  local pmpValLabel = frame:addLabel({ x = ix1 - 5, y = 2, width = 6, height = 1, autoSize = false, text = "" })
+  local pmpBar = frame:addProgressBar({ x = ix0, y = 3, width = iw, height = 1 })
+  pmpBar:setProgressColor(colors.green); pmpBar:setBackground(colors.gray)
+  local mainLabel = frame:addLabel({ x = ix0, y = 4, width = iw, height = 1, autoSize = false, text = fit("Liquid Main " .. M.LIQUID_ABBR, iw) })
+  local mainValLabel = frame:addLabel({ x = ix1 - 5, y = 4, width = 6, height = 1, autoSize = false, text = "" })
+  local mainBar = frame:addProgressBar({ x = ix0, y = 5, width = iw, height = 1 })
+  mainBar:setProgressColor(colors.green); mainBar:setBackground(colors.gray)
 
-  -- y3: solid gauge bar + value.
-  local pmpBar = frame:addProgressBar({ x = barX, y = 3, width = barW, height = 1 })
-  pmpBar:setProgressColor(colors.green)
-  pmpBar:setBackground(colors.gray)
-  local pmpValLabel = frame:addLabel({ x = valX, y = 3, width = valW, height = 1, autoSize = false, text = "" })
+  -- ===== ENG SW (green/red feedback) + PRIME (orange) -- 3-row outlined, centred + spaced =====
+  local btnW, btnGap, btnY = 10, 2, 7
+  local bx0 = math.max(ix0, math.floor((w - (btnW * 2 + btnGap)) / 2) + 1)
+  local engBtn = outlinedButton(frame, bx0, btnY, btnW, "ENG SW", colors.red)
+  local primeBtn = outlinedButton(frame, bx0 + btnW + btnGap, btnY, btnW, "PRIME", colors.orange)
 
-  -- y4: liquid gauge label -- fall back to the shorter "Liq Main" form if "Liquid Main <ABBR>"
-  -- would clip against the frame width.
-  local liquidFull  = "Liquid Main " .. M.LIQUID_ABBR
-  local liquidShort = "Liq Main " .. M.LIQUID_ABBR
-  local liquidText  = (#liquidFull > w) and liquidShort or liquidFull
-  local mainLabel = frame:addLabel({ x = 1, y = 4, width = w, height = 1, autoSize = false, text = fit(liquidText, w) })
+  -- ===== Status text inside the box: fixed GREEN text (never recoloured), values aligned in a fixed
+  -- column, plus a red/green state LED (filled circle) after each value to show on/off. =====
+  local tx = boxC0 + 2
+  local masterText = frame:addLabel({ x = tx, y = boxR0 + 1, width = 8, height = 1, autoSize = false, text = "" })
+  local feedText   = frame:addLabel({ x = tx, y = boxR0 + 2, width = 8, height = 1, autoSize = false, text = "" })
+  masterText:setForeground(Theme.role("font")); feedText:setForeground(Theme.role("font"))
+  local ledX = tx + 9
+  local function setLed(row, on)
+    bg:setPixel(ledX, boxR0 + row, string.char(7), colors.toBlit(on and colors.green or colors.red), "f")
+  end
+  -- LFED placeholder (upcoming fuel feature) on the 3rd box row -- static for now, no LED.
+  frame:addLabel({ x = tx, y = boxR0 + 3, width = 8, height = 1, autoSize = false,
+    text = string.format("%-5s%-3s", "LFED", "XX") }):setForeground(Theme.role("font"))
 
-  -- y5: liquid gauge bar + value.
-  local mainBar = frame:addProgressBar({ x = barX, y = 5, width = barW, height = 1 })
-  mainBar:setProgressColor(colors.green)
-  mainBar:setBackground(colors.gray)
-  local mainValLabel = frame:addLabel({ x = valX, y = 5, width = valW, height = 1, autoSize = false, text = "" })
+  -- ===== CONFIG (blue outline) 3-row, right of the status box -- sized to its label =====
+  local configBtn = outlinedButton(frame, 22, boxR0 + 1, 10, "CONFIG", colors.blue)
 
-  -- y6: ENG SW / PRIME, height 1 (was 3), common width via btnfit.grid -- mirrors
-  -- ui/basalt/regions/fcs.lua's M.main control-group geometry (Task 2).
-  local ctrlGeo = btnfit.grid({ "ENG SW", "PRIME" }, { x0 = 1, availW = w, y0 = 6, gap = 1, align = "center" })
-  local engSw = Switch.make(frame, { x = ctrlGeo[1].x, y = ctrlGeo[1].y, width = ctrlGeo[1].w, height = 1, text = "ENG SW" })
-  local primeBtn = frame:addButton({ x = ctrlGeo[2].x, y = ctrlGeo[2].y, width = ctrlGeo[2].w, height = 1, text = "PRIME" })
+  engBtn:onClick(function() M._onEngine(runtime, "engSw", os.epoch("utc")) end)
+  primeBtn:onClick(function() M._onEngine(runtime, "prime", os.epoch("utc")) end)
+  configBtn:onClick(function() region:push("emc_config") end)
 
-  -- y7: spacer.
-
-  -- y8: MASTER light (1-char colored block + short label).
-  local lightY = 8
-  local masterBlock = frame:addLabel({ x = 1, y = lightY, width = 1, height = 1, autoSize = false, text = " " })
-  local masterText  = frame:addLabel({ x = 2, y = lightY, width = math.max(1, w - 1), height = 1, autoSize = false, text = "ENG OFF" })
-
-  -- y9: FEED light.
-  local feedY = lightY + 1
-  local feedBlock = frame:addLabel({ x = 1, y = feedY, width = 1, height = 1, autoSize = false, text = " " })
-  local feedText  = frame:addLabel({ x = 2, y = feedY, width = math.max(1, w - 1), height = 1, autoSize = false, text = "FEED no" })
-
-  -- y10: CONFIG drill-in.
-  local configY = feedY + 1
-  local configGeo = btnfit.grid({ "CONFIG" }, { x0 = 1, availW = w, y0 = configY, gap = 1, align = "center" })
-  local configBtn = frame:addButton({ x = configGeo[1].x, y = configY, width = configGeo[1].w, height = 1, text = "CONFIG" })
-
-  engSw.button:onClick(function()
-    M._onEngine(runtime, "engSw", os.epoch("utc"))
-  end)
-  primeBtn:onClick(function()
-    M._onEngine(runtime, "prime", os.epoch("utc"))
-  end)
-  configBtn:onClick(function()
-    region:push("emc_config")
-  end)
-
-  -- Right-justify `text` (already fit to valW) against `valRight` by resizing/repositioning the
-  -- label to the text's exact length -- see the geometry comment above.
+  -- Right-justify a short value against the inner right edge (ix1).
   local function setVal(label, text)
-    text = fit(text, valW)
+    text = fit(text, 6)
     local tw = math.max(1, #text)
-    label:setWidth(tw)
-    label:setX(valRight - tw + 1)
-    label:setText(text)
+    label:setWidth(tw); label:setX(ix1 - tw + 1); label:setText(text)
   end
 
   -- apply(state): idempotent repaint from `state` + runtime.config ONLY -- no peripheral polling.
@@ -254,24 +265,31 @@ function M.main(basalt, frame, region, runtime)
 
     pmpBar:setProgress(round(Fuel.manualFrac(state.pumpAmount, cfg.fuel.pump.full) * 100))
     setVal(pmpValLabel, tostring(state.pumpAmount or 0) .. "x")
-
     mainBar:setProgress(round(Fuel.manualFrac(state.tankMb, cfg.fuel.tank.full) * 100))
     setVal(mainValLabel, tostring(math.floor((state.tankMb or 0) / 1000)) .. "B")
 
     local bound = relayBound(runtime)
-    engSw.set(bound and (state.engineMaster and "on" or "off") or "disabled")
+    -- ENG SW outline: green(on) / red(off) when a relay is bound, else gray (disabled).
+    engBtn:addBorder(bound and (state.engineMaster and colors.green or colors.red) or colors.gray)
+    engBtn:setForeground(bound and Theme.role("font") or Theme.DISABLED_FG)
+    engBtn:setEnabled(bound and true or false)
 
-    -- PRIME follows the uniform scheme: button colour bg, font colour when enabled, ORANGE when inert.
+    -- PRIME keeps its ORANGE outline always (its role colour); it is just gated clickable when it
+    -- can't fire (relay bound + master on).
     local primeEnabled = bound and (state.engineMaster and true or false)
+    primeBtn:addBorder(colors.orange)
+    primeBtn:setForeground(Theme.role("font"))
     primeBtn:setEnabled(primeEnabled)
-    primeBtn:setBackground(Theme.role("button"))
-    primeBtn:setForeground(primeEnabled and Theme.role("font") or Theme.DISABLED_FG)
 
-    masterBlock:setBackground(state.engineMaster and colors.green or colors.red)
-    masterText:setText(fit(state.engineMaster and "ENG ON" or "ENG OFF", w - 1))
-
-    feedBlock:setBackground(state.feeding and colors.green or colors.red)
-    feedText:setText(fit(state.feeding and "FEED yes" or "FEED no", w - 1))
+    -- Status readouts: fixed green text with the value aligned in a fixed column; the red/green state
+    -- LED (filled circle) after each value carries the on/off feedback (the text no longer recolours).
+    -- Width guard (as on the tape/PFD): re-assert the width so the aligned text can't wrap-clip when
+    -- the frame width hasn't settled during a rebuild.
+    masterText:setWidth(8); feedText:setWidth(8)
+    masterText:setText(string.format("%-5s%-3s", "ENG", state.engineMaster and "ON" or "OFF"))
+    feedText:setText(string.format("%-5s%-3s", "FEED", state.feeding and "YES" or "NO"))
+    setLed(1, state.engineMaster and true or false)
+    setLed(2, state.feeding and true or false)
   end
 
   apply({})
@@ -281,9 +299,8 @@ function M.main(basalt, frame, region, runtime)
     elements = {
       pmpLabel = pmpLabel, pmpBar = pmpBar, pmpValLabel = pmpValLabel,
       mainLabel = mainLabel, mainBar = mainBar, mainValLabel = mainValLabel,
-      engSw = engSw, primeBtn = primeBtn,
-      masterBlock = masterBlock, masterText = masterText,
-      feedBlock = feedBlock, feedText = feedText,
+      engSw = engBtn, primeBtn = primeBtn,
+      masterText = masterText, feedText = feedText,
       configBtn = configBtn,
     },
   }
@@ -298,124 +315,61 @@ end
 -- candidate lists are fixed for the screen's lifetime -- only each picker's CURRENT selection is
 -- refreshed afterwards, from runtime.config, on every apply().
 function M.config(basalt, frame, region, runtime, deps)
-  deps = deps or {}
-  local scanFn = deps.scan or Uical._realScanDescriptors
-  local descriptors = scanFn()
+  local w, h = frame:getSize()
 
-  local w = ({ frame:getSize() })[1]
-  local half = math.max(1, math.floor(w / 2))
-  local rest = math.max(1, w - half)
-  local y = 2 -- row 1 is a blank top margin, matching M.main's convention (Task 3/4).
+  -- Background: panel border (TOP+LEFT+RIGHT -- the FCS region below still draws the bottom, so the
+  -- frame wraps the whole flight panel) + an orange checkered STATUS box holding the 3 readouts.
+  local bg = frame:addImage({ x = 1, y = 1, width = w, height = h }); bg:resizeImage(w, h); bg.set("z", 1)
+  Gfx.clear(bg, w, h)
+  Gfx.border(bg, w, h, colors.green, { top = true, left = true, right = true, bottom = false })
+  local boxC0, boxR0, boxC1, boxR1 = 8, 2, 28, 7
+  Gfx.checkerBox(bg, boxC0, boxR0, boxC1, boxR1, colors.orange)
 
-  local backGeo = btnfit.grid({ "< BACK" }, { x0 = 1, availW = w, y0 = y, gap = 1, align = "center" })
-  local backBtn = frame:addButton({ x = backGeo[1].x, y = y, width = backGeo[1].w, height = 1, text = "< BACK" })
-  y = y + 1
+  -- Status readouts inside the box (black interior), spaced from the border. Row 1 = FUEL placeholder
+  -- (upcoming fuel feature); INVERT gets a red/green state LED like the EMC region's ENG/FEED.
+  local tx = boxC0 + 2
+  frame:addLabel({ x = tx, y = boxR0 + 1, width = 16, height = 1, autoSize = false,
+    text = string.format("%-8s%s", "FUEL:", "XXXX") }):setForeground(Theme.role("font"))
+  local pulseLbl = frame:addLabel({ x = tx, y = boxR0 + 2, width = 16, height = 1, autoSize = false, text = "" })
+  local intLbl   = frame:addLabel({ x = tx, y = boxR0 + 3, width = 16, height = 1, autoSize = false, text = "" })
+  local invLbl   = frame:addLabel({ x = tx, y = boxR0 + 4, width = 11, height = 1, autoSize = false, text = "" })
+  local invLedX  = tx + 12
+  local function setInvLed(on) bg:setPixel(invLedX, boxR0 + 4, string.char(7), colors.toBlit(on and colors.green or colors.red), "f") end
 
-  -- Dropdown pickers replace the old click-to-cycle RELAY SIDE / BIND PUMP/TANK/RELAY buttons --
-  -- reuses uical.lua's tested seams verbatim. Compact: a short label + a capped-width dropdown,
-  -- centred as a block (not spanning the full line), so the picker column reads tidy.
-  local labelW = 4
-  local dropW  = math.max(6, math.min(16, w - labelW - 2))
-  local blockX = math.max(1, math.floor((w - (labelW + 1 + dropW)) / 2) + 1)
-  local dropX  = blockX + labelW + 1
+  -- Control chip row (2-row): PULSE -/+ , INT -/+ (orange actions) + INVERT toggle (green/red).
+  local cy = boxR1 + 2
+  local pulseDn = chipButton(frame, 3,  cy, 6, "PULSE-", colors.orange)
+  local pulseUp = chipButton(frame, 10, cy, 6, "PULSE+", colors.orange)
+  local intDn   = chipButton(frame, 17, cy, 5, "INT-",   colors.orange)
+  local intUp   = chipButton(frame, 23, cy, 5, "INT+",   colors.orange)
+  local invBtn  = chipButton(frame, 29, cy, 6, "INVERT", colors.red)
 
-  -- dropWidth (optional) overrides the default dropW for short-value pickers (e.g. SIDE, whose values
-  -- are <=6 chars), re-centring that row's own label+dropdown block.
-  local function pickerRow(labelText, options, current, placeholder, dropdownHeight, onPick, dropWidth)
-    local dw = dropWidth or dropW
-    local bx = math.max(1, math.floor((w - (labelW + 1 + dw)) / 2) + 1)
-    local dx = bx + labelW + 1
-    local lbl = frame:addLabel({ x = bx, y = y, width = labelW, height = 1, autoSize = false, text = labelText })
-    local picker = Picker.make(frame, {
-      x = dx, y = y, width = dw, dropdownHeight = dropdownHeight or 5,
-      options = options, current = current, placeholder = placeholder,
-      onPick = onPick,
-    })
-    y = y + 1
-    return lbl, picker
-  end
+  -- CAL FUEL + BACK (blue outlined, 3-row) at the bottom, side by side.
+  local by = cy + 3
+  local calFuelBtn = outlinedButton(frame, 6,  by, 12, "CAL FUEL", colors.blue)
+  local backBtn    = outlinedButton(frame, 20, by, 10, "< BACK",   colors.blue)
 
-  -- Every pick bumps runtime.uiRev itself (bypasses M._cfg, which only wraps ConfigPanel.action
-  -- ids) -- see the header note: uical's _pickBind/_pickSide save config but don't touch uiRev,
-  -- and the cadence signature has no field for relay/bind names or sides, so this is the ONLY
-  -- thing that wakes the dirty-gated render loop to repaint the picker's new selection.
-  local function bump() runtime.uiRev = (runtime.uiRev or 0) + 1 end
-
-  local cfg0 = runtime.config
-  local sideLabel, sidePicker = pickerRow("SIDE",
-    Uical._sideOptions(), (cfg0.relay and cfg0.relay.side) or "back", "back", 6,
-    function(value)
-      Uical._pickSide(runtime, value, deps)
-      bump()
-    end, 8)  -- narrow: side values are <= 6 chars
-
-  local timingLabel = frame:addLabel({ x = 1, y = y, width = w, height = 1, autoSize = false, text = "" })
-  y = y + 1
-
-  local pulseGeo = btnfit.grid({ "PULSE-", "PULSE+" }, { x0 = 1, availW = w, y0 = y, gap = 1, align = "center" })
-  local pulseDnBtn = frame:addButton({ x = pulseGeo[1].x, y = y, width = pulseGeo[1].w, height = 1, text = "PULSE-" })
-  local pulseUpBtn = frame:addButton({ x = pulseGeo[2].x, y = y, width = pulseGeo[2].w, height = 1, text = "PULSE+" })
-  y = y + 1
-
-  local intGeo = btnfit.grid({ "INT-", "INT+" }, { x0 = 1, availW = w, y0 = y, gap = 1, align = "center" })
-  local intDnBtn = frame:addButton({ x = intGeo[1].x, y = y, width = intGeo[1].w, height = 1, text = "INT-" })
-  local intUpBtn = frame:addButton({ x = intGeo[2].x, y = y, width = intGeo[2].w, height = 1, text = "INT+" })
-  y = y + 1
-
-  y = y + 1 -- spacer
-
-  -- Candidate NAME lists computed ONCE from the build-time scan (no peripheral touch from
-  -- apply()) -- but the Picker OPTIONS built from them are NOT cached: Uical._toOptions(...) is
-  -- called fresh every time a picker's options are set (here, and again in apply() below). A
-  -- cached/shared options TABLE reused across multiple setOptions calls hits the exact same
-  -- stale-.selected hazard documented on uical.lua's M._sideOptions -- Basalt's
-  -- Collection:selectItem(idx) never clears a previously-selected item's flag, so reusing one
-  -- table across calls would eventually freeze the shown selection at whichever candidate was
-  -- selected first, ever.
-  local pumpCandidates  = Uical._fuelCandidates(descriptors)
-  local tankCandidates  = Uical._fuelCandidates(descriptors)
-  local relayCandidates = Uical._relayCandidates(descriptors)
-
-  local pumpLabel, pumpPicker = pickerRow("PMP", Uical._toOptions(pumpCandidates), cfg0.fuel.pump.name, "(none)", 5,
-    function(value)
-      Uical._pickBind(runtime, "pump", value, descriptors, deps)
-      bump()
-    end)
-  local tankLabel, tankPicker = pickerRow("TNK", Uical._toOptions(tankCandidates), cfg0.fuel.tank.name, "(none)", 5,
-    function(value)
-      Uical._pickBind(runtime, "tank", value, descriptors, deps)
-      bump()
-    end)
-  local relayLabel, relayPicker = pickerRow("RLY", Uical._toOptions(relayCandidates), cfg0.relay and cfg0.relay.name, "(none)", 5,
-    function(value)
-      Uical._pickBind(runtime, "relay", value, descriptors, deps)
-      bump()
-    end)
-
-  local calGeo = btnfit.grid({ "CAL FUEL" }, { x0 = 1, availW = w, y0 = y, gap = 1, align = "center" })
-  local calFuelBtn = frame:addButton({ x = calGeo[1].x, y = y, width = calGeo[1].w, height = 1, text = "CAL FUEL" })
-  y = y + 1
-
-  backBtn:onClick(function() region:pop() end)
-  pulseDnBtn:onClick(function() M._cfg(runtime, "pulseDn") end)
-  pulseUpBtn:onClick(function() M._cfg(runtime, "pulseUp") end)
-  intDnBtn:onClick(function() M._cfg(runtime, "intervalDn") end)
-  intUpBtn:onClick(function() M._cfg(runtime, "intervalUp") end)
+  pulseDn.onClick(function() M._cfg(runtime, "pulseDn") end)
+  pulseUp.onClick(function() M._cfg(runtime, "pulseUp") end)
+  intDn.onClick(function() M._cfg(runtime, "intervalDn") end)
+  intUp.onClick(function() M._cfg(runtime, "intervalUp") end)
+  invBtn.onClick(function() M._cfg(runtime, "toggleInvert") end)
   calFuelBtn:onClick(function() region:push("emc_calfuel") end)
+  backBtn:onClick(function() region:pop() end)
 
-  -- apply(state): reads ONLY state + runtime.config (per the header's RENDER-PATH DISCIPLINE) --
-  -- refreshes the timing line and each picker's CURRENT selection; candidate lists stay fixed
-  -- (from the build-time scan) since this screen has no rescan control.
+  -- apply(state): reads ONLY runtime.config -- the 3 readouts + the INVERT chip colour.
   local function apply(state)
     state = state or {}
-    local cfg = runtime.config
-
-    timingLabel:setText(ConfigPanel.timingLine(cfg, w))
-
-    sidePicker.setOptions(Uical._sideOptions(), (cfg.relay and cfg.relay.side) or "back")
-    pumpPicker.setOptions(Uical._toOptions(pumpCandidates), cfg.fuel.pump.name)
-    tankPicker.setOptions(Uical._toOptions(tankCandidates), cfg.fuel.tank.name)
-    relayPicker.setOptions(Uical._toOptions(relayCandidates), cfg.relay and cfg.relay.name)
+    local e = runtime.config.engine or {}
+    -- Labels padded to a fixed width so the values line up vertically across the 3 rows. Width guard
+    -- (as on the tape/PFD) keeps the aligned text from wrap-clipping on an unsettled rebuild.
+    pulseLbl:setWidth(16); intLbl:setWidth(16); invLbl:setWidth(11)
+    pulseLbl:setText(string.format("%-8s%dms", "PULSE:", e.pulseMs or 0))
+    intLbl:setText(string.format("%-8s%s", "INTRVL:", fmtIntervalCompact(e.intervalMs)))
+    local inv = e.invert and true or false
+    invLbl:setText(string.format("%-8s%s", "INVERT:", inv and "ON" or "OFF"))
+    setInvLed(inv)
+    invBtn.setChip(inv and colors.green or colors.red)
   end
 
   apply({})
@@ -423,13 +377,9 @@ function M.config(basalt, frame, region, runtime, deps)
   return {
     apply = apply,
     elements = {
-      backBtn = backBtn, sideLabel = sideLabel, sidePicker = sidePicker, timingLabel = timingLabel,
-      pulseDnBtn = pulseDnBtn, pulseUpBtn = pulseUpBtn,
-      intDnBtn = intDnBtn, intUpBtn = intUpBtn,
-      pumpLabel = pumpLabel, pumpPicker = pumpPicker,
-      tankLabel = tankLabel, tankPicker = tankPicker,
-      relayLabel = relayLabel, relayPicker = relayPicker,
-      calFuelBtn = calFuelBtn,
+      pulseLbl = pulseLbl, intLbl = intLbl, invLbl = invLbl,
+      pulseDn = pulseDn, pulseUp = pulseUp, intDn = intDn, intUp = intUp, invBtn = invBtn,
+      calFuelBtn = calFuelBtn, backBtn = backBtn,
     },
   }
 end

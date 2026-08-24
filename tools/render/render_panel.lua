@@ -46,7 +46,7 @@ local function P(mod) return require(mod) end
 local function flightBuild(b, f) return P("ui.basalt.pages.flight").build(b, f, runtime, nil) end
 local RECIPES = {
   -- PFD (2x2 = 36x24)
-  pfd     = { W = 36, H = 24, state = { heading = 45, pitch = 0, roll = 0, baroAlt = 128.6, sas = 14.3,
+  pfd     = { W = 36, H = 24, state = { heading = 45, pitch = 0.14, roll = 0.21, baroAlt = 128.6, sas = 145,
               target = { bearing = 70, relBearing = 25, color = "green" } },
               build = function(b, f) return P("ui.basalt.pages.pfd").build(b, f, {}, nil) end },
 
@@ -89,6 +89,78 @@ local RECIPES = {
 
   -- A/P (1x1 = 15x10)
   ap      = { W = 15, H = 10, build = function(b, f) return P("ui.basalt.pages.ap").build(b, f, {}) end },
+
+  -- DESIGN PROTO: the FLIGHT panel's EMC (top) region redesign -- bordered panel, full-width gauges,
+  -- 3-row outlined ENG SW/PRIME, an orange double-border status box + CONFIG. EH2_RENDER_PANEL=proto_flight_emc
+  proto_flight_emc = { W = 36, H = 17, build = function(b, f)
+    local PG = require("ui.basalt.instruments.panelgfx")
+    -- background decoration image (low z: behind the interactive elements)
+    local bgimg = f:addImage({ x = 1, y = 1, width = 36, height = 17 }); bgimg:resizeImage(36, 17)
+    bgimg.set("z", 1)
+    PG.clear(bgimg, 36, 17)
+    PG.border(bgimg, 36, 17, colors.green, { top = true, left = true, right = true, bottom = false })
+    PG.doubleBox(bgimg, 3, 10, 17, 15, colors.orange)   -- inset from the panel border (black gap)
+    -- gauges: label (left) + amount (right) on one row, full-width bar below
+    local function lbl(x, y, wd, t, col) local l = f:addLabel({ x = x, y = y, width = wd, height = 1, autoSize = false, text = t }); l:setForeground(col or colors.lime); return l end
+    lbl(3, 2, 20, "Solid Pump BZC"); lbl(28, 2, 6, "128x")
+    local pb = f:addProgressBar({ x = 3, y = 3, width = 31, height = 1 }); pb:setProgressColor(colors.green); pb:setBackground(colors.gray); pb:setProgress(64)
+    lbl(3, 4, 20, "Liquid Main BDSL"); lbl(28, 4, 6, "180B")
+    local mb = f:addProgressBar({ x = 3, y = 5, width = 31, height = 1 }); mb:setProgressColor(colors.green); mb:setBackground(colors.gray); mb:setProgress(45)
+    -- ENG SW (green/red outline) + PRIME (orange) -- 3-row, centred, spaced
+    local function obtn(x, w, text, col) local btn = f:addButton({ x = x, y = 7, width = w, height = 3, text = text }); btn:setBackground(colors.gray); btn:setForeground(colors.lime); btn:addBorder(col); return btn end
+    obtn(8, 10, "ENG SW", colors.red)      -- off -> red
+    obtn(19, 10, "PRIME", colors.orange)
+    -- status text inside the orange box (black interior), spaced from the inner border
+    lbl(6, 12, 10, "ENG OFF"); lbl(6, 13, 10, "FEED NO")
+    -- CONFIG (blue outline) 3-row, right of the status box
+    local cfg = f:addButton({ x = 21, y = 12, width = 13, height = 3, text = "CONFIG" }); cfg:setBackground(colors.gray); cfg:setForeground(colors.lime); cfg:addBorder(colors.blue)
+    return {} end },
+
+  -- DESIGN PROTO: the FLIGHT panel's FCS (bottom) region -- 3 sub-regions (controls / master modes /
+  -- flight modes) split by orange dividers. EH2_RENDER_PANEL=proto_fcs
+  proto_fcs = { W = 36, H = 21, build = function(b, f)
+    local PG = require("ui.basalt.instruments.panelgfx")
+    local bg = f:addImage({ x = 1, y = 1, width = 36, height = 21 }); bg:resizeImage(36, 21); bg.set("z", 1)
+    PG.clear(bg, 36, 21)
+    PG.border(bg, 36, 21, colors.green, { top = false, bottom = true, left = true, right = true })
+    PG.hline(bg, 6, 4, 33, colors.orange)    -- divider between controls and master modes
+    PG.hline(bg, 12, 4, 33, colors.orange)   -- divider between master modes and flight modes
+    -- 3-row outlined control button
+    local function ctrl(x, y, w, text, col)
+      local btn = f:addButton({ x = x, y = y, width = w, height = 3, text = text })
+      btn:setBackground(colors.gray); btn:setForeground(colors.lime); btn:addBorder(col); return btn
+    end
+    -- 2-row mode button: a top CHIP (feedback-coloured bar) over a label button
+    local function mode(x, y, w, text, chip)
+      local c = f:addButton({ x = x, y = y, width = w, height = 1, text = "" }); c:setBackground(chip)
+      local l = f:addButton({ x = x, y = y + 1, width = w, height = 1, text = text }); l:setBackground(colors.gray); l:setForeground(colors.lime)
+    end
+    -- Sub-region 1: FCS controls (rows 2-4)
+    ctrl(4, 2, 8, "FCS", colors.red)          -- disengaged -> red
+    ctrl(14, 2, 8, "GND", colors.red)
+    ctrl(24, 2, 10, "PARAM", colors.blue)
+    -- Sub-region 2: master modes + trim (rows 8-9) -- one active mode = green, others red; trim = orange
+    mode(3, 8, 7, "CPL", colors.red); mode(11, 8, 7, "DCPL", colors.green); mode(19, 8, 7, "TRIM UP", colors.orange); mode(27, 8, 7, "TRIM DN", colors.orange)
+    -- Sub-region 3: flight modes (rows 14-15, 17-18) -- radio, one green
+    mode(3, 14, 10, "PRE", colors.red);  mode(14, 14, 10, "MAN", colors.red); mode(25, 14, 10, "CRU", colors.red)
+    mode(3, 17, 10, "DRN", colors.red);  mode(14, 17, 10, "NOL", colors.red); mode(25, 17, 10, "TRK", colors.red)
+    return {} end },
+
+  -- DESIGN PROTO: the 4 ADI centre-body options (wings + each body glyph), for picking one.
+  proto_bodies = { W = 36, H = 10, build = function(b, f)
+    local ADI = require("ui.basalt.instruments.adi")
+    local img = f:addImage({ x = 1, y = 1, width = 36, height = 10 }); img:resizeImage(36, 10)
+    for y = 1, 10 do for x = 1, 36 do img:setPixel(x, y, " ", "f", "f") end end
+    local names = { "circle", "ring", "square", "diamond" }
+    for i, name in ipairs(names) do
+      local y = i * 2
+      for x = 16, 19 do img:setPixel(x, y, " ", "4", "4") end   -- left wing
+      for x = 23, 26 do img:setPixel(x, y, " ", "4", "4") end   -- right wing
+      ADI.BODIES[name](img, 21, y, 36, 10)                       -- centre body at cx=21
+      img:setText(1, y, name); img:setFg(1, y, string.rep("5", #name))  -- lime label
+    end
+    return {} end },
+
 }
 
 local ORDER = { "pfd", "flight", "flight_engine", "flight_calfuel", "flight_params",

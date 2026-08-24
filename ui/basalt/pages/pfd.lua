@@ -8,9 +8,8 @@
 -- autoSize=false Labels, updated via :setText().
 --
 -- NO peripheral/Basalt access at module LOAD -- everything lives inside M.build / apply().
-local Horizon  = require("ui.basalt.instruments.horizon")
 local Tape     = require("ui.basalt.instruments.tape")
-local Attitude = require("ui.basalt.instruments.attitude")
+local ADI      = require("ui.basalt.instruments.adi")
 local Readout  = require("ui.basalt.instruments.readout")
 local Theme    = require("ui.theme")
 
@@ -18,9 +17,14 @@ local M = {}
 M.id = "pfd"
 M.title = "PFD"
 
--- Horizon style: "ascii" (safe default) or "subpixel" (confirm the glyph in-game). A future
--- SENS/DISPLAY toggle (Batch B) can flip this; for Batch A it is a build-time constant.
-M.HORIZON_STYLE = "ascii"
+-- Centre-body glyph for the attitude aircraft symbol (see ADI.BODIES): "circle" | "ring" | "square"
+-- | "diamond". Build-time constant for now; a DISPLAY toggle can flip it later.
+M.BODY = "circle"
+
+-- Sky/ground palette for the attitude fill. The default brown slot is repurposed by the theme, so the
+-- PFD sets it back to a real brown ON ITS OWN TERM (the PFD monitor never shows lightRed). Sky reuses
+-- the light-blue slot as-is.
+M.GROUND_RGB = 0x6b4a2f
 
 function M.build(basalt, frame, runtime, nav)
   local w, h = frame:getSize()
@@ -32,20 +36,19 @@ function M.build(basalt, frame, runtime, nav)
   local lubberMark = frame:addLabel({ x = lubCol, y = tapeY + 1, width = 1, height = 1, autoSize = false, text = "^" })
   local lubberLabel = frame:addLabel({ x = math.max(1, lubCol - 1), y = tapeY + 2, width = 3, height = 1, autoSize = false, text = "" })
 
-  -- ---- Attitude box (center): static horizon layer + moving craft rows ----
+  -- ---- Attitude box (center): a per-cell Image canvas the ADI draws sky/ground + horizon + pitch
+  -- ladder + aircraft symbol onto (see ui/basalt/instruments/adi.lua) ----
   local boxTop = tapeY + 3
   local boxBot = math.max(boxTop + 2, h - 2)  -- leave the bottom 2 rows for ALT/SPD (never invert on a tiny frame)
   local boxH = math.max(3, boxBot - boxTop + 1)
-  local horizonStr = Horizon.row(w, M.HORIZON_STYLE)
-  local midRow = math.ceil(boxH / 2)          -- horizon at mid-height of the box
+  local adiImg = frame:addImage({ x = 1, y = boxTop, width = w, height = boxH })
+  adiImg:resizeImage(w, boxH)                 -- blank the canvas to the box size
 
-  -- One full-width Label per box row (created once). Rows are recomposed in apply(): the horizon
-  -- underlay at midRow, the craft cells overlaid. (Repaints are cadence-gated, so recomposing a
-  -- static horizon on repaint is negligible -- quantization is the load lever, per spec.)
-  local rowLabels = {}
-  for r = 1, boxH do
-    rowLabels[r] = frame:addLabel({ x = 1, y = boxTop + r - 1, width = w, height = 1, autoSize = false, text = "" })
-  end
+  -- Give the attitude its sky/ground palette on this term (best-effort: the term API varies by mount).
+  pcall(function()
+    local term = frame:getBaseFrame():getTerm()
+    term.setPaletteColour(colors.brown, M.GROUND_RGB)   -- ADI.GND slot -> real brown
+  end)
 
   -- ---- ALT / SPD readouts (lower-right) ----
   local roW = 12
@@ -59,23 +62,6 @@ function M.build(basalt, frame, runtime, nav)
   local tgtW = math.max(1, roX - 2)
   local tgtLine1 = frame:addLabel({ x = 1, y = h - 1, width = tgtW, height = 1, autoSize = false, text = "" })
   local tgtLine2 = frame:addLabel({ x = 1, y = h,     width = tgtW, height = 1, autoSize = false, text = "" })
-
-  -- Compose a box row string: horizon underlay (only on midRow) with the craft cells overlaid.
-  local function composeRow(rowIndex, craftByRow)
-    local base = {}
-    if rowIndex == midRow then
-      for i = 1, w do base[i] = horizonStr:sub(i, i) end
-    else
-      for i = 1, w do base[i] = " " end
-    end
-    local overlay = craftByRow[rowIndex]
-    if overlay then
-      for _, c in ipairs(overlay) do
-        if c.x >= 1 and c.x <= w then base[c.x] = c.ch end
-      end
-    end
-    return table.concat(base)
-  end
 
   local function apply(state)
     state = state or {}
@@ -93,17 +79,12 @@ function M.build(basalt, frame, runtime, nav)
     tapeLabel:setText(Tape.row(state.heading, tw))
     lubberLabel:setText(Tape.lubberLabel(state.heading))
 
-    -- Attitude: craft cells are box-relative; bucket them by row for compositing. The FCS reports
-    -- pitch/roll in RADIANS, but the attitude view-model is DEGREE-based (degPerRow/degPerStep), so
-    -- convert here at the page seam -- otherwise 0.35 rad (~20 deg bank) is read as 0.35 deg and the
-    -- wings never tilt. Mirrors the baroAlt bridge above (contract vs live-cadence units meet here).
-    local cells = Attitude.craftCells(math.deg(state.pitch or 0), math.deg(state.roll or 0), w, boxH)
-    local byRow = {}
-    for _, c in ipairs(cells) do
-      byRow[c.y] = byRow[c.y] or {}
-      local b = byRow[c.y]; b[#b + 1] = c
-    end
-    for r = 1, boxH do rowLabels[r]:setText(composeRow(r, byRow)) end
+    -- Attitude: draw the ADI onto the Image canvas. The FCS reports pitch/roll in RADIANS; the ADI
+    -- is degree-based, so convert at this page seam (else 0.35 rad ~ 20 deg bank reads as 0.35 deg).
+    -- Aircraft symbol takes the theme FONT colour (green default) -- higher contrast than yellow on
+    -- the light-blue sky / brown ground.
+    local craft = colors.toBlit(Theme.role("font"))
+    ADI.draw(adiImg, math.deg(state.pitch or 0), math.deg(state.roll or 0), w, boxH, M.BODY, craft)
 
     -- Readouts. The live cockpit cadence state (ui/basalt/app.lua:M.buildState) names barometric
     -- altitude `altitude`, while the Batch-A instrument contract calls it `baroAlt`. Bridge the two
@@ -113,6 +94,10 @@ function M.build(basalt, frame, runtime, nav)
     if state.baroAlt == nil and state.altitude ~= nil then
       rstate = setmetatable({ baroAlt = state.altitude }, { __index = state })
     end
+    -- Width guard (same class of fix as the tape): adding the attitude Image shifted layout timing so
+    -- these labels can resolve to a tiny width during a rebuild, which makes Basalt wrapText clip the
+    -- text to a few chars. Re-assert the intended width each apply so text length <= width (no wrap).
+    altLabel:setWidth(roW); spdLabel:setWidth(roW)
     altLabel:setText(Readout.alt(rstate))
     spdLabel:setText(Readout.spd(rstate))
 
@@ -137,6 +122,7 @@ function M.build(basalt, frame, runtime, nav)
       bugLabel:setText("")
     end
     local tr = tgt and Readout.tgt(tgt) or nil
+    tgtLine1:setWidth(tgtW); tgtLine2:setWidth(tgtW)
     tgtLine1:setText(tr and tr.line1 or ""); tgtLine1:setForeground(tgtColor)
     tgtLine2:setText(tr and tr.line2 or ""); tgtLine2:setForeground(tgtColor)
   end
@@ -148,7 +134,7 @@ function M.build(basalt, frame, runtime, nav)
       tapeLabel = tapeLabel,
       lubberMark = lubberMark,
       lubberLabel = lubberLabel,
-      rowLabels = rowLabels,
+      adiImg = adiImg,
       altLabel = altLabel,
       spdLabel = spdLabel,
       bugLabel = bugLabel,

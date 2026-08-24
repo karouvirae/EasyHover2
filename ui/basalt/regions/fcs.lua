@@ -12,6 +12,29 @@
 local Switch    = require("ui.basalt.switchbtn")
 local FcsPanel  = require("ui.panels.fcs")
 local btnfit    = require("ui.basalt.btnfit")
+local Gfx       = require("ui.basalt.instruments.panelgfx")
+local Theme     = require("ui.theme")
+
+-- 3-row outlined control button (subpixel rounded border via native addBorder). Recolour the outline
+-- with btn:addBorder(colour) on a state change.
+local function ctrlButton(frame, x, y, w, text, borderColor)
+  local btn = frame:addButton({ x = x, y = y, width = w, height = 3, text = text })
+  btn:setBackground(Theme.role("button")); btn:setForeground(Theme.role("font")); btn:addBorder(borderColor)
+  return btn
+end
+
+-- 2-row mode button: a feedback-coloured CHIP bar over a label button. Returns { chip, label,
+-- setChip(colour), setText(t), onClick(fn) } -- onClick fires on both the chip and the label.
+local function chipButton(frame, x, y, w, text)
+  local chip = frame:addButton({ x = x, y = y, width = w, height = 1, text = "" })
+  local label = frame:addButton({ x = x, y = y + 1, width = w, height = 1, text = text })
+  label:setBackground(Theme.role("button")); label:setForeground(Theme.role("font"))
+  local ctrl = { chip = chip, label = label }
+  function ctrl.setChip(color) chip:setBackground(color); return ctrl end
+  function ctrl.setText(t) label:setText(t); return ctrl end
+  function ctrl.onClick(fn) chip:onClick(fn); label:onClick(fn); return ctrl end
+  return ctrl
+end
 
 local M = {}
 
@@ -59,77 +82,76 @@ end
 function M.main(basalt, frame, region, runtime)
   local w, h = frame:getSize()
 
-  -- Row 2: FCS / GND / PARM control group (Switch for FCS/GND, plain Button for PARM). Same
-  -- onClick wiring as before -- only the geometry now comes from btnfit.grid.
-  local CTRL_IDS = { "fcs", "gnd", "params" }
-  local ctrlLabels = { "FCS", "GND", "PARM" }
-  local ctrlGeo = btnfit.grid(ctrlLabels, { x0 = 1, availW = w, y0 = 2, gap = 1, align = "center" })
-  local switches = {}
-  local paramsBtn
-  for i, id in ipairs(CTRL_IDS) do
-    local g = ctrlGeo[i]
-    if id == "params" then
-      paramsBtn = frame:addButton({ x = g.x, y = g.y, width = g.w, height = 1, text = ctrlLabels[i] })
-      paramsBtn:onClick(function() region:push("fcs_params") end)
-    else
-      local sw = Switch.make(frame, { x = g.x, y = g.y, width = g.w, height = 1, text = ctrlLabels[i] })
-      sw.button:onClick(function() M._onFcs(runtime, id, os.epoch("utc")) end)
-      switches[id] = sw
-    end
-  end
+  -- Panel border (low z, behind content): the FCS region draws BOTTOM + LEFT + RIGHT edges; the EMC
+  -- region above draws the TOP edge -- together they wrap the whole flight panel with no line between.
+  local bg = frame:addImage({ x = 1, y = 1, width = w, height = h }); bg:resizeImage(w, h); bg.set("z", 1)
+  Gfx.clear(bg, w, h)
+  Gfx.border(bg, w, h, colors.green, { top = false, bottom = true, left = true, right = true })
 
-  -- MODE selector (Task 13; now a btnfit perRow=3 centered grid instead of a manual 3-then-2
-  -- column split): one real switch per FcsPanel.MODES id, driven by the shared ui.panels.fcs
-  -- contract (same MODES/MODE_LABEL/action/modeActive the standalone FCS page's selector uses,
-  -- Task 12) so both surfaces read identically. No-optimistic-UI: onClick only SENDS the command
-  -- via M._onMode; apply(state) below is the only thing that ever turns a switch green.
-  local MODE_ORDER = FcsPanel.MODES
-  local modeLabels = {}
-  for i, id in ipairs(MODE_ORDER) do modeLabels[i] = FcsPanel.MODE_LABEL[id] or id end
-  local modeGeo = btnfit.grid(modeLabels, { x0 = 1, availW = w, y0 = 4, perRow = 3, gap = 1, align = "center" })
-  local modeSwitches = {}
-  for i, id in ipairs(MODE_ORDER) do
-    local g = modeGeo[i]
-    local sw = Switch.make(frame, { x = g.x, y = g.y, width = g.w, height = 1, text = modeLabels[i] })
-    sw.button:onClick(function() M._onMode(runtime, id) end)
-    modeSwitches[id] = sw
-  end
+  -- Two orange dividers split the region into 3 sub-regions (inset, not touching the border).
+  Gfx.hline(bg, 6, 4, w - 3, colors.orange)
+  Gfx.hline(bg, 12, 4, w - 3, colors.orange)
 
-  -- Live auto-trim toggle (new on this region; ported from ui/basalt/pages/fcs.lua's trimBtn): one
-  -- row below the mode grid, centered via btnfit sized off the widest possible label ("TRIM DN"/
-  -- "TRIM UP" = 7 chars). onClick reads the latest reported trimDir and sends the OPPOSITE
-  -- (trimUp/trimDn) through M._onMode -- the SAME runtime.links.tel:send(runtime.sender:send(cmd))
-  -- command path M._onMode already uses for mode ids (FcsPanel.action(id) returns the raw
-  -- { kind="command", cmd=... } shape for trimUp/trimDn too, so no extra unwrap is needed here).
-  -- No-optimistic-UI: onClick only sends; apply(state) below is the only thing that colors it.
-  local trimY = modeGeo[#modeGeo].y + 1
-  local trimGeo = btnfit.grid({ "TRIM DN" }, { x0 = 1, availW = w, y0 = trimY, gap = 1, align = "center" })[1]
-  local trimBtn = Switch.make(frame, { x = trimGeo.x, y = trimGeo.y, width = trimGeo.w, height = 1, text = "TRIM --" })
-  trimBtn.button:onClick(function()
+  -- ===== Sub-region 1: FCS controls (3-row outlined). FCS/GND = green/red switch feedback; PARAM
+  -- opens the params submenu (blue). Slightly longer PARAM button for its label. =====
+  local fcsBtn   = ctrlButton(frame, 4, 2, 8, "FCS", colors.red)
+  local gndBtn   = ctrlButton(frame, 14, 2, 8, "GND", colors.red)
+  local paramBtn = ctrlButton(frame, 24, 2, 10, "PARAM", colors.blue)
+  fcsBtn:onClick(function() M._onFcs(runtime, "fcs", os.epoch("utc")) end)
+  gndBtn:onClick(function() M._onFcs(runtime, "gnd", os.epoch("utc")) end)
+  paramBtn:onClick(function() region:push("fcs_params") end)
+
+  -- Mode buttons: 2-row chip buttons, all the same size, 3 across. modeCtrls holds every real mode
+  -- (FcsPanel.MODES) so apply() can colour the active one green (radio: one active across ALL of
+  -- CPL/DCPL + flight modes, per the current FCS contract).
+  local col = { 3, 14, 25 }
+  local modeCtrls = {}
+
+  -- ===== Sub-region 2: master modes CPL/DCPL + TRIM (one cycling button, orange chip). =====
+  for i, id in ipairs({ "CPL", "DCPL" }) do
+    local c = chipButton(frame, col[i], 8, 10, FcsPanel.MODE_LABEL[id] or id)
+    c.onClick(function() M._onMode(runtime, id) end)
+    modeCtrls[id] = c
+  end
+  local trimCtrl = chipButton(frame, col[3], 8, 10, "TRIM --")
+  trimCtrl.setChip(colors.orange)   -- TRIM is a stateless action (orange), not a radio mode
+  trimCtrl.onClick(function()
     local latest = runtime.rx:latest() or {}
     local nextId = ((latest.trimDir or -1) > 0) and "trimDn" or "trimUp"
     M._onMode(runtime, nextId)
   end)
 
+  -- ===== Sub-region 3: flight modes PRE/MAN/CRU (real) + DRN/NOL/TRK (placeholders, inactive). =====
+  for i, id in ipairs({ "PRECISION", "MAN", "CRUISE" }) do
+    local c = chipButton(frame, col[i], 14, 10, FcsPanel.MODE_LABEL[id] or id)
+    c.onClick(function() M._onMode(runtime, id) end)
+    modeCtrls[id] = c
+  end
+  local placeholders = {}
+  for i, lbl in ipairs({ "DRN", "NOL", "TRK" }) do
+    placeholders[i] = chipButton(frame, col[i], 17, 10, lbl)
+    placeholders[i].setChip(colors.red)   -- placeholder: always inactive (no wiring yet)
+  end
+
   local function apply(state)
     state = state or {}
-    switches.fcs.set(state.engaged and "on" or "off")
-    switches.gnd.set(state.gndSafety and "on" or "off")
-    for _, id in ipairs(MODE_ORDER) do
-      modeSwitches[id].set(FcsPanel.modeActive(state, id) and "on" or "off")
+    -- FCS / GND outlines: green engaged/on, red disengaged/off.
+    fcsBtn:addBorder(state.engaged and colors.green or colors.red)
+    gndBtn:addBorder(state.gndSafety and colors.green or colors.red)
+    -- Mode chips: green for the one active mode, red for the rest (radio across all real modes).
+    for _, id in ipairs(FcsPanel.MODES) do
+      modeCtrls[id].setChip(FcsPanel.modeActive(state, id) and colors.green or colors.red)
     end
-    if FcsPanel.trimActive(state) then
-      trimBtn.set((state.trimDir or -1) > 0 and "on" or "off")
-      trimBtn.button:setText(FcsPanel.trimLabel(state))
-    else
-      trimBtn.set("disabled")
-      trimBtn.button:setText("TRIM --")
-    end
+    -- TRIM: orange chip always; label cycles / reads the live direction (or "TRIM --" when inactive).
+    trimCtrl.setText(FcsPanel.trimActive(state) and FcsPanel.trimLabel(state) or "TRIM --")
   end
 
   return {
     id = "fcs_main", apply = apply,
-    elements = { switches = switches, paramsBtn = paramsBtn, modeSwitches = modeSwitches, trimBtn = trimBtn },
+    elements = {
+      fcsBtn = fcsBtn, gndBtn = gndBtn, paramBtn = paramBtn,
+      modeCtrls = modeCtrls, trimCtrl = trimCtrl, placeholders = placeholders,
+    },
   }
 end
 

@@ -1000,22 +1000,22 @@
           ["sum"] = "6055c129",
         },
         {
-          ["dst"] = "ui/basalt/instruments/attitude.lua",
-          ["size"] = 836,
-          ["src"] = "dist/ui/basalt/instruments/attitude.lua",
-          ["sum"] = "2e6349f3",
+          ["dst"] = "ui/basalt/instruments/adi.lua",
+          ["size"] = 1635,
+          ["src"] = "dist/ui/basalt/instruments/adi.lua",
+          ["sum"] = "782ec6f7",
         },
         {
-          ["dst"] = "ui/basalt/instruments/horizon.lua",
-          ["size"] = 233,
-          ["src"] = "dist/ui/basalt/instruments/horizon.lua",
-          ["sum"] = "3a15a3ad",
+          ["dst"] = "ui/basalt/instruments/panelgfx.lua",
+          ["size"] = 1739,
+          ["src"] = "dist/ui/basalt/instruments/panelgfx.lua",
+          ["sum"] = "1437a057",
         },
         {
           ["dst"] = "ui/basalt/instruments/readout.lua",
-          ["size"] = 939,
+          ["size"] = 943,
           ["src"] = "dist/ui/basalt/instruments/readout.lua",
-          ["sum"] = "cdb835a1",
+          ["sum"] = "95f27c51",
         },
         {
           ["dst"] = "ui/basalt/instruments/sensread.lua",
@@ -1085,9 +1085,9 @@
         },
         {
           ["dst"] = "ui/basalt/pages/pfd.lua",
-          ["size"] = 2629,
+          ["size"] = 2339,
           ["src"] = "dist/ui/basalt/pages/pfd.lua",
-          ["sum"] = "e1d43b67",
+          ["sum"] = "753cdc92",
         },
         {
           ["dst"] = "ui/basalt/picker.lua",
@@ -1103,15 +1103,15 @@
         },
         {
           ["dst"] = "ui/basalt/regions/emc.lua",
-          ["size"] = 9453,
+          ["size"] = 9371,
           ["src"] = "dist/ui/basalt/regions/emc.lua",
-          ["sum"] = "04785f1e",
+          ["sum"] = "7c408068",
         },
         {
           ["dst"] = "ui/basalt/regions/fcs.lua",
-          ["size"] = 2597,
+          ["size"] = 3281,
           ["src"] = "dist/ui/basalt/regions/fcs.lua",
-          ["sum"] = "27c8fbf8",
+          ["sum"] = "0a771687",
         },
         {
           ["dst"] = "ui/basalt/senssource.lua",
@@ -1367,5 +1367,5 @@
     ["size"] = 71434,
     ["sum"] = "57671ad7",
   },
-  ["version"] = "7d9646ea",
+  ["version"] = "94ebd53e",
 }

@@ -1,0 +1,12 @@
+36 10
+PAL c=ff6a6a
+ffffffffffffffffffffffffffffffffffff	ffffffffffffffffffffffffffffffffffff	32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32
+555555fffffffff4444f4f4444ffffffffff	fffffffffffffff4444fff4444ffffffffff	99 105 114 99 108 101 32 32 32 32 32 32 32 32 32 32 32 32 32 32 7 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32
+ffffffffffffffffffffffffffffffffffff	ffffffffffffffffffffffffffffffffffff	32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32
+5555fffffffffff44444444444ffffffffff	fffffffffffffff4444fff4444ffffffffff	114 105 110 103 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 40 7 41 32 32 32 32 32 32 32 32 32 32 32 32 32 32
+ffffffffffffffffffffffffffffffffffff	ffffffffffffffffffffffffffffffffffff	32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32
+555555fffffffff4444f4f4444ffffffffff	fffffffffffffff4444f4f4444ffffffffff	115 113 117 97 114 101 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32
+ffffffffffffffffffffffffffffffffffff	ffffffffffffffffffffffffffffffffffff	32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32
+5555555ffffffff4444f4f4444ffffffffff	fffffffffffffff4444fff4444ffffffffff	100 105 97 109 111 110 100 32 32 32 32 32 32 32 32 32 32 32 32 32 4 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32
+ffffffffffffffffffffffffffffffffffff	ffffffffffffffffffffffffffffffffffff	32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32
+ffffffffffffffffffffffffffffffffffff	ffffffffffffffffffffffffffffffffffff	32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32

@@ -93,7 +93,11 @@ for (let r = 0; r < H; r++) {
     const b = ch[c] ?? 32;
     const color = "#" + (pal[fg[c] ?? "0"]);
     if (b === 32) continue;
-    if (CTRL[b]) {
+    if (b === 7) {
+      // CC bullet glyph -> a real filled circle (a status dot). Drawn geometrically, not as a font
+      // glyph, so it is an actual circle at any scale (a 2x3 subpixel cell can't be round).
+      parts.push(`<circle cx="${c * CW + CW / 2}" cy="${r * CH + CH / 2}" r="${Math.min(CW, CH) * 0.3}" fill="${color}"/>`);
+    } else if (CTRL[b]) {
       texts.push(`<text x="${c * CW + CW / 2}" y="${r * CH + CH * 0.5}" fill="${color}" font-size="${Math.round(CH * 0.72)}" text-anchor="middle" dominant-baseline="central">${xml(CTRL[b])}</text>`);
     } else if (b >= 128 && b <= 159) {
       const n = b - 128;

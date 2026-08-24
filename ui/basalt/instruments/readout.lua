@@ -17,9 +17,9 @@ function M.alt(state)
   state = state or {}
   local src = state.altSource or "Baro"
   if src == "GPS" then
-    return "ALT " .. num(state.gpsAlt, true, state.gpsFixOk) .. "GPS"
+    return "ALT " .. num(state.gpsAlt, true, state.gpsFixOk) .. " GPS"
   end
-  return "ALT " .. num(state.baroAlt, false, true) .. "Baro"
+  return "ALT " .. num(state.baroAlt, false, true) .. " Baro"
 end
 
 -- tgt(target) -> { line1, line2 } | nil. The PFD's waypoint steering readout: line1 the target name,
@@ -45,9 +45,9 @@ function M.spd(state)
   state = state or {}
   local src = state.spdSource or "SAS"
   if src == "TAS" then
-    return "SPD " .. num(state.tas, true, state.gpsFixOk) .. "TAS"
+    return "SPD " .. num(state.tas, true, state.gpsFixOk) .. " TAS"
   end
-  return "SPD " .. num(state.sas, false, true) .. "SAS"
+  return "SPD " .. num(state.sas, false, true) .. " SAS"
 end
 
 return M
