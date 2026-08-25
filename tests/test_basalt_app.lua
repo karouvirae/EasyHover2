@@ -186,7 +186,7 @@ t.test("buildState assembles the flat cadence keys from telemetry + engine + fue
   local tx = telemetry.Tx.new()
   local frame = tx:frame({
     engaged = true, gndSafety = false, positionHold = false, mode = "HOVER",
-    altitude = 12.3, vSpeed = 0.5, heading = 90, loopHz = 20,
+    altitude = 12.3, vSpeed = 0.5, heading = 90, compassHeading = 271, loopHz = 20,
   })
   M.routeModem(runtime, CH.telemetry, protocol.encode(frame))
   runtime.state.pumpFrac = 0.5
@@ -199,7 +199,7 @@ t.test("buildState assembles the flat cadence keys from telemetry + engine + fue
   t.eq(state.mode, "HOVER")
   t.eq(state.altitude, 12.3)
   t.eq(state.vSpeed, 0.5)
-  t.eq(state.heading, nil, "heading is nav-magnet-table sourced, NOT the FCS telemetry heading")
+  t.eq(state.heading, 271, "display heading is the FCS snapshot's compassHeading, NOT the control-signed heading")
   t.eq(state.loopHz, 20)
   t.eq(state.linkUp, false, "no heartbeat received -> linkUp false")
   t.eq(state.engineMaster, false, "masterDefault is false")
@@ -305,25 +305,35 @@ t.test("routeModem feeds a wpt_store reply (ch 109) into the wptClient cache", f
   t.eq(#runtime.wptClient.store.waypoints, 1)
 end)
 
-t.test("buildState heading comes from a FRESH nav relay, ignoring FCS telemetry heading", function()
+t.test("buildState heading comes from the FCS snapshot compassHeading", function()
+  local runtime = {
+    rx = { latest = function() return { compassHeading = 128 } end },
+    engine = { status = function() return {} end }, hbRx = { up = function() return true end },
+    state = { pumpFrac = 0, tankFrac = 0 }, nav = { heading = 999 },  -- nav.heading must be IGNORED
+    uiRev = 1,
+  }
+  t.eq(M.buildState(runtime, 1000).heading, 128)
+end)
+
+t.test("buildState heading comes from a FRESH telemetry relay, ignoring the nav magnet-table bearing", function()
   local runtime = newRuntime()
-  M.routeModem(runtime, CH.telemetry, protocol.encode(telemetry.Tx.new():frame({ heading = 90 })))
+  M.routeModem(runtime, CH.telemetry, protocol.encode(telemetry.Tx.new():frame({ compassHeading = 90 })))
   local now = os.epoch("utc")
   runtime.nav.heading = 123
   runtime.nav.at = now
   local state = M.buildState(runtime, now)
-  t.eq(state.heading, 123, "display heading is the nav magnet-table bearing")
+  t.eq(state.heading, 90, "display heading is the FCS snapshot's compassHeading")
 end)
 
-t.test("buildState heading is nil when the nav relay is stale (nav pc down)", function()
+t.test("buildState heading ignores nav.heading even when the nav relay is fresh (no telemetry compassHeading yet)", function()
   local runtime = newRuntime()
   runtime.nav.heading = 123
-  runtime.nav.at = 0
-  local state = M.buildState(runtime, M.NAV_HEADING_MAX_AGE_MS + 1)  -- just past the stale window
-  t.eq(state.heading, nil, "stale nav -> no heading (tape shows ---)")
+  runtime.nav.at = os.epoch("utc")   -- a FRESH nav relay must not be used as a heading fallback
+  local state = M.buildState(runtime, os.epoch("utc"))
+  t.eq(state.heading, nil, "no telemetry snapshot yet -> no heading (tape shows ---)")
 end)
 
-t.test("buildState heading is nil when no nav relay has ever arrived", function()
+t.test("buildState heading is nil when no telemetry snapshot has ever arrived", function()
   local runtime = newRuntime()
   local state = M.buildState(runtime, os.epoch("utc"))
   t.eq(state.heading, nil)

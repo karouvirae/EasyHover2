@@ -101,10 +101,12 @@ M.CFG_CH = { req = 105, reply = 106 }
 M.CONFIG_PATH = "/eh2_ui_config.tbl"
 M.UI_LOG_PATH = "/eh2_ui_log.txt"   -- rolling UI log; P uploads this to carbide from the cockpit
 
--- Displayed heading comes ONLY from the shared NAV magnet-table bearing relayed by the nav pc
--- (never the FCS's control-signed heading). If no fresh relay has arrived within this window the
--- heading reads unknown -> the PFD tape shows "---" rather than a stale/wrong bearing. Sized to
--- tolerate a handful of missed ~0.1s relays without flickering.
+-- The PFD's DISPLAYED heading is now sourced from the FCS snapshot's compassHeading (see
+-- M.buildState); it is honest-by-construction -- absent/stale telemetry -> latest.compassHeading
+-- is nil -> tape shows "---". This constant now only gates the shared NAV magnet-table bearing
+-- used for the craft's position in waypoint/route bearing math (M.buildState's `target` cue): if
+-- no fresh relay has arrived within this window that bearing reads unknown. Sized to tolerate a
+-- handful of missed ~0.1s relays without flickering.
 M.NAV_HEADING_MAX_AGE_MS = 1000
 
 -- Route auto-advance: the active leg advances to the next when the craft comes within this many
@@ -579,9 +581,9 @@ end
 function M.buildState(runtime, now)
   local latest = runtime.rx:latest() or {}
   local e = runtime.engine:status(now)
-  -- Heading is display-sourced from the shared NAV magnet table (relayed by the nav pc), NOT the
-  -- FCS's control-signed `latest.heading`. Only a fresh relay counts; stale/absent -> nil so the
-  -- tape shows "---" (honest) instead of a wrong bearing. See M.NAV_HEADING_MAX_AGE_MS.
+  -- navFresh gates the shared NAV magnet-table bearing used ONLY for the craft's heading in the
+  -- waypoint/route bearing math below (M.buildState's `target` cue) -- NOT the PFD's displayed
+  -- heading, which is sourced straight from the FCS snapshot (`latest.compassHeading`, below).
   local navFresh = runtime.nav and runtime.nav.at
     and (now - runtime.nav.at) <= M.NAV_HEADING_MAX_AGE_MS
   -- PFD steering cue: an ACTIVE ROUTE's current leg (blue, auto-advancing) takes precedence, else a
@@ -623,7 +625,7 @@ function M.buildState(runtime, now)
     linkUp       = runtime.hbRx:up(now / 1000),
     altitude     = latest.altitude,
     vSpeed       = latest.vSpeed,
-    heading      = navFresh and runtime.nav.heading or nil,
+    heading      = latest.compassHeading,   -- PFD: display heading, sourced from the FCS snapshot
     loopHz       = latest.loopHz,
     engineMaster = e.master,
     feeding      = e.feeding,
