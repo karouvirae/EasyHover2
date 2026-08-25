@@ -159,6 +159,7 @@ function Flight:snapshot(r, meas)
     -- to m.altitude when baroMsl is absent (older backends / tests).
     altitude = m.baroMsl or m.altitude, vSpeed = m.vSpeed, heading = m.heading,
     yawRate = m.yawRate, swayPos = m.swayPos, surgePos = m.surgePos,
+    pitch = m.pitch, roll = m.roll, surgeVel = m.surgeVel,
     onGround = m.onGround, loopHz = self._loopHz,
     comAuto = self.comAuto and {
       phase = self.comAuto.phase, abortReason = self.comAuto.abortReason,

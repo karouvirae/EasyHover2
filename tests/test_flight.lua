@@ -28,6 +28,13 @@ t.test("snapshot publishes true-Y baro (baroMsl) as the DISPLAY altitude, not th
   t.eq(snap2.altitude, 12, "falls back to altitude when baroMsl absent")
 end)
 
+t.test("snapshot publishes pitch/roll/surgeVel from meas (for UI attitude)", function()
+  local f = Flight.new({ loop = fakeLoop(), pilot = Pilot.new(CFG) })
+  local meas = { pitch = 0.12, roll = -0.05, surgeVel = 3.4, onGround = false }
+  local snap = f:snapshot(nil, meas)
+  t.eq(snap.pitch, 0.12); t.eq(snap.roll, -0.05); t.eq(snap.surgeVel, 3.4)
+end)
+
 t.test("boot state is safe: disengaged, gndSafety on", function()
   local f = Flight.new({ loop = fakeLoop(), pilot = Pilot.new(CFG) })
   t.eq(f.engaged, false); t.eq(f.gndSafety, true)
