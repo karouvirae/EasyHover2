@@ -18,6 +18,7 @@ function Flight.new(deps)
     engaged = false, gndSafety = true, positionHold = false,
     fuelPump = false, flightMode = (deps.registry and deps.registry.default) or "PRECISION", parked = false,
     trimDir = defaultTrimDir(deps.registry),
+    compassSign = deps.compassSign or (deps.config and deps.config.bindings and deps.config.bindings.compassSign) or 1,
     _needReset = false, _loopHz = 0,
   }, Flight)
 end
@@ -160,6 +161,12 @@ function Flight:snapshot(r, meas)
     altitude = m.baroMsl or m.altitude, vSpeed = m.vSpeed, heading = m.heading,
     yawRate = m.yawRate, swayPos = m.swayPos, surgePos = m.surgePos,
     pitch = m.pitch, roll = m.roll, surgeVel = m.surgeVel,
+    -- Compass bearing (degrees, [0,360)) for displays -- distinct from the radians `heading`
+    -- control value above. wrap360 inlined (matches nav/lib/heading.lua's absolute()) to avoid a
+    -- cross-package require from fcs/.
+    compassHeading = (type(m.rawHeading) == "number")
+      and (function(d) d = d % 360; if d < 0 then d = d + 360 end; return d end)((m.rawHeading) * (self.compassSign or 1))
+      or nil,
     onGround = m.onGround, loopHz = self._loopHz,
     comAuto = self.comAuto and {
       phase = self.comAuto.phase, abortReason = self.comAuto.abortReason,

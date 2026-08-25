@@ -66,6 +66,11 @@ t.test("heading applies sign and scale (deg->rad)", function()
   local b = Backend.new(sensorRig(10, {0,0}, 0,0,0, 90, 5), cfg, function() return 0 end)
   t.near(b:sensors().heading, -math.pi/2, 1e-6)   -- -1 * (pi/180) * 90
 end)
+t.test("sensors() returns rawHeading = raw navtable getRelativeAngle", function()
+  local b = Backend.new(sensorRig(10, {0,0}, 0,0,0, 47, 5), sensorCfg(), function() return 0 end)
+  local s = b:sensors()
+  t.eq(s.rawHeading, 47)
+end)
 t.test("gimbalScale converts pitch/roll from degrees", function()
   local cfg = sensorCfg(); cfg.bindings.gimbalScale = math.pi/180
   local b = Backend.new(sensorRig(10, {90,-90}, 0,0,0, 0, 5), cfg, function() return 0 end)

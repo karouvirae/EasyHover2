@@ -75,7 +75,7 @@ function Backend:sensors()
   self.lastT, self.lastAlt = now, altitude
   return { altitude=altitude, baroMsl=rawAlt, vSpeed=vSpeed, pitch=pitch, roll=roll, heading=heading,
     yawRate=yawRate, swayVel=swayVel, surgeVel=surgeVel, swayPos=self.swayPos, surgePos=self.surgePos,
-    onGround=onGround }
+    onGround=onGround, rawHeading=rawHeading }
 end
 function Backend:liftIds() return frame.LIFT end
 function Backend:lateralIds() return frame.LATERAL end

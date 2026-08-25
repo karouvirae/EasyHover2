@@ -28,6 +28,17 @@ t.test("snapshot publishes true-Y baro (baroMsl) as the DISPLAY altitude, not th
   t.eq(snap2.altitude, 12, "falls back to altitude when baroMsl absent")
 end)
 
+t.test("snapshot publishes compassHeading = wrap360(rawHeading * compassSign)", function()
+  local f = Flight.new({ loop = fakeLoop(), pilot = Pilot.new(CFG), compassSign = -1 })
+  local snap = f:snapshot(nil, { rawHeading = 47 })
+  t.eq(snap.compassHeading, 313)   -- wrap360(47 * -1) = 313
+end)
+
+t.test("snapshot compassHeading is nil when rawHeading is absent", function()
+  local f = Flight.new({ loop = fakeLoop(), pilot = Pilot.new(CFG) })
+  t.eq(f:snapshot(nil, {}).compassHeading, nil)
+end)
+
 t.test("snapshot publishes pitch/roll/surgeVel from meas (for UI attitude)", function()
   local f = Flight.new({ loop = fakeLoop(), pilot = Pilot.new(CFG) })
   local meas = { pitch = 0.12, roll = -0.05, surgeVel = 3.4, onGround = false }

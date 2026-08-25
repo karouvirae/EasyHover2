@@ -4,6 +4,7 @@ t.test("defaults has all thruster + sensor roles unbound", function()
   local d = hwconfig.defaults()
   t.truthy(d.thrusters.FL == false); t.truthy(d.sensors.gimbal == false)
   t.near(d.bindings.onGroundThreshold, 1.5, 1e-9)
+  t.near(d.bindings.compassSign, 1, 1e-9)
 end)
 t.test("merge fills missing keys from defaults, keeps saved values", function()
   local saved = { thrusters = { FL = "thruster_3" }, bindings = { signPitch = -1 } }
