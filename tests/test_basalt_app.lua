@@ -260,14 +260,41 @@ end)
 t.test("buildState solves the PFD target cue from a selected waypoint + fresh fix", function()
   local runtime = newRuntime()
   local now = os.epoch("utc")
-  runtime.nav.fixX = 0; runtime.nav.fixZ = 0; runtime.nav.heading = 0; runtime.nav.at = now
+  runtime.nav.fixX = 0; runtime.nav.fixZ = 0
   runtime.nav.target = { name = "E", x = 10, y = 5, z = 0, color = "green" }
-  M.routeModem(runtime, CH.telemetry, protocol.encode(telemetry.Tx.new():frame({ altitude = 0 })))
+  -- Craft heading for the bearing math now comes from the FCS snapshot (compassHeading), gated on
+  -- linkUp -- NOT a nav-relay freshness clock (navhdg is gone).
+  M.routeModem(runtime, CH.telemetry, protocol.encode(telemetry.Tx.new():frame({ altitude = 0, compassHeading = 0 })))
+  M.routeModem(runtime, CH.health, protocol.encode({ k = "hb", t = now / 1000 }))  -- linkUp -> true
   local s = M.buildState(runtime, now)
   t.truthy(s.target ~= nil, "a target cue is produced")
   t.truthy(math.abs(s.target.bearing - 90) < 1e-6, "east target -> bearing 90")
   t.eq(s.target.name, "E"); t.eq(s.target.color, "green")
   t.truthy(math.abs(s.target.relBearing - 90) < 1e-6, "steer +90 (right) facing north")
+end)
+
+t.test("buildState target cue's relBearing survives NAV dropping navhdg -- sourced from the FCS snapshot", function()
+  local runtime = newRuntime()
+  local now = os.epoch("utc")
+  runtime.nav.fixX = 0; runtime.nav.fixZ = 0
+  runtime.nav.target = { name = "E", x = 10, y = 5, z = 0, color = "green" }
+  M.routeModem(runtime, CH.telemetry, protocol.encode(telemetry.Tx.new():frame({ altitude = 0, compassHeading = 0 })))
+  M.routeModem(runtime, CH.health, protocol.encode({ k = "hb", t = now / 1000 }))  -- linkUp -> true
+  local upState = M.buildState(runtime, now)
+  t.truthy(upState.target ~= nil, "a target cue is produced")
+  t.truthy(upState.target.relBearing ~= nil, "relBearing populated when the telemetry link is up")
+  t.truthy(math.abs(upState.target.relBearing - 90) < 1e-6, "east target, facing north -> steer +90")
+
+  -- A dead/stale telemetry heartbeat blanks the steering-cue heading too (not just the PFD tape) --
+  -- this is the regression a deleted navhdg relay must not silently reintroduce.
+  local downRuntime = newRuntime()
+  downRuntime.nav.fixX = 0; downRuntime.nav.fixZ = 0
+  downRuntime.nav.target = { name = "E", x = 10, y = 5, z = 0, color = "green" }
+  M.routeModem(downRuntime, CH.telemetry, protocol.encode(telemetry.Tx.new():frame({ altitude = 0, compassHeading = 0 })))
+  -- no heartbeat routed -> linkUp stays false
+  local downState = M.buildState(downRuntime, now)
+  t.truthy(downState.target ~= nil, "bearing/distance still solve without a heading")
+  t.eq(downState.target.relBearing, nil, "linkUp false -> craft.heading nil -> relBearing blanks")
 end)
 
 t.test("buildState target is nil with no selection", function()
@@ -285,9 +312,10 @@ t.test("buildState follows an active route: BLUE current-leg cue, auto-advances 
   W.addRoute(store, "R"); W.addLeg(store, "R", "A"); W.addLeg(store, "R", "B")
   runtime.wptClient.store = store
   local now = os.epoch("utc")
-  runtime.nav.fixX = 10; runtime.nav.fixZ = 0; runtime.nav.heading = 90; runtime.nav.at = now
+  runtime.nav.fixX = 10; runtime.nav.fixZ = 0
   runtime.nav.routeActive = { name = "R", i = 1 }
-  M.routeModem(runtime, CH.telemetry, protocol.encode(telemetry.Tx.new():frame({ altitude = 64 })))
+  M.routeModem(runtime, CH.telemetry, protocol.encode(telemetry.Tx.new():frame({ altitude = 64, compassHeading = 90 })))
+  M.routeModem(runtime, CH.health, protocol.encode({ k = "hb", t = now / 1000 }))  -- linkUp -> true
   local s = M.buildState(runtime, now)
   t.eq(runtime.nav.routeActive.i, 2, "craft within 50 of leg A -> advanced to leg B")
   t.truthy(s.target ~= nil); t.eq(s.target.name, "B"); t.eq(s.target.color, "blue")

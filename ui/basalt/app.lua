@@ -101,18 +101,12 @@ M.CFG_CH = { req = 105, reply = 106 }
 M.CONFIG_PATH = "/eh2_ui_config.tbl"
 M.UI_LOG_PATH = "/eh2_ui_log.txt"   -- rolling UI log; P uploads this to carbide from the cockpit
 
--- The PFD's DISPLAYED heading is now sourced from the FCS snapshot's compassHeading (see
--- M.buildState); it is honest-by-construction -- no snapshot has ever arrived, or the telemetry
--- heartbeat (linkUp) is down, -> heading is nil -> tape shows "---" instead of a frozen bearing.
--- This constant now only gates the shared NAV magnet-table bearing used for the craft's position
--- in waypoint/route bearing math (M.buildState's `target` cue): if no fresh relay has arrived
--- within this window that bearing reads unknown. Sized to tolerate a handful of missed ~0.1s
--- relays without flickering.
--- KNOWN GAP (Task 6, comms-hygiene refactor): NAV no longer relays a navhdg frame at all, so
--- `runtime.nav.heading`/`.at` are never written any more and `navFresh` below is permanently false --
--- the waypoint/route target cue's `craft.heading` is nil until a follow-up task re-sources it (e.g.
--- from the same FCS compassHeading the PFD now uses). Not in this task's scope; flagged, not fixed.
-M.NAV_HEADING_MAX_AGE_MS = 1000
+-- The PFD's DISPLAYED heading, AND the craft heading used in the waypoint/route bearing math
+-- (M.buildState's `target` cue), are both sourced from the FCS snapshot's compassHeading, gated on
+-- the telemetry heartbeat (linkUp): no snapshot has ever arrived, or the link is stale/dead, ->
+-- heading is nil -> the tape shows "---" and the steering cue's relBearing is unavailable, instead
+-- of either one freezing on a stale bearing. NAV no longer relays its own heading (navhdg is gone --
+-- see nav/runtime.lua's R:heading) so there is no separate nav-relay freshness window to track here.
 
 -- Route auto-advance: the active leg advances to the next when the craft comes within this many
 -- blocks (horizontal) of it. <30 is too tight for practical flight; 50 is the default.
@@ -549,10 +543,10 @@ function M.routeModem(runtime, ch, msg)
   -- directly (see M.buildState's `heading` field, sourced from `rx`), so there is no navhdg branch
   -- here to handle any more -- only the slow GPS fix relay (navfix) remains on this link.
   if n and n.k == "navfix" then
-    -- Slow GPS fix relay: position/speed only. Deliberately does NOT touch nav.at/nav.heading --
-    -- those now go unfed entirely since navhdg is gone (see the KNOWN GAP note on
-    -- M.NAV_HEADING_MAX_AGE_MS above). Store the craft's horizontal position too (fixX/fixZ) for
-    -- NAV-menu waypoint targeting on the PFD.
+    -- Slow GPS fix relay: position/speed only -- heading is no longer part of this relay at all
+    -- (navhdg is gone; M.buildState reads compassHeading straight off the FCS snapshot instead).
+    -- Store the craft's horizontal position too (fixX/fixZ) for NAV-menu waypoint targeting on the
+    -- PFD.
     runtime.nav.gpsAlt = n.fix and n.fix.y or nil
     runtime.nav.fixX   = n.fix and n.fix.x or nil
     runtime.nav.fixZ   = n.fix and n.fix.z or nil
@@ -588,18 +582,16 @@ function M.buildState(runtime, now)
   -- their last value, but heading must go "---" on a stale/dead link (spec decision #2), so it's
   -- additionally gated on this heartbeat signal, below.
   local linkUp = runtime.hbRx:up(now / 1000)
-  -- navFresh gates the shared NAV magnet-table bearing used ONLY for the craft's heading in the
-  -- waypoint/route bearing math below (M.buildState's `target` cue) -- NOT the PFD's displayed
-  -- heading, which is sourced from the FCS snapshot gated on `linkUp` (below).
-  local navFresh = runtime.nav and runtime.nav.at
-    and (now - runtime.nav.at) <= M.NAV_HEADING_MAX_AGE_MS
   -- PFD steering cue: an ACTIVE ROUTE's current leg (blue, auto-advancing) takes precedence, else a
-  -- single selected waypoint (green). Needs the craft's horizontal position; heading from the fresh
-  -- nav bearing, altitude from baro.
+  -- single selected waypoint (green). Needs the craft's horizontal position; heading from the SAME
+  -- FCS snapshot the PFD's own displayed heading uses (gated on `linkUp`, spec decision #2 -- a
+  -- stale/dead link blanks the bearing math too, not just the tape), altitude from baro. NAV no
+  -- longer relays its own heading (navhdg is gone -- see nav/runtime.lua's R:heading), so this reads
+  -- `latest.compassHeading` directly instead of a separate nav-relay freshness clock.
   local target = nil
   local nv = runtime.nav
   if nv and type(nv.fixX) == "number" and type(nv.fixZ) == "number" then
-    local craft = { x = nv.fixX, z = nv.fixZ, heading = navFresh and nv.heading or nil, baroY = latest.altitude }
+    local craft = { x = nv.fixX, z = nv.fixZ, heading = linkUp and latest.compassHeading or nil, baroY = latest.altitude }
     local tgt, color = nil, "green"
     if nv.routeActive and runtime.wptClient then
       local route = navwpt.findRoute(runtime.wptClient.store, nv.routeActive.name)
