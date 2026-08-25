@@ -209,6 +209,17 @@ t.test("buildState assembles the flat cadence keys from telemetry + engine + fue
   t.eq(state.uiRev, 3)
 end)
 
+t.test("buildState sources pitch/roll/sas from the FCS snapshot (rx), not a local poll", function()
+  local runtime = {
+    rx = { latest = function() return { pitch = 0.1, roll = -0.2, surgeVel = 5 } end },
+    engine = { status = function() return {} end }, hbRx = { up = function() return true end },
+    state = { pitch = 99, roll = 99, sas = 99, pumpFrac = 0, tankFrac = 0 },  -- must be IGNORED now
+    nav = {}, uiRev = 1,
+  }
+  local s = M.buildState(runtime, 1000)
+  t.eq(s.pitch, 0.1); t.eq(s.roll, -0.2); t.eq(s.sas, 5)
+end)
+
 t.test("routeModem stores a navfix relay (fix present) into runtime.nav", function()
   local runtime = newRuntime()
   local frame = { k = "navfix", fix = { x = 10, y = 82, z = -20, age = 0, source = "gps", nBeacons = 4, quality = 1.0 },

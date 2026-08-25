@@ -45,7 +45,6 @@ local Fuel      = require("ui.fuel")
 local CfgServer = require("ui.cfgserver")
 local cadence   = require("ui.basalt.cadence")
 local Nav       = require("ui.basalt.nav")
-local senssource = require("ui.basalt.senssource")
 local UILog     = require("ui.basalt.uilog")
 local WptClient = require("ui.basalt.wptclient")
 local navtarget = require("ui.navtarget")
@@ -501,8 +500,6 @@ function M.buildRuntime(deps)
     nav = {},  -- PFD nav fields (gpsAlt/tas/fixOk); Task 7's nav listener populates this later
     CH = CH,
     CFG_CH = CFG_CH,
-    readFile = read,  -- exposed so M.startScheduled's attitude poll loop can reach it (senssource.resolve)
-    wrap = wrap,      -- exposed so M.startScheduled's attitude poll loop can reach it (senssource.readAttitude)
   }
 end
 
@@ -636,9 +633,9 @@ function M.buildState(runtime, now)
     tankFrac     = runtime.state.tankFrac,
     pumpAmount   = runtime.state.pumpAmount,   -- raw solid count (merged page: % vs manual max)
     tankMb       = runtime.state.tankMb,       -- raw liquid mB (merged page: shown raw, gauge vs manual max)
-    pitch        = runtime.state.pitch,        -- PFD: attitude (Task 5's poll loop writes these)
-    roll         = runtime.state.roll,
-    sas          = runtime.state.sas,
+    pitch        = latest.pitch,               -- PFD: attitude, sourced from the FCS snapshot
+    roll         = latest.roll,
+    sas          = latest.surgeVel,
     gpsAlt       = runtime.nav and runtime.nav.gpsAlt or nil,  -- PFD: nav (Task 7's listener writes runtime.nav)
     tas          = runtime.nav and runtime.nav.tas or nil,
     gpsFixOk     = runtime.nav and runtime.nav.fixOk or nil,
@@ -718,30 +715,6 @@ function M.startScheduled(basalt, runtime, frames, applyState, extraDirty)
       runtime.state.tankFrac, runtime.state.tankMb =
         Fuel.read(runtime.fuelReaders.tank, runtime.config.fuel.tank.kind, runtime.config.fuel.tank)
       sleep(0.5)
-    end
-  end)
-
-  -- (f) attitude poll, ~0.1s: read the LOCAL gimbal + medial-velocity sensors, apply the active
-  -- SENS SOURCE calibration, publish pitch/roll/sas. OFF the render path (non-mainThread reads).
-  -- Re-resolves only when config.sens.source changes (file reads are not repeated every tick).
-  basalt.schedule(function()
-    local lastSource, resolved = nil, nil
-    while true do
-      pcall(function()
-        local src = (runtime.config.sens and runtime.config.sens.source) or "FCS"
-        if src ~= lastSource then
-          lastSource = src
-          resolved = senssource.resolve(runtime.config.sens, runtime.readFile)
-        end
-        if resolved and resolved.source ~= "OFF" then
-          local a = senssource.readAttitude(resolved.cal, resolved.sensors, runtime.wrap)
-          if a then runtime.state.pitch, runtime.state.roll, runtime.state.sas = a.pitch, a.roll, a.sas
-          else runtime.state.pitch, runtime.state.roll, runtime.state.sas = nil, nil, nil end
-        else
-          runtime.state.pitch, runtime.state.roll, runtime.state.sas = nil, nil, nil
-        end
-      end)
-      sleep(0.1)   -- 10Hz attitude poll: keeps the PFD horizon reactive (UI-pc local, off the flight loop)
     end
   end)
 

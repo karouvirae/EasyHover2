@@ -104,13 +104,13 @@ t.test("attitude indicator responds to a realistic RADIAN bank (rad->deg at the 
   t.truthy(snap() ~= level, "a 20-degree (0.35 rad) bank must visibly tilt the attitude indicator")
 end)
 
-t.test("buildState surfaces the PFD sensor + gps fields from runtime.state/runtime.nav", function()
+t.test("buildState surfaces the PFD sensor + gps fields from the FCS snapshot (rx) and runtime.nav", function()
   local BasaltApp = require("ui.basalt.app")
   local runtime = {
-    rx = { latest = function() return { heading = 12, altitude = 80 } end },
+    rx = { latest = function() return { heading = 12, altitude = 80, pitch = 4, roll = -2, surgeVel = 6 } end },
     engine = { status = function() return {} end },
     hbRx = { up = function() return true end },
-    state = { pitch = 4, roll = -2, sas = 6, pumpFrac = 0, tankFrac = 0 },
+    state = { pumpFrac = 0, tankFrac = 0 },
     nav = { gpsAlt = 91, tas = 7, fixOk = true },
     uiRev = 1,
   }
