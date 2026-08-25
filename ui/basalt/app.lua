@@ -108,6 +108,10 @@ M.UI_LOG_PATH = "/eh2_ui_log.txt"   -- rolling UI log; P uploads this to carbide
 -- in waypoint/route bearing math (M.buildState's `target` cue): if no fresh relay has arrived
 -- within this window that bearing reads unknown. Sized to tolerate a handful of missed ~0.1s
 -- relays without flickering.
+-- KNOWN GAP (Task 6, comms-hygiene refactor): NAV no longer relays a navhdg frame at all, so
+-- `runtime.nav.heading`/`.at` are never written any more and `navFresh` below is permanently false --
+-- the waypoint/route target cue's `craft.heading` is nil until a follow-up task re-sources it (e.g.
+-- from the same FCS compassHeading the PFD now uses). Not in this task's scope; flagged, not fixed.
 M.NAV_HEADING_MAX_AGE_MS = 1000
 
 -- Route auto-advance: the active leg advances to the next when the craft comes within this many
@@ -541,18 +545,14 @@ function M.routeModem(runtime, ch, msg)
   end
 
   local n = runtime.navLink:onMessage(ch, msg)
-  if n and n.k == "navhdg" then
-    -- Fast heading relay (shared magnet-table bearing): THE display heading source. Stamps the
-    -- heading-freshness clock so a dead NAV -> stale -> tape "---" (buildState gate keys off this).
-    runtime.nav.heading = n.heading
-    runtime.nav.compass = n.compass
-    runtime.nav.at      = os.epoch("utc")
-    return nil
-  end
+  -- NAV no longer relays a navhdg frame at all (Task 6): the FCS broadcasts its own compassHeading
+  -- directly (see M.buildState's `heading` field, sourced from `rx`), so there is no navhdg branch
+  -- here to handle any more -- only the slow GPS fix relay (navfix) remains on this link.
   if n and n.k == "navfix" then
-    -- Slow GPS fix relay: position/speed only. Deliberately does NOT touch nav.at -- heading
-    -- freshness must track the fast navhdg stream, not this slow one. Store the craft's horizontal
-    -- position too (fixX/fixZ) for NAV-menu waypoint targeting on the PFD.
+    -- Slow GPS fix relay: position/speed only. Deliberately does NOT touch nav.at/nav.heading --
+    -- those now go unfed entirely since navhdg is gone (see the KNOWN GAP note on
+    -- M.NAV_HEADING_MAX_AGE_MS above). Store the craft's horizontal position too (fixX/fixZ) for
+    -- NAV-menu waypoint targeting on the PFD.
     runtime.nav.gpsAlt = n.fix and n.fix.y or nil
     runtime.nav.fixX   = n.fix and n.fix.x or nil
     runtime.nav.fixZ   = n.fix and n.fix.z or nil

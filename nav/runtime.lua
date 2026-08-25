@@ -2,9 +2,11 @@
 -- The NAV computer's brain, peripheral-injected so it self-tests headless. It:
 --   * HEARS the broadcast GPS on the shared channel (nav.comms.receiver), TRILATERATES a position
 --     (nav.lib.trilaterate) and grades the constellation (nav.lib.geometry) into a quality;
---   * reads ITS OWN navigation_table.getRelativeAngle() -> absolute heading (nav.lib.heading);
---   * RELAYS a {fix, heading, compass} frame onto the craft's WIRED network (fcs/comms/modem Link)
---     -- the FCS ignores this in Batch 1 (it never opens the relay channel).
+--   * CONSUMES the FCS's own telemetry snapshot (ch 101, decoded via fcs.comms.telemetry's Rx in
+--     nav/app.lua, stored here via R:onFcsSnapshot) for its heading -- compassHeading is the FCS's
+--     own compass reading, so NAV no longer reads a navigation_table of its own at all;
+--   * RELAYS a {fix} frame onto the craft's WIRED network (fcs/comms/modem Link) -- the FCS ignores
+--     this in Batch 1 (it never opens the relay channel).
 -- Reception/trilateration live ONLY here (never on the FCS), so this can't starve the flight loop.
 -- The app loop (T6) pumps modem_message in and calls :step() on a low-rate timer -- event-driven,
 -- never a busy wait.
@@ -29,16 +31,16 @@ function M.groundSpeed(prevFix, prevT, fix, now)
   return math.sqrt(dx * dx + dz * dz) / dt
 end
 
---- new(opts): config (nav.config-shaped), navtable (peripheral with getRelativeAngle), gpsModem
---- (raw, for reception -- opened by the app), wiredModem (raw, for relay), now (fn->ms), receiver
---- (defaults to a fresh nav receiver on the config channel + staleMs = thresholds.maxAgeMs).
+--- new(opts): config (nav.config-shaped), gpsModem (raw, for reception -- opened by the app),
+--- wiredModem (raw, for relay), now (fn->ms), receiver (defaults to a fresh nav receiver on the
+--- config channel + staleMs = thresholds.maxAgeMs). No navtable -- heading comes from the FCS's own
+--- telemetry snapshot (R:onFcsSnapshot).
 function M.new(opts)
   opts = opts or {}
   local cfg = opts.config or {}
   local th = cfg.thresholds or {}
   local self = setmetatable({
     config = cfg,
-    navtable = opts.navtable,
     gpsModem = opts.gpsModem,
     now = opts.now or function() return os.epoch("utc") end,
     receiver = opts.receiver or Receiver.new({
@@ -101,17 +103,20 @@ function R:computeFix(now)
     quality = quality, errorEst = dq.errorEst }), grade
 end
 
---- The absolute heading from this NAV pc's own navigation_table, sign-corrected -- or nil if the
---- table is absent or silent (getRelativeAngle can return nil).
+--- Store the latest FCS telemetry snapshot (nav/app.lua decodes ch 101 via fcs.comms.telemetry's
+--- Rx and calls this on every accepted frame). R:heading reads compassHeading off it.
+function R:onFcsSnapshot(snap)
+  self._fcsSnap = snap
+end
+
+--- The heading from the FCS's own compass, as broadcast in its telemetry snapshot -- nil until the
+--- first snapshot has arrived, or if that snapshot carries no compassHeading.
 function R:heading()
-  if not self.navtable or type(self.navtable.getRelativeAngle) ~= "function" then return nil end
-  local ok, raw = pcall(self.navtable.getRelativeAngle)
-  if not ok then return nil end
-  return heading.absolute(raw, self.config.navtable and self.config.navtable.sign or 1)
+  return self._fcsSnap and self._fcsSnap.compassHeading or nil
 end
 
 --- Build the GPS fix relay frame (fix may be nil so the craft still learns NAV is alive). Heading is
---- NOT bundled here -- it rides the faster navhdg frame so the tape isn't limited by the GPS rate.
+--- NOT bundled here -- the FCS broadcasts its own compassHeading directly; NAV just reads it back.
 function R:frame(now)
   now = now or self.now()
   local f = self:computeFix(now)
@@ -120,25 +125,9 @@ function R:frame(now)
   return { k = "navfix", fix = f, gs = gs, at = now }
 end
 
---- Build the fast heading-only relay frame: the shared magnet-table bearing + compass, fully
---- decoupled from the GPS fix (no trilateration, just getRelativeAngle). heading may be nil (silent
---- table) -- the frame still emits so the craft knows NAV is alive.
-function R:headingFrame(now)
-  now = now or self.now()
-  local hdg = self:heading()
-  return { k = "navhdg", heading = hdg, compass = hdg and heading.compass(hdg) or nil, at = now }
-end
-
 --- Compute + relay one GPS fix frame onto the wired network. Fire-and-forget (latest-wins).
 function R:step(now)
   local frame = self:frame(now)
-  if self.link then self.link:send(frame) end
-  return frame
-end
-
---- Relay one fast heading frame onto the wired network. Fire-and-forget.
-function R:stepHeading(now)
-  local frame = self:headingFrame(now)
   if self.link then self.link:send(frame) end
   return frame
 end

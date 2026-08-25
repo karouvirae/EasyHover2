@@ -241,14 +241,13 @@ t.test("routeModem stores a navfix relay (no fix) into runtime.nav", function()
   t.eq(runtime.nav.fixOk, false)
 end)
 
-t.test("routeModem stores a fast navhdg relay: heading + compass + freshness clock", function()
+t.test("routeModem no longer has a navhdg branch -- NAV stopped relaying it (Task 6)", function()
   local runtime = newRuntime()
   local frame = { k = "navhdg", heading = 123, compass = "SE", at = 1000 }
   local reply = M.routeModem(runtime, 107, protocol.encode(frame))
-  t.eq(reply, nil, "navhdg is a fire-and-forget relay, no reply frame")
-  t.eq(runtime.nav.heading, 123, "nav bearing stored")
-  t.eq(runtime.nav.compass, "SE", "compass stored")
-  t.truthy(runtime.nav.at ~= nil, "navhdg stamps the heading-freshness clock")
+  t.eq(reply, nil, "an unrecognised relay frame is silently ignored, not an error")
+  t.eq(runtime.nav.heading, nil, "no navhdg handling left -- nothing stores it")
+  t.eq(runtime.nav.at, nil)
 end)
 
 t.test("routeModem stores craft x/z from a navfix relay (for waypoint targeting)", function()

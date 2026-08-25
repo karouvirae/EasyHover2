@@ -20,17 +20,17 @@ local function hear(rt, ch, beacon, target)
   rt:onModemMessage(ch, ch, gpsproto.encode(beacon), math.sqrt(dx * dx + dy * dy + dz * dz))
 end
 
-local function newRuntime(now, wired, navtable)
+local function newRuntime(now, wired)
   return Runtime.new({
-    config = { channel = 65000, relay = { channel = 107 }, navtable = { name = "nav_0", sign = 1 },
+    config = { channel = 65000, relay = { channel = 107 },
                thresholds = { maxAgeMs = 3000, minQuality = 0.5 } },
-    wiredModem = wired, navtable = navtable, now = now,
+    wiredModem = wired, now = now,
   })
 end
 
 t.test("a 4-beacon stream trilaterates to the known position with a usable quality", function()
   local c, now = clockAt(1000)
-  local rt = newRuntime(now, fakeDev(), { getRelativeAngle = function() return 47 end })
+  local rt = newRuntime(now, fakeDev())
   local target = { x = 3, y = 4, z = 5 }
   hear(rt, 65000, { id = "A", x = 0,  y = 0,  z = 0 },  target)
   hear(rt, 65000, { id = "B", x = 20, y = 0,  z = 0 },  target)
@@ -46,7 +46,7 @@ end)
 
 t.test("a distant, clustered constellation yields a LOW-quality fix despite gradeable geometry", function()
   local c, now = clockAt(1000)
-  local rt = newRuntime(now, fakeDev(), { getRelativeAngle = function() return 0 end })
+  local rt = newRuntime(now, fakeDev())
   local B = { { id = "67", x = -34, y = 89, z = 2753 }, { id = "68", x = 66, y = 95, z = 2654 },
               { id = "69", x = 41, y = 98, z = 2741 }, { id = "70", x = 99, y = -45, z = 2768 } }
   local target = { x = 825, y = 79, z = 2928 }
@@ -62,7 +62,7 @@ end)
 
 t.test("a wide, flat constellation (far apart, near-equal height) reports HIGH quality -- horizontal geometry is what nav needs", function()
   local c, now = clockAt(1000)
-  local rt = newRuntime(now, fakeDev(), { getRelativeAngle = function() return 0 end })
+  local rt = newRuntime(now, fakeDev())
   local B = { { id = "67", x = -7737, y = -54, z = 7579 }, { id = "68", x = 6462, y = 200, z = 6107 },
               { id = "69", x = 7144, y = 65, z = -7266 }, { id = "70", x = -7210, y = 64, z = -7260 } }
   local target = { x = 824, y = 86, z = 2922 }
@@ -78,7 +78,7 @@ end)
 
 t.test("fewer than 4 beacons yields no fix", function()
   local c, now = clockAt(1000)
-  local rt = newRuntime(now, fakeDev(), { getRelativeAngle = function() return 0 end })
+  local rt = newRuntime(now, fakeDev())
   local target = { x = 1, y = 2, z = 3 }
   hear(rt, 65000, { id = "A", x = 0,  y = 0, z = 0 }, target)
   hear(rt, 65000, { id = "B", x = 20, y = 0, z = 0 }, target)
@@ -86,26 +86,38 @@ t.test("fewer than 4 beacons yields no fix", function()
   t.eq(rt:computeFix(), nil)
 end)
 
-t.test("heading reads the NAV computer's own navigation_table, sign-corrected", function()
+t.test("heading comes from the FCS snapshot compassHeading, no navtable read", function()
   local c, now = clockAt(1000)
-  local rt = newRuntime(now, fakeDev(), { getRelativeAngle = function() return 47 end })
+  local rt = newRuntime(now, fakeDev())   -- NO navtable anywhere
+  rt._fcsSnap = { compassHeading = 47 }
   t.eq(rt:heading(), 47)
-  local rt2 = Runtime.new({ config = { channel = 65000, relay = { channel = 107 },
-    navtable = { name = "nav_0", sign = -1 }, thresholds = {} },
-    wiredModem = fakeDev(), navtable = { getRelativeAngle = function() return 47 end }, now = now })
-  t.eq(rt2:heading(), 313)   -- sign -1 -> wrap360(-47)
 end)
 
-t.test("heading survives a silent navigation_table (nil, not a crash)", function()
+t.test("onFcsSnapshot stores the latest FCS snapshot for heading to read", function()
   local c, now = clockAt(1000)
-  local rt = newRuntime(now, fakeDev(), { getRelativeAngle = function() return nil end })
+  local rt = newRuntime(now, fakeDev())
+  t.eq(rt:heading(), nil, "nil before any snapshot has arrived")
+  rt:onFcsSnapshot({ compassHeading = 200 })
+  t.eq(rt:heading(), 200)
+end)
+
+t.test("heading survives no FCS snapshot yet (nil, not a crash)", function()
+  local c, now = clockAt(1000)
+  local rt = newRuntime(now, fakeDev())
   t.eq(rt:heading(), nil)
 end)
 
-t.test("step() relays a GPS fix frame (navfix) to the craft wire -- no heading (that rides navhdg now)", function()
+t.test("heading survives a snapshot with no compassHeading field (nil, not a crash)", function()
+  local c, now = clockAt(1000)
+  local rt = newRuntime(now, fakeDev())
+  rt:onFcsSnapshot({ altitude = -47 })
+  t.eq(rt:heading(), nil)
+end)
+
+t.test("step() relays a GPS fix frame (navfix) to the craft wire -- no heading (that's the FCS's own broadcast now)", function()
   local c, now = clockAt(1000)
   local wired = fakeDev()
-  local rt = newRuntime(now, wired, { getRelativeAngle = function() return 90 end })
+  local rt = newRuntime(now, wired)
   local target = { x = 3, y = 4, z = 5 }
   hear(rt, 65000, { id = "A", x = 0,  y = 0,  z = 0 },  target)
   hear(rt, 65000, { id = "B", x = 20, y = 0,  z = 0 },  target)
@@ -118,30 +130,4 @@ t.test("step() relays a GPS fix frame (navfix) to the craft wire -- no heading (
   t.eq(frame.k, "navfix")
   t.truthy(frame.fix ~= nil and math.abs(frame.fix.x - 3) < 1e-6)
   t.eq(frame.heading, nil, "heading no longer bundled with the slow GPS fix")
-end)
-
-t.test("stepHeading() relays a fast navhdg frame carrying the magnet-table bearing + compass", function()
-  local c, now = clockAt(1000)
-  local wired = fakeDev()
-  local rt = newRuntime(now, wired, { getRelativeAngle = function() return 90 end })
-  rt:stepHeading(1000)   -- no beacons needed: heading is table-only, decoupled from GPS
-  t.eq(#wired.sent, 1, "one heading frame sent")
-  t.eq(wired.sent[1].ch, 107, "on the configured relay channel")
-  local frame = protocol.decode(wired.sent[1].msg)
-  t.eq(frame.k, "navhdg")
-  t.eq(frame.heading, 90)
-  t.eq(frame.compass, "E")
-  t.eq(frame.fix, nil, "navhdg never carries a fix")
-  t.eq(frame.at, 1000, "stamped with the supplied time")
-end)
-
-t.test("stepHeading() still emits (heading nil) when the table is silent -- proves NAV alive", function()
-  local c, now = clockAt(1000)
-  local wired = fakeDev()
-  local rt = newRuntime(now, wired, { getRelativeAngle = function() return nil end })
-  rt:stepHeading(1000)
-  local frame = protocol.decode(wired.sent[1].msg)
-  t.eq(frame.k, "navhdg")
-  t.eq(frame.heading, nil)
-  t.eq(frame.compass, nil)
 end)

@@ -1,17 +1,20 @@
 -- nav/app.lua
 -- NAV role bootstrap. Reuses ui.basalt.app.ensureBasalt to load the vendored Basalt (the nav role
 -- ships release/basalt-full.lua, like the ui role), then stands up a terminal frame with a MAIN and
--- a CONFIG tab and runs event-driven scheduled loops: hear GPS -> receiver, relay fix+heading on a
--- timer, render on a quantized gate. The peripheral + event glue is thin; all the logic lives in
--- nav.runtime / nav.ui.* (unit-tested). buildRuntime/routeModem/buildState are injectable seams so
--- the whole pipeline self-tests headless. NO peripheral/Basalt access at module LOAD; run() is
--- IN-GAME ONLY (it calls basalt.run(), which blocks forever).
+-- a CONFIG tab and runs event-driven scheduled loops: hear GPS -> receiver, relay the GPS fix on a
+-- timer, render on a quantized gate. Heading is no longer a NAV-owned relay -- NAV hears the FCS's
+-- own telemetry (ch 101) and reads compassHeading straight off that snapshot for its own status. The
+-- peripheral + event glue is thin; all the logic lives in nav.runtime / nav.ui.* (unit-tested).
+-- buildRuntime/routeModem/buildState are injectable seams so the whole pipeline self-tests headless.
+-- NO peripheral/Basalt access at module LOAD; run() is IN-GAME ONLY (it calls basalt.run(), which
+-- blocks forever).
 local navconfig  = require("nav.config")
 local NavRuntime = require("nav.runtime")
 local Main       = require("nav.ui.main")
 local ConfigPage = require("nav.ui.config")
 local protocol   = require("fcs.comms.protocol")
 local modemlib   = require("fcs.comms.modem")
+local telemetry  = require("fcs.comms.telemetry")
 local W          = require("nav.waypoints")
 local wptserver  = require("nav.wptserver")
 local wptdisk    = require("nav.wptdisk")
@@ -25,8 +28,11 @@ M.WPT_STORE_PATH = "/eh2_nav_wpt.tbl"
 M.WPT_REQ_CH = 108
 M.WPT_REPLY_CH = 109
 
--- The NAV hears the FCS telemetry it shares the wired network with, purely to cache the true-Y baro
--- (snapshot.altitude) as its accurate vertical source. Same channel as ui/main.lua's telemetry.
+-- The NAV hears the FCS telemetry it shares the wired network with -- the SAME channel + decode path
+-- ui/basalt/app.lua uses (fcs.comms.telemetry's Rx, for correct seq/session dedup). It caches the
+-- true-Y baro (snapshot.altitude) as its accurate vertical source, AND stores the whole snapshot on
+-- the nav runtime (R:onFcsSnapshot) so R:heading reads compassHeading -- NAV no longer reads its own
+-- navigation_table at all. Same channel as ui/main.lua's telemetry.
 M.TELEMETRY_CH = 101
 -- Baro is considered fresh within this window of the last telemetry frame (FCS sends ~10Hz); past
 -- it the NAV falls back to the trilaterated GPS y.
@@ -57,11 +63,12 @@ function M.ensureBasalt(opts)
 end
 
 -- M.buildRuntime(deps): loads config and wires the nav runtime. deps (all optional/injectable):
---   gpsModem, wiredModem (raw modems), navtable (peripheral), find/wrap (peripheral API overrides),
---   now (clock fn), configPath.
+--   gpsModem, wiredModem (raw modems), find (peripheral.find override), now (clock fn), configPath,
+--   telemetryRx (fcs.comms.telemetry.Rx override, for tests). No navtable dep -- NAV no longer
+--   binds/reads a navigation_table peripheral anywhere; heading comes from the FCS's own telemetry
+--   snapshot (see M.routeModem's TELEMETRY_CH branch).
 function M.buildRuntime(deps)
   deps = deps or {}
-  local wrap = deps.wrap or peripheral.wrap
   local find = deps.find or peripheral.find
   local now  = deps.now  or function() return os.epoch("utc") end
   local cfg  = navconfig.withDefaults(select(1, navconfig.load(deps.configPath or M.CONFIG_PATH)) or {})
@@ -71,8 +78,9 @@ function M.buildRuntime(deps)
   if not gpsModem then gpsModem = find("modem", function(_, m) return m.isWireless and m.isWireless() end) end
   if not wiredModem then wiredModem = find("modem", function(_, m) return not (m.isWireless and m.isWireless()) end) end
   if gpsModem and gpsModem.open then gpsModem.open(cfg.channel) end
-  -- Listen for FCS telemetry on the shared wired network to cache the true-Y baro (NAV y-source),
-  -- and for cockpit NAV-menu waypoint sync requests (108, reply on 109).
+  -- Listen for FCS telemetry on the shared wired network -- the true-Y baro (NAV y-source) AND the
+  -- compassHeading NAV's own status now reads (no navtable) -- and for cockpit NAV-menu waypoint
+  -- sync requests (108, reply on 109).
   if wiredModem and wiredModem.open then pcall(wiredModem.open, M.TELEMETRY_CH) end
   if wiredModem and wiredModem.open then pcall(wiredModem.open, M.WPT_REQ_CH) end
 
@@ -84,36 +92,14 @@ function M.buildRuntime(deps)
     wptLink = modemlib.wrap(wiredModem, { txCh = M.WPT_REPLY_CH, rxCh = M.WPT_REQ_CH })
   end
 
-  -- Bind the navigation_table: explicit injection wins (tests), then a configured name, then
-  -- AUTO-DETECT. Without auto-detect a fresh NAV install has no bound table (the config UI has no
-  -- name setter) so heading silently reads nil -- the in-game "--- --" heading bug.
-  local navtable = deps.navtable
-  if not navtable and cfg.navtable and cfg.navtable.name then
-    local ok, p = pcall(wrap, cfg.navtable.name)
-    if ok then navtable = p end
-  end
-  if not navtable then
-    local ok, p = pcall(find, "navigation_table")
-    if ok and p then navtable = p end
-  end
-  if not navtable then
-    -- Fallback: any peripheral exposing getRelativeAngle (in case the type string differs).
-    local getNames = deps.getNames or peripheral.getNames
-    local ok, names = pcall(getNames)
-    if ok and names then
-      for _, n in ipairs(names) do
-        local okw, p = pcall(wrap, n)
-        if okw and p and type(p.getRelativeAngle) == "function" then navtable = p; break end
-      end
-    end
-  end
-
-  local rt = NavRuntime.new({ config = cfg, navtable = navtable, gpsModem = gpsModem,
-                              wiredModem = wiredModem, now = now })
+  local rt = NavRuntime.new({ config = cfg, gpsModem = gpsModem, wiredModem = wiredModem, now = now })
   return { nav = rt, config = cfg, gpsModem = gpsModem, wiredModem = wiredModem, uiRev = 0, now = now,
            save = function(c) navconfig.save(M.CONFIG_PATH, c or cfg) end,
            store = store, wptRev = 0, wptLink = wptLink,
-           saveStore = function(s) W.save(wptStorePath, s or store) end }
+           saveStore = function(s) W.save(wptStorePath, s or store) end,
+           -- FCS telemetry receiver (ch 101): SAME Rx type + decode path as ui/basalt/app.lua's
+           -- `rx`, so seq/session dedup matches exactly -- reused, not reinvented (M.routeModem).
+           telemetryRx = deps.telemetryRx or telemetry.Rx.new() }
 end
 
 -- M.handleWptRequest(runtime, msg) -> reply. Applies a cockpit NAV-menu request (wpt_get/wpt_op) to
@@ -172,17 +158,23 @@ function M.handleDisk(runtime, msg, dd)
 end
 
 -- M.routeModem(runtime, ch, replyCh, msg, dist): GPS-channel messages feed the receiver; FCS
--- telemetry on TELEMETRY_CH caches the true-Y baro for the NAV y-source. Everything else ignored.
+-- telemetry on TELEMETRY_CH decodes through runtime.telemetryRx (fcs.comms.telemetry's Rx -- the
+-- SAME seq/session-deduped decode ui/basalt/app.lua uses, reused rather than hand-rolled), then
+-- caches the true-Y baro for the NAV y-source AND hands the whole snapshot to the nav runtime
+-- (R:onFcsSnapshot) so R:heading reads compassHeading. Everything else ignored.
 function M.routeModem(runtime, ch, replyCh, msg, dist)
   if ch == runtime.config.channel then
     return runtime.nav:onModemMessage(ch, replyCh, msg, dist)
   end
   if ch == M.TELEMETRY_CH then
-    local ok, f = pcall(protocol.decode, msg)
-    if ok and type(f) == "table" and f.k == "tel" and type(f.s) == "table"
-       and type(f.s.altitude) == "number" then
-      runtime.baroY  = f.s.altitude
-      runtime.baroAt = runtime.now()
+    local f = protocol.decode(msg)
+    if type(f) == "table" and runtime.telemetryRx:accept(f) then
+      local snap = runtime.telemetryRx:latest()
+      runtime.nav:onFcsSnapshot(snap)
+      if type(snap) == "table" and type(snap.altitude) == "number" then
+        runtime.baroY  = snap.altitude
+        runtime.baroAt = runtime.now()
+      end
     end
     return false
   end
@@ -251,16 +243,9 @@ function M.run(deps)
     end
   end)
 
-  -- (b1) FAST heading relay: the magnet-table bearing, decoupled from the GPS fix rate so the PFD
-  -- tape stays smooth regardless of trilateration cadence. Cheap (no computeFix).
-  basalt.schedule(function()
-    while true do
-      pcall(function() runtime.nav:stepHeading(os.epoch("utc")) end)
-      sleep((runtime.config.headingMs or 80) / 1000)
-    end
-  end)
-
-  -- (b2) SLOW GPS fix relay: trilateration + position/speed, event-driven with a sleep between.
+  -- (b) SLOW GPS fix relay: trilateration + position/speed, event-driven with a sleep between.
+  -- (Heading no longer rides a NAV relay -- the FCS broadcasts its own compassHeading directly on
+  -- ch 101, which the modem-message router (a) above already feeds into runtime.nav's snapshot.)
   basalt.schedule(function()
     while true do
       pcall(function() runtime.nav:step(os.epoch("utc")) end)
