@@ -102,11 +102,12 @@ M.CONFIG_PATH = "/eh2_ui_config.tbl"
 M.UI_LOG_PATH = "/eh2_ui_log.txt"   -- rolling UI log; P uploads this to carbide from the cockpit
 
 -- The PFD's DISPLAYED heading is now sourced from the FCS snapshot's compassHeading (see
--- M.buildState); it is honest-by-construction -- absent/stale telemetry -> latest.compassHeading
--- is nil -> tape shows "---". This constant now only gates the shared NAV magnet-table bearing
--- used for the craft's position in waypoint/route bearing math (M.buildState's `target` cue): if
--- no fresh relay has arrived within this window that bearing reads unknown. Sized to tolerate a
--- handful of missed ~0.1s relays without flickering.
+-- M.buildState); it is honest-by-construction -- no snapshot has ever arrived, or the telemetry
+-- heartbeat (linkUp) is down, -> heading is nil -> tape shows "---" instead of a frozen bearing.
+-- This constant now only gates the shared NAV magnet-table bearing used for the craft's position
+-- in waypoint/route bearing math (M.buildState's `target` cue): if no fresh relay has arrived
+-- within this window that bearing reads unknown. Sized to tolerate a handful of missed ~0.1s
+-- relays without flickering.
 M.NAV_HEADING_MAX_AGE_MS = 1000
 
 -- Route auto-advance: the active leg advances to the next when the craft comes within this many
@@ -581,9 +582,15 @@ end
 function M.buildState(runtime, now)
   local latest = runtime.rx:latest() or {}
   local e = runtime.engine:status(now)
+  -- Telemetry link health (heartbeat), shared by the `linkUp` field below and by the displayed
+  -- heading: Rx:latest() (fcs/comms/telemetry.lua) has no time-based expiry, so `latest` freezes
+  -- at the last snapshot forever once the link drops -- fine for fields that are allowed to hold
+  -- their last value, but heading must go "---" on a stale/dead link (spec decision #2), so it's
+  -- additionally gated on this heartbeat signal, below.
+  local linkUp = runtime.hbRx:up(now / 1000)
   -- navFresh gates the shared NAV magnet-table bearing used ONLY for the craft's heading in the
   -- waypoint/route bearing math below (M.buildState's `target` cue) -- NOT the PFD's displayed
-  -- heading, which is sourced straight from the FCS snapshot (`latest.compassHeading`, below).
+  -- heading, which is sourced from the FCS snapshot gated on `linkUp` (below).
   local navFresh = runtime.nav and runtime.nav.at
     and (now - runtime.nav.at) <= M.NAV_HEADING_MAX_AGE_MS
   -- PFD steering cue: an ACTIVE ROUTE's current leg (blue, auto-advancing) takes precedence, else a
@@ -622,10 +629,13 @@ function M.buildState(runtime, now)
     mode         = latest.mode,
     flightMode   = latest.flightMode,
     trimDir      = latest.trimDir,
-    linkUp       = runtime.hbRx:up(now / 1000),
+    linkUp       = linkUp,
     altitude     = latest.altitude,
     vSpeed       = latest.vSpeed,
-    heading      = latest.compassHeading,   -- PFD: display heading, sourced from the FCS snapshot
+    -- PFD: display heading, sourced from the FCS snapshot but gated on linkUp (spec decision #2:
+    -- stale/dead telemetry -> "---", not a frozen bearing). Other telemetry fields intentionally
+    -- freeze on link loss like they always have; only heading is required to blank.
+    heading      = linkUp and latest.compassHeading or nil,
     loopHz       = latest.loopHz,
     engineMaster = e.master,
     feeding      = e.feeding,

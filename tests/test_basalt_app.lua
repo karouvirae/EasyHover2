@@ -199,7 +199,7 @@ t.test("buildState assembles the flat cadence keys from telemetry + engine + fue
   t.eq(state.mode, "HOVER")
   t.eq(state.altitude, 12.3)
   t.eq(state.vSpeed, 0.5)
-  t.eq(state.heading, 271, "display heading is the FCS snapshot's compassHeading, NOT the control-signed heading")
+  t.eq(state.heading, nil, "no heartbeat received -> heading blanks too (spec decision #2), even though compassHeading is present")
   t.eq(state.loopHz, 20)
   t.eq(state.linkUp, false, "no heartbeat received -> linkUp false")
   t.eq(state.engineMaster, false, "masterDefault is false")
@@ -319,10 +319,20 @@ t.test("buildState heading comes from a FRESH telemetry relay, ignoring the nav 
   local runtime = newRuntime()
   M.routeModem(runtime, CH.telemetry, protocol.encode(telemetry.Tx.new():frame({ compassHeading = 90 })))
   local now = os.epoch("utc")
+  M.routeModem(runtime, CH.health, protocol.encode({ k = "hb", t = now / 1000 }))  -- linkUp -> true
   runtime.nav.heading = 123
   runtime.nav.at = now
   local state = M.buildState(runtime, now)
   t.eq(state.heading, 90, "display heading is the FCS snapshot's compassHeading")
+end)
+
+t.test("buildState heading is nil when the telemetry heartbeat is down, even with a fresh compassHeading snapshot (spec decision #2)", function()
+  local runtime = {
+    rx = { latest = function() return { compassHeading = 128 } end },
+    engine = { status = function() return {} end }, hbRx = { up = function() return false end },
+    state = { pumpFrac = 0, tankFrac = 0 }, nav = {}, uiRev = 1,
+  }
+  t.eq(M.buildState(runtime, 1000).heading, nil, "hbRx down -> heading blanks (---) instead of freezing at the last bearing")
 end)
 
 t.test("buildState heading ignores nav.heading even when the nav relay is fresh (no telemetry compassHeading yet)", function()
