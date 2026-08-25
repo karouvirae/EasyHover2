@@ -266,9 +266,9 @@
         },
         {
           ["dst"] = "fcs/io/backend.lua",
-          ["size"] = 2598,
+          ["size"] = 2611,
           ["src"] = "dist/fcs/io/backend.lua",
-          ["sum"] = "03b78848",
+          ["sum"] = "de126f3a",
         },
         {
           ["dst"] = "fcs/io/calibration.lua",
@@ -296,9 +296,9 @@
         },
         {
           ["dst"] = "fcs/io/hwconfig.lua",
-          ["size"] = 856,
+          ["size"] = 870,
           ["src"] = "dist/fcs/io/hwconfig.lua",
-          ["sum"] = "e7584e5f",
+          ["sum"] = "9fdb83da",
         },
         {
           ["dst"] = "fcs/io/shim.lua",
@@ -332,9 +332,9 @@
         },
         {
           ["dst"] = "fcs/runtime/flight.lua",
-          ["size"] = 4074,
+          ["size"] = 4367,
           ["src"] = "dist/fcs/runtime/flight.lua",
-          ["sum"] = "709f885b",
+          ["sum"] = "f94d60af",
         },
         {
           ["dst"] = "fcs/runtime/loop.lua",
@@ -434,9 +434,9 @@
         },
         {
           ["dst"] = "tools/flight.lua",
-          ["size"] = 6095,
+          ["size"] = 6104,
           ["src"] = "dist/tools/flight.lua",
-          ["sum"] = "00f7a2c2",
+          ["sum"] = "f51f67d4",
         },
         {
           ["dst"] = "tools/hover_test.lua",
@@ -498,10 +498,22 @@
           ["sum"] = "cc8c185d",
         },
         {
+          ["dst"] = "fcs/comms/session.lua",
+          ["size"] = 166,
+          ["src"] = "dist/fcs/comms/session.lua",
+          ["sum"] = "74108ec9",
+        },
+        {
+          ["dst"] = "fcs/comms/telemetry.lua",
+          ["size"] = 651,
+          ["src"] = "dist/fcs/comms/telemetry.lua",
+          ["sum"] = "cc6fe1ff",
+        },
+        {
           ["dst"] = "nav/app.lua",
-          ["size"] = 6001,
+          ["size"] = 5520,
           ["src"] = "dist/nav/app.lua",
-          ["sum"] = "edb69726",
+          ["sum"] = "3de4b0d0",
         },
         {
           ["dst"] = "nav/comms/gpsproto.lua",
@@ -547,9 +559,9 @@
         },
         {
           ["dst"] = "nav/runtime.lua",
-          ["size"] = 2623,
+          ["size"] = 2227,
           ["src"] = "dist/nav/runtime.lua",
-          ["sum"] = "b533182f",
+          ["sum"] = "532a5ad7",
         },
         {
           ["dst"] = "nav/ui/config.lua",
@@ -737,9 +749,9 @@
         },
         {
           ["dst"] = "fcs/io/backend.lua",
-          ["size"] = 2598,
+          ["size"] = 2611,
           ["src"] = "dist/fcs/io/backend.lua",
-          ["sum"] = "03b78848",
+          ["sum"] = "de126f3a",
         },
         {
           ["dst"] = "fcs/io/calibration.lua",
@@ -767,9 +779,9 @@
         },
         {
           ["dst"] = "fcs/io/hwconfig.lua",
-          ["size"] = 856,
+          ["size"] = 870,
           ["src"] = "dist/fcs/io/hwconfig.lua",
-          ["sum"] = "e7584e5f",
+          ["sum"] = "9fdb83da",
         },
         {
           ["dst"] = "fcs/io/shim.lua",
@@ -923,9 +935,9 @@
         },
         {
           ["dst"] = "ui/basalt/app.lua",
-          ["size"] = 15213,
+          ["size"] = 14444,
           ["src"] = "dist/ui/basalt/app.lua",
-          ["sum"] = "c3013d74",
+          ["sum"] = "db3de71f",
         },
         {
           ["dst"] = "ui/basalt/bitconfig/dtc.lua",
@@ -1291,9 +1303,9 @@
         },
         {
           ["dst"] = "fcs/io/hwconfig.lua",
-          ["size"] = 856,
+          ["size"] = 870,
           ["src"] = "dist/fcs/io/hwconfig.lua",
-          ["sum"] = "e7584e5f",
+          ["sum"] = "9fdb83da",
         },
         {
           ["dst"] = "fcs/io/tuningdefaults.lua",
@@ -1337,9 +1349,9 @@
         },
         {
           ["dst"] = "fcs/io/hwconfig.lua",
-          ["size"] = 856,
+          ["size"] = 870,
           ["src"] = "dist/fcs/io/hwconfig.lua",
-          ["sum"] = "e7584e5f",
+          ["sum"] = "9fdb83da",
         },
         {
           ["dst"] = "fcs/io/tuningdefaults.lua",
@@ -1367,5 +1379,5 @@
     ["size"] = 71434,
     ["sum"] = "57671ad7",
   },
-  ["version"] = "8082df01",
+  ["version"] = "13491e9b",
 }
