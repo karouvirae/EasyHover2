@@ -78,6 +78,79 @@ end
 
 -- Status box: a 2-subpixel-wide CHECKERED (colour/black) border around cell rect c0..c1 x r0..r1,
 -- black interior. Rounded by dropping the outermost corner subpixel.
+-- ===== Tiny 4x5 subpixel font, for 2-cell-tall panel titles =====
+-- Basalt's BigFont is a fixed ~3-cell-tall font (too dominant on a title strip, no smaller size), so
+-- this hand-rolled 5-subpixel-tall font lets a title occupy exactly 2 character rows. Each glyph is 5
+-- rows of "#"/" " (variable width). Uppercase only; unknown chars are skipped, space = 3 subpixels.
+M.FONT2 = {
+  A = { " ## ", "#  #", "####", "#  #", "#  #" },
+  B = { "### ", "#  #", "### ", "#  #", "### " },
+  C = { "####", "#   ", "#   ", "#   ", "####" },
+  D = { "### ", "#  #", "#  #", "#  #", "### " },
+  E = { "####", "#   ", "### ", "#   ", "####" },
+  F = { "####", "#   ", "### ", "#   ", "#   " },
+  G = { "####", "#   ", "# ##", "#  #", "####" },
+  H = { "#  #", "#  #", "####", "#  #", "#  #" },
+  I = { "###", " # ", " # ", " # ", "###" },
+  J = { "####", "   #", "   #", "#  #", "### " },
+  K = { "#  #", "# # ", "##  ", "# # ", "#  #" },
+  L = { "#   ", "#   ", "#   ", "#   ", "####" },
+  M = { "#  #", "####", "####", "#  #", "#  #" },
+  N = { "#  #", "## #", "# ##", "#  #", "#  #" },
+  O = { "####", "#  #", "#  #", "#  #", "####" },
+  P = { "### ", "#  #", "### ", "#   ", "#   " },
+  Q = { "####", "#  #", "#  #", "# # ", "## #" },
+  R = { "### ", "#  #", "### ", "# # ", "#  #" },
+  S = { "####", "#   ", "####", "   #", "####" },
+  T = { "###", " # ", " # ", " # ", " # " },
+  U = { "#  #", "#  #", "#  #", "#  #", "####" },
+  V = { "#  #", "#  #", "#  #", "# # ", " #  " },
+  W = { "#  #", "#  #", "####", "####", "#  #" },
+  X = { "#  #", " ## ", " ## ", " ## ", "#  #" },
+  Y = { "#  #", "#  #", " ## ", " #  ", " #  " },
+  Z = { "####", "   #", " ## ", "#   ", "####" },
+}
+M.FONT2_H = 5
+
+-- Draw `text` (uppercase) centred as a 2-cell-tall title across cols 1..w, in the 2-cell band whose top
+-- character row is `topRow`. `color` is a colors.* value. Letters are 1 subpixel apart. Drawn on `img`
+-- via M.cell (black bg preserved between glyphs), so it never overwrites unrelated content.
+function M.title(img, topRow, w, text, color)
+  text = tostring(text):upper()
+  local lit, x = {}, 0
+  for i = 1, #text do
+    local ch = text:sub(i, i)
+    if ch == " " then
+      x = x + 3
+    else
+      local g = M.FONT2[ch]
+      if g then
+        for r = 1, #g do
+          local line = g[r]
+          for cx = 1, #line do
+            if line:sub(cx, cx) ~= " " then lit[(x + cx - 1) .. "," .. (r - 1)] = true end
+          end
+        end
+        x = x + #g[1] + 1
+      end
+    end
+  end
+  local bw = math.max(0, x - 1)              -- total bitmap width (drop the trailing inter-letter gap)
+  local ox = math.floor((w * 2 - bw) / 2)    -- centre horizontally in subpixel space
+  local oy = (topRow - 1) * 3 + 1            -- one subpixel of top padding inside the 2-cell band
+  local function on(dx, dy) return lit[dx .. "," .. dy] == true end
+  for r = topRow, topRow + 1 do
+    for c = 1, w do
+      local sx0, sy0 = (c - 1) * 2, (r - 1) * 3
+      M.cell(img, c, r, {
+        tl = on(sx0 - ox, sy0 - oy),     tr = on(sx0 + 1 - ox, sy0 - oy),
+        ml = on(sx0 - ox, sy0 + 1 - oy), mr = on(sx0 + 1 - ox, sy0 + 1 - oy),
+        bl = on(sx0 - ox, sy0 + 2 - oy), br = on(sx0 + 1 - ox, sy0 + 2 - oy),
+      }, color)
+    end
+  end
+end
+
 function M.checkerBox(img, c0, r0, c1, r1, color)
   -- Right edge is extended by ONE subpixel (sx1 = c1*2, into the next cell's left column) so the box
   -- is an ODD number of subpixels wide -- an odd width has a single centre column, so the mirrored

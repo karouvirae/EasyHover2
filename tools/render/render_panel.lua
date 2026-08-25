@@ -78,13 +78,7 @@ local RECIPES = {
   dtc        = { W = 36, H = 10, build = function(b, f) return P("ui.basalt.bitconfig.dtc").build(b, f, nil, Nav.new("dtc"), deps) end },
   pfdrate    = { W = 36, H = 10, build = function(b, f) return P("ui.basalt.bitconfig.pfd").build(b, f, {}, Nav.new("pfdrate"), { save = noop }) end },
   -- WPT / entry panels that open over the NAV surface (overlays fill the 36x10 frame)
-  waypointlist = { W = 36, H = 10, build = function(b, f)
-      local l = P("ui.basalt.waypointlist").make(f, { rows = 8, selColor = colors.yellow })
-      l.setItems({ { name = "Home", type = "base", x = 0, y = 64, z = 0 },
-                   { name = "Pad-2", type = "pad", x = 120, y = 70, z = -40 },
-                   { name = "Ridge", type = "wp", x = -200, y = 92, z = 310 } })
-      l.selectRow(2)   -- demo the WPT selection (yellow + <>)
-      return {} end },
+  -- (waypointlist is part of the NAV menu, not a standalone panel -- see nav.png)
   keypad_name = { W = 36, H = 10, build = function(b, f)
       P("ui.basalt.keypad").make(f).show({ title = "WPT NAME", mode = "name", value = "Home" }); return {} end },
   keypad_num  = { W = 36, H = 10, build = function(b, f)
@@ -95,7 +89,11 @@ local RECIPES = {
         { text = "pump_0", value = "pump_0" }, { text = "tank_0", value = "tank_0" } } }); return {} end },
 
   -- CONFIG on the UI-PC shell (advanced computer terminal, native = 51x19, no monitor scaling)
-  config  = { W = 51, H = 19, build = function(b, f) return P("ui.basalt.pages.config").build(b, f, runtime) end },
+  config  = { W = 51, H = 19, build = function(b, f)
+      local rt = { monitors = { "monitor_0", "monitor_1", "monitor_5" },
+        config = { assign = { monitor_0 = "flight", monitor_1 = "nav", monitor_5 = "pfd" },
+                   monitorOrder = { "monitor_0", "monitor_1", "monitor_3", "monitor_5" } } }
+      return P("ui.basalt.pages.config").build(b, f, rt) end },
 
   -- A/P (1x1 = 15x10)
   ap      = { W = 15, H = 10, build = function(b, f) return P("ui.basalt.pages.ap").build(b, f, {}) end },
@@ -224,7 +222,7 @@ end
 
 local ORDER = { "pfd", "flight", "flight_engine", "flight_calfuel", "flight_params",
                 "nav", "hub", "tuning", "mdb", "uical", "uical_settings", "senscal", "senssource", "dtc", "pfdrate",
-                "waypointlist", "keypad_name", "keypad_num", "listpicker", "config", "ap" }
+                "keypad_name", "keypad_num", "listpicker", "config", "ap" }
 
 -- Render one recipe into a fresh rec-term and serialise it to /render_out_<id>.txt.
 local function renderOne(id)

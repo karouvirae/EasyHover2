@@ -17,7 +17,7 @@ const GROUPS = [
     ["uical", "UI CAL"], ["uical_settings", "UI CAL ▸ UI SETTINGS (new)"], ["senscal", "SENS CAL"],
     ["senssource", "SENS SOURCE"], ["dtc", "DTC"], ["pfdrate", "PFD RATE"] ] },
   { name: "Entry panels", sub: "overlays over NAV · 36×10", panels: [
-    ["waypointlist", "Waypoint list"], ["keypad_name", "Name keypad"],
+    ["keypad_name", "Name keypad"],
     ["keypad_num", "Coord numpad"], ["listpicker", "List picker"] ] },
   { name: "UI-PC shell", sub: "advanced-computer terminal · 51×19", panels: [["config", "CONFIG"]] },
   { name: "A/P", sub: "1 monitor · 15×10", panels: [["ap", "A/P"]] },

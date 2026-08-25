@@ -348,17 +348,18 @@ t.test("M.build (no disk): 'top' screen constructs; disk summary is 'no disk'; E
   local els = rec.handle.elements
   t.truthy(els.diskLabel ~= nil, "diskLabel present")
 
-  -- EXPORT/IMPORT are one configkit.actionRow; REFRESH is its own row; BACK ("<") is its own full-width row.
-  t.truthy(els.ioRow ~= nil, "ioRow (EXPORT/IMPORT) present")
-  t.truthy(type(els.ioRow.setState) == "function", "ioRow.setState present")
+  -- Restyle: EXPORT/IMPORT/IMPORT ALL/SCAN/REFRESH are individual bracketSwitches (blue/orange), not
+  -- one actionRow. Their disabled look is a "disabled" STATE (gray), not setEnabled(false).
+  t.truthy(els.exportBtn ~= nil and els.importBtn ~= nil, "EXPORT + IMPORT bracket buttons present")
+  t.truthy(els.refreshBtn ~= nil and els.scanBtn ~= nil, "REFRESH + SCAN bracket buttons present")
   t.truthy(els.backRow ~= nil and #els.backRow.buttons == 1, "backRow (<) present")
 
-  -- No disk detected -> EXPORT/IMPORT start disabled (gray, not clickable); REFRESH stays "off".
-  t.eq(els.ioRow.buttons[1].button:getEnabled(), false, "EXPORT disabled: no disk")
-  t.eq(els.ioRow.buttons[2].button:getEnabled(), false, "IMPORT disabled: no disk")
-  t.eq(els.refreshRow.buttons[1].button:getEnabled(), true, "REFRESH always enabled")
+  -- No disk detected -> EXPORT/IMPORT/SCAN start in the "disabled" state; REFRESH stays "off".
+  t.eq(els.exportBtn.state, "disabled", "EXPORT disabled: no disk")
+  t.eq(els.importBtn.state, "disabled", "IMPORT disabled: no disk")
+  t.eq(els.refreshBtn.state, "off", "REFRESH always available")
 
-  t.eq(els.diskLabel:getText(), "no disk")
+  t.truthy(els.diskLabel:getText():find("NO DISK", 1, true), "disk summary reads NO DISK")
 
   local ok, err = pcall(h.apply, {})
   t.truthy(ok, "apply should not error: " .. tostring(err))
@@ -394,35 +395,34 @@ function()
   local h = M.build(basalt, frame, nil, nav, deps)
   local els = h.elements.region.built.top.handle.elements
 
-  -- Disk present, no valid disk files yet -> "disk: CART1 . valid 0/4".
-  t.eq(els.diskLabel:getText(), "disk: CART1 . valid 0/4")
+  -- Disk present -> the summary reads DISK FOUND (a status line, not a valid-count string anymore).
+  t.truthy(els.diskLabel:getText():find("DISK FOUND", 1, true), "disk summary reads DISK FOUND")
 
-  -- Disk present -> EXPORT/IMPORT are enabled (mirrors the old drive.present gating, now expressed
-  -- as ioRow's switchbtn "off" state).
-  t.eq(els.ioRow.buttons[1].button:getEnabled(), true, "EXPORT enabled: disk present")
-  t.eq(els.ioRow.buttons[2].button:getEnabled(), true, "IMPORT enabled: disk present")
+  -- Disk present -> EXPORT/IMPORT leave the disabled state (their "off" resting state).
+  t.eq(els.exportBtn.state, "off", "EXPORT enabled: disk present")
+  t.eq(els.importBtn.state, "off", "IMPORT enabled: disk present")
 
   local ok3, err3 = pcall(function() basalt.update("timer", -1) end)
   t.truthy(ok3, "basalt.update should not error: " .. tostring(err3))
 end)
 
-t.test("top screen: EXPORT/IMPORT on one row, REFRESH on its own row, BACK its own row", function()
+t.test("top screen: EXPORT/IMPORT/SCAN/IMPORT ALL/REFRESH bracket buttons + BACK row", function()
   local basalt = BasaltApp.ensureBasalt()
   local frame = basalt.createFrame()
   local nav = Nav.new("bitconfig")
   local deps = { find = function() return nil end, exists = function() return false end }
   local h = M.build(basalt, frame, nil, nav, deps)
   local els = h.elements.region.built.top.handle.elements
-  t.truthy(els.ioRow ~= nil and #els.ioRow.buttons == 2, "EXPORT + IMPORT share a row")
-  t.eq(els.ioRow.buttons[1].button:getText(), "EXPORT")
-  t.eq(els.ioRow.buttons[2].button:getText(), "IMPORT")
-  t.truthy(els.refreshRow ~= nil and #els.refreshRow.buttons == 1, "REFRESH on its own row")
+  t.eq(els.exportBtn.button:getText(), "EXPORT")
+  t.eq(els.importBtn.button:getText(), "IMPORT")
+  t.truthy(els.refreshBtn ~= nil, "REFRESH bracket button present")
+  t.truthy(els.scanBtn ~= nil and els.importAllBtn ~= nil, "SCAN + IMPORT ALL bracket buttons present")
   t.truthy(els.backRow ~= nil and #els.backRow.buttons == 1, "BACK its own row")
   t.eq(els.backRow.buttons[1].button:getText(), "\27", "BACK is CC-native left arrow")
-  -- no disk -> EXPORT/IMPORT disabled, REFRESH enabled
-  t.eq(els.ioRow.buttons[1].button:getEnabled(), false, "EXPORT disabled: no disk")
-  t.eq(els.ioRow.buttons[2].button:getEnabled(), false, "IMPORT disabled: no disk")
-  t.eq(els.refreshRow.buttons[1].button:getEnabled(), true, "REFRESH always enabled")
+  -- no disk -> EXPORT/IMPORT disabled state, REFRESH available
+  t.eq(els.exportBtn.state, "disabled", "EXPORT disabled: no disk")
+  t.eq(els.importBtn.state, "disabled", "IMPORT disabled: no disk")
+  t.eq(els.refreshBtn.state, "off", "REFRESH always available")
 end)
 
 t.test("M.build: top screen's BACK pops the FRAME nav stack", function()
@@ -477,8 +477,8 @@ t.test("M.build: EXPORT drilldown -- devbind row enabled (local present), CONFIR
   local listEls = region.built.export.handle.elements
   t.eq(#listEls.kindRows, 4, "one row per M.KINDS kind")
   -- devbind is KINDS[1] and exists locally -> row 1 enabled; senscal/tuning/uicfg absent locally.
-  t.eq(listEls.kindRows[1].buttons[1].button:getEnabled(), true, "devbind export row enabled")
-  t.eq(listEls.kindRows[2].buttons[1].button:getEnabled(), false, "senscal export row disabled")
+  t.eq(listEls.kindRows[1].buttons[1].state, "off", "devbind export row enabled")
+  t.eq(listEls.kindRows[2].buttons[1].state, "disabled", "senscal export row disabled")
 
   -- Drill into the confirm screen the same way the enabled row's onClick does.
   region:push("confirm_export_devbind")
@@ -635,8 +635,8 @@ t.test("M.build: IMPORT ALL button present; enabled only with a valid importable
   local h = M.build(basalt, frame, nil, nav, deps)
   local region = h.elements.region
   local top = region.built.top.handle.elements
-  t.truthy(top.importAllRow ~= nil and #top.importAllRow.buttons == 1, "IMPORT ALL present")
-  t.eq(top.importAllRow.buttons[1].button:getEnabled(), true, "enabled: one valid disk kind exists")
+  t.truthy(top.importAllBtn ~= nil, "IMPORT ALL present")
+  t.eq(top.importAllBtn.state, "off", "enabled: one valid disk kind exists")
 
   region:push("confirm_importall"); h.apply({})
   local cEls = region.built.confirm_importall.handle.elements
@@ -826,7 +826,7 @@ t.test("M.build: SCAN screen summarizes disk; CLEAN confirm deletes only junk an
   local h = M.build(basalt, frame, nil, nav, deps)
   local region = h.elements.region
   local top = region.built.top.handle.elements
-  t.truthy(top.scanRow ~= nil and #top.scanRow.buttons == 1, "SCAN button present")
+  t.truthy(top.scanBtn ~= nil, "SCAN button present")
 
   region:push("scan"); h.apply({})
   local sEls = region.built.scan.handle.elements
@@ -917,7 +917,7 @@ t.test("M.build: export row stays DISABLED for a kind that is valid on disk but 
 
   local exportEls = region.built.export.handle.elements
   -- tuning is KINDS[3]: diskValid true, localHas false -> export row MUST be disabled.
-  t.eq(exportEls.kindRows[3].buttons[1].button:getEnabled(), false,
+  t.eq(exportEls.kindRows[3].buttons[1].state, "disabled",
     "tuning export row disabled: valid on disk but absent locally")
 
   region:pop()

@@ -6,6 +6,8 @@
 -- showScrollBar=false so scrolling is exclusively UP/DOWN buttons + the mouse wheel and a row tap
 -- only ever SELECTS. Input-driven: repaints on Basalt's native event pump, never on the FCS-safe
 -- render-gate (see feedback-ui-cadence-rules). NO peripheral/Basalt access at module LOAD.
+local configkit = require("ui.basalt.configkit")
+local Theme     = require("ui.theme")
 local M = {}
 
 -- formatLabel(name, width): strip a single leading "namespace:" (create:/minecraft:/...), then if
@@ -45,32 +47,51 @@ function M.make(frame)
     overlay:setVisible(false)
 
     local title = overlay:addLabel({ x = 1, y = 1, width = w, height = 1, autoSize = false, text = "" })
+    title:setForeground(Theme.role("font"))
     local listH = math.max(1, h - 2)  -- rows 2..h-1
     local list  = overlay:addList({ x = 1, y = 2, width = w, height = listH }) -- audit:full-width-ok scrolling list (spans overlay by design)
     list:setShowScrollBar(false)      -- kill the 1-col mis-hittable bar; UP/DOWN + wheel instead
+    list:setBackground(colors.gray)   -- grey list band (sized + centred, items centred, in show())
 
-    -- UP / DOWN / BACK compact + centred (not a full-width thirds split).
-    local upW, downW, backW, fgap = 4, 6, 6, 2
-    local fx0 = math.max(1, math.floor((w - (upW + downW + backW + 2 * fgap)) / 2) + 1)
-    local upBtn   = overlay:addButton({ x = fx0,                          y = h, width = upW,   height = 1, text = "UP" })
-    local downBtn = overlay:addButton({ x = fx0 + upW + fgap,             y = h, width = downW, height = 1, text = "DOWN" })
-    local backBtn = overlay:addButton({ x = fx0 + upW + downW + 2 * fgap, y = h, width = backW, height = 1, text = "BACK" })
+    -- UP / DOWN (orange functions) + [<-] (blue back) via the shared bracket row.
+    local footer = configkit.actionRow(overlay, { x = 1, y = h, w = w }, {
+      { label = "UP",   onClick = function() ctrl.scrollBy(-listH) end },
+      { label = "DOWN", onClick = function() ctrl.scrollBy(listH) end },
+      { id = "back",    onClick = function() ctrl.hide() end },
+    })
 
     list:onSelect(function(_self, index) ctrl.pick(index) end)
-    upBtn:onClick(function() ctrl.scrollBy(-listH) end)
-    downBtn:onClick(function() ctrl.scrollBy(listH) end)
-    backBtn:onClick(function() ctrl.hide() end)
 
     ctrl.list = list
     ctrl.listWidth = w
-    ctrl.elements = { overlay = overlay, list = list, title = title, upBtn = upBtn, downBtn = downBtn, backBtn = backBtn }
+    ctrl.elements = { overlay = overlay, list = list, title = title,
+      upBtn = footer.buttons[1].button, downBtn = footer.buttons[2].button, backBtn = footer.buttons[3].button }
   end
 
   function ctrl.show(opts)
     if not ctrl.elements then build() end
     ctrl.opts = opts
-    ctrl.elements.title:setText(M.formatLabel(opts.title or "pick", ctrl.listWidth))
-    ctrl.list:setItems(buildItems(opts.options, ctrl.listWidth))
+    local w = ctrl.listWidth
+    -- centred ||title||
+    local tt = "||" .. M.formatLabel(opts.title or "pick", math.max(1, w - 4)) .. "||"
+    ctrl.elements.title:setWidth(#tt)
+    ctrl.elements.title:setPosition(math.max(1, math.floor((w - #tt) / 2) + 1), 1)
+    ctrl.elements.title:setText(tt)
+    -- size the grey band to the widest item, centre it, and centre each item within it
+    local items = buildItems(opts.options, math.max(1, w - 2))
+    local maxW = 1
+    for _, it in ipairs(items) do maxW = math.max(maxW, #it.text) end
+    local listW = math.min(w, maxW + 2)
+    for _, it in ipairs(items) do
+      local pad = maxW - #it.text
+      local left = math.floor(pad / 2)
+      it.text = string.rep(" ", left + 1) .. it.text .. string.rep(" ", pad - left + 1)
+    end
+    local _, fh = ctrl.frame:getSize()
+    ctrl.list:setWidth(listW)
+    ctrl.list:setHeight(math.max(1, math.min(#items, fh - 3)))   -- snug band to item count (leaves scroll room)
+    ctrl.list:setPosition(math.max(1, math.floor((w - listW) / 2) + 1), 2)
+    ctrl.list:setItems(items)
     ctrl.list:clearItemSelection()
     local idx
     for i, o in ipairs(opts.options or {}) do

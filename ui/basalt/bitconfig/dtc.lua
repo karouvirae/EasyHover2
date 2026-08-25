@@ -568,7 +568,7 @@ function M.build(basalt, frame, runtime, nav, deps)
     local fw = ({ f:getSize() })[1]
     local fx = 2
     local fiw = math.max(1, fw - 2)
-    local y = 1
+    local y = 2   -- gap at row 1 (detach from title)
 
     -- Disk status row, centred, in <> brackets, with an indicator alongside: -( )- empty / -(*)- (a
     -- solid filled circle, string.char(7)) when a disk is found.

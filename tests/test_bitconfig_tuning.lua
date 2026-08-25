@@ -462,13 +462,15 @@ t.test("M.build: modes screen (root) has PRECISION/MAN/CRUISE buttons + '?' + '<
   local h = M.build(basalt, frame, nil, nav, read, write, delete)
   t.eq(h.id, "tuning")
   t.truthy(type(h.apply) == "function", "apply should be a function")
-  t.truthy(h.elements.headerLabel ~= nil, "headerLabel present")
 
   local region = h.elements.region
   t.truthy(region ~= nil, "region exposed")
   t.eq(region:top(), "modes", "region starts at the modes root")
 
   local modesHandle = region.built.modes.handle
+  -- No frame-level header anymore: each region screen self-titles with its own ||title||.
+  t.truthy(modesHandle.elements.titleLabel ~= nil, "modes root self-titles (||FCS TUNING||)")
+  t.truthy(modesHandle.elements.titleLabel:getText():find("FCS TUNING", 1, true), "title text is FCS TUNING")
   for _, mode in ipairs(M.MODES) do
     t.truthy(modesHandle.elements.modeBtns[mode] ~= nil, "modes screen has a button for " .. mode)
   end

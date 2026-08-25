@@ -1,175 +1,178 @@
 -- ui/basalt/pages/config.lua
--- CONFIG cockpit page: Basalt port of the monitor-assignment + read-only device-summary slice of
--- ui/panels/config.lua, hosted on the TERMINAL frame (the PC terminal, not a monitor -- config is
--- never a monitor-displayable page, so it is deliberately absent from M.ASSIGN_CYCLE below).
+-- CONFIG cockpit page (UI-PC terminal, 51x19): MONITOR SELECTION. A persistent, never-forget list of
+-- every monitor the NAV/UI PC has ever seen, each with the UI panel it's assigned to and a live
+-- connection indicator, plus SCAN / REFRESH / UP / DOWN / DEL / SET UI controls and a BIT/CONFIG entry.
 --
--- SCOPE (per task-17-brief.md): monitor assignment cycle + a read-only device summary ONLY. The
--- fuller UI config editing that ui/panels/config.lua's action() also supports -- device binding
--- (relay/pump/tank), relay-side cycling, engine timing tuning (pulse/interval/invert/kickstart),
--- and fuel calibration -- is DEFERRED to the "UI CAL" hub sub-menu (Phase 6). This page does NOT
--- build bindRelay/bindPump/bindTank/relaySide/scan/calFuel/pulseUp/pulseDn/intervalUp/intervalDn/
--- toggleInvert/toggleKick controls; it only reads config.relay/config.fuel/config.engine to RENDER
--- a status summary via the reused labelFor/timingLine/fmtInterval helpers.
+-- Memory model (config.monitorOrder): an ORDERED list of monitor peripheral names. A monitor's assigned
+-- panel lives in config.assign[name] (unchanged -- app.lua's buildFrames still reads it). Connection
+-- state is derived live from discovery, never stored: a remembered-but-absent monitor stays in the list
+-- with its panel, shown disconnected, and works the instant it's plugged back in. SCAN merges newly
+-- discovered monitors onto the end (existing keep their slot + settings); DEL forgets one permanently
+-- (re-addable by SCAN); SET UI opens the page picker for the selected monitor; REFRESH re-resolves the
+-- live monitor renders without a PC reboot (runtime.refreshMonitors hook, set by ui/basalt/app.lua's run
+-- loop -- absent headless, so guarded). BIT/CONFIG opens the same hub path as the NAV panel's button
+-- (runtime.openBitConfig hook).
 --
--- Follows the Task 15/16 template EXACTLY (see ui/basalt/pages/emc.lua's header comment for the
--- full Basalt API provenance notes -- not re-derived here): module exports `M.id`, `M.title`, a
--- Basalt-free testable `M._onButton(runtime, id, now, saveFn)` intent seam, and
--- `M.build(basalt, frame, runtime) -> { id, apply(state), elements }` with an idempotent apply()
--- that only reads runtime.config (config edits bump uiRev, which forces a repaint through the
--- render-gate, so this stays fresh -- same discipline emc.lua's relayBound() documents) and never
--- polls peripherals.
---
--- NO peripheral/Basalt access at module LOAD -- everything lives inside M.build/M._onButton/the
--- apply() closure, so `require("ui.basalt.pages.config")` loads clean headless.
-local ConfigPanel = require("ui.panels.config")
+-- NO peripheral/Basalt access at module LOAD -- everything lives inside M.build / M._* / the closures.
 local Config       = require("ui.config")
-local Picker       = require("ui.basalt.picker")   -- pure module (no ui.basalt.app dep) -> safe at top
--- NOTE: ui.basalt.app is required LAZILY below (inside M._onButton / M.build), NOT at module
--- top. ui/basalt/app.lua's page registry (M.PAGES, Task 27) requires this module at ITS OWN
--- module top -- a top-level require("ui.basalt.app") here would close the loop mid-load
--- (require("ui.basalt.app") -> require(this file) -> require("ui.basalt.app") again, still
--- executing) and CraftOS-PC's require rejects that with "loop or previous error loading module"
--- (verified empirically). A lazy require inside the functions below is safe: by the time
--- M._onButton/M.build actually RUN (never at require-time), ui.basalt.app has always already
--- finished loading and is served straight from require's cache.
+local ListPicker   = require("ui.basalt.listpicker")
+local configkit    = require("ui.basalt.configkit")
+local PG           = require("ui.basalt.instruments.panelgfx")
 
 local M = {}
 M.id = "config"
 M.title = "CONFIG"
 
--- The monitor-displayable pages this cockpit currently ships. "config" is intentionally absent --
--- it's the terminal frame's own content, never assignable to a monitor. NOTE: the final
--- assignable-page set is confirmed in the assembly task (T27); this is the working default (nav
--- and ap are reserved ids -- their pages land in Tasks 18/19).
 M.ASSIGN_CYCLE = { "emc", "fcs", "flight", "nav", "ap", "pfd" }
 
--- M.nextAssign(cur) -> nextPageId|nil
--- Mirrors ui/main.lua's nextAssign (lines 222-231) exactly: nil -> first entry; the last entry ->
--- nil (unassigned, wrapping past the end); an unrecognised current value falls back to the first
--- entry (same as ui/main.lua's trailing `return ASSIGN_CYCLE[1]`).
-function M.nextAssign(cur)
-  if cur == nil then return M.ASSIGN_CYCLE[1] end
-  for i, v in ipairs(M.ASSIGN_CYCLE) do
-    if v == cur then
-      if i == #M.ASSIGN_CYCLE then return nil end
-      return M.ASSIGN_CYCLE[i + 1]
-    end
-  end
-  return M.ASSIGN_CYCLE[1]
-end
-
--- ===== M._onButton: the TESTABLE intent seam. No Basalt here. =====
---
--- Only handles "assign:<name>" ids (the only interactive control this page builds). Computes the
--- next assignment, mutates runtime.config.assign IN PLACE (same as ui/main.lua's applyConfigOp's
--- cycleAssign branch), persists via saveFn (default Config.save, injectable for tests), and bumps
--- runtime.uiRev so the render-gate repaints the summary/labels (mirrors ui/main.lua's markDirty()
--- convention -- see ui/basalt/app.lua's M.buildState, which reads runtime.uiRev straight through).
--- Live frame re-resolution (actually moving a page onto the newly-assigned monitor) is an ASSEMBLY
--- concern (T27) -- this seam only updates config + uiRev.
-function M._onButton(runtime, id, now, saveFn)
-  local BasaltApp = require("ui.basalt.app")
-  saveFn = saveFn or Config.save
-  if type(id) ~= "string" or id:sub(1, 7) ~= "assign:" then return nil end
-  local monitor = id:sub(8)
-
-  local next = M.nextAssign(runtime.config.assign[monitor])
-  runtime.config.assign[monitor] = next
-  saveFn(BasaltApp.CONFIG_PATH, runtime.config)
-  runtime.uiRev = (runtime.uiRev or 0) + 1
-
-  return { kind = "config", op = "cycleAssign", monitor = monitor, assigned = next }
-end
-
--- Options for a monitor's assignment dropdown: "(none)" (unassigned) + each monitor-displayable page.
 function M._assignOptions()
   local opts = { { text = "(none)", value = false } }
   for _, id in ipairs(M.ASSIGN_CYCLE) do opts[#opts + 1] = { text = id, value = id } end
   return opts
 end
 
--- Set (not cycle) a monitor's page assignment directly from the dropdown. `pageId` false/nil ->
--- unassigned. Persists + bumps uiRev, same as the old cycle seam. Testable (saveFn injectable).
-function M._pickAssign(runtime, monitor, pageId, saveFn)
-  local BasaltApp = require("ui.basalt.app")
-  saveFn = saveFn or Config.save
-  runtime.config.assign[monitor] = pageId or nil
-  saveFn(BasaltApp.CONFIG_PATH, runtime.config)
-  runtime.uiRev = (runtime.uiRev or 0) + 1
-  return { kind = "config", op = "assign", monitor = monitor, assigned = pageId or nil }
+-- ===== PURE list-memory seams (no Basalt / peripherals) =====
+
+function M.mergeDiscovered(order, discovered)
+  local seen = {}
+  for _, n in ipairs(order) do seen[n] = true end
+  for _, n in ipairs(discovered or {}) do
+    if not seen[n] then order[#order + 1] = n; seen[n] = true end
+  end
+  return order
 end
 
--- ===== M.build: construct the element tree =====
+function M.removeAt(order, i)
+  if i >= 1 and i <= #order then table.remove(order, i) end
+  return order
+end
+
+-- DEL: forget list slot `i` AND clear that monitor's panel assignment. Frames are built from
+-- config.assign (not monitorOrder), so clearing the assign is what actually stops the forgotten
+-- monitor from rendering. Re-addable later via SCAN (comes back unassigned -> {----}).
+function M.forget(order, assign, i)
+  local name = order[i]
+  if name == nil then return order end
+  M.removeAt(order, i)
+  if assign then assign[name] = nil end
+  return order
+end
+
+-- Two-digit ID for "<XX>" -- the trailing number of the peripheral name (monitor_1 -> "01").
+function M.monNum(name)
+  local n = tostring(name):match("(%d+)%s*$")
+  return n and string.format("%02d", tonumber(n)) or "??"
+end
+
+-- One list row's text: "Monitor <01> -[  ]-   ==   {NAV}" -- the []-box (2 cells) is blank here and
+-- filled as a clean 2-cell green rectangle (bg colour) in refresh() when connected.
+function M.rowText(name, panel)
+  return string.format("Monitor <%s> -[  ]-   ==   {%s}",
+    M.monNum(name), (panel and tostring(panel):upper()) or "----")
+end
+
+-- ===== M.build =====
 
 function M.build(basalt, frame, runtime)
   local BasaltApp = require("ui.basalt.app")
   local w, h = frame:getSize()
-  local x = 2
-  local iw = math.max(1, w - 2)
+  local WHITE, HILITE, BLACK = colors.toBlit(colors.white), colors.toBlit(colors.lightBlue), colors.toBlit(colors.black)
 
-  local monitors = runtime.monitors or BasaltApp.discoverMonitors()
+  runtime.config = runtime.config or {}
+  runtime.config.assign = runtime.config.assign or {}
+  runtime.config.monitorOrder = runtime.config.monitorOrder or {}
+  local order = runtime.config.monitorOrder
 
-  local y = 2
-  local monHeader = frame:addLabel({ x = x, y = y, width = iw, height = 1, autoSize = false, text = "MONITORS" })
-  y = y + 1
+  -- Green panel border (closed) + a 2-cell-tall MONITOR SELECTION title drawn under it.
+  local bg = frame:addImage({ x = 1, y = 1, width = w, height = h }); bg:resizeImage(w, h); bg.set("z", 1)
+  PG.clear(bg, w, h)
+  PG.border(bg, w, h, colors.green, { top = true, bottom = true, left = true, right = true })
+  -- Title: a hand-rolled 2-cell-tall bitmap font (PG.FONT2) so it reads big without BigFont's 3-cell bulk.
+  PG.title(bg, 2, w, "MONITOR SELECTION", colors.green)
 
-  -- Per-monitor assignment DROPDOWN (name label on the left, page picker on the right) -- replaces
-  -- the old click-to-cycle button so you pick a page from a list instead of cycling.
-  local assignOpts = M._assignOptions()
-  local monPickers = {}
-  for _, name in ipairs(monitors) do
-    local nameW = math.min(#name + 1, math.max(4, math.floor(iw / 2)))
-    -- Assignment dropdown sized to the page names it shows (emc/fcs/nav/flight/(none) <= ~6 chars),
-    -- not spanning the whole shell width.
-    local assignW = math.min(math.max(4, iw - nameW - 1), 10)
-    frame:addLabel({ x = x, y = y, width = nameW, height = 1, autoSize = false, text = name })
-    monPickers[name] = Picker.make(frame, {
-      x = x + nameW + 1, y = y, width = assignW,
-      options = assignOpts, current = runtime.config.assign[name] or false, placeholder = "(none)",
-      onPick = function(value) M._pickAssign(runtime, name, value) end,
-    })
-    y = y + 1
+  -- ----- discovery / memory helpers -----
+  local function discovered() return runtime.monitors or BasaltApp.discoverMonitors() end
+  local function connectedSet()
+    local s = {}; for _, n in ipairs(discovered()) do s[n] = true end; return s
+  end
+  local function saveCfg() Config.save(BasaltApp.CONFIG_PATH, runtime.config) end
+  M.mergeDiscovered(order, discovered())   -- populate once on build (NAV-PC start)
+
+  -- ----- white monitor list field (7 rows), drawn on the Image; transparent labels capture row taps ---
+  local ROWS, listY = 7, 5
+  local GREEN = colors.toBlit(colors.green)
+  local sel, offset = 1, 0
+  local refresh, refreshRenders
+
+  local hits = {}
+  for i = 1, ROWS do
+    local hb = frame:addLabel({ x = 3, y = listY + i - 1, width = w - 4, height = 1, autoSize = false, text = "" })
+    local idx = i
+    hb:onClick(function() sel = offset + idx; refresh() end)   -- select-only (for DEL / SET UI)
+    hits[i] = hb
   end
 
-  y = y + 1
-  local devHeader = frame:addLabel({ x = x, y = y, width = iw, height = 1, autoSize = false, text = "DEVICES" })
-  y = y + 1
+  local picker = ListPicker.make(frame)
 
-  local relayLabel  = frame:addLabel({ x = x, y = y,     width = iw, height = 1, autoSize = false, text = "RELAY --" })
-  local pumpLabel   = frame:addLabel({ x = x, y = y + 1, width = iw, height = 1, autoSize = false, text = "PUMP --" })
-  local tankLabel   = frame:addLabel({ x = x, y = y + 2, width = iw, height = 1, autoSize = false, text = "TANK --" })
-  local timingLabel = frame:addLabel({ x = x, y = y + 3, width = iw, height = 1, autoSize = false, text = "TIMING --" })
-
-  -- apply(state): refresh the monitor assignment pickers (current runtime.config.assign) and the
-  -- device-summary Labels (from runtime.config) -- reuses ui/panels/config.lua's labelFor/
-  -- timingLine helpers so the summary text matches the old terminal-rendered panel exactly.
-  -- Idempotent -- safe to call repeatedly; only ever SETS element props, config-derived values
-  -- change on uiRev, which the render-gate already keys on (no peripheral polling here).
-  local function apply(state)
-    state = state or {}
-    local cfg = runtime.config
-    local assign = cfg.assign or {}
-
-    for _, name in ipairs(monitors) do
-      monPickers[name].setOptions(assignOpts, assign[name] or false)
+  refresh = function()
+    local conn = connectedSet()
+    if sel < 1 then sel = 1 elseif sel > math.max(1, #order) then sel = math.max(1, #order) end
+    if sel <= offset then offset = math.max(0, sel - 1) end
+    if sel > offset + ROWS then offset = sel - ROWS end
+    for i = 1, ROWS do
+      local idx, ry = offset + i, listY + i - 1
+      local name = order[idx]
+      local band = (idx == sel and name) and HILITE or WHITE
+      for c = 3, w - 2 do bg:setPixel(c, ry, " ", band, band) end
+      if name then
+        local t = M.rowText(name, runtime.config.assign[name])
+        bg:setText(4, ry, t); bg:setBg(4, ry, string.rep(band, #t)); bg:setFg(4, ry, string.rep(BLACK, #t))
+        -- connection box: "Monitor <XX> -[" is 15 chars, so the 2-cell []-slot sits at x = 19..20.
+        if conn[name] then bg:setPixel(19, ry, " ", BLACK, GREEN); bg:setPixel(20, ry, " ", BLACK, GREEN) end
+      end
     end
-
-    -- ConfigPanel.labelFor already prefixes these ("RELAY: <name>", "PUMP: <name>", "TANK: <name>")
-    -- -- reused verbatim, no re-wrapping, so this summary text matches the old terminal panel.
-    relayLabel:setText(ConfigPanel.labelFor({ id = "bindRelay" }, cfg, assign))
-    pumpLabel:setText(ConfigPanel.labelFor({ id = "bindPump" }, cfg, assign))
-    tankLabel:setText(ConfigPanel.labelFor({ id = "bindTank" }, cfg, assign))
-    timingLabel:setText(ConfigPanel.timingLine(cfg, iw))
   end
+
+  refreshRenders = function()
+    if runtime.refreshMonitors then pcall(runtime.refreshMonitors) end   -- live re-resolve (app hook)
+  end
+
+  local function scan() M.mergeDiscovered(order, discovered()); saveCfg(); refresh() end
+  local function del() M.forget(order, runtime.config.assign, sel); saveCfg(); refresh(); refreshRenders() end
+  local function scrollBy(d) sel = sel + d; refresh() end
+  local function setUI()
+    local n = order[sel]; if not n then return end
+    picker.show({ title = "SET " .. M.monNum(n) .. " UI", options = M._assignOptions(),
+      current = runtime.config.assign[n] or false,
+      onPick = function(v) runtime.config.assign[n] = v or nil; saveCfg(); refresh(); refreshRenders() end })
+  end
+
+  -- Buttons: UP/DOWN/SET UI directly beneath the list; a 1-row gap; then SCAN/REFRESH/DEL. SET UI = blue
+  -- (opens the picker); rest orange.
+  local navY = listY + ROWS          -- directly beneath the list
+  local scanY = navY + 2             -- one blank row of gap, then the second row
+  local navRow = configkit.actionRow(frame, { x = 2, y = navY, w = w - 2, gap = 2 }, {
+    { label = "UP",     kind = "function", onClick = function() scrollBy(-1) end },
+    { label = "DOWN",   kind = "function", onClick = function() scrollBy(1) end },
+    { label = "SET UI", kind = "menu",     onClick = setUI },
+  })
+  local scanRow = configkit.actionRow(frame, { x = 2, y = scanY, w = w - 2, gap = 2 }, {
+    { label = "SCAN",    kind = "function", onClick = scan },
+    { label = "REFRESH", kind = "function", onClick = function() refreshRenders() end },
+    { label = "DEL",     kind = "function", onClick = del },
+  })
+
+  -- BIT/CONFIG (blue) -- opens the same hub path as the NAV panel (runtime.openBitConfig hook).
+  local bcW = 2 + #"BIT/CONFIG"
+  local bc = configkit.bracketBtn(frame, math.max(2, math.floor((w - bcW) / 2) + 1), h - 1, "BIT/CONFIG", colors.blue)
+  bc.button:onClick(function() if runtime.openBitConfig then pcall(runtime.openBitConfig) end end)
+
+  refresh()
 
   return {
     id = M.id,
-    apply = apply,
-    elements = {
-      monHeader = monHeader, devHeader = devHeader,
-      monPickers = monPickers,
-      relayLabel = relayLabel, pumpLabel = pumpLabel, tankLabel = tankLabel, timingLabel = timingLabel,
-    },
+    apply = function(_state) refresh() end,
+    elements = { hits = hits, picker = picker, scanRow = scanRow, navRow = navRow, bitconfigBtn = bc.button },
   }
 end
 

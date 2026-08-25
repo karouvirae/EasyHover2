@@ -15,7 +15,7 @@ const DEFAULT = {
 };
 
 // CC:Tweaked renders bytes 16-31 as CP437-style arrow/triangle glyphs (used for BACK/scroll/mode cues).
-const CTRL = { 16: "►", 17: "◄", 24: "↑", 25: "↓", 26: "→", 27: "←", 30: "▲", 31: "▼" };
+const CTRL = { 16: "►", 17: "◄", 24: "↑", 25: "↓", 26: "→", 27: "←", 30: "▲", 31: "▼", 248: "°" };
 
 const [, , inPath, outPath] = process.argv;
 if (!inPath || !outPath) { console.error("usage: node grid_to_svg.mjs <in> <out.svg>"); process.exit(2); }

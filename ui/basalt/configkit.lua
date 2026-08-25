@@ -61,7 +61,10 @@ function M.bracketSwitch(frame, o)
   label = M.fitLabel(label, width or #tostring(label))
   local ctrl = M.bracketBtn(frame, o.x, o.y, label, base, { width = width })
   ctrl.kind = kind
+  ctrl.state = "off"
   function ctrl.set(state)
+    ctrl.state = state or "off"   -- record it: bracketSwitch advertises a switchbtn-compatible API,
+                                  -- and switchbtn exposes ctrl.state (callers/tests read the active state)
     if state == "disabled" then ctrl.setBrackets(colors.gray); ctrl.setFont(colors.gray)
     elseif state == "on" then ctrl.setBrackets(colors.green); ctrl.setFont(Theme.role("font"))
     else ctrl.setBrackets(kind == "state" and colors.red or base); ctrl.setFont(Theme.role("font")) end
@@ -325,24 +328,30 @@ end
 function M.menuColumn(frame, opts)
   local fw, fh = frame:getSize()
   local items = opts.items or {}
-  -- the "back" item is PINNED to the bottom row as a tight [<-]; the rest stack from opts.y.
+  local cols = math.max(1, opts.cols or 1)   -- opts.cols=2 -> two buttons per row (row-major)
+  local gap = opts.gap or 1
+  -- the "back" item is PINNED to the bottom row as a tight [<-]; the rest fill rows from opts.y.
   local menuItems, backItem = {}, nil
   for _, it in ipairs(items) do
     if it.id == "back" then backItem = it else menuItems[#menuItems + 1] = it end
   end
   local maxLabel = 1
   for _, it in ipairs(menuItems) do maxLabel = math.max(maxLabel, #(it.label or "")) end
-  -- bracket menu buttons (blue by default -- these open screens)
+  -- bracket menu buttons (blue by default -- these open screens); a grid of `cols` uniform columns
+  -- centred as a block.
   local fieldW = math.max(1, math.min((opts.maxW or fw) - 2, maxLabel))
-  local bx = math.max(1, math.floor((fw - (fieldW + 2)) / 2) + 1)
-  local y = opts.y or 1
+  local itemW = fieldW + 2
+  local rowW = itemW * cols + gap * (cols - 1)
+  local x0 = math.max(1, math.floor((fw - rowW) / 2) + 1)
+  local y0 = opts.y or 1
   local buttons = {}
-  for _, it in ipairs(menuItems) do
-    local sw = M.bracketSwitch(frame, { x = bx, y = y, width = fieldW, text = it.label, id = it.id, kind = it.kind or "menu" })
+  for i, it in ipairs(menuItems) do
+    local c, r = (i - 1) % cols, math.floor((i - 1) / cols)
+    local sw = M.bracketSwitch(frame, { x = x0 + c * (itemW + gap), y = y0 + r, width = fieldW,
+      text = it.label, id = it.id, kind = it.kind or "menu" })
     if it.onClick then sw.button:onClick(it.onClick) end
     sw.set(it.state or "off")
     buttons[it.id or it.label] = sw
-    y = y + 1
   end
   if backItem then
     local bxb = math.max(1, math.floor((fw - 3) / 2) + 1)   -- "[<-]" is 3 cells; centre it
@@ -350,7 +359,7 @@ function M.menuColumn(frame, opts)
     if backItem.onClick then sw.button:onClick(backItem.onClick) end
     buttons["back"] = sw
   end
-  return { buttons = buttons, width = fieldW + 2, nextY = y }
+  return { buttons = buttons, width = rowW, nextY = y0 + math.ceil(#menuItems / cols) }
 end
 
 -- M.helpScreen(basalt, frame, region, entryId) -> { apply = function(state) end }

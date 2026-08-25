@@ -8,6 +8,10 @@ local M = {}
 function M.defaults()
   return {
     assign = {},                       -- [monitorName]=panelId ("engine"|"fcs"|"config")
+    -- Ordered, never-forget list of every monitor the UI/NAV PC has ever seen (CONFIG page's
+    -- MONITOR SELECTION list). A remembered-but-absent monitor stays here with its assign so it
+    -- works the instant it is plugged back in. Connection state is derived live, never stored.
+    monitorOrder = {},                 -- { <monitor peripheral name>, ... }
     relay  = { name = nil, side = nil, blockSide = nil, feedSide = nil },
     fuel   = {
       pump = { name = nil, kind = "inventory", empty = 0, full = 0 },

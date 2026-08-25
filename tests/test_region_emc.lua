@@ -301,75 +301,59 @@ end)
 -- ===== tests/test_bitconfig_uical.lua; here we confirm M.config wires them with the SAME deps =====
 -- ===== it was given, and that its own uiRev bump happens on top). =====
 
-t.test("M.config: builds SIDE/PMP/TNK/RLY as DROPDOWN pickers (not cycle buttons), reflecting runtime.config", function()
+t.test("M.config (redesign): readouts + PULSE/INT steppers; device binding MOVED to BIT/CONFIG UI CAL", function()
   local basalt = BasaltApp.ensureBasalt()
   local frame = basalt.createFrame()
+  frame:setSize(36, 17)                     -- the real EMC top-region size (flight.lua M.split of 36x38)
   local region = { push = function() end, pop = function() end }
 
   local runtime = {
     uiRev = 0,
     config = {
       relay = { name = "relay_2", side = "top" },
-      fuel = {
-        pump = { name = "tank_1",  kind = "fluid",     empty = 0, full = 1000 },
-        tank = { name = "chest_1", kind = "inventory", empty = 0, full = 4000 },
-      },
+      fuel = newFuelCfg(),
       engine = { pulseMs = 250, intervalMs = 330000, invert = false, kickstart = true, masterDefault = false },
     },
   }
-  local descriptors = {
-    { name = "relay_1", type = "redstone_relay", methods = { setOutput = true } },
-    { name = "relay_2", type = "redstone_relay", methods = { setOutput = true } },
-    { name = "tank_1",  type = "fluid_tank",     methods = { getFuelAmountMb = true } },
-    { name = "chest_1", type = "inventory",      methods = { list = true } },
-  }
   local scanCalls = 0
-  local function scan() scanCalls = scanCalls + 1; return descriptors end
+  local function scan() scanCalls = scanCalls + 1; return {} end
 
   local h = M.config(basalt, frame, region, runtime, { scan = scan })
 
-  t.eq(scanCalls, 1, "scans once at build time (no rescan control on this screen)")
-  t.truthy(h.elements.sidePicker ~= nil, "sidePicker present (dropdown, not a cycle button)")
-  t.truthy(h.elements.sidePicker.trigger ~= nil, "sidePicker exposes its trigger element")
-  t.truthy(h.elements.pumpPicker ~= nil, "pumpPicker present")
-  t.truthy(h.elements.tankPicker ~= nil, "tankPicker present")
-  t.truthy(h.elements.relayPicker ~= nil, "relayPicker present")
-
-  t.eq(h.elements.sidePicker.selectedItem().value, "top", "relay side reflected")
-  t.eq(h.elements.pumpPicker.selectedItem().value, "tank_1", "pump bind reflected")
-  t.eq(h.elements.tankPicker.selectedItem().value, "chest_1", "tank bind reflected")
-  t.eq(h.elements.relayPicker.selectedItem().value, "relay_2", "relay bind reflected")
+  -- The SIDE/PMP/TNK/RLY dropdowns moved to BIT/CONFIG UI CAL, so this screen neither scans
+  -- peripherals nor builds pickers -- it's engine readouts + PULSE/INT steppers + INVERT + CAL FUEL.
+  t.eq(scanCalls, 0, "no peripheral scan on this screen anymore")
+  t.eq(h.elements.pumpPicker, nil, "no pump picker here (moved to UI CAL)")
+  t.eq(h.elements.relayPicker, nil, "no relay picker here (moved to UI CAL)")
+  t.truthy(h.elements.pulseDn and h.elements.pulseUp, "PULSE steppers present")
+  t.truthy(h.elements.intDn and h.elements.intUp, "INTRVL steppers present")
+  t.truthy(h.elements.invBtn ~= nil, "INVERT toggle present")
+  t.truthy(h.elements.calFuelBtn ~= nil and h.elements.backBtn ~= nil, "CAL FUEL + BACK present")
 
   local ok, err = pcall(h.apply, {})
   t.truthy(ok, "apply should not error: " .. tostring(err))
-  local ok2, err2 = pcall(h.apply, {})
-  t.truthy(ok2, "apply should be safe to call repeatedly: " .. tostring(err2))
+  t.truthy(h.elements.pulseLbl:getText():find("250", 1, true), "PULSE readout reflects pulseMs")
 
   local okr, errr = pcall(function() basalt.update("timer", -1) end)
   t.truthy(okr, "basalt.update should not error: " .. tostring(errr))
 end)
 
-t.test("M.config: unbound relay/pump/tank show the (none) placeholder, not a stale name", function()
+t.test("M.config (redesign): INVERT readout reflects config.engine.invert", function()
   local basalt = BasaltApp.ensureBasalt()
   local frame = basalt.createFrame()
+  frame:setSize(36, 17)
   local region = { push = function() end, pop = function() end }
-
   local runtime = {
     uiRev = 0,
     config = {
       relay = { name = nil, side = nil },
       fuel = newFuelCfg(),
-      engine = { pulseMs = 250, intervalMs = 330000, invert = false, kickstart = true, masterDefault = false },
+      engine = { pulseMs = 250, intervalMs = 330000, invert = true, kickstart = true, masterDefault = false },
     },
   }
-  local function scan() return {} end
-
-  local h = M.config(basalt, frame, region, runtime, { scan = scan })
-
-  t.eq(h.elements.pumpPicker.selectedItem(), nil, "no name bound -> nothing selected")
-  t.eq(h.elements.relayPicker.selectedItem(), nil, "no relay bound -> nothing selected")
-  -- SIDE always has a value (defaults to "back" even unset) -- never unbound like a name picker.
-  t.eq(h.elements.sidePicker.selectedItem().value, "back")
+  local h = M.config(basalt, frame, region, runtime, { scan = function() return {} end })
+  h.apply({})
+  t.truthy(h.elements.invLbl:getText():find("ON", 1, true), "INVERT: ON when config.engine.invert is true")
 end)
 
 t.test("M.config: picking a relay through its wired onPick (Uical._pickBind) re-blocks -- DRAIN SAFETY -- and M.config's own bump() fires", function()
@@ -518,7 +502,7 @@ end)
 t.test("M.main (Task 3 redesign): fuel panel geometry, colors, and int+unit values", function()
   local basalt = BasaltApp.ensureBasalt()
   local frame = basalt.createFrame()
-  frame:setSize(14, 11)
+  frame:setSize(36, 17)   -- the real EMC top-region size (flight.lua M.split of the 36x38 overhead)
 
   local engine = newEngineStub(true)
   local runtime = {
@@ -552,24 +536,24 @@ t.test("M.main (Task 3 redesign): fuel panel geometry, colors, and int+unit valu
   -- Bars: present, colored (not the black default), sitting at x=2.
   t.truthy(el.pmpBar ~= nil, "pmpBar exists")
   t.truthy(el.mainBar ~= nil, "mainBar exists")
-  t.eq(el.pmpBar:getX(), 2, "pmpBar starts at x=2")
-  t.eq(el.mainBar:getX(), 2, "mainBar starts at x=2")
+  t.eq(el.pmpBar:getX(), el.mainBar:getX(), "both bars share the same interior-left x")
+  t.truthy(el.pmpBar:getX() >= 2, "bars sit inside the green border (x >= 2), got " .. tostring(el.pmpBar:getX()))
   t.eq(el.pmpBar:getProgressColor(), colors.green, "pmpBar filled color is green, not the black default")
   t.eq(el.pmpBar:getBackground(), colors.gray, "pmpBar empty color is gray")
   t.eq(el.mainBar:getProgressColor(), colors.green, "mainBar filled color is green")
   t.eq(el.mainBar:getBackground(), colors.gray, "mainBar empty color is gray")
 
-  -- ENG SW / PRIME: height 1 (was 3), common (btnfit) width.
-  t.eq(el.engSw.button:getHeight(), 1, "ENG SW height 1")
-  t.eq(el.primeBtn:getHeight(), 1, "PRIME height 1")
-  t.eq(el.engSw.button:getWidth(), el.primeBtn:getWidth(), "ENG SW / PRIME share a common btnfit width")
+  -- ENG SW / PRIME: 3-row outlined raw buttons (Basalt addBorder), sharing a common width.
+  t.eq(el.engSw:getHeight(), 3, "ENG SW is a 3-row outlined button")
+  t.eq(el.primeBtn:getHeight(), 3, "PRIME is a 3-row outlined button")
+  t.eq(el.engSw:getWidth(), el.primeBtn:getWidth(), "ENG SW / PRIME share a common width")
 
-  -- Every element: y >= 2 (row 1 is the blank top margin), x + width - 1 <= 14 (frameW convention
-  -- from Task 2 -- an element may reach column w, never past it).
+  -- Every element: y >= 2 (row 1 is the blank top margin), x + width - 1 <= 36 (region width -- an
+  -- element may reach column w, never past it).
   local probe = {
     el.pmpLabel, el.pmpBar, el.pmpValLabel,
     el.mainLabel, el.mainBar, el.mainValLabel,
-    el.engSw.button, el.primeBtn,
+    el.engSw, el.primeBtn,
     el.masterBlock, el.masterText,
     el.feedBlock, el.feedText,
     el.configBtn,
@@ -577,7 +561,7 @@ t.test("M.main (Task 3 redesign): fuel panel geometry, colors, and int+unit valu
   for i, e in ipairs(probe) do
     t.truthy(e:getY() >= 2, "element #" .. i .. " y >= 2 (got " .. tostring(e:getY()) .. ")")
     local right = e:getX() + e:getWidth() - 1
-    t.truthy(right <= 14, "element #" .. i .. " x+width-1 <= 14 (got " .. tostring(right) .. ")")
+    t.truthy(right <= 36, "element #" .. i .. " x+width-1 <= 36 (got " .. tostring(right) .. ")")
   end
 
   local ok, err = pcall(function() basalt.update("timer", -1) end)
@@ -590,10 +574,10 @@ end)
 -- ===== (bypasses screen-position/bounds checks -- this is the exact channel :onClick(fn) wires =====
 -- ===== into, per release/basalt-full.lua's registerEventCallback/registerCallback/fireEvent). =====
 
-t.test("M.calfuel (Task 4): expanded steppers -- exact deltas, clamps at 0, centered layout within 14x11", function()
+t.test("M.calfuel (Task 4): expanded steppers -- exact deltas, clamps at 0, centered layout within 36x17", function()
   local basalt = BasaltApp.ensureBasalt()
   local frame = basalt.createFrame()
-  frame:setSize(14, 11)
+  frame:setSize(36, 17)   -- the real EMC top-region size (calfuel drills within it)
 
   local runtime = {
     uiRev = 0,
@@ -609,25 +593,27 @@ t.test("M.calfuel (Task 4): expanded steppers -- exact deltas, clamps at 0, cent
   local handle = M.calfuel(basalt, frame, region, runtime)
   local el = handle.elements
 
-  -- Labels: "SOLID <n>x" (n == pump.full) / "LIQ <n>B" (n == buckets == floor(tank.full/1000)).
-  t.eq(el.solidLabel:getText(), "SOLID 1000x")
-  t.eq(el.liqLabel:getText(), "LIQ 500B")
+  -- Labels: "SOLID <n>x" / "LIQUID <n>B" (n == buckets == floor(tank.full/1000)), each padded with
+  -- %-7s so the numeric values line up in a column across the two rows.
+  t.eq(el.solidLabel:getText(), "SOLID  1000x")
+  t.eq(el.liqLabel:getText(), "LIQUID 500B")
 
-  -- Every element: y >= 2 (row 1 is the blank top margin), x + width - 1 <= 14 (frame width).
+  -- Every element: y >= 2 (row 1 is the blank top margin), x + width - 1 <= 36 (region width). The
+  -- steppers are chipButton controls -- probe their raw .label button; backBtn/labels are raw elements.
   local probe = {
-    el.backBtn, el.solidLabel,
-    el.solidDn64, el.solidDn1, el.solidUp1, el.solidUp64,
-    el.liqLabel,
-    el.liqDn100, el.liqDn50, el.liqDn1, el.liqUp1, el.liqUp50, el.liqUp100,
+    el.backBtn, el.solidLabel, el.liqLabel,
+    el.solidDn64.label, el.solidDn1.label, el.solidUp1.label, el.solidUp64.label,
+    el.liqDn100.label, el.liqDn50.label, el.liqDn1.label, el.liqUp1.label, el.liqUp50.label, el.liqUp100.label,
   }
   for i, e in ipairs(probe) do
     t.truthy(e:getY() >= 2, "element #" .. i .. " y >= 2 (got " .. tostring(e:getY()) .. ")")
     local right = e:getX() + e:getWidth() - 1
-    t.truthy(right <= 14, "element #" .. i .. " x+width-1 <= 14 (got " .. tostring(right) .. ")")
+    t.truthy(right <= 36, "element #" .. i .. " x+width-1 <= 36 (got " .. tostring(right) .. ")")
   end
 
-  -- Click == fire the same "mouse_click" event :onClick(fn) registered a listener under.
-  local function click(btn) btn:fireEvent("mouse_click", 1, 1, 1) end
+  -- Click == fire the same "mouse_click" event :onClick(fn) registered a listener under. chipButton
+  -- wires both its .chip and .label to the handler, so firing .label is a real click.
+  local function click(btn) (btn.label or btn):fireEvent("mouse_click", 1, 1, 1) end
 
   local function assertDelta(btn, role, delta, startFull)
     runtime.config.fuel[role].full = startFull
@@ -660,13 +646,11 @@ t.test("M.calfuel (Task 4): expanded steppers -- exact deltas, clamps at 0, cent
   t.truthy(ok, "basalt.update should not error: " .. tostring(err))
 end)
 
-t.test("M.config (Task 4): top-margin -- BACK at y >= 2, and every control (incl. CAL FUEL, the " ..
-  "LAST one) still fits the real 11-row EMC region -- REGRESSION: the +1 shift must not push " ..
-  "content past the region's actual height (ui/basalt/pages/flight.lua's M.split gives EMC " ..
-  "topH=11 on the target ~24-row monitor)", function()
+t.test("M.config (redesign): top-margin -- BACK at y >= 2, and every control (incl. CAL FUEL, the " ..
+  "LAST one) fits the real EMC region (36x17 = flight.lua M.split of the 36x38 overhead)", function()
   local basalt = BasaltApp.ensureBasalt()
   local frame = basalt.createFrame()
-  frame:setSize(14, 11) -- the real EMC region size (matches M.main/M.calfuel's construction probes)
+  frame:setSize(36, 17) -- the real EMC top-region size (matches M.main/M.calfuel's construction probes)
   local region = { push = function() end, pop = function() end }
 
   local runtime = {
@@ -684,19 +668,18 @@ t.test("M.config (Task 4): top-margin -- BACK at y >= 2, and every control (incl
 
   t.truthy(el.backBtn:getY() >= 2, "BACK button at y >= 2 (got " .. tostring(el.backBtn:getY()) .. ")")
 
-  -- Every element (not just BACK) must fit within the region's actual 11 rows -- CAL FUEL is the
-  -- LAST control and the one the prior (unfixed) +1 shift pushed to y=12, one row past the region.
+  -- Every control (readout labels + PULSE/INT steppers + INVERT + CAL FUEL/BACK) must fit the region's
+  -- 17 rows. CAL FUEL is the LAST control (bottom row); it sits at y=12, comfortably inside 17.
+  -- chipButton controls expose .label (a raw Basalt button); outlinedButtons + labels are raw elements.
   local probe = {
-    backBtn = el.backBtn, sideLabel = el.sideLabel, timingLabel = el.timingLabel,
-    pulseDnBtn = el.pulseDnBtn, pulseUpBtn = el.pulseUpBtn,
-    intDnBtn = el.intDnBtn, intUpBtn = el.intUpBtn,
-    pumpLabel = el.pumpLabel, tankLabel = el.tankLabel, relayLabel = el.relayLabel,
-    calFuelBtn = el.calFuelBtn,
+    backBtn = el.backBtn, calFuelBtn = el.calFuelBtn,
+    pulseLbl = el.pulseLbl, intLbl = el.intLbl, invLbl = el.invLbl,
+    pulseDn = el.pulseDn.label, pulseUp = el.pulseUp.label,
+    intDn = el.intDn.label, intUp = el.intUp.label, invBtn = el.invBtn.label,
   }
   for name, e in pairs(probe) do
-    t.truthy(e:getY() <= 11, name .. " y <= 11 (got " .. tostring(e:getY()) .. ")")
+    t.truthy(e:getY() <= 17, name .. " y <= 17 (got " .. tostring(e:getY()) .. ")")
   end
-  t.eq(el.calFuelBtn:getY(), 11, "CAL FUEL (the last control) lands exactly at the region's last row")
 
   local ok, err = pcall(function() basalt.update("timer", -1) end)
   t.truthy(ok, "basalt.update should not error: " .. tostring(err))

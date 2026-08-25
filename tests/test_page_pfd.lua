@@ -32,8 +32,8 @@ t.test("build + apply render without error and reflect state text", function()
 
   -- lubber shows the heading; readouts show baro+sas by default
   t.eq(page.elements.lubberLabel:getText(), "090", "lubber shows 3-digit heading")
-  t.eq(page.elements.altLabel:getText(), "ALT 87Baro", "ALT default baro")
-  t.eq(page.elements.spdLabel:getText(), "SPD 12SAS", "SPD default sas")
+  t.eq(page.elements.altLabel:getText(), "ALT 87 Baro", "ALT default baro")
+  t.eq(page.elements.spdLabel:getText(), "SPD 12 SAS", "SPD default sas")
 
   -- a repaint with new heading updates the tape lubber label
   page.apply({ heading = 0 })
@@ -47,10 +47,10 @@ t.test("build + apply render without error and reflect state text", function()
   -- SEAM: the LIVE cockpit cadence state names baro altitude `altitude` (ui/basalt/app.lua
   -- M.buildState), not `baroAlt`. The page must bridge it so baro-ALT reads live in-game.
   page.apply({ heading = 0, altitude = 87.4 })
-  t.eq(page.elements.altLabel:getText(), "ALT 87Baro", "live `altitude` field drives baro-ALT")
+  t.eq(page.elements.altLabel:getText(), "ALT 87 Baro", "live `altitude` field drives baro-ALT")
   -- an explicit contract `baroAlt` still wins if a future Batch-B feed sets it
   page.apply({ heading = 0, altitude = 87.4, baroAlt = 42.0 })
-  t.eq(page.elements.altLabel:getText(), "ALT 42Baro", "explicit baroAlt takes precedence")
+  t.eq(page.elements.altLabel:getText(), "ALT 42 Baro", "explicit baroAlt takes precedence")
 
   -- waypoint target cue: bearing bug on the tape + TGT readout appear when a target is present
   page.apply({ heading = 0, target = { name = "Home", bearing = 6, distanceH = 340, relBearing = 6,
@@ -84,18 +84,24 @@ t.test("attitude indicator responds to a realistic RADIAN bank (rad->deg at the 
   local frame = basalt.createFrame()
   local page = PFD.build(basalt, frame, {}, nil)
 
-  page.apply({ heading = 0, pitch = 0, roll = 0 })
-  local level = {}
-  for i, l in ipairs(page.elements.rowLabels) do level[i] = l:getText() end
-
-  -- 0.35 rad = ~20 degrees of right bank. The FCS reports pitch/roll in RADIANS; the attitude
-  -- view-model is degree-based, so the page must convert -- else 0.35 is read as 0.35 deg -> flat.
-  page.apply({ heading = 0, pitch = 0, roll = 0.35 })
-  local differ = false
-  for i, l in ipairs(page.elements.rowLabels) do
-    if l:getText() ~= level[i] then differ = true end
+  -- Attitude is now a graphical ADI drawn onto an Image canvas (page.elements.adiImg), not text
+  -- rows. Snapshot the canvas (bg blit per cell) and confirm a bank changes it.
+  local adi = page.elements.adiImg
+  local function snap()
+    local w, hh = adi:getImageSize()
+    local s = {}
+    for y = 1, hh do for x = 1, w do s[#s + 1] = tostring(adi:getBg(x, y)) end end
+    return table.concat(s)
   end
-  t.truthy(differ, "a 20-degree (0.35 rad) bank must visibly tilt the attitude indicator")
+
+  page.apply({ heading = 0, pitch = 0, roll = 0 })
+  local level = snap()
+
+  -- 0.35 rad = ~20 degrees of right bank. The FCS reports pitch/roll in RADIANS; the ADI is
+  -- degree-based, so the page must convert -- else 0.35 is drawn as 0.35 deg -> visually flat ->
+  -- an identical canvas.
+  page.apply({ heading = 0, pitch = 0, roll = 0.35 })
+  t.truthy(snap() ~= level, "a 20-degree (0.35 rad) bank must visibly tilt the attitude indicator")
 end)
 
 t.test("buildState surfaces the PFD sensor + gps fields from runtime.state/runtime.nav", function()

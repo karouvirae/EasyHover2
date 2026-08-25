@@ -79,3 +79,24 @@ t.test("withDefaults preserves a saved latch config", function()
   -- untouched engine defaults still merge through:
   t.eq(merged.engine.pulseMs, 250)
 end)
+
+-- ===== monitorOrder: the CONFIG page's persistent, never-forget monitor list =====
+
+t.test("defaults carry an empty monitorOrder list", function()
+  local d = Config.defaults()
+  t.eq(type(d.monitorOrder), "table", "monitorOrder should be a table")
+  t.eq(#d.monitorOrder, 0, "monitorOrder starts empty")
+end)
+
+t.test("withDefaults preserves a saved monitorOrder (ordered, never-forget)", function()
+  local merged = Config.withDefaults({ monitorOrder = { "monitor_5", "monitor_1", "monitor_3" } })
+  t.eq(merged.monitorOrder[1], "monitor_5")
+  t.eq(merged.monitorOrder[2], "monitor_1")
+  t.eq(merged.monitorOrder[3], "monitor_3")
+end)
+
+t.test("withDefaults gives an absent monitorOrder the empty default", function()
+  local merged = Config.withDefaults({ engine = { mode = "latch" } })
+  t.eq(type(merged.monitorOrder), "table")
+  t.eq(#merged.monitorOrder, 0)
+end)

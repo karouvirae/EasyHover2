@@ -29,17 +29,19 @@ t.test("apply num: BKSP", function()
   t.eq(K.apply("-", "BKSP", "num"), "")
 end)
 
-t.test("keys name includes A-Z, 0-9, BKSP; keys num is digits/minus/BKSP", function()
+t.test("keys name = A-Z + 0-9 + specials, NO BKSP in grid; keys num = digits/minus/BKSP", function()
   local name = K.keys("name")
   local set = {}
   for _, k in ipairs(name) do set[k] = true end
-  t.truthy(set.A and set.Z and set["0"] and set["9"] and set.BKSP, "name keypad has letters+digits+BKSP")
+  t.truthy(set.A and set.Z and set["0"] and set["9"], "name keypad has letters + digits")
+  t.truthy(set["-"] and set["!"] and set["?"], "name keypad has specials")
+  t.eq(set.BKSP, nil, "BKSP is a separate right-column button on NAME, not a grid key")
   t.eq(set.OK, nil, "OK is chrome, not a buffer key")
 
   local num = K.keys("num")
   local nset = {}
   for _, k in ipairs(num) do nset[k] = true end
-  t.truthy(nset["0"] and nset["9"] and nset["-"] and nset.BKSP)
+  t.truthy(nset["0"] and nset["9"] and nset["-"] and nset.BKSP, "num grid has digits, minus, and BKSP")
   t.eq(nset.A, nil, "num keypad has no letters")
 end)
 
@@ -68,17 +70,16 @@ t.test("show() + tap keys + OK fires onOk with the buffer", function()
   t.eq(ctrl.visible(), false)
 end)
 
-t.test("value readout is a paintable Button bar and shows the buffer", function()
+t.test("value readout shows the buffer next to the field label (no-fill Label + native cursor)", function()
   local basalt = BasaltApp.ensureBasalt()
   local frame = basalt.createFrame()
   local ctrl = K.make(frame)
   ctrl.show({ title = "NAME", mode = "name", value = "Home" })
   t.eq(ctrl.elements.value:getText(), "Home")
-  -- The value is a Button (paints its own background), not a transparent Label -- so the buffer is
-  -- always visible. Its colours now come from the theme (button-colour bar + font-colour text)
-  -- rather than a hardcoded white/black, so we assert the ELEMENT TYPE, not specific colours.
-  t.eq(ctrl.elements.value.get("type"), "Button", "value is a Button bar, not a transparent Label")
-  t.eq(ctrl.elements.title:getText(), "NAME")
+  -- Redesign: no fills. The value is a font-coloured Label on the black overlay with a native blinking
+  -- cursor after the last char (set via overlay:setCursor), NOT a background-painted Button bar.
+  t.eq(ctrl.elements.value.get("type"), "Label", "value is a no-fill Label")
+  t.eq(ctrl.elements.label:getText(), "NAME", "field label (left) shows the prompt")
 end)
 
 t.test("cancel hides without onOk; reuse keeps one overlay", function()

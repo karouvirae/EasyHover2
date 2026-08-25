@@ -426,7 +426,7 @@ t.test("M.build: drilling the first step shows its title/prompt + CAPTURE/OK/X/s
   t.truthy(els.titleLabel ~= nil, "titleLabel present")
   local titleText = els.titleLabel:getText()
   t.truthy(titleText:find("1/6", 1, true), "title shows step progress, got: " .. tostring(titleText))
-  t.truthy(titleText:find("ATTITUDE", 1, true), "title shows the first step's label, got: " .. tostring(titleText))
+  t.truthy(titleText:find(M.steps()[1].label, 1, true), "title shows the first step's label, got: " .. tostring(titleText))
 
   t.truthy(els.promptLabel ~= nil, "promptLabel present")
   t.eq(els.promptLabel:getText(), M.steps()[1].prompts[1], "prompt shows the current phase's prompt")

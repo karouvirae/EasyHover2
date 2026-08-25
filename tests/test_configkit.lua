@@ -141,14 +141,18 @@ t.test("actionRow buttons are uniform (widest label +pad), gapped, and centred i
     { label = "C", onClick = function() end },
   })
   local b = row.buttons
-  -- uniform compact width = widest label (1) + 2 padding, all buttons the same width
-  t.eq(b[1].button:getWidth(), 3, "button sized to widest label + pad")
-  t.eq(b[2].button:getWidth(), b[1].button:getWidth(), "all buttons uniform width")
-  -- 1-col gap between buttons so they don't merge
-  t.eq(b[2].button:getX(), b[1].button:getX() + b[1].button:getWidth() + 1, "1-col gap after button 1")
-  t.eq(b[3].button:getX(), b[2].button:getX() + b[2].button:getWidth() + 1, "1-col gap after button 2")
-  -- centred in w=15: total = 3*3 + 2*1 = 11, startX = 1 + floor((15-11)/2) = 3
-  t.eq(b[1].button:getX(), 3, "row centred in the available width")
+  -- Bracket model: each button is a bracketSwitch -- a label field (sized to the widest label) wrapped
+  -- in [ ] Labels, so footprint = field + 2 brackets. The inner label button is the field width.
+  local fw1 = b[1].button:getWidth()
+  t.eq(fw1, 1, "label field = widest label (1) when it fits")
+  t.eq(b[2].button:getWidth(), fw1, "all buttons uniform field width")
+  t.eq(b[3].button:getWidth(), fw1, "all buttons uniform field width")
+  -- footprint per bracket-button = 2 brackets + field; 1-col gap between them
+  local step = (2 + fw1) + 1
+  t.eq(b[2].button:getX(), b[1].button:getX() + step, "1-col gap after button 1 (brackets counted)")
+  t.eq(b[3].button:getX(), b[2].button:getX() + step, "1-col gap after button 2")
+  -- centred in w=15: total = 3*(2+1) + 2*1 = 11; b1's [ sits at x=3, so its label lands at x=4
+  t.eq(b[1].button:getX(), 4, "row centred (b1 bracket at x=3, label at x=4)")
 end)
 
 t.test("actionRow + helpScreen construction probe: builds, one render pass does not error", function()

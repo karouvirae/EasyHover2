@@ -38,9 +38,9 @@ t.test("the row whose key matches selectedKey is flagged selected", function()
   t.eq(v.rows[3].selected, false)
 end)
 
-t.test("default row text is name + type", function()
+t.test("default row text is name + TYPE (type upper-cased to set it apart from the name)", function()
   local v = WL.view({ { name = "Home", type = "base" } }, 0, 1)
-  t.truthy(v.rows[1].text:find("Home", 1, true) and v.rows[1].text:find("base", 1, true))
+  t.truthy(v.rows[1].text:find("Home", 1, true) and v.rows[1].text:find("BASE", 1, true))
 end)
 
 t.test("empty list -> all rows blank, maxOffset 0, no crash", function()

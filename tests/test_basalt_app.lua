@@ -382,3 +382,70 @@ t.test("makeEngineWriter: latch mode drives block/feed sides with a 2-arg writer
   t.eq(relay.calls[1].side, "back"); t.eq(relay.calls[1].val, true)
   t.eq(relay.calls[2].side, "left"); t.eq(relay.calls[2].val, true)
 end)
+
+-- ===== M.reconcileMonitors: live monitor re-resolve (CONFIG REFRESH, no PC reboot) =====
+-- Reconciles the live per-monitor frames/frameRecs to the CURRENT config.assign + present set,
+-- so an operator can plug in / reassign / forget a monitor at the CONFIG page and press REFRESH
+-- to see it take effect without rebooting the PC. REAL basalt + mock monitors, one render pass,
+-- NEVER basalt.run().
+
+local function setupReconcile(assign, present)
+  local basalt = M.ensureBasalt()
+  local mocks = {}
+  for _, n in ipairs(present) do mocks[n] = newMockMonitor() end
+  local wrap = function(name) return mocks[name] end
+  local built = M.buildFrames(basalt, assign, present, wrap)
+  local frameRecs = { terminal = M.newFrameRec(built.terminal, "config") }
+  for name in pairs(built.monitors) do
+    frameRecs[name] = M.newFrameRec(built.monitors[name].frame, M.rootForMonitor(assign, name))
+  end
+  local runtime = { config = { assign = assign } }
+  return basalt, runtime, built, frameRecs, mocks
+end
+
+t.test("reconcileMonitors adds a frame + frameRec for a newly-present assigned monitor", function()
+  local basalt, runtime, built, frameRecs, mocks = setupReconcile({ mA = "fcs" }, { "mA" })
+  runtime.config.assign.mB = "nav"                       -- operator plugged in mB and assigned it
+  mocks.mB = newMockMonitor()
+  M.reconcileMonitors(basalt, runtime, built, frameRecs, { "mA", "mB" }, function(n) return mocks[n] end)
+  t.truthy(built.monitors.mB ~= nil, "mB frame entry created")
+  t.truthy(frameRecs.mB ~= nil, "mB frameRec created")
+  t.eq(frameRecs.mB.nav:top(), "nav", "mB frameRec rooted at its assigned page")
+end)
+
+t.test("reconcileMonitors re-roots an existing monitor when its assignment changes (frame reused)", function()
+  local basalt, runtime, built, frameRecs = setupReconcile({ mA = "fcs" }, { "mA" })
+  local frameBefore = built.monitors.mA.frame
+  t.eq(frameRecs.mA.nav:top(), "fcs")
+  runtime.config.assign.mA = "nav"                       -- SET UI changed it
+  M.reconcileMonitors(basalt, runtime, built, frameRecs, { "mA" })
+  t.eq(frameRecs.mA.nav:top(), "nav", "mA re-rooted to the new page")
+  t.eq(built.monitors.mA.frame, frameBefore, "physical frame REUSED, not rebuilt")
+  t.eq(built.monitors.mA.panelId, "nav", "panelId updated")
+end)
+
+t.test("reconcileMonitors ignores present-but-unassigned monitors", function()
+  local basalt, runtime, built, frameRecs, mocks = setupReconcile({ mA = "fcs" }, { "mA" })
+  mocks.mC = newMockMonitor()
+  M.reconcileMonitors(basalt, runtime, built, frameRecs, { "mA", "mC" }, function(n) return mocks[n] end)
+  t.truthy(built.monitors.mC == nil, "unassigned present monitor gets no frame")
+  t.truthy(frameRecs.mC == nil, "unassigned present monitor gets no frameRec")
+end)
+
+t.test("reconcileMonitors drops a monitor gone from present+assign", function()
+  local basalt, runtime, built, frameRecs = setupReconcile({ mA = "fcs", mB = "nav" }, { "mA", "mB" })
+  t.truthy(built.monitors.mB ~= nil)
+  runtime.config.assign.mB = nil                         -- DEL forgot it
+  M.reconcileMonitors(basalt, runtime, built, frameRecs, { "mA" })
+  t.truthy(built.monitors.mB == nil, "dropped from built.monitors")
+  t.truthy(frameRecs.mB == nil, "dropped from frameRecs")
+  t.truthy(frameRecs.terminal ~= nil, "terminal frameRec untouched")
+end)
+
+t.test("a render pass after reconcileMonitors does not error", function()
+  local basalt, runtime, built, frameRecs, mocks = setupReconcile({ mA = "fcs" }, { "mA" })
+  runtime.config.assign.mB = "nav"; mocks.mB = newMockMonitor()
+  M.reconcileMonitors(basalt, runtime, built, frameRecs, { "mA", "mB" }, function(n) return mocks[n] end)
+  local ok, err = pcall(function() basalt.update("timer", -1) end)
+  t.truthy(ok, "render pass clean: " .. tostring(err))
+end)

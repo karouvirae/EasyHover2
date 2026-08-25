@@ -718,7 +718,7 @@ function M.build(basalt, frame, runtime, nav, deps)
     local fw, fh = f:getSize()
     local fx = 2
     local fiw = math.max(1, fw - 2)
-    local y = 1
+    local y = 2   -- gap at row 1 (detach from title)
     -- Compact: label + capped dropdown, centred as a block (not spanning the row).
     local dropW = math.max(8, math.min(14, math.floor(fiw * 0.45)))
     local labelW = 10

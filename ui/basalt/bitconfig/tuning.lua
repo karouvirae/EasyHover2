@@ -694,7 +694,7 @@ function M.build(basalt, frame, runtime, nav, read, write, delete)
       items[#items + 1] = { id = mode, label = mode, onClick = function() region:push("cat_" .. mode) end }
     end
     items[#items + 1] = { id = "COM", label = "COM", onClick = function() region:push("com") end }
-    configkit.titleRow(f, fw, M.title)                             -- ||FCS TUNING||
+    local titleLabel = configkit.titleRow(f, fw, M.title)          -- ||FCS TUNING|| (self-titled, per screen)
     local menu = configkit.menuColumn(f, { y = 3, items = items }) -- gap at row 2 (detach from title)
     local modeBtns = {}
     for _, mode in ipairs(M.MODES) do modeBtns[mode] = menu.buttons[mode] end
@@ -708,7 +708,7 @@ function M.build(basalt, frame, runtime, nav, read, write, delete)
 
     return {
       apply = function(_state) end,
-      elements = { modeBtns = modeBtns, comBtn = comBtn, footerRow = footerRow, lastRowY = y },
+      elements = { titleLabel = titleLabel, modeBtns = modeBtns, comBtn = comBtn, footerRow = footerRow, lastRowY = y },
     }
   end
 

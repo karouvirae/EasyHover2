@@ -71,7 +71,8 @@ function M.build(basalt, frame, runtime, nav)
 
   local w = ({ frame:getSize() })[1]
   configkit.titleRow(frame, w, M.title)                 -- ||BIT/CONFIG|| on the top row
-  local menu = configkit.menuColumn(frame, { y = 2, items = items })
+  -- Two buttons per row (gap at row 2) so the 8 items aren't squeezed between title + back.
+  local menu = configkit.menuColumn(frame, { y = 3, cols = 2, items = items })
 
   -- Expose the raw Basalt buttons under the item id (backBtn for the back row), matching the old
   -- element shape the tests + callers use.

@@ -264,6 +264,49 @@ function M.newFrameRec(frame, root)
   return { frame = frame, nav = Nav.new(root), built = {}, lastTop = nil }
 end
 
+-- M.reconcileMonitors(basalt, runtime, built, frameRecs, present, wrap)
+-- Live-reconciles the per-monitor frames/frameRecs to the CURRENT runtime.config.assign + `present`
+-- set, WITHOUT a PC reboot (the CONFIG page's REFRESH, and SET UI's live apply). Mutates `built.monitors`
+-- and `frameRecs` in place; the terminal frameRec is never touched. Three cases:
+--   * newly assigned+present  -> build its frame (mirrors M.buildFrames) + a frameRec at its page.
+--   * assignment changed       -> RE-ROOT the existing frameRec in place (frame + built cache kept, so
+--                                 M.showScreen's visibility sweep hides the old page's child -- no ghost).
+--   * no longer assigned+present -> hide + forget its frame and frameRec (stop rendering to it).
+-- `wrap` defaults to peripheral.wrap; injected in tests. Returns the Monitors.resolve result.
+function M.reconcileMonitors(basalt, runtime, built, frameRecs, present, wrap)
+  wrap = wrap or peripheral.wrap
+  local assign = runtime.config.assign
+  local resolved = Monitors.resolve(assign, present)
+
+  for name, panelId in pairs(resolved.assigned) do
+    local existing = built.monitors[name]
+    if not existing then
+      local mon = wrap(name)
+      if mon and mon.setTextScale then pcall(mon.setTextScale, 0.5) end
+      local frame = basalt.createFrame()
+      frame:setTerm(mon)
+      built.monitors[name] = { frame = frame, panelId = panelId, term = mon }
+      frameRecs[name] = M.newFrameRec(frame, M.rootForMonitor(assign, name))
+    elseif existing.panelId ~= panelId then
+      -- Assignment changed: keep the SAME frame + frameRec (so its built-screen cache is intact and
+      -- M.showScreen still owns visibility of every child it made), just re-root its nav stack.
+      existing.panelId = panelId
+      local fr = frameRecs[name]
+      if fr then fr.nav = Nav.new(M.rootForMonitor(assign, name)); fr.lastTop = nil end
+    end
+  end
+
+  for name, rec in pairs(built.monitors) do
+    if not resolved.assigned[name] then
+      if rec.frame and rec.frame.setVisible then pcall(rec.frame.setVisible, rec.frame, false) end
+      built.monitors[name] = nil
+      frameRecs[name] = nil
+    end
+  end
+
+  return resolved
+end
+
 -- M.showScreen(basalt, runtime, frameRec, screenId) -> { childFrame, handle } | nil
 -- Lazily builds screenId's child Frame (basalt-full.lua's Container:addFrame, auto-generated per
 -- emc.lua's header notes -- sized to fill frameRec.frame exactly, verified against
@@ -830,6 +873,15 @@ function M.run(deps)
   for name, rec in pairs(built.monitors) do
     frameRecs[name] = M.newFrameRec(rec.frame, M.rootForMonitor(runtime.config.assign, name))
   end
+
+  -- CONFIG page hooks (guarded no-ops until here). REFRESH / SET UI re-resolve the live monitor
+  -- frames to the current assign+present set with no PC reboot (M.reconcileMonitors); BIT/CONFIG
+  -- opens the hub on the terminal frame, mirroring the NAV page's push("bitconfig").
+  runtime.refreshMonitors = function()
+    M.reconcileMonitors(basalt, runtime, built, frameRecs,
+      M.discoverMonitors(deps.getNames, deps.getType), deps.wrap)
+  end
+  runtime.openBitConfig = function() frameRecs.terminal.nav:push("bitconfig") end
 
   -- Uniform colour scheme (ui/theme): a custom Basalt theme paints black on every element/nesting
   -- depth with the configured font colour, and the palette overrides (lightRed + any colourblind

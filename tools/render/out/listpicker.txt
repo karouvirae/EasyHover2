@@ -1,12 +1,12 @@
 36 10
 PAL c=ff6a6a
-dddddddddddddddddddddddddddddddddddd	ffffffffffffffffffffffffffffffffffff	66 73 78 68 32 80 85 77 80 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32
-dddddddddddddddddddddddddddddddddddd	ffffffffffffffffffffffffffffffffffff	40 110 111 110 101 41 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32
-dddddddddddddddddddddddddddddddddddd	ffffffffffffffffffffffffffffffffffff	105 116 101 109 95 118 97 117 108 116 95 55 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32
-dddddddddddddddddddddddddddddddddddd	ffffffffffffffffffffffffffffffffffff	112 117 109 112 95 48 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32
-dddddddddddddddddddddddddddddddddddd	ffffffffffffffffffffffffffffffffffff	116 97 110 107 95 48 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32
+dddddddddddddddddddddddddddddddddddd	ffffffffffffffffffffffffffffffffffff	32 32 32 32 32 32 32 32 32 32 32 124 124 66 73 78 68 32 80 85 77 80 124 124 32 32 32 32 32 32 32 32 32 32 32 32
+dddddddddddddddddddddddddddddddddddd	fffffffffff77777777777777fffffffffff	32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 40 110 111 110 101 41 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32
+dddddddddddddddddddddddddddddddddddd	fffffffffff77777777777777fffffffffff	32 32 32 32 32 32 32 32 32 32 32 32 105 116 101 109 95 118 97 117 108 116 95 55 32 32 32 32 32 32 32 32 32 32 32 32
+dddddddddddddddddddddddddddddddddddd	fffffffffff77777777777777fffffffffff	32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 112 117 109 112 95 48 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32
+dddddddddddddddddddddddddddddddddddd	fffffffffff77777777777777fffffffffff	32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 116 97 110 107 95 48 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32
 dddddddddddddddddddddddddddddddddddd	ffffffffffffffffffffffffffffffffffff	32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32
 dddddddddddddddddddddddddddddddddddd	ffffffffffffffffffffffffffffffffffff	32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32
 dddddddddddddddddddddddddddddddddddd	ffffffffffffffffffffffffffffffffffff	32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32
 dddddddddddddddddddddddddddddddddddd	ffffffffffffffffffffffffffffffffffff	32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32 32
-dddddddddddddddddddddddddddddddddddd	ffffffff7777ff777777ff777777ffffffff	32 32 32 32 32 32 32 32 32 85 80 32 32 32 32 68 79 87 78 32 32 32 32 66 65 67 75 32 32 32 32 32 32 32 32 32
+ddddddddd1dddd1d1dddd1dbdbdddddddddd	ffffffffffffffffffffffffffffffffffff	32 32 32 32 32 32 32 32 32 91 32 85 80 32 93 32 91 68 79 87 78 93 32 91 27 93 32 32 32 32 32 32 32 32 32 32
