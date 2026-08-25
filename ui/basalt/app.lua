@@ -717,7 +717,7 @@ function M.startScheduled(basalt, runtime, frames, applyState, extraDirty)
     end
   end)
 
-  -- (c) fuel poll, 0.5s.
+  -- (c) fuel poll, 3s.
   basalt.schedule(function()
     while true do
       -- Capture the raw amount too (2nd return): the merged flight page divides by a MANUALLY set
@@ -726,7 +726,7 @@ function M.startScheduled(basalt, runtime, frames, applyState, extraDirty)
         Fuel.read(runtime.fuelReaders.pump, runtime.config.fuel.pump.kind, runtime.config.fuel.pump)
       runtime.state.tankFrac, runtime.state.tankMb =
         Fuel.read(runtime.fuelReaders.tank, runtime.config.fuel.tank.kind, runtime.config.fuel.tank)
-      sleep(0.5)
+      sleep(3.0)
     end
   end)
 
