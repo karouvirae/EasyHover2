@@ -507,3 +507,35 @@ t.test("a render pass after reconcileMonitors does not error", function()
   local ok, err = pcall(function() basalt.update("timer", -1) end)
   t.truthy(ok, "render pass clean: " .. tostring(err))
 end)
+
+-- ===== FCS-missing blink cue: buildState surfaces fcsStale + blinkPhase (ui/basalt/fcslink) =====
+
+t.test("buildState flags fcsStale when the FCS has never signalled since boot (past boot grace)", function()
+  local runtime = {
+    rx = { latest = function() return {} end }, engine = { status = function() return {} end },
+    hbRx = { up = function() return false end, lastSeen = nil },   -- no heartbeat ever
+    state = { pumpFrac = 0, tankFrac = 0 }, nav = {}, uiRev = 1, bootAt = 0,
+  }
+  local s = M.buildState(runtime, 5000)   -- 5000ms since boot > 1500 boot grace
+  t.eq(s.fcsStale, true, "never-seen + past boot grace -> stale")
+  t.eq(s.blinkPhase, math.floor(5000 / 500) % 2, "phase derived from now")
+end)
+
+t.test("buildState: NOT fcsStale while the heartbeat is fresh (lastSeen in seconds)", function()
+  local runtime = {
+    rx = { latest = function() return {} end }, engine = { status = function() return {} end },
+    hbRx = { up = function() return true end, lastSeen = 9.8 },    -- last beat at 9800ms
+    state = { pumpFrac = 0, tankFrac = 0 }, nav = {}, uiRev = 1, bootAt = 0,
+  }
+  t.eq(M.buildState(runtime, 10000).fcsStale, false, "200ms since last beat -> fresh")
+end)
+
+t.test("buildState: a live link that drops is NOT stale until past the drop grace", function()
+  local runtime = {
+    rx = { latest = function() return {} end }, engine = { status = function() return {} end },
+    hbRx = { up = function() return false end, lastSeen = 10.0 },  -- last beat at 10000ms
+    state = { pumpFrac = 0, tankFrac = 0 }, nav = {}, uiRev = 1, bootAt = 0,
+  }
+  t.eq(M.buildState(runtime, 13000).fcsStale, false, "3000ms since last beat < 4000 drop grace")
+  t.eq(M.buildState(runtime, 14500).fcsStale, true, "4500ms since last beat > 4000 drop grace")
+end)

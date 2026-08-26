@@ -33,8 +33,14 @@ local function chipButton(frame, x, y, w, text)
   function ctrl.setChip(color) chip:setBackground(color); return ctrl end
   function ctrl.setText(t) label:setText(t); return ctrl end
   function ctrl.onClick(fn) chip:onClick(fn); label:onClick(fn); return ctrl end
+  -- Outline the whole 2-row chip button (missing-FCS blink cue). Pass the button background colour to
+  -- hide it again (chips carry no outline normally).
+  function ctrl.setBorder(color) chip:addBorder(color); label:addBorder(color); return ctrl end
   return ctrl
 end
+
+-- Missing-FCS cue colour for a FLIGHT feedback button's OUTLINE: blinks gray (inert) <-> red (off feedback).
+local function blinkOutline(phase) return (phase == 1) and colors.red or colors.gray end
 
 local M = {}
 
@@ -135,12 +141,18 @@ function M.main(basalt, frame, region, runtime)
 
   local function apply(state)
     state = state or {}
-    -- FCS / GND outlines: green engaged/on, red disengaged/off.
-    fcsBtn:addBorder(state.engaged and colors.green or colors.red)
-    gndBtn:addBorder(state.gndSafety and colors.green or colors.red)
-    -- Mode chips: green for the one active mode, red for the rest (radio across all real modes).
+    -- Missing-FCS cue: when the UI isn't getting FCS signals, the feedback buttons can't be trusted, so
+    -- their OUTLINE blinks gray<->red (ui/basalt/fcslink drives state.fcsStale/blinkPhase). Only the
+    -- outline changes; the inner chip/label keep their last-known value.
+    local blink = state.fcsStale and blinkOutline(state.blinkPhase) or nil
+    -- FCS / GND outlines: normally green engaged/on, red disengaged/off; blink when stale.
+    fcsBtn:addBorder(blink or (state.engaged and colors.green or colors.red))
+    gndBtn:addBorder(blink or (state.gndSafety and colors.green or colors.red))
+    -- Mode chips: green for the one active mode, red for the rest (radio across all real modes). Add a
+    -- blinking outline when stale; hide it (button-bg colour) otherwise.
     for _, id in ipairs(FcsPanel.MODES) do
       modeCtrls[id].setChip(FcsPanel.modeActive(state, id) and colors.green or colors.red)
+      modeCtrls[id].setBorder(blink or Theme.role("button"))
     end
     -- TRIM: orange chip always; label cycles / reads the live direction (or "TRIM --" when inactive).
     trimCtrl.setText(FcsPanel.trimActive(state) and FcsPanel.trimLabel(state) or "TRIM --")

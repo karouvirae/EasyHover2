@@ -29,6 +29,10 @@ function M.sig(state)
     qn(state.target and state.target.distanceH, 1), qn(state.target and state.target.altDelta, 1),
     tostring(state.target and state.target.name or "-"),
     tostring(state.target and state.target.color or "-"),
+    -- Missing-FCS blink cue: repaint when it turns on/off, AND (only while stale) on every phase flip so
+    -- the button outlines blink. When NOT stale the phase term is a constant "-", so a healthy link adds
+    -- zero repaints (the blink is free until the FCS actually goes missing).
+    tostring(state.fcsStale), (state.fcsStale and tostring(state.blinkPhase) or "-"),
     tostring(state.uiRev),
   }, "|")
 end

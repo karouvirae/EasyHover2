@@ -44,6 +44,7 @@ local RelayWriter = require("ui.relaywriter")
 local Fuel      = require("ui.fuel")
 local CfgServer = require("ui.cfgserver")
 local cadence   = require("ui.basalt.cadence")
+local fcslink   = require("ui.basalt.fcslink")
 local Nav       = require("ui.basalt.nav")
 local UILog     = require("ui.basalt.uilog")
 local WptClient = require("ui.basalt.wptclient")
@@ -484,6 +485,8 @@ function M.buildRuntime(deps)
     rx = rx,
     sender = sender,
     hbRx = hbRx,
+    bootAt = os.epoch("utc"),   -- UI boot time (ms) -- fcslink's "quick startup recognition" reference
+
     engine = engine,
     fuelReaders = fuelReaders,
     cfgserver = cfgserver,
@@ -582,6 +585,13 @@ function M.buildState(runtime, now)
   -- their last value, but heading must go "---" on a stale/dead link (spec decision #2), so it's
   -- additionally gated on this heartbeat signal, below.
   local linkUp = runtime.hbRx:up(now / 1000)
+  -- Missing-FCS blink cue for the FLIGHT feedback buttons: quick recognition when the FCS was never
+  -- seen since UI boot, a grace window when a live link drops (ui/basalt/fcslink). hbRx.lastSeen is
+  -- SECONDS; convert to ms. Phase folds into cadence.sig only while stale -> free when the link is up.
+  local fcsStale, blinkPhase = fcslink.evaluate(now, {
+    bootAt = runtime.bootAt,
+    lastSeenMs = (runtime.hbRx and runtime.hbRx.lastSeen) and (runtime.hbRx.lastSeen * 1000) or nil,
+  })
   -- PFD steering cue: an ACTIVE ROUTE's current leg (blue, auto-advancing) takes precedence, else a
   -- single selected waypoint (green). Needs the craft's horizontal position; heading from the SAME
   -- FCS snapshot the PFD's own displayed heading uses (gated on `linkUp`, spec decision #2 -- a
@@ -644,6 +654,8 @@ function M.buildState(runtime, now)
     tas          = runtime.nav and runtime.nav.tas or nil,
     gpsFixOk     = runtime.nav and runtime.nav.fixOk or nil,
     target       = target,   -- PFD waypoint steering cue (NAV menu selection); nil when none
+    fcsStale     = fcsStale,    -- FLIGHT feedback buttons blink the missing-FCS cue when true
+    blinkPhase   = blinkPhase,  -- 0/1 outline blink phase (only meaningful while fcsStale)
     uiRev        = runtime.uiRev,
   }
 end

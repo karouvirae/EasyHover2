@@ -143,3 +143,21 @@ t.test("trim toggle: no-optimistic-UI, gated by FcsPanel.trimActive, labelled TR
   r:apply({ flightMode = "PRECISION" })
   t.eq(trimCtrl.label:getText(), "TRIM --", "uncoupled mode -> disabled TRIM --")
 end)
+
+t.test("fcs_main: apply with fcsStale (missing-FCS blink cue) renders without error, both phases", function()
+  local basalt = BasaltApp.ensureBasalt()
+  local parent = basalt.createFrame()
+  local rt = stubRuntime({ engaged = true, gndSafety = false, mode = "PRECISION" })
+  local r = Region.new(basalt, parent, {
+    x = 1, y = 1, width = 36, height = 21, root = "fcs_main",
+    screens = { fcs_main = function(b, f, rg) return FcsRegion.main(b, f, rg, rt) end,
+                fcs_params = function(b, f, rg) return FcsRegion.params(b, f, rg, rt) end },
+  })
+  -- stale, red phase; stale, gray phase; then healthy again -- each must apply + render clean.
+  for _, st in ipairs({ { fcsStale = true, blinkPhase = 1, engaged = true, flightMode = "PRECISION" },
+                        { fcsStale = true, blinkPhase = 0, engaged = true, flightMode = "PRECISION" },
+                        { fcsStale = false, engaged = true, flightMode = "PRECISION" } }) do
+    local ok, err = pcall(function() r:apply(st); basalt.update("timer", -1) end)
+    t.truthy(ok, "apply/render clean for fcsStale=" .. tostring(st.fcsStale) .. " phase=" .. tostring(st.blinkPhase) .. ": " .. tostring(err))
+  end
+end)

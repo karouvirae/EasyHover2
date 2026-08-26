@@ -27,3 +27,15 @@ t.test("sig reflects the new PFD fields (pitch/roll/sas/gpsAlt/tas/gpsFixOk)", f
   local d = G.sig({ heading = 90, gpsFixOk = false })
   t.truthy(c ~= d, "gpsFixOk change moves the signature")
 end)
+
+t.test("sig: blinkPhase changes the signature ONLY when fcsStale (blink is free when the link is up)", function()
+  -- Link healthy: a phase flip must NOT change the signature -> zero wasted repaints.
+  t.eq(G.sig({ fcsStale = false, blinkPhase = 0 }),
+       G.sig({ fcsStale = false, blinkPhase = 1 }), "fresh link: phase is inert in the signature")
+  -- Link stale: a phase flip MUST change the signature -> drives the outline blink repaint.
+  t.truthy(G.sig({ fcsStale = true, blinkPhase = 0 }) ~= G.sig({ fcsStale = true, blinkPhase = 1 }),
+       "stale link: phase flip repaints")
+  -- Going stale at all is a change (the cue turns on).
+  t.truthy(G.sig({ fcsStale = false }) ~= G.sig({ fcsStale = true, blinkPhase = 0 }),
+       "stale toggling on is a change")
+end)
