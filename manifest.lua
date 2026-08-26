@@ -511,9 +511,9 @@
         },
         {
           ["dst"] = "nav/app.lua",
-          ["size"] = 5520,
+          ["size"] = 5487,
           ["src"] = "dist/nav/app.lua",
-          ["sum"] = "3de4b0d0",
+          ["sum"] = "d648fc67",
         },
         {
           ["dst"] = "nav/comms/gpsproto.lua",
@@ -571,9 +571,9 @@
         },
         {
           ["dst"] = "nav/ui/main.lua",
-          ["size"] = 2628,
+          ["size"] = 2354,
           ["src"] = "dist/nav/ui/main.lua",
-          ["sum"] = "e9066f99",
+          ["sum"] = "a4a9ccca",
         },
         {
           ["dst"] = "nav/waypoints.lua",
@@ -1385,5 +1385,5 @@
     ["size"] = 71434,
     ["sum"] = "57671ad7",
   },
-  ["version"] = "7b075767",
+  ["version"] = "49460e1a",
 }
