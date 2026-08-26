@@ -493,6 +493,18 @@ t.test("reconcileMonitors re-roots an existing monitor when its assignment chang
   t.eq(built.monitors.mA.panelId, "nav", "panelId updated")
 end)
 
+t.test("reconcileMonitors re-root REBASELINES the reused frame's gate window (lastSig/lastApplyAt cleared)", function()
+  -- The reused frameRec still carries the OLD page's gate baseline. Without clearing it, re-rooting
+  -- onto a same-sig-group rate page would leave the stale page showing until the next sig change.
+  local basalt, runtime, built, frameRecs = setupReconcile({ mA = "fcs" }, { "mA" })
+  frameRecs.mA.lastSig = "STALE-SIG"           -- pretend the old page had been applied
+  frameRecs.mA.lastApplyAt = 12345
+  runtime.config.assign.mA = "flight"           -- re-root to a SAME-sig-group page (fcs -> flight)
+  M.reconcileMonitors(basalt, runtime, built, frameRecs, { "mA" })
+  t.eq(frameRecs.mA.lastSig, nil, "lastSig cleared so the gate re-applies the re-rooted top next tick")
+  t.eq(frameRecs.mA.lastApplyAt, nil, "lastApplyAt cleared so the panel's poll window restarts")
+end)
+
 t.test("reconcileMonitors ignores present-but-unassigned monitors", function()
   local basalt, runtime, built, frameRecs, mocks = setupReconcile({ mA = "fcs" }, { "mA" })
   mocks.mC = newMockMonitor()

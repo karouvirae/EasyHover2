@@ -935,9 +935,9 @@
         },
         {
           ["dst"] = "ui/basalt/app.lua",
-          ["size"] = 53011,
+          ["size"] = 53566,
           ["src"] = "ui/basalt/app.lua",
-          ["sum"] = "c2cec5cb",
+          ["sum"] = "102a4752",
         },
         {
           ["dst"] = "ui/basalt/bitconfig/dtc.lua",
@@ -1385,5 +1385,5 @@
     ["size"] = 71434,
     ["sum"] = "57671ad7",
   },
-  ["version"] = "7a966a30",
+  ["version"] = "cede3adb",
 }

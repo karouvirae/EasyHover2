@@ -305,6 +305,13 @@ function M.reconcileMonitors(basalt, runtime, built, frameRecs, present, wrap)
         fr.nav = Nav.new(M.rootForMonitor(assign, name))
         fr.nav.onChange = function() M.applyNow(basalt, runtime, fr) end
         fr.lastTop = nil
+        -- Rebaseline this frame's per-panel gate window: the reused frameRec still carries the OLD
+        -- page's lastSig/lastApplyAt. Without clearing them, re-rooting onto a SAME-sig-group rate
+        -- page (emc<->flight<->fcs) can leave the old page showing until the next flight-sig change,
+        -- because M.gateFrame would see the stale matching sig and skip the apply. Nil-ing them forces
+        -- the next gate tick to re-apply the re-rooted top (mirrors M.applyNow's rebaseline).
+        fr.lastSig = nil
+        fr.lastApplyAt = nil
       end
     end
   end
