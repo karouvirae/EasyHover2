@@ -33,9 +33,14 @@ local function chipButton(frame, x, y, w, text)
   function ctrl.setChip(color) chip:setBackground(color); return ctrl end
   function ctrl.setText(t) label:setText(t); return ctrl end
   function ctrl.onClick(fn) chip:onClick(fn); label:onClick(fn); return ctrl end
-  -- Outline the whole 2-row chip button (missing-FCS blink cue). Pass the button background colour to
-  -- hide it again (chips carry no outline normally).
-  function ctrl.setBorder(color) chip:addBorder(color); label:addBorder(color); return ctrl end
+  -- Outline the whole 2-row chip button (missing-FCS blink cue). A nil colour REMOVES the outline --
+  -- chips carry none normally, and the chip's bar bg is dynamic (setChip), so colour-matching to "hide"
+  -- would corrupt the bar. Actually remove it instead.
+  function ctrl.setBorder(color)
+    if color then chip:addBorder(color); label:addBorder(color)
+    else chip:removeBorder(); label:removeBorder() end
+    return ctrl
+  end
   return ctrl
 end
 
@@ -152,7 +157,7 @@ function M.main(basalt, frame, region, runtime)
     -- blinking outline when stale; hide it (button-bg colour) otherwise.
     for _, id in ipairs(FcsPanel.MODES) do
       modeCtrls[id].setChip(FcsPanel.modeActive(state, id) and colors.green or colors.red)
-      modeCtrls[id].setBorder(blink or Theme.role("button"))
+      modeCtrls[id].setBorder(blink)   -- nil (healthy) -> removeBorder; a colour (stale) -> blink outline
     end
     -- TRIM: orange chip always; label cycles / reads the live direction (or "TRIM --" when inactive).
     trimCtrl.setText(FcsPanel.trimActive(state) and FcsPanel.trimLabel(state) or "TRIM --")

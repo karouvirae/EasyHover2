@@ -144,7 +144,7 @@ t.test("trim toggle: no-optimistic-UI, gated by FcsPanel.trimActive, labelled TR
   t.eq(trimCtrl.label:getText(), "TRIM --", "uncoupled mode -> disabled TRIM --")
 end)
 
-t.test("fcs_main: apply with fcsStale (missing-FCS blink cue) renders without error, both phases", function()
+t.test("fcs_main: missing-FCS blink cue drives the OUTLINE only (mode-chip border toggles, chip untouched)", function()
   local basalt = BasaltApp.ensureBasalt()
   local parent = basalt.createFrame()
   local rt = stubRuntime({ engaged = true, gndSafety = false, mode = "PRECISION" })
@@ -153,11 +153,28 @@ t.test("fcs_main: apply with fcsStale (missing-FCS blink cue) renders without er
     screens = { fcs_main = function(b, f, rg) return FcsRegion.main(b, f, rg, rt) end,
                 fcs_params = function(b, f, rg) return FcsRegion.params(b, f, rg, rt) end },
   })
-  -- stale, red phase; stale, gray phase; then healthy again -- each must apply + render clean.
-  for _, st in ipairs({ { fcsStale = true, blinkPhase = 1, engaged = true, flightMode = "PRECISION" },
-                        { fcsStale = true, blinkPhase = 0, engaged = true, flightMode = "PRECISION" },
-                        { fcsStale = false, engaged = true, flightMode = "PRECISION" } }) do
-    local ok, err = pcall(function() r:apply(st); basalt.update("timer", -1) end)
-    t.truthy(ok, "apply/render clean for fcsStale=" .. tostring(st.fcsStale) .. " phase=" .. tostring(st.blinkPhase) .. ": " .. tostring(err))
-  end
+  -- Healthy: mode chips carry NO outline (regression guard for the always-on-border bug), FCS/GND show
+  -- their feedback-colour border, chip keeps its live green/red. (apply() lazily builds fcs_main first.)
+  r:apply({ fcsStale = false, engaged = true, gndSafety = false, flightMode = "PRECISION" })
+  local els = r.built.fcs_main.handle.elements
+  local cpl = els.modeCtrls.CPL
+  t.eq(cpl.chip.get("borderTop"), false, "healthy: mode chip has NO outline")
+  t.eq(els.fcsBtn.get("borderColor"), colors.green, "healthy: FCS border = engaged green")
+
+  -- Stale, red phase: all three groups' outline blinks to red; the mode chip's bar bg is unchanged.
+  r:apply({ fcsStale = true, blinkPhase = 1, engaged = true, gndSafety = false, flightMode = "PRECISION" })
+  t.eq(cpl.chip.get("borderTop"), true, "stale: mode chip outline present")
+  t.eq(cpl.chip.get("borderColor"), colors.red, "stale red phase: outline red")
+  t.eq(els.fcsBtn.get("borderColor"), colors.red, "stale red phase: FCS outline red (not engaged green)")
+
+  -- Stale, gray phase: outline blinks to the inert gray.
+  r:apply({ fcsStale = true, blinkPhase = 0, engaged = true, gndSafety = false, flightMode = "PRECISION" })
+  t.eq(cpl.chip.get("borderColor"), colors.gray, "stale gray phase: outline gray")
+
+  -- Recover: outline removed again on the mode chips.
+  r:apply({ fcsStale = false, engaged = true, gndSafety = false, flightMode = "PRECISION" })
+  t.eq(cpl.chip.get("borderTop"), false, "recovered: mode chip outline removed again")
+
+  local ok, err = pcall(function() basalt.update("timer", -1) end)
+  t.truthy(ok, "render clean: " .. tostring(err))
 end)

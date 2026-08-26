@@ -31,3 +31,12 @@ t.test("grace overrides are honored (injectable durations)", function()
   local s = { bootAt = 0, lastSeenMs = nil, bootGraceMs = 100 }
   t.eq((F.evaluate(150, s)), true, "custom 100ms boot grace -> stale at 150ms")
 end)
+
+t.test("dropGrace + blinkHalf overrides are honored", function()
+  -- custom drop grace: last beat at t=0, custom 100ms grace -> stale at 150ms
+  t.eq((F.evaluate(150, { bootAt = 0, lastSeenMs = 0, dropGraceMs = 100 })), true, "custom drop grace")
+  -- custom blink half period: phase flips every 200ms
+  local _, p0 = F.evaluate(0,   { lastSeenMs = nil, bootAt = 0, blinkHalfMs = 200 })
+  local _, p1 = F.evaluate(200, { lastSeenMs = nil, bootAt = 0, blinkHalfMs = 200 })
+  t.eq(p0, 0); t.eq(p1, 1)
+end)
