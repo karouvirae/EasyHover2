@@ -43,7 +43,7 @@ local Engine    = require("ui.engine")
 local RelayWriter = require("ui.relaywriter")
 local Fuel      = require("ui.fuel")
 local CfgServer = require("ui.cfgserver")
-local cadence   = require("ui.basalt.cadence")
+local renderpolicy = require("ui.basalt.renderpolicy")
 local fcslink   = require("ui.basalt.fcslink")
 local Nav       = require("ui.basalt.nav")
 local UILog     = require("ui.basalt.uilog")
@@ -662,8 +662,33 @@ end
 
 -- ===== Scheduled work (in-game only; basalt.schedule per easyhover2_suitex.lua's proven pattern) =====
 
--- M.startScheduled(basalt, runtime, frames, applyState)
--- Registers five basalt.schedule sleep-loop coroutines -- the SAME composition ui/main.lua ran
+-- M.gateFrame(rec, pol, state, now) -> shouldApply (bool)
+-- PURE per-frameRec render-gate decision (no Basalt/showScreen/apply calls -- those stay in the
+-- scheduled task (e) below, so this is directly unit-testable headless with a bare `{}` standing
+-- in for a frameRec). `pol` is a ui/basalt/renderpolicy.lua M.policyFor(...) result.
+--   * pol.mode ~= "rate" (i.e. "event"): ALWAYS returns false, and never touches `rec` -- an event
+--     screen (config/nav/dtc/bitconfig/...) is never gate-applied here (a later task adds instant/
+--     interaction-driven render for those).
+--   * pol.mode == "rate" but `now - (rec.lastApplyAt or -inf) < pol.ms`: the panel's own poll
+--     window hasn't elapsed yet -- returns false, no mutation (still waiting).
+--   * Once elapsed: computes `sig = pol.sig(state)` and stamps `rec.lastApplyAt = now` AND
+--     `rec.lastSig = sig` UNCONDITIONALLY (restarting this panel's own window either way), but
+--     returns true (shouldApply) ONLY when `sig ~= ` the PREVIOUS `rec.lastSig` -- so an
+--     elapsed-but-unchanged tick still resets the timer without re-painting, exactly mirroring
+--     ui/basalt/cadence.lua's dirty-gate, just scoped to one frameRec's own cadence + own sig
+--     instead of one global signature shared by every screen.
+function M.gateFrame(rec, pol, state, now)
+  if not pol or pol.mode ~= "rate" then return false end
+  if now - (rec.lastApplyAt or -math.huge) < pol.ms then return false end
+  local sig = pol.sig(state)
+  local shouldApply = sig ~= rec.lastSig
+  rec.lastSig = sig
+  rec.lastApplyAt = now
+  return shouldApply
+end
+
+-- M.startScheduled(basalt, runtime, frameRecs)
+-- Registers six basalt.schedule sleep-loop coroutines -- the SAME composition ui/main.lua ran
 -- under parallel.waitForAny, ported one-for-one onto Basalt's own coroutine scheduler (verified
 -- against release/basalt-full.lua: b_a.schedule creates a coroutine, resumes it once, and stores
 -- its yielded filter; b_a's internal event dispatcher (bca) then resumes any scheduled coroutine
@@ -673,18 +698,23 @@ end
 -- self-pumps the same way via "timer" events).
 --
 -- CRITICAL non-blocking discipline (same as ui/main.lua): peripheral polls and long ops live in
--- (a)-(d) below, NEVER in (e) the render-gate -- (e) only builds a quantized signature and calls
--- applyState() when it actually changed, so paint stays off the FCS's shared main-thread budget.
+-- (a)-(d) below, NEVER in (e) the render-gate.
 --
--- extraDirty (optional 5th param, added for Task 27's nav-aware M.run()): a zero-arg function,
--- checked every render-gate tick ALONGSIDE cadence.gate -- if it returns true, applyState() fires
--- even when cadence.gate itself reports no telemetry change. This is how a per-monitor nav-stack
--- push/pop (a screen switch with no telemetry change at all) still repaints within one ~0.2s gate
--- tick instead of waiting for the next incidental telemetry change. nil/omitted -- e.g. every
--- existing call site before this task -- behaves EXACTLY as before (cadence.gate is the sole
--- trigger), so this stays fully backward compatible.
-function M.startScheduled(basalt, runtime, frames, applyState, extraDirty)
-  applyState = applyState or function() end
+-- (e) is a PER-PANEL render gate (ui/basalt/renderpolicy.lua): every visible tick it loops over
+-- `frameRecs`, and for each one's CURRENT top screen (frameRec.nav:top()) looks up
+-- renderpolicy.policyFor(top, pfdMs) -- a PFD-rooted frame repaints on its own tunable ms + a
+-- PFD-only sig, a FLIGHT/EMC/FCS-rooted frame on FLIGHT_MS + its own sig, TUNING on PARAMS_MS + its
+-- own sig, and everything else ("event" mode: config/nav/dtc/bitconfig/...) is NEVER applied by
+-- this gate at all (a later task adds instant/interaction-driven render for those). M.gateFrame
+-- (above) makes the actual elapsed+dirty decision AND owns each frameRec's OWN lastApplyAt/lastSig
+-- -- per-FRAME state, not one shared global signature -- so a PFD-only telemetry change can no
+-- longer force-repaint a FLIGHT monitor next door, and vice-versa (TRUE per-panel isolation). The
+-- base poll interval is `math.min(pfdMs, renderpolicy.FLIGHT_MS)`, recomputed every tick so a live
+-- PFD-rate change (BIT/CONFIG -> PFD RATE) takes effect without a reboot -- but it's only ever the
+-- OUTER loop cadence; each frame's own window inside M.gateFrame is what actually governs when it
+-- paints.
+function M.startScheduled(basalt, runtime, frameRecs)
+  frameRecs = frameRecs or {}
 
   -- (a) modem_message router: telemetry -> rx, ack -> sender, health -> hbRx, cfgsync req -> reply.
   basalt.schedule(function()
@@ -752,27 +782,31 @@ function M.startScheduled(basalt, runtime, frames, applyState, extraDirty)
     end
   end)
 
-  -- (e) render gate, ~0.1s: build state, gate on the quantized signature, repaint only on change.
+  -- (e) render gate, PER-PANEL: see M.gateFrame + the header comment above M.startScheduled.
   basalt.schedule(function()
-    local lastSig = nil
     while true do
       local now = os.epoch("utc")
       local state = M.buildState(runtime, now)
-      local changed, sig = cadence.gate(lastSig, state)
-      local navDirty = extraDirty and extraDirty() or false
-      if changed or navDirty then
-        lastSig = sig
-        local t0 = os.epoch("utc")
-        applyState(state, frames)
-        if runtime.uilog.enabled then
-          runtime.uilog:event("RENDER", ("apply %dms%s"):format(os.epoch("utc") - t0, navDirty and " nav" or ""), t0)
+      local pfdMs = (runtime.config.pfd and runtime.config.pfd.renderMs) or 100
+      for _, rec in pairs(frameRecs) do
+        local top = rec.nav:top()
+        local pol = renderpolicy.policyFor(top, pfdMs)
+        if M.gateFrame(rec, pol, state, now) then
+          local t0 = os.epoch("utc")
+          local entry = M.showScreen(basalt, runtime, rec, top)
+          if entry and entry.handle and entry.handle.apply then
+            entry.handle.apply(state)
+          end
+          if runtime.uilog.enabled then
+            runtime.uilog:event("RENDER", ("apply %dms (%s)"):format(os.epoch("utc") - t0, tostring(top)), t0)
+          end
         end
       end
-      -- Tunable render cadence (BIT/CONFIG -> PFD RATE, ui.config pfd.renderMs). The dirty-gate is
-      -- kept, so unchanged frames still skip the expensive recompose+monitor-blit -- protecting the
-      -- server-global render budget the FCS shares. Faster = smoother, watch the FCS loopHz.
-      local ms = (runtime.config.pfd and runtime.config.pfd.renderMs) or 100
-      sleep(ms / 1000)
+      -- Base poll interval only -- each frame's OWN cadence is enforced inside M.gateFrame, not
+      -- here. Tunable live via BIT/CONFIG -> PFD RATE (ui.config pfd.renderMs); recomputed every
+      -- tick so a live change takes effect without a reboot. Protects the server-global render
+      -- budget the FCS shares -- faster = smoother, watch the FCS loopHz.
+      sleep(math.min(pfdMs, renderpolicy.FLIGHT_MS) / 1000)
     end
   end)
 
@@ -838,15 +872,15 @@ end
 --
 -- ensureBasalt -> buildRuntime(deps) -> discoverMonitors -> buildFrames, then one frameRec
 -- (M.newFrameRec) per top-level frame: the terminal roots at "config"; each monitor roots at its
--- assigned page id (M.rootForMonitor, default "emc" when unassigned/invalid). applyState (wired
--- into M.startScheduled) lazily shows/builds the current nav top per frame (M.showScreen) and
--- calls its handle.apply(state) -- FCS-SAFE: peripheral polls stay in M.startScheduled's (a)-(d),
--- never on this path. `navChanged` (passed as M.startScheduled's extraDirty) makes the render-gate
--- ALSO fire on a nav-stack change (an operator's BIT/CONFIG or BACK button press), not only on a
--- telemetry change, so pressing a nav button switches the visible screen within one ~0.2s gate
--- tick even while telemetry is holding perfectly still -- without reintroducing an unconditional
--- repaint storm. deps.* mirrors M.buildRuntime's injectable seams (modem/wrap/find/read) plus
--- deps.basaltOpts (-> M.ensureBasalt) and deps.getNames/deps.getType (-> M.discoverMonitors).
+-- assigned page id (M.rootForMonitor, default "emc" when unassigned/invalid). `frameRecs` is
+-- handed straight to M.startScheduled, whose (e) render-gate task per-panel decides (M.gateFrame,
+-- ui/basalt/renderpolicy.lua) when to M.showScreen + handle.apply(state) each frame's OWN current
+-- top screen, on its OWN cadence + OWN dirty-gate -- FCS-SAFE: peripheral polls stay in
+-- M.startScheduled's (a)-(d), never on this render path. A nav-stack change (BIT/CONFIG, BACK)
+-- landing on an "event"-mode screen is NOT gate-applied here (a later task adds instant/
+-- interaction-driven render for those). deps.* mirrors M.buildRuntime's injectable seams (modem/
+-- wrap/find/read) plus deps.basaltOpts (-> M.ensureBasalt) and deps.getNames/deps.getType
+-- (-> M.discoverMonitors).
 --
 -- cfgserver is deliberately NOT auto-started here -- the FCS SYNC sub-menu (ui/basalt/bitconfig/
 -- fcssync.lua) starts/stops it on demand.
@@ -884,24 +918,6 @@ function M.run(deps)
   end
   runtime.applyColors()
 
-  local function applyState(state, _frames)
-    for _, frameRec in pairs(frameRecs) do
-      local top = frameRec.nav:top()
-      local entry = M.showScreen(basalt, runtime, frameRec, top)
-      if entry and entry.handle and entry.handle.apply then
-        entry.handle.apply(state)
-      end
-      frameRec.lastTop = top
-    end
-  end
-
-  local function navChanged()
-    for _, frameRec in pairs(frameRecs) do
-      if frameRec.nav:top() ~= frameRec.lastTop then return true end
-    end
-    return false
-  end
-
   -- Logging status overlay on the PC terminal frame (only when logging is armed). High z so lazily-
   -- built page child frames never cover it. The P-upload task updates it: idle -> uploading ->
   -- uploaded+url. Bottom row; the operator watches the PC screen for the paste link.
@@ -915,7 +931,7 @@ function M.run(deps)
     runtime.uilog:event("SESSION", "UI logging armed", os.epoch("utc"))
   end
 
-  M.startScheduled(basalt, runtime, built, applyState, navChanged)
+  M.startScheduled(basalt, runtime, frameRecs)
   basalt.run()
 end
 

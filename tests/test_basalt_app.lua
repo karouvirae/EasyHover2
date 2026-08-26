@@ -12,6 +12,7 @@ local protocol  = require("fcs.comms.protocol")
 local telemetry = require("fcs.comms.telemetry")
 local S         = require("fcs.comms.cfgsync")
 local RelayWriter = require("ui.relaywriter")
+local renderpolicy = require("ui.basalt.renderpolicy")
 
 -- Minimal mock monitor/term: covers every term method release/basalt-full.lua's render path
 -- (render.lua: setCursorPos/blit/setTextColor/setCursorBlink; BaseFrame's "term" setter:
@@ -381,21 +382,30 @@ t.test("app loads + startScheduled registers scheduled work + one render pass, n
   local mocks = { mA = newMockMonitor() }
   local wrap = function(name) return mocks[name] end
   local built = M.buildFrames(basalt, { mA = "fcs" }, { "mA" }, wrap)
+  local frameRecs = {
+    terminal = M.newFrameRec(built.terminal, "config"),
+    mA = M.newFrameRec(built.monitors.mA.frame, "fcs"),
+  }
 
   local runtime = newRuntime()
-  local applied = 0
 
   local ok, err = pcall(function()
-    M.startScheduled(basalt, runtime, built, function() applied = applied + 1 end)
+    M.startScheduled(basalt, runtime, frameRecs)
     basalt.update("timer", -1)
   end)
   t.truthy(ok, "startScheduled + one render pass should not error: " .. tostring(err))
+  t.truthy(frameRecs.mA.lastApplyAt ~= nil,
+    "the fcs (rate) frame's per-panel gate actually ran and stamped its OWN lastApplyAt")
 end)
 
 t.test("logging-armed: status overlay (z=1000) + input logger run clean and record events (real basalt)", function()
   local basalt = M.ensureBasalt()
   local mocks = { mA = newMockMonitor() }
   local built = M.buildFrames(basalt, { mA = "fcs" }, { "mA" }, function(name) return mocks[name] end)
+  local frameRecs = {
+    terminal = M.newFrameRec(built.terminal, "config"),
+    mA = M.newFrameRec(built.monitors.mA.frame, "fcs"),
+  }
   local runtime = M.buildRuntime({ modem = newMockModem(), wrap = function() return {} end,
     read = function() return nil end, uilog = true })
 
@@ -407,7 +417,7 @@ t.test("logging-armed: status overlay (z=1000) + input logger run clean and reco
     runtime.setLogStatus = function(s) statusLabel:setText(tostring(s)) end
     runtime.setLogStatus("LOG .. uploading")               -- exercise the setter path
 
-    M.startScheduled(basalt, runtime, built, function() end)
+    M.startScheduled(basalt, runtime, frameRecs)
     basalt.update("timer", -1)                             -- render + resume the sleep loops once
     basalt.update("mouse_click", 1, 2, 3)                  -- raw-input logger should record this
   end)
@@ -415,6 +425,7 @@ t.test("logging-armed: status overlay (z=1000) + input logger run clean and reco
 
   local joined = table.concat(runtime.uilog:rows(), "\n")
   t.truthy(joined:find("INPUT", 1, true), "raw input was logged while armed:\n" .. joined)
+  t.truthy(joined:find("RENDER", 1, true), "a rate panel's apply was timing-probe logged while armed:\n" .. joined)
 end)
 
 -- ===== Task 4: M.makeEngineWriter -- select engine relay writer by mode =====
@@ -506,6 +517,69 @@ t.test("a render pass after reconcileMonitors does not error", function()
   M.reconcileMonitors(basalt, runtime, built, frameRecs, { "mA", "mB" }, function(n) return mocks[n] end)
   local ok, err = pcall(function() basalt.update("timer", -1) end)
   t.truthy(ok, "render pass clean: " .. tostring(err))
+end)
+
+-- ===== M.gateFrame: per-panel render-gate decision (Task 2, render-policy) =====
+-- PURE decision logic extracted from the scheduled render-gate task (e) -- see M.gateFrame's
+-- header comment in ui/basalt/app.lua. Tested directly against a bare `{}` frameRec, no Basalt/
+-- showScreen/apply involved at all.
+
+local function freshRec() return {} end
+
+t.test("gateFrame: flight-rooted frame applies only after FLIGHT_MS elapsed AND its sig changed", function()
+  local rec = freshRec()
+  local pol = renderpolicy.policyFor("flight", 100)
+  local state1 = { pumpAmount = 10 }
+  t.eq(M.gateFrame(rec, pol, state1, 0), true, "first-ever tick applies (no prior sig)")
+  t.eq(M.gateFrame(rec, pol, state1, 50), false, "50ms < FLIGHT_MS=250 -- gate holds, no re-apply")
+  t.eq(M.gateFrame(rec, pol, state1, 260), false, "elapsed (260ms since last stamp) but sig UNCHANGED -- no re-apply")
+  local state2 = { pumpAmount = 20 }
+  t.eq(M.gateFrame(rec, pol, state2, 520), true, "elapsed (260ms since last stamp) AND sig changed -- applies")
+end)
+
+t.test("gateFrame: pfd-rooted frame applies at its OWN caller-supplied pfdMs cadence (200ms)", function()
+  local rec = freshRec()
+  local pol = renderpolicy.policyFor("pfd", 200)
+  local state1 = { pitch = 1 }
+  t.eq(M.gateFrame(rec, pol, state1, 0), true, "first tick applies")
+  t.eq(M.gateFrame(rec, pol, state1, 150), false, "150ms < pfdMs=200 -- holds")
+  local state2 = { pitch = 2 }
+  t.eq(M.gateFrame(rec, pol, state2, 210), true, "210ms >= pfdMs=200 AND sig changed -- applies")
+end)
+
+t.test("gateFrame: tuning-rooted frame applies at PARAMS_MS (1000ms)", function()
+  local rec = freshRec()
+  local pol = renderpolicy.policyFor("tuning", 100)
+  local state1 = { tankFrac = 0.1 }
+  t.eq(M.gateFrame(rec, pol, state1, 0), true, "first tick applies")
+  local state2 = { tankFrac = 0.9 }
+  t.eq(M.gateFrame(rec, pol, state2, 900), false, "900ms < PARAMS_MS=1000 -- holds even though sig changed")
+  t.eq(M.gateFrame(rec, pol, state2, 1000), true, "1000ms >= PARAMS_MS AND sig changed -- applies")
+end)
+
+t.test("gateFrame: event-mode screens (e.g. config) are NEVER gate-applied, ever, no rec mutation", function()
+  local rec = freshRec()
+  local pol = renderpolicy.policyFor("config", 100)
+  t.eq(pol.mode, "event")
+  t.eq(M.gateFrame(rec, pol, { anything = 1 }, 0), false, "event mode -- gate never applies")
+  t.eq(M.gateFrame(rec, pol, { anything = 2 }, 999999), false, "still never applies, no matter how much time passes")
+  t.eq(rec.lastApplyAt, nil, "event mode never touches rec.lastApplyAt")
+  t.eq(rec.lastSig, nil, "event mode never touches rec.lastSig")
+end)
+
+t.test("gateFrame: per-panel isolation -- a PFD-only sig change applies the pfd frame but NOT a flight frame", function()
+  local pfdRec, flightRec = freshRec(), freshRec()
+  local pfdPol = renderpolicy.policyFor("pfd", 100)
+  local flightPol = renderpolicy.policyFor("flight", 100)
+  local state1 = { pitch = 1, pumpAmount = 5 }
+  t.truthy(M.gateFrame(pfdRec, pfdPol, state1, 0), "pfd first tick applies")
+  t.truthy(M.gateFrame(flightRec, flightPol, state1, 0), "flight first tick applies")
+
+  -- Next window: only pitch (a PFD-only field) changes; pumpAmount (a flight-only field) holds.
+  local state2 = { pitch = 2, pumpAmount = 5 }
+  t.eq(M.gateFrame(pfdRec, pfdPol, state2, 300), true, "pfd sig changed (pitch) -- applies")
+  t.eq(M.gateFrame(flightRec, flightPol, state2, 300), false,
+    "flight sig UNCHANGED (pumpAmount held) -- must NOT apply just because the pfd frame did")
 end)
 
 -- ===== FCS-missing blink cue: buildState surfaces fcsStale + blinkPhase (ui/basalt/fcslink) =====

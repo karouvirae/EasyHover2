@@ -62,7 +62,8 @@ t.test("UI scheduled work: zero attitude/velocity/navtable sensor calls, fuel st
   -- Registers (a) modem router, (b) engine tick, (c) fuel poll, (d) sender retry, (g) NAV-store
   -- poll, (e) render gate. Each basalt.schedule(...) call resumes its coroutine once IMMEDIATELY,
   -- so (b)/(c)/(e)/(g) already ran their first pass for real by the time this call returns.
-  M.startScheduled(basalt, runtime, built, function() end)
+  local frameRecs = { terminal = M.newFrameRec(built.terminal, "config") }
+  M.startScheduled(basalt, runtime, frameRecs)
   -- One more simulated tick across every scheduled loop (timer-driven resume), same primitive
   -- tests/test_basalt_app.lua's "startScheduled ... one render pass" test uses.
   local ok, err = pcall(function() basalt.update("timer", -1) end)
