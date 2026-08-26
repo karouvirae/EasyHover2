@@ -287,13 +287,25 @@ function M.reconcileMonitors(basalt, runtime, built, frameRecs, present, wrap)
       local frame = basalt.createFrame()
       frame:setTerm(mon)
       built.monitors[name] = { frame = frame, panelId = panelId, term = mon }
-      frameRecs[name] = M.newFrameRec(frame, M.rootForMonitor(assign, name))
+      local rec = M.newFrameRec(frame, M.rootForMonitor(assign, name))
+      -- Wire instant-render (Task 3): a push/pop on THIS monitor's nav repaints it immediately
+      -- instead of waiting for the next periodic gate tick. Only WIRED here, never CALLED --
+      -- M.run's own boot pass (or the caller's next M.applyNow, if any) is what actually shows this
+      -- newly-reconciled frame's initial top; some reconcileMonitors tests build `runtime` as a bare
+      -- `{ config = ... }` stub with no rx/engine/hbRx, so eagerly calling M.applyNow (which needs
+      -- M.buildState) here would break them for no in-scope benefit.
+      rec.nav.onChange = function() M.applyNow(basalt, runtime, rec) end
+      frameRecs[name] = rec
     elseif existing.panelId ~= panelId then
       -- Assignment changed: keep the SAME frame + frameRec (so its built-screen cache is intact and
       -- M.showScreen still owns visibility of every child it made), just re-root its nav stack.
       existing.panelId = panelId
       local fr = frameRecs[name]
-      if fr then fr.nav = Nav.new(M.rootForMonitor(assign, name)); fr.lastTop = nil end
+      if fr then
+        fr.nav = Nav.new(M.rootForMonitor(assign, name))
+        fr.nav.onChange = function() M.applyNow(basalt, runtime, fr) end
+        fr.lastTop = nil
+      end
     end
   end
 
@@ -334,6 +346,46 @@ function M.showScreen(basalt, runtime, frameRec, screenId)
 
   for id, e in pairs(frameRec.built) do
     e.childFrame:setVisible(id == screenId)
+  end
+  return entry
+end
+
+-- M.applyNow(basalt, runtime, frameRec) -> entry|nil
+-- Instant (non-gated) render of ONE frameRec's CURRENT top screen -- the counterpart to the
+-- periodic per-panel gate (M.gateFrame/M.startScheduled's task (e)), which Task 2 made NEVER touch
+-- an event-mode screen and NEVER call M.showScreen proactively. This is what closes that visibility
+-- gap: called from a Nav's onChange hook right after push()/pop() mutate the stack (so a nav change
+-- repaints IMMEDIATELY, not on the next gate tick, up to `pfdMs`/FLIGHT_MS/PARAMS_MS later), and
+-- once per frame at M.run's boot (every frame's initial top must be visible at startup, including
+-- an EVENT screen like the terminal's "config" root -- the periodic gate would never reach it).
+--
+-- ALWAYS calls M.showScreen for the frame's current top (the lazy-build + visibility swap) --
+-- covers BOTH event and rate tops, satisfying "every nav-top change swaps visibility" unconditionally.
+-- When that top is a RATE panel (renderpolicy.policyFor(...).mode == "rate"), ADDITIONALLY
+-- force-applies once: entry.handle.apply(state) is called directly, bypassing M.gateFrame's sig
+-- dirty-gate entirely (a plain sig comparison can't tell "same screen, telemetry unchanged" apart
+-- from "different screen that just happens to share this policy group's sig function" -- e.g.
+-- flight/emc/fcs all share M.sigFlight, so switching between them with no telemetry change would
+-- read as "no dirty" and silently fail to repaint without this forced bypass). After the forced
+-- apply, `frameRec.lastSig`/`lastApplyAt` are rebaselined to the JUST-applied state/now, so
+-- M.gateFrame's next periodic tick doesn't immediately think a fresh window has elapsed and
+-- redundantly re-apply the same content again. An EVENT top gets showScreen only -- its lazy
+-- page.build(...) call already populates the screen once, and its widgets self-render on
+-- interaction (button presses etc.), so there's nothing further to force here, and nothing to
+-- rebaseline (M.gateFrame never looks at an event top's lastSig/lastApplyAt at all).
+function M.applyNow(basalt, runtime, frameRec)
+  local top = frameRec.nav:top()
+  local entry = M.showScreen(basalt, runtime, frameRec, top)
+  local pfdMs = (runtime.config.pfd and runtime.config.pfd.renderMs) or 100
+  local pol = renderpolicy.policyFor(top, pfdMs)
+  if pol.mode == "rate" then
+    local now = os.epoch("utc")
+    local state = M.buildState(runtime, now)
+    if entry and entry.handle and entry.handle.apply then
+      entry.handle.apply(state)
+    end
+    frameRec.lastSig = pol.sig(state)
+    frameRec.lastApplyAt = now
   end
   return entry
 end
@@ -667,8 +719,9 @@ end
 -- scheduled task (e) below, so this is directly unit-testable headless with a bare `{}` standing
 -- in for a frameRec). `pol` is a ui/basalt/renderpolicy.lua M.policyFor(...) result.
 --   * pol.mode ~= "rate" (i.e. "event"): ALWAYS returns false, and never touches `rec` -- an event
---     screen (config/nav/dtc/bitconfig/...) is never gate-applied here (a later task adds instant/
---     interaction-driven render for those).
+--     screen (config/nav/dtc/bitconfig/...) is never gate-applied here. M.applyNow (Task 3) is its
+--     only render path: an instant, non-gated M.showScreen fired from the frame's Nav onChange hook
+--     on push/pop, plus once per frame at M.run's boot.
 --   * pol.mode == "rate" but `now - (rec.lastApplyAt or -inf) < pol.ms`: the panel's own poll
 --     window hasn't elapsed yet -- returns false, no mutation (still waiting).
 --   * Once elapsed: computes `sig = pol.sig(state)` and stamps `rec.lastApplyAt = now` AND
@@ -705,7 +758,7 @@ end
 -- renderpolicy.policyFor(top, pfdMs) -- a PFD-rooted frame repaints on its own tunable ms + a
 -- PFD-only sig, a FLIGHT/EMC/FCS-rooted frame on FLIGHT_MS + its own sig, TUNING on PARAMS_MS + its
 -- own sig, and everything else ("event" mode: config/nav/dtc/bitconfig/...) is NEVER applied by
--- this gate at all (a later task adds instant/interaction-driven render for those). M.gateFrame
+-- this gate at all -- M.applyNow (Task 3) is those screens' only render path. M.gateFrame
 -- (above) makes the actual elapsed+dirty decision AND owns each frameRec's OWN lastApplyAt/lastSig
 -- -- per-FRAME state, not one shared global signature -- so a PFD-only telemetry change can no
 -- longer force-repaint a FLIGHT monitor next door, and vice-versa (TRUE per-panel isolation). The
@@ -872,15 +925,20 @@ end
 --
 -- ensureBasalt -> buildRuntime(deps) -> discoverMonitors -> buildFrames, then one frameRec
 -- (M.newFrameRec) per top-level frame: the terminal roots at "config"; each monitor roots at its
--- assigned page id (M.rootForMonitor, default "emc" when unassigned/invalid). `frameRecs` is
--- handed straight to M.startScheduled, whose (e) render-gate task per-panel decides (M.gateFrame,
--- ui/basalt/renderpolicy.lua) when to M.showScreen + handle.apply(state) each frame's OWN current
--- top screen, on its OWN cadence + OWN dirty-gate -- FCS-SAFE: peripheral polls stay in
--- M.startScheduled's (a)-(d), never on this render path. A nav-stack change (BIT/CONFIG, BACK)
--- landing on an "event"-mode screen is NOT gate-applied here (a later task adds instant/
--- interaction-driven render for those). deps.* mirrors M.buildRuntime's injectable seams (modem/
--- wrap/find/read) plus deps.basaltOpts (-> M.ensureBasalt) and deps.getNames/deps.getType
--- (-> M.discoverMonitors).
+-- assigned page id (M.rootForMonitor, default "emc" when unassigned/invalid). Every frameRec's
+-- `nav.onChange` is wired to M.applyNow (Task 3) BEFORE anything else can trigger a push/pop, so a
+-- nav-stack change (BIT/CONFIG, BACK, any page's own push) repaints that frame IMMEDIATELY --
+-- M.showScreen always, plus a forced handle.apply(state) when the new top is a rate panel -- rather
+-- than waiting on the next periodic gate tick; an explicit M.applyNow pass over every frameRec right
+-- after `runtime.applyColors()` additionally guarantees each frame's INITIAL top is shown at boot,
+-- including an event-mode root like the terminal's "config" page that M.gateFrame's periodic gate
+-- would otherwise never reach. `frameRecs` is ALSO handed to M.startScheduled, whose (e) render-gate
+-- task per-panel decides (M.gateFrame, ui/basalt/renderpolicy.lua) when to periodically
+-- handle.apply(state) each frame's OWN current top on its OWN cadence + OWN dirty-gate -- FCS-SAFE:
+-- peripheral polls stay in M.startScheduled's (a)-(d), never on this render path; event-mode
+-- screens are NEVER touched by that periodic gate at all, by design (M.applyNow is their only
+-- render path). deps.* mirrors M.buildRuntime's injectable seams (modem/wrap/find/read) plus
+-- deps.basaltOpts (-> M.ensureBasalt) and deps.getNames/deps.getType (-> M.discoverMonitors).
 --
 -- cfgserver is deliberately NOT auto-started here -- the FCS SYNC sub-menu (ui/basalt/bitconfig/
 -- fcssync.lua) starts/stops it on demand.
@@ -895,6 +953,17 @@ function M.run(deps)
   frameRecs.terminal = M.newFrameRec(built.terminal, "config")
   for name, rec in pairs(built.monitors) do
     frameRecs[name] = M.newFrameRec(rec.frame, M.rootForMonitor(runtime.config.assign, name))
+  end
+
+  -- Instant render on nav switch (Task 3): wire every frame's Nav so a push()/pop() repaints THAT
+  -- frame immediately (M.applyNow), instead of waiting for the next periodic gate tick -- closes
+  -- the visibility gap Task 2 opened when it stopped M.showScreen-ing proactively from the gate and
+  -- removed the old navChanged/extraDirty trigger. See M.applyNow's header comment for the full
+  -- rationale (forced apply + rebaseline on a same-policy-group switch, event tops get showScreen
+  -- only). Wired for every frameRec built so far (terminal + every currently-present monitor);
+  -- M.reconcileMonitors wires the same hook for any frame it builds/re-roots later.
+  for _, frameRec in pairs(frameRecs) do
+    frameRec.nav.onChange = function() M.applyNow(basalt, runtime, frameRec) end
   end
 
   -- CONFIG page hooks (guarded no-ops until here). REFRESH / SET UI re-resolve the live monitor
@@ -917,6 +986,16 @@ function M.run(deps)
     runtime.uiRev = (runtime.uiRev or 0) + 1
   end
   runtime.applyColors()
+
+  -- Boot visibility (Task 3, acceptance criterion 1): M.applyNow's M.showScreen call is the ONLY
+  -- thing that ever shows an EVENT-mode screen (config/nav/dtc/bitconfig/...) -- M.gateFrame's
+  -- periodic gate never applies one. Without this explicit initial pass, the terminal's "config"
+  -- root (and any monitor rooted at an event page) would render as a blank frame forever, until an
+  -- operator happened to navigate away and back on it. Run AFTER runtime.applyColors() so the very
+  -- first paint already uses the configured palette, not the Basalt default one.
+  for _, frameRec in pairs(frameRecs) do
+    M.applyNow(basalt, runtime, frameRec)
+  end
 
   -- Logging status overlay on the PC terminal frame (only when logging is armed). High z so lazily-
   -- built page child frames never cover it. The P-upload task updates it: idle -> uploading ->

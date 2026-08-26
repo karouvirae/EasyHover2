@@ -604,6 +604,95 @@ t.test("buildState: NOT fcsStale while the heartbeat is fresh (lastSeen in secon
   t.eq(M.buildState(runtime, 10000).fcsStale, false, "200ms since last beat -> fresh")
 end)
 
+-- ===== Task 3: M.applyNow -- instant (non-gated) render on nav switch + boot =====
+-- Closes the visibility gap Task 2 introduced: the periodic gate (M.gateFrame) now NEVER shows an
+-- event-mode screen (config/nav/dtc/bitconfig/...), and Task 2 removed the old navChanged/
+-- extraDirty trigger. M.applyNow is the instant-render path: ALWAYS M.showScreen's the frame's
+-- current top (the visibility swap), and additionally FORCE-applies once (bypassing the sig
+-- dirty-gate) when that top is a rate panel, re-baselining lastSig/lastApplyAt so the periodic
+-- gate doesn't immediately re-fire redundantly on its next tick.
+
+t.test("applyNow: EVENT top -- showScreen only, no rate re-baseline (config, the terminal root)", function()
+  local basalt = M.ensureBasalt()
+  local frameRec = M.newFrameRec(basalt.getMainFrame(), "config")
+  local runtime = newRuntime()
+
+  local pol = renderpolicy.policyFor("config", 100)
+  t.eq(pol.mode, "event", "config is event-mode -- the periodic gate would never show it")
+
+  local entry = M.applyNow(basalt, runtime, frameRec)
+  t.truthy(entry ~= nil, "config screen got built via showScreen")
+  t.eq(entry.childFrame:getVisible(), true, "config is visible immediately, no gate tick needed")
+  t.eq(frameRec.lastApplyAt, nil, "event top: the gate's own cadence state is left untouched")
+  t.eq(frameRec.lastSig, nil, "event top: no sig baseline either -- gate never looks at this frame")
+end)
+
+t.test("applyNow: RATE top -- showScreen AND forces an apply, rebaselining lastSig/lastApplyAt", function()
+  local basalt = M.ensureBasalt()
+  local frame = basalt.createFrame()
+  local frameRec = M.newFrameRec(frame, "fcs")
+  local runtime = newRuntime()
+
+  local entry = M.applyNow(basalt, runtime, frameRec)
+  t.truthy(entry ~= nil and entry.handle ~= nil, "fcs screen built")
+  t.eq(entry.childFrame:getVisible(), true, "fcs is visible immediately")
+  t.truthy(frameRec.lastApplyAt ~= nil, "rate top: lastApplyAt rebaselined so the gate doesn't double-fire")
+  t.truthy(frameRec.lastSig ~= nil, "rate top: lastSig rebaselined to the state just force-applied")
+
+  -- Rebaselining actually WORKS: the periodic gate, checked immediately after with unchanged
+  -- state, must not think there's still a pending apply.
+  local pol = renderpolicy.policyFor("fcs", 100)
+  local state = M.buildState(runtime, frameRec.lastApplyAt)
+  t.eq(M.gateFrame(frameRec, pol, state, frameRec.lastApplyAt + 10), false,
+    "gate holds right after a forced apply: window hasn't elapsed AND sig is already baselined")
+end)
+
+t.test("applyNow: pushing to an EVENT screen shows it immediately, but the periodic gate still never applies it", function()
+  local basalt = M.ensureBasalt()
+  local frame = basalt.createFrame()
+  local frameRec = M.newFrameRec(frame, "emc")
+  local runtime = newRuntime()
+  frameRec.nav.onChange = function() M.applyNow(basalt, runtime, frameRec) end
+  M.applyNow(basalt, runtime, frameRec)   -- boot pass, mirrors M.run's initial applyNow loop
+
+  frameRec.nav:push("nav")   -- "nav" page id is event-mode (not in renderpolicy's RATE_SCREENS)
+  local navEntry = frameRec.built.nav
+  t.truthy(navEntry ~= nil, "nav screen got built via showScreen on push, no gate tick needed")
+  t.eq(navEntry.childFrame:getVisible(), true, "nav is visible immediately")
+
+  local pol = renderpolicy.policyFor(frameRec.nav:top(), 100)
+  t.eq(pol.mode, "event")
+  local now = os.epoch("utc")
+  t.eq(M.gateFrame(frameRec, pol, M.buildState(runtime, now), now + 999999), false,
+    "event top: the periodic gate never applies it, no matter how much time passes")
+end)
+
+t.test("applyNow: nav onChange forces a repaint on a same-policy-group switch (flight<->emc<->fcs) even with UNCHANGED telemetry", function()
+  local basalt = M.ensureBasalt()
+  local frame = basalt.createFrame()
+  local frameRec = M.newFrameRec(frame, "emc")
+  local runtime = newRuntime()
+  frameRec.nav.onChange = function() M.applyNow(basalt, runtime, frameRec) end
+  M.applyNow(basalt, runtime, frameRec)   -- boot pass: emc built + force-applied once
+
+  -- Spy on emc's apply AFTER the boot pass so the spy only counts calls from here on.
+  local emcEntry = frameRec.built.emc
+  local emcCalls = 0
+  local origEmcApply = emcEntry.handle.apply
+  emcEntry.handle.apply = function(...) emcCalls = emcCalls + 1; return origEmcApply(...) end
+
+  frameRec.nav:push("fcs")   -- a DIFFERENT screen in the SAME renderpolicy group (sigFlight/FLIGHT_MS)
+  local fcsEntry = frameRec.built.fcs
+  t.eq(fcsEntry.childFrame:getVisible(), true, "fcs now visible")
+  t.eq(emcEntry.childFrame:getVisible(), false, "emc hidden")
+
+  frameRec.nav:pop()   -- back to emc; telemetry has NOT changed the whole time (same runtime/state)
+  t.eq(emcEntry.childFrame:getVisible(), true, "emc visible again")
+  t.eq(emcCalls, 1,
+    "switching back to emc forced exactly one apply call -- a plain sig-gated re-check would have " ..
+    "seen an unchanged sig and applied ZERO times, since telemetry never changed")
+end)
+
 t.test("buildState: a live link that drops is NOT stale until past the drop grace", function()
   local runtime = {
     rx = { latest = function() return {} end }, engine = { status = function() return {} end },
