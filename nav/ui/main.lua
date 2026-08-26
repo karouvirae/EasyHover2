@@ -1,5 +1,7 @@
 -- nav/ui/main.lua
--- NAV role MAIN page: live position / heading+compass / constellation quality / per-beacon status.
+-- NAV role MAIN page: live position / constellation quality / per-beacon status. This is a
+-- rarely-watched debug shell (see M.RENDER_S in nav/app.lua), not a flight display -- heading lives
+-- on the PFD instead and is deliberately NOT shown here.
 -- Follows the cockpit page interface (M.id, M.build(basalt, frame, runtime, nav) -> {id, apply,
 -- elements}) but the display TEXT is factored into a pure M.viewModel(status) so the wording is
 -- unit-tested without a terminal. apply() only SETS element props from the flat state
@@ -11,8 +13,9 @@ M.title = "NAV"
 
 local TONES = { good = "lime", bad = "red", dim = "lightGray", normal = "white" }
 
---- viewModel(status) -> { position, positionTone, fixInfo, heading, headingTone, quality,
---- qualityTone, beacons = {{text,tone}} }. status is nav.runtime:status() shape.
+--- viewModel(status) -> { position, positionTone, fixInfo, quality, qualityTone,
+--- beacons = {{text,tone}} }. status is nav.runtime:status() shape. No heading/headingTone --
+--- heading is the PFD's job, not this shell's.
 function M.viewModel(status)
   status = status or {}
   local vm = {}
@@ -38,15 +41,6 @@ function M.viewModel(status)
     vm.position = "NO FIX"
     vm.positionTone = "bad"
     vm.fixInfo = "waiting for 4 beacons"
-  end
-
-  local hdg = status.heading
-  if type(hdg) == "number" then
-    vm.heading = ("%03d  %s"):format(math.floor(hdg + 0.5) % 360, status.compass or "--")
-    vm.headingTone = "good"
-  else
-    vm.heading = "---  --"
-    vm.headingTone = "dim"
   end
 
   -- Quality reflects the GDOP-aware fix confidence, NOT just host count, so poor geometry reads
@@ -86,13 +80,14 @@ function M.build(basalt, frame, runtime, nav)
   local iw = math.max(1, w - 2)
   local function label(y, text) return frame:addLabel({ x = 2, y = y, width = iw, height = 1, text = text, autoSize = false }) end
 
+  -- Rows: title, position, fixInfo, quality, then up to 4 beacon rows -- reflowed to fill the gap
+  -- left by the dropped heading row (heading now lives on the PFD, not this shell).
   frame:addLabel({ x = 2, y = 1, width = iw, height = 1, text = "EASYHOVER2 NAV", autoSize = false })
   local posLabel  = label(3, "position  NO FIX")
   local fixLabel  = label(4, "")
-  local hdgLabel  = label(5, "heading   ---  --")
-  local qualLabel = label(6, "quality   UNUSABLE")
+  local qualLabel = label(5, "quality   UNUSABLE")
   local beaconLabels = {}
-  for i = 1, 4 do beaconLabels[i] = label(7 + i, "") end   -- rows 8..11
+  for i = 1, 4 do beaconLabels[i] = label(6 + i, "") end   -- rows 7..10
 
   local function tone(el, name) if el.setForeground then el:setForeground(colors[TONES[name] or "white"]) end end
 
@@ -100,7 +95,6 @@ function M.build(basalt, frame, runtime, nav)
     local vm = M.viewModel((state or {}).nav)
     posLabel:setText("position  " .. vm.position);  tone(posLabel, vm.positionTone)
     fixLabel:setText("  " .. vm.fixInfo)
-    hdgLabel:setText("heading   " .. vm.heading);   tone(hdgLabel, vm.headingTone)
     qualLabel:setText("quality   " .. vm.quality);  tone(qualLabel, vm.qualityTone)
     for i = 1, 4 do
       local b = vm.beacons[i]
@@ -109,7 +103,7 @@ function M.build(basalt, frame, runtime, nav)
   end
 
   return { id = M.id, apply = apply, elements = {
-    posLabel = posLabel, fixLabel = fixLabel, hdgLabel = hdgLabel, qualLabel = qualLabel,
+    posLabel = posLabel, fixLabel = fixLabel, qualLabel = qualLabel,
     beaconLabels = beaconLabels,
   } }
 end

@@ -38,6 +38,11 @@ M.TELEMETRY_CH = 101
 -- it the NAV falls back to the trilaterated GPS y.
 M.BARO_MAX_AGE_MS = 1000
 
+-- Render cadence for the (c) gate below: this shell is a rarely-watched debug screen (position/
+-- fix/quality/beacon status), not a flight display -- 3 s is plenty; heading (which WOULD want a
+-- fast cadence) lives on the PFD instead, not here.
+M.RENDER_S = 3.0
+
 -- Basalt loader (mirrors ui/basalt/app.lua's ensureBasalt -- deliberately NOT required from there,
 -- so the nav role's dependency closure stays lean and never pulls in the whole cockpit page
 -- registry). loadfile(path,nil,_ENV), never dofile(): CC:Tweaked's dofile loads with the BIOS's
@@ -200,15 +205,16 @@ function M.buildState(runtime, now)
   return { nav = nav, uiRev = runtime.uiRev }
 end
 
--- M.signature(state): quantized render-gate key -- repaint only when the fix/heading/mesh changes.
+-- M.signature(state): quantized render-gate key -- repaint only when the fix/mesh changes. Heading
+-- is NOT keyed here: it no longer displays on this shell (moved to the PFD), so a heading-only
+-- change must not trigger a repaint.
 function M.signature(state)
   local s = state.nav or {}
   local f = s.fix
   local pos = f and ("%d,%d,%d"):format(math.floor(f.x + 0.5), math.floor(f.y + 0.5), math.floor(f.z + 0.5)) or "nofix"
   local n = 0
   for _ in pairs(s.beacons or {}) do n = n + 1 end
-  return table.concat({ pos, tostring(s.heading and math.floor(s.heading + 0.5) or "-"),
-    tostring(n), tostring(f and f.quality or 0), tostring(state.uiRev or 0) }, "|")
+  return table.concat({ pos, tostring(n), tostring(f and f.quality or 0), tostring(state.uiRev or 0) }, "|")
 end
 
 -- ===== run(): in-game only =====
@@ -263,7 +269,7 @@ function M.run(deps)
         lastSig = sig
         pcall(mainPage.apply, state)
       end
-      sleep(0.3)
+      sleep(M.RENDER_S)
     end
   end)
 

@@ -9,7 +9,7 @@ local navconfig = require("nav.config")
 
 -- ============================ MAIN page: pure view-model ============================
 
-t.test("main.viewModel shows a fix as position + heading + quality", function()
+t.test("main.viewModel shows a fix as position + quality (no heading -- that's the PFD's job)", function()
   local vm = Main.viewModel({
     fix = { x = 3, y = 4, z = 5, nBeacons = 4, age = 200, quality = 1.0 },
     heading = 90, compass = "E",
@@ -18,11 +18,22 @@ t.test("main.viewModel shows a fix as position + heading + quality", function()
   })
   t.eq(vm.position, "3 4N 5", "y suffixed N (trilaterated) when no baro is present")
   t.eq(vm.positionTone, "good")
-  t.truthy(vm.heading:find("090", 1, true) and vm.heading:find("E", 1, true))
+  t.truthy(vm.fixInfo:find("4 beacons", 1, true), "fixInfo still reports beacon count")
   t.truthy(vm.quality:find("GOOD", 1, true), "high quality reads GOOD")
   t.eq(vm.qualityTone, "good")
   t.eq(#vm.beacons, 1)
   t.truthy(vm.beacons[1].text:find("A", 1, true))
+end)
+
+t.test("main.viewModel no longer returns heading/headingTone -- dropped from the NAV shell (PFD-owned)", function()
+  local vm = Main.viewModel({
+    fix = { x = 3, y = 4, z = 5, nBeacons = 4, age = 200, quality = 1.0 },
+    heading = 90, compass = "E",
+    grade = { usable = true, usableHosts = 4, reasons = {} },
+    beacons = {},
+  })
+  t.eq(vm.heading, nil, "no heading field")
+  t.eq(vm.headingTone, nil, "no headingTone field")
 end)
 
 t.test("main.viewModel warns on a poor-geometry fix (POOR + block error estimate)", function()
@@ -60,7 +71,6 @@ t.test("main.viewModel is honest when there is no fix", function()
   t.eq(vm.position, "NO FIX")
   t.eq(vm.positionTone, "bad")
   t.eq(vm.qualityTone, "bad")
-  t.truthy(vm.heading:find("--", 1, true), "no heading -> dashes, not a fake bearing")
 end)
 
 t.test("main page builds on a real Basalt frame; apply + render pass do not error", function()
@@ -195,6 +205,22 @@ t.test("app.routeModem reuses fcs.comms.telemetry's Rx dedup -- a stale/duplicat
   dup.seq = 1   -- force a stale seq (already consumed) -- must be rejected, not just latest-wins
   App.routeModem(rt, App.TELEMETRY_CH, App.TELEMETRY_CH, protocol.encode(dup))
   t.eq(rt.nav:heading(), 10, "stale seq rejected -- heading unchanged (proves the shared Rx dedup, not a hand-rolled decode)")
+end)
+
+t.test("app.M.RENDER_S is 3.0 -- the NAV shell is a rarely-watched debug screen, not a flight display", function()
+  t.eq(App.RENDER_S, 3.0)
+end)
+
+t.test("app.signature is unchanged by a heading-only difference (heading dropped from the render key)", function()
+  local base = { nav = { fix = { x = 1, y = 2, z = 3, quality = 0.9 }, heading = 10, beacons = {}, uiRev = 0 } }
+  local turned = { nav = { fix = { x = 1, y = 2, z = 3, quality = 0.9 }, heading = 270, beacons = {}, uiRev = 0 } }
+  t.eq(App.signature(base), App.signature(turned), "heading-only change must NOT move the NAV shell signature")
+end)
+
+t.test("app.signature still changes on a real change (position)", function()
+  local base = { nav = { fix = { x = 1, y = 2, z = 3, quality = 0.9 }, heading = 10, beacons = {}, uiRev = 0 } }
+  local moved = { nav = { fix = { x = 9, y = 2, z = 3, quality = 0.9 }, heading = 10, beacons = {}, uiRev = 0 } }
+  t.truthy(App.signature(base) ~= App.signature(moved), "position change still moves the signature")
 end)
 
 -- ============================ NAV store sync server (handleWptRequest) ============================
