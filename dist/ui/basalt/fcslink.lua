@@ -1,0 +1,1 @@
+local a={}a.BOOT_GRACE_MS=1500;a.DROP_GRACE_MS=4000;a.BLINK_HALF_MS=500;function a.evaluate(b,c)c=c or{}local d=c.bootGraceMs or a.BOOT_GRACE_MS;local e=c.dropGraceMs or a.DROP_GRACE_MS;local f=c.blinkHalfMs or a.BLINK_HALF_MS;local g;if c.lastSeenMs==nil then g=b-(c.bootAt or b)>d else g=b-c.lastSeenMs>e end;local h=math.floor(b/f)%2;return g,h end;return a

@@ -935,9 +935,9 @@
         },
         {
           ["dst"] = "ui/basalt/app.lua",
-          ["size"] = 45043,
+          ["size"] = 45878,
           ["src"] = "ui/basalt/app.lua",
-          ["sum"] = "3d43ea11",
+          ["sum"] = "497987d7",
         },
         {
           ["dst"] = "ui/basalt/bitconfig/dtc.lua",
@@ -1001,15 +1001,21 @@
         },
         {
           ["dst"] = "ui/basalt/cadence.lua",
-          ["size"] = 2054,
+          ["size"] = 2430,
           ["src"] = "ui/basalt/cadence.lua",
-          ["sum"] = "54be8a0e",
+          ["sum"] = "fac0ce93",
         },
         {
           ["dst"] = "ui/basalt/configkit.lua",
           ["size"] = 18848,
           ["src"] = "ui/basalt/configkit.lua",
           ["sum"] = "f76b92c6",
+        },
+        {
+          ["dst"] = "ui/basalt/fcslink.lua",
+          ["size"] = 2157,
+          ["src"] = "ui/basalt/fcslink.lua",
+          ["sum"] = "1c2a19d5",
         },
         {
           ["dst"] = "ui/basalt/instruments/adi.lua",
@@ -1121,9 +1127,9 @@
         },
         {
           ["dst"] = "ui/basalt/regions/fcs.lua",
-          ["size"] = 11251,
+          ["size"] = 12250,
           ["src"] = "ui/basalt/regions/fcs.lua",
-          ["sum"] = "1820ec1c",
+          ["sum"] = "8767c7e2",
         },
         {
           ["dst"] = "ui/basalt/senssource.lua",
@@ -1379,5 +1385,5 @@
     ["size"] = 71434,
     ["sum"] = "57671ad7",
   },
-  ["version"] = "68f74acf",
+  ["version"] = "e83024e4",
 }
