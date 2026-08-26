@@ -519,6 +519,56 @@ t.test("a render pass after reconcileMonitors does not error", function()
   t.truthy(ok, "render pass clean: " .. tostring(err))
 end)
 
+-- ===== reconcileMonitors wires nav.onChange (Task 3 fix-round-1: prior review found this branch
+-- unguarded by any test -- a future refactor could silently drop either wiring line and the full
+-- suite would stay green, reintroducing the boot/nav visibility gap for a monitor REFRESH/SET UI
+-- rebuilds or re-roots). Covers BOTH branches: a newly-added monitor (M.newFrameRec branch) and an
+-- existing monitor whose assignment changed (re-root branch). Spies on M.applyNow itself (rather
+-- than needing a full M.buildState-capable runtime) by temporarily swapping the module-level
+-- function -- the wired closure looks up `M.applyNow` dynamically on every call, so the swap is
+-- visible to it without touching frameRec/nav/basalt at all.
+
+t.test("reconcileMonitors wires nav.onChange for a NEWLY-ADDED monitor, calling M.applyNow(basalt, runtime, thatFrameRec)", function()
+  local basalt, runtime, built, frameRecs, mocks = setupReconcile({ mA = "fcs" }, { "mA" })
+  runtime.config.assign.mB = "nav"
+  mocks.mB = newMockMonitor()
+  M.reconcileMonitors(basalt, runtime, built, frameRecs, { "mA", "mB" }, function(n) return mocks[n] end)
+
+  t.truthy(frameRecs.mB.nav.onChange ~= nil, "mB's nav.onChange must be wired (not left nil)")
+
+  local calls = {}
+  local origApplyNow = M.applyNow
+  M.applyNow = function(b, r, fr) calls[#calls + 1] = { basalt = b, runtime = r, frameRec = fr } end
+  local ok = pcall(function() frameRecs.mB.nav.onChange() end)
+  M.applyNow = origApplyNow
+
+  t.truthy(ok, "invoking the wired onChange must not error")
+  t.eq(#calls, 1, "invoking mB's onChange must call M.applyNow exactly once")
+  t.eq(calls[1].basalt, basalt, "wired with the SAME basalt instance reconcileMonitors was given")
+  t.eq(calls[1].runtime, runtime, "wired with the SAME runtime reconcileMonitors was given")
+  t.eq(calls[1].frameRec, frameRecs.mB, "wired to render mB's OWN frameRec, not some other frame")
+end)
+
+t.test("reconcileMonitors RE-WIRES nav.onChange for a RE-ROOTED monitor (assignment changed, frame reused)", function()
+  local basalt, runtime, built, frameRecs = setupReconcile({ mA = "fcs" }, { "mA" })
+  runtime.config.assign.mA = "nav"   -- SET UI changed it
+  M.reconcileMonitors(basalt, runtime, built, frameRecs, { "mA" })
+
+  t.truthy(frameRecs.mA.nav.onChange ~= nil, "mA's re-rooted nav.onChange must be wired (not left nil)")
+
+  local calls = {}
+  local origApplyNow = M.applyNow
+  M.applyNow = function(b, r, fr) calls[#calls + 1] = { basalt = b, runtime = r, frameRec = fr } end
+  local ok = pcall(function() frameRecs.mA.nav.onChange() end)
+  M.applyNow = origApplyNow
+
+  t.truthy(ok, "invoking the re-wired onChange must not error")
+  t.eq(#calls, 1, "invoking mA's re-rooted onChange must call M.applyNow exactly once")
+  t.eq(calls[1].basalt, basalt)
+  t.eq(calls[1].runtime, runtime)
+  t.eq(calls[1].frameRec, frameRecs.mA, "wired to render mA's OWN (reused) frameRec")
+end)
+
 -- ===== M.gateFrame: per-panel render-gate decision (Task 2, render-policy) =====
 -- PURE decision logic extracted from the scheduled render-gate task (e) -- see M.gateFrame's
 -- header comment in ui/basalt/app.lua. Tested directly against a bare `{}` frameRec, no Basalt/
