@@ -1,7 +1,12 @@
 -- fcs/comms/protocol.lua
 local M = {}
 
+-- CC:Tweaked 1.97+ textutils.serialize(t, { compact = true }) omits pretty-printer
+-- whitespace (rom/apis/textutils.lua). Telemetry is 10 Hz; newlines are airtime.
+-- pcall-fallback: older serializers that reject the opts table still encode.
 function M.encode(frame)
+  local ok, str = pcall(textutils.serialize, frame, { compact = true })
+  if ok then return str end
   return textutils.serialize(frame)
 end
 
