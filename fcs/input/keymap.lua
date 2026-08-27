@@ -57,4 +57,17 @@ function M.forMode(id)
   return M.default
 end
 
+-- Cache forMode: the map table only changes when flightMode changes, not every 50 ms poll.
+-- Returns a getter(modeId) that reuses the last table until the id changes.
+function M.cachedForMode()
+  local lastId, lastMap
+  return function(id)
+    if id ~= lastId then
+      lastId = id
+      lastMap = M.forMode(id)
+    end
+    return lastMap
+  end
+end
+
 return M
