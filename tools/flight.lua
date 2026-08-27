@@ -230,7 +230,9 @@ end
 
 local function telemetryTask()
   while true do
-    telLink:send(tx:frame(shared.snap))     -- low fixed cadence, fire-and-forget
+    -- Fire-and-forget: skip one frame on encode/transmit error. Terminated is re-raised (§11.9).
+    local ok, err = pcall(function() telLink:send(tx:frame(shared.snap)) end)
+    if not ok then fault.orReraise(err) end
     sleep(0.1)
   end
 end
