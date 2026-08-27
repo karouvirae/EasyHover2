@@ -27,6 +27,15 @@ t.test("a typewriter key press applies its flag immediately", function()
   t.eq(held.up, true)
 end)
 
+t.test("typewriter press with arg2=false still applies when the code is in the pressed set", function()
+  -- Simulated 1.3.0 queues ("key", code, entry.isAlive()) BEFORE activateKey, so a fresh
+  -- press is boolean false. CC 1.120.0 local terminal key is also (code, boolean isRepeat).
+  -- Arg2 type cannot discriminate; membership in getPressedKeyCodes can.
+  local e, held = rig({ 200 })
+  t.truthy(e:event("key", 200, false), "consumed")
+  t.eq(held.up, true)
+end)
+
 t.test("key_up clears the flag without requiring membership in the pressed set", function()
   -- releaseKey REMOVES the code from pressedKeys before queueing the event, so a genuine
   -- release is always already absent from getPressedKeyCodes at delivery time.
@@ -36,20 +45,20 @@ t.test("key_up clears the flag without requiring membership in the pressed set",
   t.eq(held.up, nil)
 end)
 
-t.test("local terminal keyboard events (string arg) are never craft input", function()
-  -- CC:T local "key"/"key_up" carry (code, string keyName); typewriter events carry
-  -- (code, boolean|nil). The mod reuses the bare event name, so this is the discriminator.
-  local e, held = rig({ 30 })   -- device genuinely has code 30 pressed
-  t.eq(e:event("key", 200, "keys.x"), false, "string second arg -> ignored")
-  t.eq(e:event("key_up", 200, "keys.x"), false)
-  t.eq(next(held), nil, "nothing applied")
-end)
-
 t.test("a press whose code is NOT in the device's pressed set is rejected (collision guard)", function()
-  -- A local scancode colliding with an entry code must not drive the craft.
+  -- CC local key is also (int, boolean). A local scancode is not in the typewriter pressed
+  -- set, so membership — not arg2's type — is the press discriminator.
   local e, held = rig({})      -- device reports nothing pressed
+  t.eq(e:event("key", 200, false), false)
   t.eq(e:event("key", 200, true), false)
   t.eq(held.up, nil)
+end)
+
+t.test("onOsEvent applies a raw pullEvent tuple", function()
+  local e, held = rig({ 200 })
+  t.truthy(e:onOsEvent({ "key", 200, false }), "consumed")
+  t.eq(held.up, true)
+  t.eq(e:onOsEvent({ "timer", 1 }), false, "non-key ignored")
 end)
 
 t.test("unbound codes and non-key events are ignored", function()

@@ -192,14 +192,30 @@ end
 
 -- ---- Tasks ----
 local lastT = os.epoch("utc")
+-- Typewriter events are applied on the control pull (that coroutine already wakes on
+-- every event). Control MUST stay unfiltered os.pullEvent() — a timer-only dispatcher
+-- filter would drop key/key_up. The 50 ms inputTask stays a filtered sleep+poll heal —
+-- not a second unfiltered os.pullEvent() loop. See fcs/input/events.lua.
+local inputHybrid = require("fcs.input.events").new({
+  codes = function()
+    if typewriter and typewriter.getPressedKeyCodes then return typewriter.getPressedKeyCodes() end
+    return {}
+  end,
+  map = function() return keymap.forMode(flight.flightMode) end,
+  held = heldRef.held,
+})
+
 local function controlTask()
   -- Self-rescheduling zero-timer: fires as fast as possible while still
   -- yielding every iteration (required under parallel.waitForAny, and to
   -- avoid CC:Tweaked's "Too long without yielding" watchdog).
   local timer = os.startTimer(0)
   while true do
+    -- Unfiltered: also delivers key/key_up for inputHybrid. os.pullEvent("timer") cannot.
     local ev = { os.pullEvent() }
-    if ev[1] == "timer" and ev[2] == timer then
+    -- onOsEvent press-path calls getPressedKeyCodes (computer-thread today). If that
+    -- peripheral method becomes mainThread, this stalls control — keep it off the step pcall.
+    if not inputHybrid:onOsEvent(ev) and ev[1] == "timer" and ev[2] == timer then
       -- Guard the whole step: a single bad sensor read or step error must NOT kill the control
       -- task (a silently-dead loop = uncontrolled craft). Capture it for the console and carry on.
       local ok, err = pcall(function()
@@ -219,29 +235,12 @@ local function controlTask()
   end
 end
 
--- Hybrid input (design §10, updated for Simulated >=1.3.0): typewriter "key"/"key_up"
--- peripheral events pre-apply pilot intent within a tick of the physical press; the 50 ms
--- poll re-syncs as the authority. See fcs/input/events.lua for the disambiguation rules.
-local inputHybrid = require("fcs.input.events").new({
-  codes = function()
-    if typewriter and typewriter.getPressedKeyCodes then return typewriter.getPressedKeyCodes() end
-    return {}
-  end,
-  map = function() return keymap.forMode(flight.flightMode) end,
-  held = heldRef.held,
-})
-
 local function inputTask()
-  inputHybrid:sync()
-  local pollTimer = os.startTimer(0.05)
+  -- Filtered: sleep yields on "timer" only, so modem/char/foreign timers do not resume us.
+  -- 20 Hz getPressedKeyCodes is computer-thread (not mainThread) and heals key_up collisions.
   while true do
-    local ev = { os.pullEvent() }
-    if not inputHybrid:event(ev[1], ev[2], ev[3]) then
-      if ev[1] == "timer" and ev[2] == pollTimer then
-        inputHybrid:sync()
-        pollTimer = os.startTimer(0.05)
-      end
-    end
+    inputHybrid:sync()
+    sleep(0.05)
   end
 end
 
