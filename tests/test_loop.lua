@@ -136,3 +136,19 @@ t.test("a dt spike produces no integrator kick (real PID through the loop)", fun
     yawRate=0, swayVel=0, surgeVel=0, swayPos=0, surgePos=0, onGround=false })
   t.truthy(alt.i > iBeforeStall, "integration resumes normally after the gap")
 end)
+
+-- ---- envelope saturation feeds the scheme back (per-axis anti-windup) ----
+t.test("previous cycle's envelope clipping reaches the scheme as the sat table", function()
+  local seen
+  local loop = Loop.new({ scheme = { reset = function() end,
+      update = function(_, sp, m, dt, freeze, sat) seen = sat
+        return { heave=0.5, pitch=5, roll=0, yaw=0, sway=0, surge=0 } end },
+    mixer = Mixer.new(), pwm = fakePwm(), backend = fakeBackend(),
+    dtMax = 0.5, caps = { pitch = 0.2 } })
+  loop:arm(true)
+  loop:cycle(0.1, M0)
+  t.eq(seen, nil, "first tick has no sat history")
+  loop:cycle(0.1, M0)     -- scheme returns pitch=5 -> clipped to 0.2 -> flagged
+  t.eq(seen.pitch, true, "clipped axis is flagged for the next tick")
+  t.eq(seen.roll, nil)
+end)

@@ -10,8 +10,8 @@ function Coupled.new(cfg, opts)
   return setmetatable({ inner = Level.new(cfg), decoupled = opts and opts.decoupled or false }, Coupled)
 end
 function Coupled:reset() self.inner:reset() end
-function Coupled:update(sp, m, dt, freeze)
-  local d = self.inner:update(sp, m, dt, freeze)     -- honors sp.pitch/roll/heading/altitude
+function Coupled:update(sp, m, dt, freeze, sat)
+  local d = self.inner:update(sp, m, dt, freeze, sat)     -- honors sp.pitch/roll/heading/altitude
   -- Yaw routing: reroute the heading-loop output to the rear-only effector when the pilot used
   -- the rudder keys this tick (sp.yawRear). Otherwise the full differential (d.yaw) stands.
   if sp.yawRear then d.yawRear = d.yaw; d.yaw = 0 end

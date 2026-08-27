@@ -9,8 +9,8 @@ local Manual = {}
 Manual.__index = Manual
 function Manual.new(cfg) return setmetatable({ inner = Level.new(cfg) }, Manual) end
 function Manual:reset() self.inner:reset() end
-function Manual:update(sp, m, dt, freeze)
+function Manual:update(sp, m, dt, freeze, sat)
   -- Full Level loop: honors sp.pitch/roll (tilt), sp.heading, sp.altitude, sp.swayPos/surgePos.
-  return self.inner:update(sp, m, dt, freeze)
+  return self.inner:update(sp, m, dt, freeze, sat)
 end
 return Manual

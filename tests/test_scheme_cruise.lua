@@ -25,3 +25,14 @@ t.test("CRUISE surge defaults to 0 when no throttle setpoint", function()
   local d = cru:update({ altitude = 1 }, m, 0.05, false)
   t.eq(d.surge, 0, "no throttle => zero surge")
 end)
+
+t.test("CRUISE forwards envelope sat into the inner level scheme", function()
+  local cru = Cruise.new({ hoverDuty = 0.5, pitch = { kp = 1, ki = 0.5, kd = 0 } })
+  local mm = { altitude = 0, pitch = 0, roll = 0, heading = 0, yawRate = 0,
+    swayPos = 0, swayVel = 0, surgePos = 0, surgeVel = 0 }
+  local sp = { altitude = 0, pitch = -1, surgeThrottle = 0 }
+  cru:update(sp, mm, 0.1, false)
+  local i1 = cru.inner.pitchPid.i
+  cru:update(sp, mm, 0.1, false, { pitch = true })
+  t.eq(cru.inner.pitchPid.i, i1, "wrapper must not drop the sat table")
+end)

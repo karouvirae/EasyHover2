@@ -5,8 +5,8 @@ local Cruise = {}
 Cruise.__index = Cruise
 function Cruise.new(cfg) return setmetatable({ inner = Level.new(cfg) }, Cruise) end
 function Cruise:reset() self.inner:reset() end
-function Cruise:update(sp, m, dt, freeze)
-  local d = self.inner:update(sp, m, dt, freeze)
+function Cruise:update(sp, m, dt, freeze, sat)
+  local d = self.inner:update(sp, m, dt, freeze, sat)
   d.surge = sp.surgeThrottle or 0                  -- held throttle, bypasses the position loop
   return d
 end
