@@ -198,12 +198,8 @@ local function controlTask()
   -- avoid CC:Tweaked's "Too long without yielding" watchdog).
   local timer = os.startTimer(0)
   while true do
-    -- Filter in the dispatcher: an unfiltered pullEvent also resumes us for every modem
-    -- message, char, and other tasks' timers -- wasted wakeup + table alloc. CC pullEvent
-    -- takes ONE name, so this cannot also see key/key_up (#17 would need its own filtered
-    -- pulls, not a ride on this coroutine). Terminate still raises (bios.lua).
-    local _, timerId = os.pullEvent("timer")
-    if timerId == timer then
+    local ev = { os.pullEvent() }
+    if ev[1] == "timer" and ev[2] == timer then
       -- Guard the whole step: a single bad sensor read or step error must NOT kill the control
       -- task (a silently-dead loop = uncontrolled craft). Capture it for the console and carry on.
       local ok, err = pcall(function()
@@ -224,12 +220,9 @@ local function controlTask()
 end
 
 local function inputTask()
-  -- Filtered: sleep() is pullEvent("timer") internally, so modem/char/key do not resume us.
-  -- keymap.forMode only changes with flightMode; cache it.
-  local mapFor = keymap.cachedForMode()
   while true do
     if typewriter and typewriter.getPressedKeyCodes then
-      heldRef.held = keymap.resolve(mapFor(flight.flightMode), typewriter.getPressedKeyCodes() or {})
+      heldRef.held = keymap.resolve(keymap.forMode(flight.flightMode), typewriter.getPressedKeyCodes() or {})
     end
     sleep(0.05)
   end
