@@ -370,7 +370,11 @@ change.
   The 50 ms poll stays as a **filtered** `sleep` heal (`inputTask`); do not add a second
   unfiltered pull loop. A colliding local `key_up` (FCS GUI open) is a ≤50 ms wrong-input
   window, then the heal restores; a closed cockpit PC does not emit local `key` events.
-  Events can still drop if CC's queue hits 256 — the poll is the backstop.
+  Two more gaps, both healed by the 50 ms poll: a **short tap under load** (press+release
+  both queue before control dequeues the press — the code is already out of the pressed
+  set, so the press is rejected) and **alias keys** (R/Space, F/LShift share a flag; a
+  `key_up` on one alias clears it while the other is held, ≤50 ms). Events can still drop
+  if CC's queue hits 256 — the poll is the backstop.
 - **Wired directly to the FCS computer** for lowest latency — pilot intent never makes a network
   hop before reaching the loop.
 

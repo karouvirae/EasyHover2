@@ -254,9 +254,9 @@
         },
         {
           ["dst"] = "fcs/input/events.lua",
-          ["size"] = 2888,
+          ["size"] = 3652,
           ["src"] = "fcs/input/events.lua",
-          ["sum"] = "1aa0f3a4",
+          ["sum"] = "ba124886",
         },
         {
           ["dst"] = "fcs/input/keymap.lua",
@@ -446,9 +446,9 @@
         },
         {
           ["dst"] = "tools/flight.lua",
-          ["size"] = 15560,
+          ["size"] = 15566,
           ["src"] = "tools/flight.lua",
-          ["sum"] = "42d96c9e",
+          ["sum"] = "fe6f2ebd",
         },
         {
           ["dst"] = "tools/hover_test.lua",
@@ -1397,5 +1397,5 @@
     ["size"] = 71434,
     ["sum"] = "57671ad7",
   },
-  ["version"] = "f9c7022e",
+  ["version"] = "c67cffbb",
 }

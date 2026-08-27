@@ -198,7 +198,7 @@ local lastT = os.epoch("utc")
 -- not a second unfiltered os.pullEvent() loop. See fcs/input/events.lua.
 local inputHybrid = require("fcs.input.events").new({
   codes = function()
-    if typewriter and typewriter.getPressedKeyCodes then return typewriter.getPressedKeyCodes() end
+    if typewriter and typewriter.getPressedKeyCodes then return typewriter.getPressedKeyCodes() or {} end
     return {}
   end,
   map = function() return keymap.forMode(flight.flightMode) end,

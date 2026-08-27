@@ -79,11 +79,36 @@ t.test("sync rebuilds the held table IN PLACE from the device snapshot", functio
   t.eq(held.up, nil)
   e:sync()                     -- ...poll confirms authoritatively
   t.eq(held.down, true)
-  local sameTable = true
+  local ref = held
   setCodes({})
   e:sync()
-  for _ in pairs(held) do sameTable = false end
-  t.truthy(sameTable ~= nil, "table identity preserved (mutated, not replaced)")
+  t.eq(next(held), nil)
+  t.truthy(rawequal(held, ref), "table identity preserved (mutated, not replaced)")
+end)
+
+t.test("a nil codes() result is tolerated by event and sync", function()
+  local e, held = rig(nil)     -- device returning nil must not error
+  t.eq(e:event("key", 200, true), false)
+  e:sync()
+  t.eq(next(held), nil)
+end)
+
+t.test("alias keys: key_up on one alias clears the shared flag until the next sync", function()
+  -- keys.r and keys.space both bind lift up. The held flag is per-flag, not per-code,
+  -- so releasing one alias clears it while the other is held (≤50 ms heal window).
+  local heldRef = { held = {} }
+  local codes = { keys.r, keys.space }
+  local e = Events.new({
+    codes = function() return codes end,
+    map = function() return keymap.forMode("PRECISION") end,
+    held = heldRef.held,
+  })
+  e:sync()
+  t.eq(heldRef.held.up, true)
+  t.truthy(e:event("key_up", keys.space), "alias release consumed")
+  t.eq(heldRef.held.up, nil, "shared flag cleared despite other alias still held")
+  e:sync()
+  t.eq(heldRef.held.up, true, "poll heals the alias gap")
 end)
 
 t.test("integration with the real default keymap: WASD codes resolve through flagFor", function()
