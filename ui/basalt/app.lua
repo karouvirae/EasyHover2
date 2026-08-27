@@ -623,6 +623,9 @@ function M.routeModem(runtime, ch, msg)
     local wf = runtime.wptClient.link:onMessage(ch, msg)
     if wf and (wf.k == "wpt_store" or wf.k == "wpt_err" or wf.k == "wpt_disk_res") then
       runtime.wptClient:onReply(wf, os.epoch("utc"))
+      -- Event-mode NAV is never gate-painted: a uiRev bump would only wake the 1 Hz PARAMS
+      -- signature. Callers (startScheduled) wire onWptReply to apply() the visible nav page.
+      if runtime.onWptReply then runtime.onWptReply() end
       return nil
     end
   end
@@ -669,6 +672,11 @@ function M.buildState(runtime, now)
         local step = routefollow.step(legs, nv.routeActive.i or 1, craft, M.ROUTE_ARRIVAL_RADIUS)
         nv.routeActive.i = step.i   -- auto-advance the active leg on arrival
         tgt, color = step.target, "blue"
+      else
+        -- The active route was deleted on the NAV PC: drop the cue AND the stale activation,
+        -- otherwise routeActive lingers forever (only re-ACT cleared it) and the cue silently
+        -- vanishes while state still claims a route is being followed.
+        nv.routeActive = nil
       end
     elseif nv.target then
       tgt, color = nv.target, (nv.target.color or "green")
@@ -773,8 +781,31 @@ end
 -- PFD-rate change (BIT/CONFIG -> PFD RATE) takes effect without a reboot -- but it's only ever the
 -- OUTER loop cadence; each frame's own window inside M.gateFrame is what actually governs when it
 -- paints.
+-- Apply a built EVENT-mode screen (e.g. "nav") on every frame that already constructed it.
+-- Used after an async waypoint-store reply: the 250 ms gate never paints event screens, and a
+-- uiRev bump only wakes PARAMS. Apply even when the screen is not the current top so a later
+-- showScreen visibility-swap (applyNow does not re-apply event tops) still shows the new store.
+-- Returns how many handles were applied (for tests).
+function M.applyEventTop(runtime, frameRecs, screenId)
+  if not frameRecs then return 0 end
+  local n = 0
+  local now = os.epoch("utc")
+  local state = M.buildState(runtime, now)
+  for _, rec in pairs(frameRecs) do
+    local entry = rec.built and rec.built[screenId]
+    if entry and entry.handle and type(entry.handle.apply) == "function" then
+      entry.handle.apply(state)
+      n = n + 1
+    end
+  end
+  return n
+end
+
 function M.startScheduled(basalt, runtime, frameRecs)
   frameRecs = frameRecs or {}
+  runtime.onWptReply = function()
+    M.applyEventTop(runtime, frameRecs, "nav")
+  end
 
   -- (a) modem_message router: telemetry -> rx, ack -> sender, health -> hbRx, cfgsync req -> reply.
   basalt.schedule(function()

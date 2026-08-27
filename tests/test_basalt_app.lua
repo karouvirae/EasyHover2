@@ -333,6 +333,45 @@ t.test("routeModem feeds a wpt_store reply (ch 109) into the wptClient cache", f
   t.eq(#runtime.wptClient.store.waypoints, 1)
 end)
 
+t.test("routeModem invokes onWptReply so event-mode NAV can apply the new store", function()
+  -- After render-policy, NAV is event-mode: a uiRev bump does not paint it. The async store
+  -- reply must fire a dedicated hook so the visible nav page can apply().
+  local runtime = newRuntime()
+  local n = 0
+  runtime.onWptReply = function() n = n + 1 end
+  M.routeModem(runtime, 109, protocol.encode({ k = "wpt_store", rev = 3,
+    store = { waypoints = { { name = "Home", x = 1, y = 2, z = 3 } }, routes = {} } }))
+  t.eq(n, 1, "store reply notified")
+  M.routeModem(runtime, 109, protocol.encode({ k = "wpt_err", err = "nope" }))
+  t.eq(n, 2, "error replies notify too")
+end)
+
+t.test("applyEventTop calls apply on every built nav page, even if it is not the current top", function()
+  local runtime = newRuntime()
+  local applied = 0
+  local recs = {
+    hiddenNav = { nav = { top = function() return "pfd" end },
+      built = { nav = { handle = { apply = function() applied = applied + 1 end } },
+                pfd = { handle = { apply = function() applied = applied + 10 end } } } },
+    noNav = { nav = { top = function() return "pfd" end },
+      built = { pfd = { handle = { apply = function() applied = applied + 10 end } } } },
+  }
+  local n = M.applyEventTop(runtime, recs, "nav")
+  t.eq(n, 1, "one built nav handle")
+  t.eq(applied, 1, "only the NAV handle applied (not PFD)")
+end)
+
+t.test("buildState clears a stale routeActive when its route was deleted on the NAV PC", function()
+  local runtime = newRuntime()
+  local now = os.epoch("utc")
+  runtime.nav.fixX = 0; runtime.nav.fixZ = 0; runtime.nav.heading = 0; runtime.nav.at = now
+  runtime.nav.routeActive = { name = "GONE", i = 1 }   -- no such route in the (empty) store
+  M.routeModem(runtime, CH.telemetry, protocol.encode(telemetry.Tx.new():frame({ altitude = 64 })))
+  local s = M.buildState(runtime, now)
+  t.eq(s.target, nil, "no steering cue from a missing route")
+  t.eq(runtime.nav.routeActive, nil, "stale activation cleared instead of lingering")
+end)
+
 t.test("buildState heading comes from the FCS snapshot compassHeading", function()
   local runtime = {
     rx = { latest = function() return { compassHeading = 128 } end },

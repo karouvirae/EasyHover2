@@ -10,6 +10,7 @@ local shim      = require("fcs.io.shim")
 local frame     = require("fcs.frame")
 local hover     = require("tools.hover_test")
 local Flight    = require("fcs.runtime.flight")
+local fault     = require("fcs.runtime.fault")
 local keymap    = require("fcs.input.keymap")
 local Pilot     = require("fcs.input.pilot")
 local inputCfg  = require("fcs.input.config")
@@ -205,7 +206,9 @@ local function controlTask()
         shared.snap = snap
         logCycle(dt, meas)
       end)
-      if not ok then shared.controlErr = tostring(err) end
+      -- §11.9: "Terminated" is NEVER swallowed by this device-fault pcall -- a Ctrl+T arriving
+      -- mid-step is re-raised so parallel.waitForAny unwinds and safeShutdown() runs.
+      if not ok then shared.controlErr = fault.orReraise(err) end
       timer = os.startTimer(0)   -- ALWAYS re-arm, even if the step threw, so the loop never stalls
     end
   end

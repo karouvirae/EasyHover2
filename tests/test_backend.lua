@@ -61,6 +61,27 @@ t.test("vSpeed derives from altitude change over dt (tau 0 = unfiltered)", funct
   altP.getHeight = function() return 11 end; clk2 = 500   -- +1m over 0.5s
   t.near(b3:sensors().vSpeed, 2, 1e-6)   -- 1m / 0.5s
 end)
+t.test("a stall (huge dt) SKIPS integration: vSpeed is not dAlt/dtMax and positions do not teleport", function()
+  -- §6: skip I/D on overrun, do not clamp-and-divide. Clamping dt to 0.5 would turn a 1 m
+  -- change over 5 s into a 2 m/s vSpeed kick, and vel*dtMax would still walk the leashes.
+  local altP = mocks.altitude(100)
+  local shim = mocks.shim({ alt=altP, gim=mocks.gimbal({0,0}), vf=mocks.velocity(4), vr=mocks.velocity(0),
+    vm=mocks.velocity(8), nav=mocks.navtable(0), opt=mocks.optical(9) })
+  local cfg = sensorCfg(); cfg.bindings.vSpeedTau = 0.0
+  local clk = 0; local b = Backend.new(shim, cfg, function() return clk end)
+  b:sensors()                                     -- seed at t=0, alt 100
+  altP.getHeight = function() return 101 end
+  clk = 5000                                      -- 5 s stall + 1 m climb
+  local s = b:sensors()
+  t.near(s.vSpeed, 0, 1e-6, "vSpeed must not spike to 1/0.5 = 2")
+  t.near(s.swayPos, 0, 1e-6, "sway does not integrate the stall (not even at dtMax)")
+  t.near(s.surgePos, 0, 1e-6, "surge does not integrate the stall")
+  -- next sample starts fresh from the new lastT/lastAlt
+  clk = 5500
+  local s2 = b:sensors()
+  t.near(s2.vSpeed, 0, 1e-6, "altitude unchanged after the stall sample")
+  t.near(s2.swayVel, 2, 1e-9); t.near(s2.swayPos, 1, 1e-6)   -- 2 m/s x 0.5 s normal sample
+end)
 t.test("heading applies sign and scale (deg->rad)", function()
   local cfg = sensorCfg(); cfg.bindings.signHeading = -1; cfg.bindings.headingScale = math.pi/180
   local b = Backend.new(sensorRig(10, {0,0}, 0,0,0, 90, 5), cfg, function() return 0 end)

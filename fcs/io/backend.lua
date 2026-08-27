@@ -1,4 +1,8 @@
 local frame = require("fcs.frame")
+-- Max sample period the velocity filter / position integrators will act on (seconds). Matches
+-- Loop:cycle's dtMax. A gap larger than this (a stall) is SKIPPED, not integrated as dtMax:
+-- clamp-and-divide would turn a 1 m climb over 5 s into a 2 m/s vSpeed kick (§6).
+local MAX_INTEGRATION_DT = 0.5
 local Backend = {}
 Backend.__index = Backend
 function Backend.new(shim, config, clock)
@@ -62,7 +66,9 @@ function Backend:sensors()
   local vSpeed = 0
   if self.lastT ~= nil then
     local dt = (now - self.lastT) / 1000
-    if dt > 0 then
+    -- Skip the sample on overrun (mainThread stall): lastT/lastAlt still advance so the next
+    -- sample starts fresh. Do NOT clamp dt and divide — that invents a derivative kick.
+    if dt > 0 and dt <= MAX_INTEGRATION_DT then
       local rawV = (altitude - self.lastAlt) / dt
       local tau = b.vSpeedTau or 0
       local alpha = tau > 0 and (dt / (tau + dt)) or 1
@@ -70,6 +76,8 @@ function Backend:sensors()
       vSpeed = self.vFilt
       self.swayPos = self.swayPos + swayVel * dt
       self.surgePos = self.surgePos + surgeVel * dt
+    elseif dt > MAX_INTEGRATION_DT then
+      vSpeed = self.vFilt or 0
     end
   end
   self.lastT, self.lastAlt = now, altitude
