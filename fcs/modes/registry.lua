@@ -6,6 +6,7 @@ local Manual    = require("fcs.schemes.manual")
 local Cruise    = require("fcs.schemes.cruise")
 local Coupled   = require("fcs.schemes.coupled")
 local Decoupled = require("fcs.schemes.decoupled")
+local Drone     = require("fcs.schemes.drone")
 local Mixer     = require("fcs.mixer.level_flight")
 
 local M = {}
@@ -21,6 +22,9 @@ local SPECS = {
   { id = "CRUISE",    label = "CRUISE",    ctor = Cruise,    policy = { tilt = false, surge = "throttle" } },
   { id = "CPL",       label = "CPL",       ctor = Coupled,   policy = { tilt = true,  surge = "coupled" } },
   { id = "DCPL",      label = "DCPL",      ctor = Decoupled, policy = { tilt = true,  surge = "coupled" } },
+  { id = "LDG",       label = "LDG",       ctor = Level,     policy = { tilt = false, surge = "position" },
+                      groundSense = true, canPark = true },
+  { id = "DRN",       label = "DRN",       ctor = Drone,     policy = { tilt = true,  surge = "position", translate = false } },
 }
 
 -- tuning is a dot-function object: tuning.forMode(id) (matches fcs.tuning.forMode).
@@ -33,9 +37,10 @@ function M.build(tuning)
     order[#order+1] = s.id
     byId[s.id] = { id = s.id, label = s.label, policy = s.policy,
       scheme = s.ctor.new(schemeCfg(cfg.gains)), mixer = mixer,
-      caps = cfg.caps, feel = cfg.feel }
+      caps = cfg.caps, feel = cfg.feel,
+      groundSense = s.groundSense or false, canPark = s.canPark or false }
   end
-  return { order = order, default = "PRECISION", byId = byId }
+  return { order = order, default = "LDG", byId = byId }
 end
 
 return M

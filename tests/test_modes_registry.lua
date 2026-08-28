@@ -24,10 +24,10 @@ local function fakeTuning()
   end }
 end
 
-t.test("registry builds all five modes with correct policy + default", function()
+t.test("registry builds all seven modes with correct policy + default", function()
   local reg = Registry.build(fakeTuning())
-  t.eq(reg.default, "PRECISION", "default is PRECISION")
-  t.eq(#reg.order, 5, "five modes")
+  t.eq(reg.default, "LDG", "default is LDG")
+  t.eq(#reg.order, 7, "seven modes")
   t.eq(reg.byId.MAN.policy.tilt, true, "MAN tilt enabled")
   t.eq(reg.byId.CRUISE.policy.surge, "throttle", "CRUISE surge throttle")
   t.eq(reg.byId.PRECISION.policy.tilt, false, "PRECISION no tilt")
@@ -39,6 +39,20 @@ t.test("registry includes CPL and DCPL with coupled policy", function()
   t.truthy(reg.byId.CPL and reg.byId.DCPL, "CPL/DCPL present")
   t.eq(reg.byId.CPL.policy.surge, "coupled", "CPL coupled policy")
   t.eq(reg.byId.DCPL.policy.tilt, true, "DCPL tilt enabled")
+end)
+
+t.test("registry defaults to LDG and carries groundSense/canPark flags", function()
+  local reg = Registry.build(fakeTuning())
+  t.eq(reg.default, "LDG", "boot default is LDG")
+  -- LDG: senses ground + can park
+  t.eq(reg.byId.LDG.groundSense, true, "LDG groundSense")
+  t.eq(reg.byId.LDG.canPark, true, "LDG canPark")
+  -- DRN: neither
+  t.eq(reg.byId.DRN.groundSense, false, "DRN groundSense off")
+  t.eq(reg.byId.DRN.canPark, false, "DRN canPark off")
+  -- others default false
+  t.eq(reg.byId.PRECISION.groundSense, false, "PRECISION groundSense off")
+  t.eq(reg.byId.PRECISION.canPark, false, "PRECISION canPark off")
 end)
 
 t.test("PRECISION descriptor reproduces the golden baseline", function()
