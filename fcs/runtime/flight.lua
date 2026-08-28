@@ -20,6 +20,13 @@ function Flight.new(deps)
     -- 1 Hz snapshot -- no extra mainThread I/O, no UI/NAV sensor polling. minFuel trips the
     -- latch; re-arm requires 2x minFuel (hysteresis so a sloshing near-empty tank cannot chatter).
     fuel = deps.fuel, minFuel = deps.minFuel or 0.05,
+    -- Global parked latch (§3.3): setGroundSense(fn(bool)|nil) toggles the backend's ground
+    -- sensor per mode switch; park(table|nil) carries the LDG landed-detector's thresholds
+    -- (consumed starting Task 8). canPark/groundSense mirror the active descriptor's flags
+    -- (updated by handleCommand's flightMode branch); both default false until a mode switch
+    -- (or Task 9's boot wiring) applies the active descriptor.
+    setGroundSense = deps.setGroundSense, park = deps.park,
+    canPark = false, groundSense = false,
     engaged = false, gndSafety = true, positionHold = false,
     fuelPump = false, flightMode = (deps.registry and deps.registry.default) or "PRECISION", parked = false,
     trimDir = defaultTrimDir(deps.registry),
@@ -61,6 +68,12 @@ function Flight:handleCommand(cmd)
     self.loop:setActive(d)
     self.pilot:setMode(d.policy, d.feel)
     self.flightMode = cmd.id
+    -- §3.3 latch wiring: mirror the new descriptor's flags and (re)gate the ground sensor.
+    -- self.parked is deliberately left untouched here -- HONOR/CLEAR is step()'s sole authority
+    -- (Task 7), so the latch persists across a switch away from LDG.
+    self.canPark = d.canPark or false
+    self.groundSense = d.groundSense or false
+    if self.setGroundSense then self.setGroundSense(self.groundSense) end
     self.trimDir = (d.feel and d.feel.trimDir) or self.trimDir
     return true
     elseif k == "flightTrim" then
@@ -152,11 +165,17 @@ function Flight:step(dt, held, meas)
   self:_checkFuel(meas)
   if self.engaged then
     if self._needReset then self.pilot:reset(meas); self._needReset = false end
-    self.parked = self:_parked(held, meas)
+    -- §3.3 global parked latch: HONOR and CLEAR are step()'s sole authority (SET is Task 8's
+    -- LDG-only landed-detector). Once latched, EVERY mode honors it -- zero control, inputs
+    -- ignored -- until the pilot commands a climb, which clears it regardless of mode.
     if self.parked then
-      self.pilot:reset(meas)
-      self.loop:arm(false)
-    else
+      if held and held.up then
+        self.parked = false                                    -- ascend un-parks (any mode)
+      else
+        self.pilot:reset(meas); self.loop:arm(false)            -- honored everywhere: zero control
+      end
+    end
+    if not self.parked then
       if autoOn then
         local duties = self.lastDiag and self.lastDiag.duties
         local ar = self.comAuto:tick(dt, meas, duties, self.loop:getMode())

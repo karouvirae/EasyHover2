@@ -5,9 +5,9 @@ local Pilot = require("fcs.input.pilot")
 
 -- Fake loop records arm/setpoints/cycle without needing real control.
 local function fakeLoop()
-  local L = { armed = false, sp = nil, cycles = 0, mode = "NORMAL", cleared = false }
+  local L = { armed = false, sp = nil, cycles = 0, mode = "NORMAL", cleared = false, armCalls = {} }
   function L:setActive(d) self.scheme = d.scheme end
-  function L:arm(b) self.armed = b and true or false end
+  function L:arm(b) self.armed = b and true or false; self.armCalls[#self.armCalls+1] = self.armed end
   function L:setpoints(x) self.sp = x end
   function L:clearDamped() self.cleared = true; self.mode = "NORMAL" end
   function L:getMode() return self.mode end
@@ -99,10 +99,14 @@ local function engagedFlight(L)
   return f
 end
 
-t.test("parked: engaged + on-ground + at rest + no climb => loop disarmed (zero thrust)", function()
+-- §3.3 redesign: parked is now a global LATCH that only a canPark mode (LDG) can SET (Task 8's
+-- landed-detector). Ground-rest alone no longer auto-parks a plain engaged flight (no registry =>
+-- canPark defaults false) -- this guards the "only LDG can SET" invariant Task 7 establishes.
+t.test("on-ground + at rest alone does NOT set the latch without a canPark mode (SET is gated)", function()
   local L = fakeLoop(); local f = engagedFlight(L)
   f:step(0.1, {}, groundMeas())
-  t.eq(L.armed, false, "parked craft => loop disarmed")
+  t.eq(f.parked, false, "no SET path without canPark => latch stays clear")
+  t.eq(L.armed, true, "not parked => normal control, loop armed")
 end)
 
 t.test("climb un-parks: engaged + on-ground + climb held => loop armed", function()
@@ -123,11 +127,11 @@ t.test("airborne: engaged + not on-ground => loop armed", function()
   t.eq(L.armed, true, "airborne always active")
 end)
 
-t.test("snapshot reports parked + PARKED mode while parked", function()
+t.test("snapshot: parked/PARKED mode require the latch to be SET, not just ground+rest", function()
   local L = fakeLoop(); local f = engagedFlight(L)
   local snap = f:step(0.1, {}, groundMeas())
-  t.eq(snap.parked, true, "parked flag set")
-  t.eq(snap.mode, "PARKED", "mode reads PARKED")
+  t.eq(snap.parked, false, "parked flag stays clear absent a SET path")
+  t.truthy(snap.mode ~= "PARKED", "mode does not read PARKED absent a SET path")
 end)
 
 t.test("step always cycles the loop and returns a snapshot with flags", function()
@@ -137,6 +141,58 @@ t.test("step always cycles the loop and returns a snapshot with flags", function
   t.eq(L.cycles, 1, "cycled once")
   t.eq(snap.engaged, false); t.eq(snap.gndSafety, true)
   t.truthy(snap.altitude ~= nil, "snapshot carries telemetry")
+end)
+
+-- ---- §3.3 global parked latch: mode-switch wiring (setGroundSense/canPark) + HONOR/CLEAR ----
+-- Small registry fixture carrying groundSense/canPark flags (mirrors the real fcs.modes.registry
+-- shape) without pulling in the real scheme/mixer machinery -- matches this file's kiRegistry()
+-- pattern below.
+local function modeRegistry()
+  return { default = "LDG", byId = {
+    PRECISION = { id = "PRECISION", policy = { tilt = false, surge = "position" }, feel = nil,
+      groundSense = false, canPark = false },
+    LDG = { id = "LDG", policy = { tilt = false, surge = "position" }, feel = nil,
+      groundSense = true, canPark = true },
+    DRN = { id = "DRN", policy = { tilt = true, surge = "position", translate = false }, feel = nil,
+      groundSense = false, canPark = false },
+  } }
+end
+
+t.test("mode switch calls setGroundSense with the descriptor's flag and updates canPark", function()
+  local calls = {}
+  local L = fakeLoop()
+  local f = Flight.new({ loop = L, pilot = Pilot.new(CFG), registry = modeRegistry(),
+    setGroundSense = function(b) calls[#calls+1] = b end })
+  f:handleCommand({ k = "flightMode", id = "DRN" })
+  t.eq(calls[#calls], false, "DRN disables ground-sense")
+  t.eq(f.canPark, false, "DRN sets canPark false")
+  f:handleCommand({ k = "flightMode", id = "LDG" })
+  t.eq(calls[#calls], true, "LDG enables ground-sense")
+  t.eq(f.canPark, true, "LDG sets canPark true")
+end)
+
+t.test("parked latch is HONORED in a non-LDG mode: loop stays disarmed, ascend clears it", function()
+  local L = fakeLoop()
+  local f = Flight.new({ loop = L, pilot = Pilot.new(CFG), registry = modeRegistry() })
+  f.engaged = true
+  f.parked = true               -- pretend LDG latched it earlier
+  f.flightMode = "PRECISION"    -- then switched away
+  f:step(0.05, {}, groundMeas())
+  t.eq(L.armCalls[#L.armCalls], false, "parked honored: loop disarmed in non-LDG")
+  t.eq(f.parked, true, "latch still set (honored, not cleared by a non-climb step)")
+  f:step(0.05, { up = true }, groundMeas())
+  t.eq(f.parked, false, "ascend clears parked in any mode")
+  t.eq(L.armCalls[#L.armCalls], true, "cleared => normal control resumes, loop armed")
+end)
+
+t.test("parked latch PERSISTS across a mode switch away from LDG (handleCommand never clears it)", function()
+  local L = fakeLoop()
+  local f = Flight.new({ loop = L, pilot = Pilot.new(CFG), registry = modeRegistry() })
+  f.flightMode = "LDG"
+  f.parked = true               -- latched while in LDG
+  f:handleCommand({ k = "flightMode", id = "PRECISION" })
+  t.eq(f.parked, true, "latch persists across the switch")
+  t.eq(f.canPark, false, "canPark still mirrors the new (non-LDG) descriptor")
 end)
 
 t.test("comAuto start un-parks and ignores stick", function()
