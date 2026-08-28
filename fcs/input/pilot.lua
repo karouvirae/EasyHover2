@@ -84,15 +84,20 @@ function Pilot:update(dt, held, meas)
   -- the axis cruise speed; released => hold current setpoint. Surge (fore/aft, the main engine) and
   -- sway (lateral) have SEPARATE speed/lead so forward can be much faster than sideways; both fall
   -- back to the shared cruiseSpeed/maxLead when the split params are absent (keeps old configs valid).
-  local swaySpeed, swayLead = c.swaySpeed or c.cruiseSpeed, c.swayLead or c.maxLead
-  local swd = dirOf(held, "swayLeft", "swayRight")
-  local starget = (swd ~= 0) and (meas.swayPos + swayLead * swd) or sp.swayPos
-  sp.swayPos = leash.step(sp.swayPos, starget, meas.swayPos, dt, swaySpeed, swayLead)
+  -- DRN sets policy.translate=false: skip the leash entirely so sway/surge setpoints stay
+  -- frozen at their reset value and the craft moves by tilt only. Nil (every other mode) is
+  -- ~= false, so behavior there is unchanged.
+  if self.policy.translate ~= false then
+    local swaySpeed, swayLead = c.swaySpeed or c.cruiseSpeed, c.swayLead or c.maxLead
+    local swd = dirOf(held, "swayLeft", "swayRight")
+    local starget = (swd ~= 0) and (meas.swayPos + swayLead * swd) or sp.swayPos
+    sp.swayPos = leash.step(sp.swayPos, starget, meas.swayPos, dt, swaySpeed, swayLead)
 
-  local surgeSpeed, surgeLead = c.surgeSpeed or c.cruiseSpeed, c.surgeLead or c.maxLead
-  local sud = dirOf(held, "surgeBack", "surgeFwd")
-  local utarget = (sud ~= 0) and (meas.surgePos + surgeLead * sud) or sp.surgePos
-  sp.surgePos = leash.step(sp.surgePos, utarget, meas.surgePos, dt, surgeSpeed, surgeLead)
+    local surgeSpeed, surgeLead = c.surgeSpeed or c.cruiseSpeed, c.surgeLead or c.maxLead
+    local sud = dirOf(held, "surgeBack", "surgeFwd")
+    local utarget = (sud ~= 0) and (meas.surgePos + surgeLead * sud) or sp.surgePos
+    sp.surgePos = leash.step(sp.surgePos, utarget, meas.surgePos, dt, surgeSpeed, surgeLead)
+  end
 
   -- MAN drift-relax: while the pilot actively tilts, relax the horizontal position hold so a
   -- banked craft drifts freely instead of the translate loop fighting it. Snapping the position

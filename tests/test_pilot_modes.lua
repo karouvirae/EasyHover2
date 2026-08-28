@@ -67,3 +67,25 @@ t.test("PRECISION does NOT relax (no relaxTiltDrift flag): hold stays put under 
   local sp = p:update(0.1, {}, { altitude=0, heading=0, swayPos=3, surgePos=3 })
   t.near(sp.swayPos, 0, 1e-9, "PRECISION holds its setpoint (0), not the drifted 3")
 end)
+
+-- DRN policy.translate=false: the generic sway/surge leash must NOT move the setpoints from
+-- held keys; the craft is meant to translate by tilt only, with sway/surge frozen at reset.
+t.test("policy.translate=false freezes sway/surge leash (drone: tilt-only translation)", function()
+  local p = Pilot.new(FEEL)
+  p:setMode({ tilt = true, surge = "position", translate = false }, FEEL)
+  p:reset(meas())
+  local sp = p:update(0.1, { surgeFwd = true, swayRight = true }, meas())
+  t.near(sp.surgePos, 0, 1e-9, "translate=false freezes surgePos")
+  t.near(sp.swayPos, 0, 1e-9, "translate=false freezes swayPos")
+end)
+
+-- Regression guard: an existing mode (no translate field, e.g. PRECISION) must keep ramping
+-- the position leash exactly as before.
+t.test("existing mode (no translate field) still ramps sway/surge leash", function()
+  local p = Pilot.new(FEEL)
+  p:setMode({ tilt = true, surge = "position" }, FEEL)
+  p:reset(meas())
+  local sp = p:update(0.1, { surgeFwd = true, swayRight = true }, meas())
+  t.truthy(sp.surgePos > 0, "surgePos ramps forward without translate flag")
+  t.truthy(sp.swayPos > 0, "swayPos ramps right without translate flag")
+end)
