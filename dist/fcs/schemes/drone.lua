@@ -1,0 +1,1 @@
+local a=require("fcs.schemes.level_flight")local b={}b.__index=b;function b.new(c)local d=a.new(c)return setmetatable({inner=d,pitchPid=d.pitchPid,rollPid=d.rollPid},b)end;function b:reset()self.inner:reset()end;function b:update(e,f,g,h,i)local j=self.inner:update(e,f,g,h,i)j.sway,j.surge=0,0;return j end;return b
