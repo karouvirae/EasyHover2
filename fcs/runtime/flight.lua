@@ -1,5 +1,6 @@
 -- fcs/runtime/flight.lua
 local ComAuto = require("fcs.comauto")
+local fueltable = require("fcs.fueltable")
 local Flight = {}
 Flight.__index = Flight
 
@@ -26,6 +27,11 @@ function Flight.new(deps)
     -- (updated by handleCommand's flightMode branch); both default false until a mode switch
     -- (or Task 9's boot wiring) applies the active descriptor.
     setGroundSense = deps.setGroundSense, park = deps.park,
+    -- §Task 6 fuel calibration: setFuelScale(fn|nil) applies the actuator scale for the selected
+    -- fuel, saveFuel(fn|nil) persists the selection; both called as PLAIN functions (no self).
+    -- fuelName defaults to fueltable.default (the calibrated baseline, "Biodiesel").
+    setFuelScale = deps.setFuelScale, saveFuel = deps.saveFuel,
+    fuelName = deps.fuelName or fueltable.default,
     canPark = false, groundSense = false,
     engaged = false, gndSafety = true, positionHold = false,
     fuelPump = false, flightMode = (deps.registry and deps.registry.default) or "PRECISION", parked = false,
@@ -58,6 +64,13 @@ function Flight:handleCommand(cmd)
     self.fuelPump = cmd.on and true or false; return true
   elseif k == "clearDamped" then
     self.loop:clearDamped(); return true
+  elseif k == "fuel" then
+    if fueltable.pctOf(cmd.id) then
+      self.fuelName = cmd.id
+      if self.setFuelScale then self.setFuelScale(fueltable.scaleFor(cmd.id)) end
+      if self.saveFuel then self.saveFuel(cmd.id) end
+    end
+    return true
   elseif k == "flightMode" then
     local reg = self.registry
     local d = reg and reg.byId[cmd.id]
@@ -241,6 +254,7 @@ function Flight:snapshot(r, meas)
     engaged = self.engaged, gndSafety = self.gndSafety,
     positionHold = self.positionHold, fuelPump = self.fuelPump, parked = self.parked,
     noFuel = self.noFuel,
+    fuel = self.fuelName, fuelPct = fueltable.pctOf(self.fuelName), badFuel = fueltable.isBad(self.fuelName),
     mode = self.parked and "PARKED" or ((r and r.mode) or self.loop:getMode()),
     flightMode = self.flightMode,
     trimDir = self.trimDir,

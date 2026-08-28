@@ -415,3 +415,34 @@ t.test("no-fuel trip restores comAuto-captured ki (same contract as disengage)",
   t.eq(f.engaged, false)
   t.near(sA.pitchPid.ki, 0.10, 1e-9, "ki restored on the fuel trip")
 end)
+
+-- ---- Task 6: fuel command + telemetry ----
+-- newFlight(extra): Flight.new with the file's standard fakeLoop/Pilot pair, extended with
+-- whatever extra deps (setFuelScale/saveFuel/fuelName spies, etc.) the test needs to inject.
+local function newFlight(extra)
+  local o = { loop = fakeLoop(), pilot = Pilot.new(CFG) }
+  for k, v in pairs(extra or {}) do o[k] = v end
+  return Flight.new(o)
+end
+
+t.test("flight: fuel command sets scale + persists + telemetry", function()
+  local scaleX, saved
+  local f = newFlight({ setFuelScale = function(x) scaleX = x end, saveFuel = function(id) saved = id end })
+  t.eq(f:handleCommand({ k = "fuel", id = "Ethanol" }), true, "known fuel accepted")
+  t.near(scaleX, 0.30, 1e-9, "scale 0.30")
+  t.eq(saved, "Ethanol", "persisted")
+  local snap = f:snapshot(nil, {})
+  t.eq(snap.fuel, "Ethanol", "telemetry fuel"); t.eq(snap.fuelPct, 200, "pct")
+  t.eq(snap.badFuel, false, "ethanol not bad")
+end)
+t.test("flight: bad fuel + unknown id", function()
+  local f = newFlight()
+  f:handleCommand({ k = "fuel", id = "Plant Oil" })
+  t.eq(f:snapshot(nil, {}).badFuel, true, "plant oil bad")
+  local before = f.fuelName
+  f:handleCommand({ k = "fuel", id = "Nonsense" })
+  t.eq(f.fuelName, before, "unknown id no-op")
+end)
+t.test("flight: default fuel is Biodiesel", function()
+  t.eq(newFlight().fuelName, "Biodiesel", "defaults to baseline")
+end)
