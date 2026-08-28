@@ -260,15 +260,15 @@
         },
         {
           ["dst"] = "fcs/input/keymap.lua",
-          ["size"] = 1636,
+          ["size"] = 1928,
           ["src"] = "dist/fcs/input/keymap.lua",
-          ["sum"] = "2269773d",
+          ["sum"] = "1c4afb86",
         },
         {
           ["dst"] = "fcs/input/pilot.lua",
-          ["size"] = 4357,
+          ["size"] = 4398,
           ["src"] = "dist/fcs/input/pilot.lua",
-          ["sum"] = "ed73473f",
+          ["sum"] = "b85d9a0f",
         },
         {
           ["dst"] = "fcs/io/backend.lua",
@@ -344,9 +344,9 @@
         },
         {
           ["dst"] = "fcs/runtime/flight.lua",
-          ["size"] = 5463,
+          ["size"] = 6489,
           ["src"] = "dist/fcs/runtime/flight.lua",
-          ["sum"] = "66a01ff9",
+          ["sum"] = "d9b32570",
         },
         {
           ["dst"] = "fcs/runtime/loop.lua",
@@ -452,9 +452,9 @@
         },
         {
           ["dst"] = "tools/flight.lua",
-          ["size"] = 6380,
+          ["size"] = 6587,
           ["src"] = "dist/tools/flight.lua",
-          ["sum"] = "c3c9ca8e",
+          ["sum"] = "cb437d77",
         },
         {
           ["dst"] = "tools/hover_test.lua",
@@ -1145,9 +1145,9 @@
         },
         {
           ["dst"] = "ui/basalt/regions/fcs.lua",
-          ["size"] = 4702,
+          ["size"] = 4803,
           ["src"] = "dist/ui/basalt/regions/fcs.lua",
-          ["sum"] = "0d0e6e46",
+          ["sum"] = "5ac5c6cf",
         },
         {
           ["dst"] = "ui/basalt/renderpolicy.lua",
@@ -1241,9 +1241,9 @@
         },
         {
           ["dst"] = "ui/panels/fcs.lua",
-          ["size"] = 2738,
+          ["size"] = 2770,
           ["src"] = "dist/ui/panels/fcs.lua",
-          ["sum"] = "21fe64b1",
+          ["sum"] = "6d8cd48c",
         },
         {
           ["dst"] = "ui/relaywriter.lua",
@@ -1409,5 +1409,5 @@
     ["size"] = 71434,
     ["sum"] = "57671ad7",
   },
-  ["version"] = "b9ab390c",
+  ["version"] = "cb31d1b2",
 }
