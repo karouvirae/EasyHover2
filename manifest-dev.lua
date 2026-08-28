@@ -344,9 +344,9 @@
         },
         {
           ["dst"] = "fcs/runtime/flight.lua",
-          ["size"] = 13686,
+          ["size"] = 12747,
           ["src"] = "fcs/runtime/flight.lua",
-          ["sum"] = "0724b8ed",
+          ["sum"] = "51e8633b",
         },
         {
           ["dst"] = "fcs/runtime/loop.lua",
@@ -1409,5 +1409,5 @@
     ["size"] = 71434,
     ["sum"] = "57671ad7",
   },
-  ["version"] = "88ce738c",
+  ["version"] = "f6af8e10",
 }

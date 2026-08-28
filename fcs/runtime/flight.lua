@@ -100,21 +100,6 @@ function Flight:handleCommand(cmd)
   return false
 end
 
--- Ground-idle predicate: the FCS is "parked" (engaged but should output ZERO thrust) only when it
--- sits still on the ground with no climb intent. Requiring at-rest as well as onGround defends the
--- fly-low-over-terrain case: a MOVING craft (onGround can flicker true over a tree/hill) is treated
--- as in-flight so the controller stays live. Isolated on purpose -- the next hardening (fuse baro /
--- altitude-vs-liftoff for uneven ground) is a one-function change here.
-function Flight:_parked(held, meas)
-  if self.comAuto and self.comAuto:active() then return false end
-  if not (meas and meas.onGround == true) then return false end
-  if held and held.up == true then return false end        -- climb un-parks (liftoff)
-  local eps = self.moveEps
-  return math.abs(meas.vSpeed or 0) < eps
-     and math.abs(meas.swayVel or 0) < eps
-     and math.abs(meas.surgeVel or 0) < eps                 -- moving => in-flight, not parked
-end
-
 -- LDG landed-detector (design §4.3). Permissive, for uneven/tilted ground: parks when the craft
 -- is at/below the configured clearance, drifting only very slightly, rested within the tilt band,
 -- and the pilot is hands-off. Only reached in LDG (self.canPark). Autopilot never parks.
