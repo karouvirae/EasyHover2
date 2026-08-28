@@ -135,9 +135,18 @@ end
 - **Policy:** `{ tilt = false, surge = "position" }` (PRECISION-like). **Keymap:** `M.default`.
 - **Flags:** `groundSense = true`, `canPark = true`.
 - **Caps (`DEFAULTS.modes.LDG`):** sharply reduced **surge** (main) and **sway** so the
-  craft cannot accelerate hard (especially forward); pitch/roll/yaw kept large enough to
-  steer. Reduced caps apply the **whole time LDG is active** (it is the gentle takeoff/
-  landing mode). Starting numbers are placeholders, tuned in-world.
+  craft cannot accelerate hard (especially forward); pitch/roll kept at base authority so
+  it can still steer/counter tilt while settling. Reduced caps apply the **whole time LDG
+  is active** (it is the gentle takeoff/landing mode).
+
+**LDG starting numbers** (seeded from base `DEFAULTS`, tuned in-world):
+- `gains = deep(DEFAULTS.gains)` (same PIDs as PRECISION/base).
+- `caps = { pitch = 0.2, roll = 0.2, yaw = 0.4, sway = 0.3, surge = 0.25 }`
+  (base is `pitch/roll 0.2, yaw 0.6, sway 0.9, surge 1.0`; surge cut to a quarter, sway to
+  a third, yaw eased).
+- `feel = deep(DEFAULTS.feel)` with the setpoint-ramp speeds slowed for precise control:
+  `surgeSpeed = 3.0, surgeLead = 6.0, swaySpeed = 2.0, swayLead = 4.0, climbRate = 2.5`
+  (base `10/20/5/10/4.5`); heading feel unchanged.
 
 ### 4.3 LDG landed-detector (`_ldgLanded`) — permissive, for uneven ground
 Sets the parked latch when **all** hold. The bands are *tolerant* (they enable landing on
@@ -152,9 +161,12 @@ tilted/uneven ground within limits), not stricter:
 - **Hands-off:** no active tilt input (`pitchUp/pitchDown/rollLeft/rollRight` not held) and
   no climb-hold (`held.up`).
 
-**New config block** `park = { groundClear, parkDriftEps, parkTiltBand }` (placeholder
-defaults, tuned in-world). `groundClear` replaces the ad-hoc `onGroundThreshold` role for
-LDG's purposes; `onGround` itself keeps its existing meaning for the loop's freeze.
+**New config block** `park = { groundClear = 1.0, parkDriftEps = 0.15, parkTiltBand = 0.12 }`
+— i.e. land within 1.0 block of ground, residual drift under 0.15 blk/s on all axes, tilt
+within 0.12 rad (~7°) of level; all tuned in-world (the tilt band tracks the eventual
+landing-leg travel). `groundClear` is a distinct, tighter threshold than the loop's
+`onGroundThreshold` (~1.5): `onGround` still means `< 1.5` and keeps driving the on-ground
+integrator-freeze in LDG, while `groundClear` alone gates the landing latch.
 
 ### 4.4 Boot default
 `registry.default = "LDG"`. Every boot starts in LDG (and `setGroundSense(true)`). No mode
@@ -174,11 +186,19 @@ persistence across reboots. (CPL as an alternate boot default is future master-m
   the sway/surge leash for this mode (the generic leash currently always runs). Pitch/roll
   auto-level toward 0 on release (existing `toward()` ramp) → returns to a stationary hover.
 - **Keymap (new `M.drone`):** `W/S → pitch`, `A/D → roll`, `Q/E → yaw`,
-  `R/F (+Space/LShift) → lift`. Arrows unused (or reserved for fine-tune later).
+  **`Space → lift up`, `LShift → lift down`**. R/F unused; arrows unused (reserved for
+  fine-tune later).
 - **Flags:** `groundSense = false`, `canPark = false` — DRN never parks and never reads the
   ground sensor.
 - **Caps (`DEFAULTS.modes.DRN`):** generous pitch/roll authority (so the craft is agile and
-  tilts responsively), normal yaw/alt; sway/surge caps irrelevant (demands are 0).
+  tilts responsively), normal yaw/alt; sway/surge forced to 0 (demands are 0).
+
+**DRN starting numbers** (seeded from base `DEFAULTS`, tuned in-world):
+- `gains = deep(DEFAULTS.gains)` (attitude/heading/alt PIDs from base).
+- `caps = { pitch = 0.5, roll = 0.5, yaw = 0.6, sway = 0, surge = 0 }` (pitch/roll raised
+  from base 0.2 for agility; lateral/main hard-zeroed).
+- `feel = deep(DEFAULTS.feel)` with `tiltRate = 0.8`, `tiltCap = 0.5` (kept `< attLimit`
+  0.6); `climbRate` left at base 4.5.
 
 ---
 
@@ -225,9 +245,12 @@ must stay green.
 
 ---
 
-## 8. Open tuning items (in-world, not blocking)
+## 8. Tuning knobs (starting values seeded in §4/§5; refine in-world)
 
-- LDG caps magnitudes (surge/sway reduction factor).
-- `park.groundClear`, `park.parkDriftEps`, `park.parkTiltBand` values (tilt band tied to
-  the eventual landing-leg travel).
-- DRN pitch/roll caps and tilt feel (rate/cap).
+Concrete starting numbers are now baked into the LDG (§4) and DRN (§5) descriptors, so the
+craft flies both modes on first boot. All remain in-world knobs — revert freely:
+
+- LDG caps `{ pitch=0.2, roll=0.2, yaw=0.4, sway=0.3, surge=0.25 }` and slowed feel speeds.
+- `park = { groundClear=1.0, parkDriftEps=0.15, parkTiltBand=0.12 }` (tilt band tracks the
+  eventual landing-leg travel).
+- DRN caps `{ pitch=0.5, roll=0.5, yaw=0.6, sway=0, surge=0 }`, `tiltRate=0.8`, `tiltCap=0.5`.
