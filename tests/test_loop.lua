@@ -152,3 +152,12 @@ t.test("previous cycle's envelope clipping reaches the scheme as the sat table",
   t.eq(seen.pitch, true, "clipped axis is flagged for the next tick")
   t.eq(seen.roll, nil)
 end)
+
+t.test("loop: setFuelScale forwards to pwm and sd", function()
+  local pwmX, sdX
+  local loop = Loop.new({ scheme = fakeScheme(), mixer = Mixer.new(), caps = {}, backend = fakeBackend(),
+    pwm = { apply = function() end, setFuelScale = function(_, x) pwmX = x end },
+    sd  = { apply = function() end, setFuelScale = function(_, x) sdX = x end } })
+  loop:setFuelScale(0.4)
+  t.near(pwmX, 0.4, 1e-9, "pwm got scale"); t.near(sdX, 0.4, 1e-9, "sd got scale")
+end)

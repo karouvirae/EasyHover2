@@ -23,6 +23,10 @@ function Loop:clearDamped()
   self.mode = "NORMAL"
   if self.osc then self.osc:reset() end
 end
+function Loop:setFuelScale(x)
+  if self.pwm and self.pwm.setFuelScale then self.pwm:setFuelScale(x) end
+  if self.sd and self.sd.setFuelScale then self.sd:setFuelScale(x) end
+end
 function Loop:apply(duties, dt)
   if not self.sd then
     self.pwm:apply(duties, dt)
