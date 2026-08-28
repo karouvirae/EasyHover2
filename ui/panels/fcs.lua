@@ -120,11 +120,11 @@ end
 -- PRECISION / MAN / CRUISE / CPL / DCPL, driven purely by reported telemetry -- no optimistic UI.
 -- M.MODES lists the selectable modes; M.modeActive(ctx, id) is true only when the LATEST
 -- reported ctx.flightMode equals id (ctx==nil/{} means nothing is active yet -- no optimism).
-M.MODES = { "PRECISION", "MAN", "CRUISE", "CPL", "DCPL" }
+M.MODES = { "PRECISION", "MAN", "CRUISE", "CPL", "DCPL", "LDG", "DRN" }
 
 -- Short ASCII display labels (CC:T font, no unicode) for the narrow selector surfaces -- the
 -- merged region's ~14-col width can't fit the full mode ids side-by-side once there are 5 of them.
-M.MODE_LABEL = { PRECISION = "PRE", MAN = "MAN", CRUISE = "CRU", CPL = "CPL", DCPL = "DCPL" }
+M.MODE_LABEL = { PRECISION = "PRE", MAN = "MAN", CRUISE = "CRU", CPL = "CPL", DCPL = "DCPL", LDG = "LDG", DRN = "DRN" }
 
 local MODE_SET = {}
 for _, id in ipairs(M.MODES) do MODE_SET[id] = true end

@@ -20,10 +20,10 @@ local function stubRuntime(latest)
   }, sent
 end
 
-t.test("region exposes the mode selector wiring, five modes", function()
+t.test("region exposes the mode selector wiring, seven modes", function()
   -- The region builds from ui.panels.fcs; assert the shared contract is used.
   local F = require("ui.panels.fcs")
-  t.eq(#F.MODES, 5, "region selector uses the shared 5-mode list (PRECISION/MAN/CRUISE/CPL/DCPL)")
+  t.eq(#F.MODES, 7, "region selector uses the shared 7-mode list (PRECISION/MAN/CRUISE/CPL/DCPL/LDG/DRN)")
   t.truthy(FcsRegion.main, "region module loads and exposes main()")
 end)
 
@@ -73,7 +73,7 @@ t.test("MODE_LABEL.DCPL is the full DCPL label, not the old DCP abbreviation", f
   t.eq(F.MODE_LABEL.DCPL, "DCPL", "DCPL label reads DCPL, not DCP")
 end)
 
-t.test("fcs_main: top margin + overshoot fit, and the 5 mode chips share one common width (36x21)", function()
+t.test("fcs_main: top margin + overshoot fit, and the five displayed mode chips share one common width (36x21)", function()
   local basalt = BasaltApp.ensureBasalt()
   local parent = basalt.createFrame()
   local rt = stubRuntime({ engaged = false, gndSafety = false, mode = "GROUND" })

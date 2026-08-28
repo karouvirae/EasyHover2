@@ -1,6 +1,6 @@
 -- ui/basalt/regions/fcs.lua
 -- FCS region screens for the merged flight page (bottom region). Two screens:
---   fcs_main   : [FCS][GND][PARAMS] color-switches, the 5-mode (PRE/MAN/CRU/CPL/DCPL) selector,
+--   fcs_main   : [FCS][GND][PARAMS] color-switches, the flight mode selector (PRE/MAN/CRU/CPL/DCPL),
 --                and a live auto-trim toggle -- all laid out with ui.basalt.btnfit.grid (common
 --                per-group width, each row independently centered) instead of manual column
 --                splitting (ui.panels.fcs's MODES/MODE_LABEL/action/modeActive/trimLabel/
@@ -156,8 +156,10 @@ function M.main(basalt, frame, region, runtime)
     -- Mode chips: green for the one active mode, red for the rest (radio across all real modes). Add a
     -- blinking outline when stale; hide it (button-bg colour) otherwise.
     for _, id in ipairs(FcsPanel.MODES) do
-      modeCtrls[id].setChip(FcsPanel.modeActive(state, id) and colors.green or colors.red)
-      modeCtrls[id].setBorder(blink)   -- nil (healthy) -> removeBorder; a colour (stale) -> blink outline
+      if modeCtrls[id] then  -- only update modes that have UI buttons in this region
+        modeCtrls[id].setChip(FcsPanel.modeActive(state, id) and colors.green or colors.red)
+        modeCtrls[id].setBorder(blink)   -- nil (healthy) -> removeBorder; a colour (stale) -> blink outline
+      end
     end
     -- TRIM: orange chip always; label cycles / reads the live direction (or "TRIM --" when inactive).
     trimCtrl.setText(FcsPanel.trimActive(state) and FcsPanel.trimLabel(state) or "TRIM --")
