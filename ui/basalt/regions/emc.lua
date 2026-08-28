@@ -56,6 +56,7 @@ local Config = require("ui.config")
 local ConfigPanel = require("ui.panels.config")
 local Picker = require("ui.basalt.picker")
 local btnfit = require("ui.basalt.btnfit")
+local EnginePanel = require("ui.panels.engine")
 
 local M = {}
 
@@ -122,6 +123,18 @@ function M._onEngine(runtime, id, now)
     return { op = "feedNow" }
   end
   return nil
+end
+
+-- ===== M._onFuel: remote fuel-type selection send seam for emc_calfuel's fuel picker. =====
+-- Unlike M._onEngine's LOCAL engine controls above, picking a fuel is a COMMAND sent to the FCS
+-- (mirrors ui/basalt/regions/fcs.lua's M._onMode: runtime.links.tel:send(runtime.sender:send(cmd))).
+-- The FCS applies the scale, persists it, and reports fuel/fuelPct/badFuel back on telemetry --
+-- M.calfuel's apply() below reflects THAT (state.fuel), never the just-picked value directly
+-- (no-optimistic UI, same discipline as every other apply() in this module).
+function M._onFuel(runtime, id)
+  local cmd = EnginePanel.fuelCommand(id)
+  runtime.links.tel:send(runtime.sender:send(cmd))
+  return cmd
 end
 
 -- ===== M._cfg: thin delegate onto UI CAL's already-tested intent seam. No reimplementation. =====
@@ -391,11 +404,15 @@ end
 --   y3  "SOLID <n>x" label
 --   y4  solid decrements, centered via btnfit.grid: -64  -1
 --   y5  solid increments, centered via btnfit.grid: +1  +64
---   y6  blank spacer
+--   y6  FUEL label + fuel-type Picker trigger (Task 9 -- reuses the y6 spacer row between the two
+--       checker boxes; a remote command via M._onFuel, unlike the local manual-max steppers)
 --   y7  "LIQ <n>B" label (n == buckets, i.e. mB/1000)
 --   y8  liquid decrements, centered: -100  -50  -1   (captions are BUCKETS)
 --   y9  liquid increments, centered: +1  +50  +100
--- 8 content rows total (y2..y9), well inside the ~11-row region.
+--   y11 BAD FUEL warning label (Task 9 -- reuses the y11 spacer row before BACK; red text, telemetry-
+--       only, never shown until apply() sees state.badFuel true)
+-- 8 content rows total (y2..y9) plus the fuel picker/warning on the two spacer rows, all well inside
+-- the real 36x17 EMC region (ui/basalt/pages/flight.lua's M.split of the 36x38 overhead).
 function M.calfuel(basalt, frame, region, runtime)
   local w, h = frame:getSize()
 
@@ -415,6 +432,17 @@ function M.calfuel(basalt, frame, region, runtime)
   local solidUp1  = chipButton(frame, 26, 2, 6, "+1",  colors.orange)
   local solidDn1  = chipButton(frame, 26, 4, 6, "-1",  colors.orange)
 
+  -- FUEL type picker (Task 9): a remote command via M._onFuel (unlike the local manual-max steppers
+  -- above/below). Left caption + a Picker trigger showing the reported fuel + its %, opening the
+  -- 8-fuel modal list on click (ui/basalt/picker.lua). Placed on the free y6 spacer row.
+  local fuelPickLabel = frame:addLabel({ x = 3, y = 6, width = 5, height = 1, autoSize = false, text = "FUEL" })
+  fuelPickLabel:setForeground(Theme.role("font"))
+  local fuelPick = Picker.make(frame, {
+    x = 9, y = 6, width = 20,
+    options = EnginePanel.fuelOptions(), current = nil, title = "FUEL",
+    onPick = function(value) M._onFuel(runtime, value) end,
+  })
+
   Gfx.checkerBox(bg, 3, 7, 17, 10, colors.orange)
   local liqLabel = frame:addLabel({ x = 5, y = 8, width = 12, height = 1, autoSize = false, text = "" })
   liqLabel:setForeground(Theme.role("font"))
@@ -424,6 +452,12 @@ function M.calfuel(basalt, frame, region, runtime)
   local liqDn50  = chipButton(frame, 26, 9, 4, "-50",  colors.orange)
   local liqUp1   = chipButton(frame, 31, 7, 4, "+1",   colors.orange)
   local liqDn1   = chipButton(frame, 31, 9, 4, "-1",   colors.orange)
+
+  -- BAD FUEL warning (Task 9): telemetry-only, static text on the free y11 spacer row before BACK.
+  -- Red foreground when state.badFuel is true, else the theme font colour (matches the header note:
+  -- a Basalt Label paints no background, so the red CUE is the foreground colour, never a fill).
+  local badLabel = frame:addLabel({ x = 3, y = 11, width = 12, height = 1, autoSize = false, text = "" })
+  badLabel:setForeground(Theme.role("font"))
 
   -- BACK (blue outlined, 3-row) centred at the bottom, matching the other menu back buttons.
   local backBtn = outlinedButton(frame, math.max(1, math.floor((w - 10) / 2) + 1), 12, 10, "< BACK", colors.blue)
@@ -440,13 +474,21 @@ function M.calfuel(basalt, frame, region, runtime)
   liqUp50.onClick(function() M._setMax(runtime, "tank", M.LIQUID_50) end)
   liqUp100.onClick(function() M._setMax(runtime, "tank", M.LIQUID_100) end)
 
-  -- apply(state): shows the current manual maxes from runtime.config ONLY. Labels padded so the
-  -- values line up; width guard against the unsettled-rebuild wrap-clip.
-  local function apply(_state)
+  -- apply(state): manual maxes from runtime.config ONLY (unchanged); the fuel picker + BAD FUEL
+  -- label reflect TELEMETRY (state.fuel/fuelPct/badFuel) -- no-optimistic UI, same as every other
+  -- apply() in this module. Labels padded so the values line up; width guard against the
+  -- unsettled-rebuild wrap-clip.
+  local function apply(state)
     local cfg = runtime.config
     solidLabel:setWidth(12); liqLabel:setWidth(12)
     solidLabel:setText(string.format("%-7s%dx", "SOLID", cfg.fuel.pump.full or 0))
     liqLabel:setText(string.format("%-7s%dB", "LIQUID", math.floor((cfg.fuel.tank.full or 0) / 1000)))
+
+    fuelPick.setOptions(EnginePanel.fuelOptions(), state and state.fuel)
+    local bad = EnginePanel.fuelBad(state)
+    badLabel:setWidth(12)
+    badLabel:setText(bad and "BAD FUEL" or "")
+    badLabel:setForeground(bad and colors.red or Theme.role("font"))
   end
 
   apply({})
@@ -457,6 +499,7 @@ function M.calfuel(basalt, frame, region, runtime)
       backBtn = backBtn, solidLabel = solidLabel, liqLabel = liqLabel,
       solidUp64 = solidUp64, solidDn64 = solidDn64, solidUp1 = solidUp1, solidDn1 = solidDn1,
       liqUp100 = liqUp100, liqDn100 = liqDn100, liqUp50 = liqUp50, liqDn50 = liqDn50, liqUp1 = liqUp1, liqDn1 = liqDn1,
+      fuelPickLabel = fuelPickLabel, fuelPick = fuelPick, badLabel = badLabel,
     },
   }
 end

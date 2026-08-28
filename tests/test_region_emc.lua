@@ -685,6 +685,68 @@ t.test("M.config (redesign): top-margin -- BACK at y >= 2, and every control (in
   t.truthy(ok, "basalt.update should not error: " .. tostring(err))
 end)
 
+-- ===== Task 9: emc_calfuel's fuel picker + BAD FUEL warning =====
+
+t.test("M.calfuel: fuel picker sends {k=fuel,id} through its wired onPick (M._onFuel)", function()
+  local basalt = BasaltApp.ensureBasalt()
+  local frame = basalt.createFrame()
+  frame:setSize(36, 17)   -- the real EMC region size (flight.lua M.split of the 36x38 overhead)
+  local region = { push = function() end, pop = function() end }
+  local sent = {}
+  local runtime = {
+    config = { fuel = newFuelCfg() },
+    sender = { send = function(_, cmd) return cmd end },
+    links = { tel = { send = function(_, frame2) sent[#sent + 1] = frame2 end } },
+  }
+
+  local h = M.calfuel(basalt, frame, region, runtime)
+  local el = h.elements
+  t.truthy(el.fuelPick ~= nil, "fuel picker present in elements")
+  t.truthy(el.badLabel ~= nil, "BAD FUEL label present in elements")
+
+  -- Find "Ethanol"'s index the same way the picker's own options list is built (no magic number).
+  local E = require("ui.panels.engine")
+  local idx
+  for i, o in ipairs(E.fuelOptions()) do
+    if o.value == "Ethanol" then idx = i end
+  end
+  t.truthy(idx ~= nil, "Ethanol is a real fuel option")
+
+  -- Open the picker (fires the trigger's onClick, which shows the overlay) then tap "Ethanol" -- the
+  -- same overlay.pick() channel tests/test_picker.lua exercises against Picker.make directly.
+  el.fuelPick.trigger:fireEvent("mouse_click", 1, 1, 1)
+  el.fuelPick.overlay.pick(idx)
+
+  t.eq(sent[#sent].k, "fuel", "fuel command kind")
+  t.eq(sent[#sent].id, "Ethanol", "fuel command id")
+
+  local ok, err = pcall(function() basalt.update("timer", -1) end)
+  t.truthy(ok, "basalt.update should not error: " .. tostring(err))
+end)
+
+t.test("M.calfuel: apply() reflects telemetry fuel/badFuel (no-optimistic UI)", function()
+  local basalt = BasaltApp.ensureBasalt()
+  local frame = basalt.createFrame()
+  frame:setSize(36, 17)
+  local region = { push = function() end, pop = function() end }
+  local runtime = { config = { fuel = newFuelCfg() } }
+
+  local h = M.calfuel(basalt, frame, region, runtime)
+  local el = h.elements
+
+  h.apply({ fuel = "Plant Oil", fuelPct = 20, badFuel = true })
+  t.eq(el.badLabel:getText(), "BAD FUEL", "BAD FUEL shown for sub-baseline fuel")
+  t.eq(el.badLabel:getForeground(), colors.red, "BAD FUEL label is red when bad")
+  t.eq(el.fuelPick.getValue(), "Plant Oil", "trigger reflects the reported fuel, not a local pick")
+
+  h.apply({ fuel = "Biodiesel", fuelPct = 60, badFuel = false })
+  t.eq(el.badLabel:getText(), "", "hidden for baseline fuel")
+  t.eq(el.fuelPick.getValue(), "Biodiesel", "trigger follows the newly reported fuel")
+
+  local ok, err = pcall(function() basalt.update("timer", -1) end)
+  t.truthy(ok, "basalt.update should not error: " .. tostring(err))
+end)
+
 t.test("engine panel: fuel seam", function()
   local E = require("ui.panels.engine")
   t.eq(#E.fuelOptions(), 8, "8 fuel options")

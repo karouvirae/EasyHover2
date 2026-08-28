@@ -1151,9 +1151,9 @@
         },
         {
           ["dst"] = "ui/basalt/regions/emc.lua",
-          ["size"] = 26295,
+          ["size"] = 29112,
           ["src"] = "ui/basalt/regions/emc.lua",
-          ["sum"] = "fc32f0b3",
+          ["sum"] = "7df094a1",
         },
         {
           ["dst"] = "ui/basalt/regions/fcs.lua",
@@ -1247,9 +1247,9 @@
         },
         {
           ["dst"] = "ui/panels/engine.lua",
-          ["size"] = 4708,
+          ["size"] = 5176,
           ["src"] = "ui/panels/engine.lua",
-          ["sum"] = "507e7cbd",
+          ["sum"] = "bbdacf2f",
         },
         {
           ["dst"] = "ui/panels/fcs.lua",
@@ -1433,5 +1433,5 @@
     ["size"] = 71434,
     ["sum"] = "57671ad7",
   },
-  ["version"] = "7130a930",
+  ["version"] = "1ad0a63b",
 }
