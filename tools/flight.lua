@@ -52,7 +52,17 @@ local pilot  = Pilot.new(inputCfg.default)
 pilot:setMode(registry.byId[registry.default].policy, registry.byId[registry.default].feel)
 local flight = Flight.new({ loop = loop, pilot = pilot, registry = registry, config = config,
   moveEps = tuning.groundIdle and tuning.groundIdle.moveEps,
+  park = tuning.park,
+  setGroundSense = function(b) backend:setGroundSense(b) end,
   fuel = function() return fuelState.fuelMain end })
+
+-- Apply the boot default descriptor's flags so ground-sense matches the starting mode (LDG).
+do
+  local d0 = registry.byId[registry.default]
+  flight.canPark = d0.canPark or false
+  flight.groundSense = d0.groundSense or false
+  backend:setGroundSense(flight.groundSense)
+end
 
 -- ---- Comms ----
 -- FCS RECEIVES commands on 102 and SENDS: telemetry on 101, acks on 103, heartbeat on 104.
