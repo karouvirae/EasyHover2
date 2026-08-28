@@ -458,9 +458,9 @@
         },
         {
           ["dst"] = "tools/flight.lua",
-          ["size"] = 15928,
+          ["size"] = 16741,
           ["src"] = "tools/flight.lua",
-          ["sum"] = "38e142d0",
+          ["sum"] = "1498b410",
         },
         {
           ["dst"] = "tools/hover_test.lua",
@@ -1433,5 +1433,5 @@
     ["size"] = 71434,
     ["sum"] = "57671ad7",
   },
-  ["version"] = "72b9699c",
+  ["version"] = "7130a930",
 }

@@ -4,6 +4,8 @@
 package.path = "/?.lua;/?/init.lua;" .. package.path
 
 local hwconfig  = require("fcs.io.hwconfig")
+local cfgspec   = require("fcs.io.cfgspec")
+local fueltable = require("fcs.fueltable")
 local tuning    = require("fcs.tuning")
 local Backend   = require("fcs.io.backend")
 local shim      = require("fcs.io.shim")
@@ -43,6 +45,19 @@ local config  = loadConfig()
 local backend = Backend.new(shim, config)
 local loop, registry = hover.buildLoop(backend)   -- SINGLE arg; buildLoop reads tuning itself
 
+-- ---- Fuel calibration: load the persisted selection and apply its scale at boot ----
+local function readFile(name)
+  local p = "/" .. name
+  if not fs.exists(p) then return nil end
+  local f = fs.open(p, "r"); local body = f.readAll(); f.close(); return body
+end
+local function writeFile(name, body)
+  local f = fs.open("/" .. name, "w"); f.write(body); f.close(); return true
+end
+local fuelcal = cfgspec.load("fuelcal", readFile)   -- { fuel = "Biodiesel" } by default
+local fuelScale0 = fueltable.scaleFor(fuelcal.fuel) or 1.0
+loop:setFuelScale(fuelScale0)
+
 -- Fuel state lives here so the §11.8 no-fuel interlock (Flight) can read the same decoupled
 -- 1 Hz snapshot pollFuel fills. No extra peripheral reads on the control path; UI/NAV still
 -- consume the telemetry snapshot only (comms-hygiene).
@@ -54,7 +69,10 @@ local flight = Flight.new({ loop = loop, pilot = pilot, registry = registry, con
   moveEps = tuning.groundIdle and tuning.groundIdle.moveEps,
   park = tuning.park,
   setGroundSense = function(b) backend:setGroundSense(b) end,
-  fuel = function() return fuelState.fuelMain end })
+  fuel = function() return fuelState.fuelMain end,
+  setFuelScale = function(x) loop:setFuelScale(x) end,
+  saveFuel = function(id) cfgspec.save("fuelcal", { fuel = id }, writeFile) end,
+  fuelName = fuelcal.fuel })
 
 -- Apply the boot default descriptor's flags so ground-sense matches the starting mode (LDG).
 do
