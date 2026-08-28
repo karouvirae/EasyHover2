@@ -132,17 +132,20 @@ function M.main(basalt, frame, region, runtime)
     M._onMode(runtime, nextId)
   end)
 
-  -- ===== Sub-region 3: flight modes PRE/MAN/CRU (real) + DRN/NOL/TRK (placeholders, inactive). =====
+  -- ===== Sub-region 3: flight modes PRE/MAN/CRU + LDG/DRN (real) + TRK (placeholder). =====
   for i, id in ipairs({ "PRECISION", "MAN", "CRUISE" }) do
     local c = chipButton(frame, col[i], 14, 10, FcsPanel.MODE_LABEL[id] or id)
     c.onClick(function() M._onMode(runtime, id) end)
     modeCtrls[id] = c
   end
-  local placeholders = {}
-  for i, lbl in ipairs({ "DRN", "NOL", "TRK" }) do
-    placeholders[i] = chipButton(frame, col[i], 17, 10, lbl)
-    placeholders[i].setChip(colors.red)   -- placeholder: always inactive (no wiring yet)
+  for i, id in ipairs({ "DRN", "LDG" }) do
+    local c = chipButton(frame, col[i], 17, 10, FcsPanel.MODE_LABEL[id] or id)
+    c.onClick(function() M._onMode(runtime, id) end)
+    modeCtrls[id] = c
   end
+  local placeholders = {}
+  placeholders[1] = chipButton(frame, col[3], 17, 10, "TRK")
+  placeholders[1].setChip(colors.red)   -- placeholder: TRK wired later via the A/P maneuver executor
 
   local function apply(state)
     state = state or {}

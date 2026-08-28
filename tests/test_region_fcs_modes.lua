@@ -144,6 +144,46 @@ t.test("trim toggle: no-optimistic-UI, gated by FcsPanel.trimActive, labelled TR
   t.eq(trimCtrl.label:getText(), "TRIM --", "uncoupled mode -> disabled TRIM --")
 end)
 
+t.test("fcs_main (Task 11): DRN + LDG are real clickable radio chips; only TRK remains a placeholder", function()
+  local basalt = BasaltApp.ensureBasalt()
+  local parent = basalt.createFrame()
+  local rt, sent = stubRuntime({ engaged = false, gndSafety = false, mode = "GROUND" })
+  local r = Region.new(basalt, parent, {
+    x = 1, y = 1, width = 36, height = 21, root = "fcs_main",
+    screens = {
+      fcs_main   = function(b, f, rg) return FcsRegion.main(b, f, rg, rt) end,
+      fcs_params = function(b, f, rg) return FcsRegion.params(b, f, rg, rt) end,
+    },
+  })
+
+  r:apply({ engaged = false, gndSafety = false })
+
+  local built = r.built.fcs_main
+  local els = built.handle.elements
+
+  t.truthy(els.modeCtrls.LDG, "LDG chip registered")
+  t.truthy(els.modeCtrls.DRN, "DRN chip registered")
+
+  -- Click == fire the same "mouse_click" event :onClick(fn) registered a listener under (mirrors
+  -- test_region_emc.lua's construction-probe click idiom).
+  local function click(ctrl) ctrl.label:fireEvent("mouse_click", 1, 1, 1) end
+
+  click(els.modeCtrls.LDG)
+  t.eq(sent[#sent].k, "flightMode", "LDG click sends a flightMode command")
+  t.eq(sent[#sent].id, "LDG", "LDG click sends id=LDG")
+
+  click(els.modeCtrls.DRN)
+  t.eq(sent[#sent].k, "flightMode", "DRN click sends a flightMode command")
+  t.eq(sent[#sent].id, "DRN", "DRN click sends id=DRN")
+
+  -- Only ONE placeholder remains: TRK. NOL is gone.
+  t.eq(#els.placeholders, 1, "only one placeholder remains")
+  t.eq(els.placeholders[1].label:getText(), "TRK", "the sole remaining placeholder is TRK")
+
+  local ok, err = pcall(function() basalt.update("timer", -1) end)
+  t.truthy(ok, "basalt.update should not error: " .. tostring(err))
+end)
+
 t.test("fcs_main: missing-FCS blink cue drives the OUTLINE only (mode-chip border toggles, chip untouched)", function()
   local basalt = BasaltApp.ensureBasalt()
   local parent = basalt.createFrame()
