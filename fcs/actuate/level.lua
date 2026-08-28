@@ -26,10 +26,16 @@ end
 
 function Level.new(cfg)
   return setmetatable({ backend = cfg.backend, steps = cfg.steps or 15, last = {},
-    dispatch = cfg.dispatch or defaultDispatch }, Level)
+    dispatch = cfg.dispatch or defaultDispatch, fuelScale = cfg.fuelScale or 1.0 }, Level)
 end
 
 function Level:state(id) return self.last[id] or 0 end
+
+-- Compensation-layer multiplier: scales quantized output only, base tuning untouched.
+-- Ignores nil/non-positive input so an invalid call leaves the current scale in effect.
+function Level:setFuelScale(x)
+  if type(x) == "number" and x > 0 then self.fuelScale = x end
+end
 
 local function quantize(v, steps)
   v = math.floor(v + 0.5)
@@ -39,7 +45,7 @@ end
 function Level:apply(duties, dt)
   local writes = {}
   for id, duty in pairs(duties) do
-    local level = quantize((duty or 0) * self.steps, self.steps)
+    local level = quantize((duty or 0) * self.fuelScale * self.steps, self.steps)
     if self.last[id] ~= level then
       self.last[id] = level
       writes[#writes + 1] = function() self.backend:setThrusterLevel(id, level) end
