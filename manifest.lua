@@ -253,10 +253,16 @@
           ["sum"] = "da57305c",
         },
         {
+          ["dst"] = "fcs/input/events.lua",
+          ["size"] = 719,
+          ["src"] = "dist/fcs/input/events.lua",
+          ["sum"] = "f9e5bb77",
+        },
+        {
           ["dst"] = "fcs/input/keymap.lua",
-          ["size"] = 1566,
+          ["size"] = 1636,
           ["src"] = "dist/fcs/input/keymap.lua",
-          ["sum"] = "762e07a7",
+          ["sum"] = "2269773d",
         },
         {
           ["dst"] = "fcs/input/pilot.lua",
@@ -440,9 +446,9 @@
         },
         {
           ["dst"] = "tools/flight.lua",
-          ["size"] = 6251,
+          ["size"] = 6380,
           ["src"] = "dist/tools/flight.lua",
-          ["sum"] = "bc9be366",
+          ["sum"] = "c3c9ca8e",
         },
         {
           ["dst"] = "tools/hover_test.lua",
@@ -1391,5 +1397,5 @@
     ["size"] = 71434,
     ["sum"] = "57671ad7",
   },
-  ["version"] = "a5fe33f6",
+  ["version"] = "33b73b2a",
 }

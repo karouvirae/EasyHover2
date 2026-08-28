@@ -359,8 +359,22 @@ yawRate, climbRate` (and mode/config actions) — and a config-driven mapping la
 physical inputs into them. Swapping input hardware later is a config change, never a control-code
 change.
 
-- **For now:** typewriter (widest button range; **polled** via `getPressedKeyCodes()`, never
-  event-driven — a v1 lesson) + monitor touch buttons.
+- **For now:** typewriter (widest button range). Simulated 1.3.0 queues peripheral `key` /
+  `key_up` to every attached computer (wired remotes included). CC 1.120.0 local terminal
+  `key` is also `(code, boolean)` — same shape — so membership in `getPressedKeyCodes()` is
+  the press discriminator, not arg2's type. Events are applied on the **control task's
+  existing unfiltered `os.pullEvent()`** (that coroutine already wakes on them). Control
+  cannot use `os.pullEvent("timer")`: CC filters one name, and a timer-only pull would drop
+  typewriter events. `getPressedKeyCodes()` is computer-thread (`mainThread=false`); if that
+  ever flipped, the press-path call on the control coroutine would stall the flight loop.
+  The 50 ms poll stays as a **filtered** `sleep` heal (`inputTask`); do not add a second
+  unfiltered pull loop. A colliding local `key_up` (FCS GUI open) is a ≤50 ms wrong-input
+  window, then the heal restores; a closed cockpit PC does not emit local `key` events.
+  Two more gaps, both healed by the 50 ms poll: a **short tap under load** (press+release
+  both queue before control dequeues the press — the code is already out of the pressed
+  set, so the press is rejected) and **alias keys** (R/Space, F/LShift share a flag; a
+  `key_up` on one alias clears it while the other is held, ≤50 ms). Events can still drop
+  if CC's queue hits 256 — the poll is the backstop.
 - **Wired directly to the FCS computer** for lowest latency — pilot intent never makes a network
   hop before reaching the loop.
 
@@ -571,7 +585,7 @@ The complete FCS implementation (Tasks C3–D4) spans two programs and five para
 **FCS runtime** (`tools/flight.lua`, flight PC):
 - Five parallel tasks over a single-writer snapshot (§9, §8 pattern).
 - **Control task:** owns the plant — `Flight:step(dt, held, meas)` runs the loop, pilot, and mixer every cycle. Reads measurements from the backend; writes the unique snapshot.
-- **Input task:** polls typewriter key codes (~50 ms cadence), resolves them to held-flags via `keymap.lua` (default: WASD move, QE yaw, RF lift), and feeds the held map to Control.
+- **Input:** control applies typewriter `key`/`key_up` on its existing pull; `inputTask` is a filtered 50 ms `getPressedKeyCodes()` heal that mutates the same held table in place (`fcs/input/events.lua`).
 - **Telemetry task:** reads the snapshot (~100 ms cadence), frames it, and transmits on channel 101 (fire-and-forget).
 - **Command task:** listens for incoming commands on channel 102, dispatches them to `Flight:handleCommand()`, and ACKs on channel 103.
 - **Health task:** polls every ~250 ms and emits a heartbeat on channel 104 once per configured period (~1 s, the `health.Tx` default).

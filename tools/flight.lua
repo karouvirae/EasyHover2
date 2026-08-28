@@ -192,14 +192,30 @@ end
 
 -- ---- Tasks ----
 local lastT = os.epoch("utc")
+-- Typewriter events are applied on the control pull (that coroutine already wakes on
+-- every event). Control MUST stay unfiltered os.pullEvent() — a timer-only dispatcher
+-- filter would drop key/key_up. The 50 ms inputTask stays a filtered sleep+poll heal —
+-- not a second unfiltered os.pullEvent() loop. See fcs/input/events.lua.
+local inputHybrid = require("fcs.input.events").new({
+  codes = function()
+    if typewriter and typewriter.getPressedKeyCodes then return typewriter.getPressedKeyCodes() or {} end
+    return {}
+  end,
+  map = function() return keymap.forMode(flight.flightMode) end,
+  held = heldRef.held,
+})
+
 local function controlTask()
   -- Self-rescheduling zero-timer: fires as fast as possible while still
   -- yielding every iteration (required under parallel.waitForAny, and to
   -- avoid CC:Tweaked's "Too long without yielding" watchdog).
   local timer = os.startTimer(0)
   while true do
+    -- Unfiltered: also delivers key/key_up for inputHybrid. os.pullEvent("timer") cannot.
     local ev = { os.pullEvent() }
-    if ev[1] == "timer" and ev[2] == timer then
+    -- onOsEvent press-path calls getPressedKeyCodes (computer-thread today). If that
+    -- peripheral method becomes mainThread, this stalls control — keep it off the step pcall.
+    if not inputHybrid:onOsEvent(ev) and ev[1] == "timer" and ev[2] == timer then
       -- Guard the whole step: a single bad sensor read or step error must NOT kill the control
       -- task (a silently-dead loop = uncontrolled craft). Capture it for the console and carry on.
       local ok, err = pcall(function()
@@ -220,10 +236,10 @@ local function controlTask()
 end
 
 local function inputTask()
+  -- Filtered: sleep yields on "timer" only, so modem/char/foreign timers do not resume us.
+  -- 20 Hz getPressedKeyCodes is computer-thread (not mainThread) and heals key_up collisions.
   while true do
-    if typewriter and typewriter.getPressedKeyCodes then
-      heldRef.held = keymap.resolve(keymap.forMode(flight.flightMode), typewriter.getPressedKeyCodes() or {})
-    end
+    inputHybrid:sync()
     sleep(0.05)
   end
 end
