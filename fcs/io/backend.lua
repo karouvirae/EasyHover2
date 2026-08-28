@@ -12,8 +12,10 @@ function Backend.new(shim, config, clock)
   self.wrapped = {}                 -- name -> peripheral cache
   self.lastT, self.lastAlt, self.vFilt = nil, nil, 0
   self.swayPos, self.surgePos = 0, 0
+  self.groundSense = false
   return self
 end
+function Backend:setGroundSense(on) self.groundSense = on and true or false end
 function Backend:_periph(name)
   if not name then return nil end
   if self.wrapped[name] == nil then self.wrapped[name] = self.shim.wrap(name) or false end
@@ -59,8 +61,11 @@ function Backend:sensors()
   local yawRate = (b.signYawRate or 1) * (vf - vr) / (baseline ~= 0 and baseline or 1)
   local swayVel = (vf + vr) / 2
   local surgeVel = vm
-  local optD = self:_read(c.sensors.downOptical, "getDistance")
-  local onGround = (optD ~= nil) and (optD < (b.onGroundThreshold or 1.5)) or false
+  local optD, onGround = nil, false
+  if self.groundSense then
+    optD = self:_read(c.sensors.downOptical, "getDistance")
+    onGround = (optD ~= nil) and (optD < (b.onGroundThreshold or 1.5)) or false
+  end
 
   local now = self.clock()
   local vSpeed = 0
@@ -83,7 +88,7 @@ function Backend:sensors()
   self.lastT, self.lastAlt = now, altitude
   return { altitude=altitude, baroMsl=rawAlt, vSpeed=vSpeed, pitch=pitch, roll=roll, heading=heading,
     yawRate=yawRate, swayVel=swayVel, surgeVel=surgeVel, swayPos=self.swayPos, surgePos=self.surgePos,
-    onGround=onGround, rawHeading=rawHeading }
+    onGround=onGround, rawHeading=rawHeading, groundDist=optD }
 end
 function Backend:liftIds() return frame.LIFT end
 function Backend:lateralIds() return frame.LATERAL end

@@ -42,11 +42,31 @@ t.test("yaw rate = (front-rear)/baseline; sway = avg; surge = medial", function(
   t.near(s.swayVel, 2, 1e-9)       -- (3+1)/2
   t.near(s.surgeVel, 4, 1e-9)
 end)
-t.test("onGround true when optical below threshold", function()
+t.test("onGround true when optical below threshold (groundSense on)", function()
   local b = Backend.new(sensorRig(10,{0,0},0,0,0,0, 0.5), sensorCfg(), function() return 0 end)
+  b:setGroundSense(true)
   t.truthy(b:sensors().onGround == true)
   local b2 = Backend.new(sensorRig(10,{0,0},0,0,0,0, 9), sensorCfg(), function() return 0 end)
+  b2:setGroundSense(true)
   t.truthy(b2:sensors().onGround == false)
+end)
+t.test("groundSense off by default: downOptical not read, onGround false, groundDist nil", function()
+  local reads = 0
+  local optP = { _type = "optical_sensor", getDistance = function() reads = reads + 1; return 0.4 end }
+  local shim = mocks.shim({ alt=mocks.altitude(10), gim=mocks.gimbal({0,0}), vf=mocks.velocity(0),
+    vr=mocks.velocity(0), vm=mocks.velocity(0), nav=mocks.navtable(0), opt=optP })
+  local b = Backend.new(shim, sensorCfg(), function() return 0 end)
+  local s = b:sensors()
+  t.truthy(s.onGround == false, "onGround false when sensing off")
+  t.truthy(s.groundDist == nil, "groundDist nil when sensing off")
+  t.eq(reads, 0, "downOptical not read when sensing off")
+end)
+t.test("groundSense on: optical drives onGround + groundDist", function()
+  local b = Backend.new(sensorRig(10,{0,0},0,0,0,0, 0.4), sensorCfg(), function() return 0 end)
+  b:setGroundSense(true)
+  local s = b:sensors()
+  t.truthy(s.onGround == true, "onGround true below threshold")
+  t.near(s.groundDist, 0.4, 1e-9, "groundDist exposes raw distance")
 end)
 t.test("vSpeed derives from altitude change over dt (tau 0 = unfiltered)", function()
   local clk = 0
