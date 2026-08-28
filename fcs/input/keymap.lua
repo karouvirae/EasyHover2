@@ -57,8 +57,18 @@ M.coupled = {
   [keys.left] = {axis="sway", dir=-1}, [keys.right] = {axis="sway", dir=1},         -- strafe
 }
 
+-- DRN drone layout: WASD body tilt (pitch/roll), QE yaw, Space/LShift lift. No translate keys.
+M.drone = {
+  [keys.w] = {axis="pitch", dir=-1}, [keys.s] = {axis="pitch", dir=1},   -- nose down / up
+  [keys.a] = {axis="roll",  dir=-1}, [keys.d] = {axis="roll",  dir=1},
+  [keys.q] = {axis="yaw",   dir=-1}, [keys.e] = {axis="yaw",   dir=1},
+  [keys.space]     = {axis="lift", dir=1},   -- climb
+  [keys.leftShift] = {axis="lift", dir=-1},  -- descend
+}
+
 function M.forMode(id)
   if id == "CPL" or id == "DCPL" then return M.coupled end
+  if id == "DRN" then return M.drone end
   return M.default
 end
 
