@@ -115,6 +115,27 @@ function Flight:_parked(held, meas)
      and math.abs(meas.surgeVel or 0) < eps                 -- moving => in-flight, not parked
 end
 
+-- LDG landed-detector (design §4.3). Permissive, for uneven/tilted ground: parks when the craft
+-- is at/below the configured clearance, drifting only very slightly, rested within the tilt band,
+-- and the pilot is hands-off. Only reached in LDG (self.canPark). Autopilot never parks.
+function Flight:_ldgLanded(held, meas)
+  if self.comAuto and self.comAuto:active() then return false end
+  local pk = self.park; if not pk then return false end
+  if held and held.up then return false end                         -- climb intent never parks
+  if held and (held.pitchUp or held.pitchDown or held.rollLeft or held.rollRight) then
+    return false                                                    -- active tilt input
+  end
+  local gd = meas and meas.groundDist
+  if gd == nil or gd > (pk.groundClear or 1.0) then return false end -- at-or-below clearance
+  local eps = pk.parkDriftEps or 0.15
+  if math.abs(meas.vSpeed or 0) >= eps then return false end
+  if math.abs(meas.swayVel or 0) >= eps then return false end
+  if math.abs(meas.surgeVel or 0) >= eps then return false end
+  local tb = pk.parkTiltBand or 0.12
+  if math.abs(meas.pitch or 0) > tb or math.abs(meas.roll or 0) > tb then return false end
+  return true
+end
+
 -- §11.8 no-fuel interlock. An unfuelled Create thruster HOLDS its commanded level while producing
 -- zero thrust, so an integrator flying into an empty tank winds up against a plant that stopped
 -- responding. When the (already-polled) gauge reads below minFuel: disarm like disengage (cut
@@ -166,17 +187,22 @@ function Flight:step(dt, held, meas)
   if self.engaged then
     if self._needReset then self.pilot:reset(meas); self._needReset = false end
     -- §3.3 global parked latch: HONOR and CLEAR are step()'s sole authority (SET is Task 8's
-    -- LDG-only landed-detector). Once latched, EVERY mode honors it -- zero control, inputs
-    -- ignored -- until the pilot commands a climb, which clears it regardless of mode.
+    -- LDG-only landed-detector, below). Once latched, EVERY mode honors it -- zero control, inputs
+    -- ignored -- until the pilot commands a climb, or comAuto goes active. The comAuto clause
+    -- matters because comAuto forces held={} above, so held.up alone could never fire while
+    -- autopilot is running -- a latched-parked craft could never be un-parked by autopilot, and
+    -- Auto-CoM-trim (meant to climb off a landed state) would get silently stuck.
     if self.parked then
-      if held and held.up then
-        self.parked = false                                    -- ascend un-parks (any mode)
+      if (held and held.up) or autoOn then
+        self.parked = false                                    -- ascend or comAuto un-parks (any mode)
       else
         self.pilot:reset(meas); self.loop:arm(false)            -- honored everywhere: zero control
       end
     end
     if not self.parked then
-      if autoOn then
+      if self.canPark and self:_ldgLanded(held, meas) then
+        self.parked = true; self.pilot:reset(meas); self.loop:arm(false)
+      elseif autoOn then
         local duties = self.lastDiag and self.lastDiag.duties
         local ar = self.comAuto:tick(dt, meas, duties, self.loop:getMode())
         local sch = self.loop.scheme

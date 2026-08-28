@@ -218,6 +218,71 @@ t.test("comAuto abort forces a descent", function()
   t.eq(snap.comAuto.abortReason, "ABORT")
 end)
 
+-- ---- Task 8: LDG landed-detector (_ldgLanded) SETs the parked latch ----
+local function landedMeas(o) o = o or {}
+  return { groundDist = o.groundDist or 0.8, vSpeed = o.vSpeed or 0.05, swayVel = o.swayVel or 0.05,
+           surgeVel = o.surgeVel or 0.05, pitch = o.pitch or 0.05, roll = o.roll or -0.05,
+           altitude = 1, heading = 0, onGround = true, swayPos = 0, surgePos = 0, yawRate = 0 } end
+local function parkFlight(L)
+  local f = engagedFlight(L)
+  f.canPark = true
+  f.flightMode = "LDG"
+  f.park = { groundClear = 1.0, parkDriftEps = 0.15, parkTiltBand = 0.12 }
+  return f
+end
+
+t.test("LDG parks at a valid landed measurement: grounded, stable, within tilt band, hands-off", function()
+  local L = fakeLoop(); local f = parkFlight(L)
+  f:step(0.05, {}, landedMeas())
+  t.eq(f.parked, true, "LDG parks at valid parking position")
+  t.eq(L.armCalls[#L.armCalls], false, "SET disarms the loop")
+end)
+
+t.test("LDG refuses to park when tilt exceeds parkTiltBand", function()
+  local L = fakeLoop(); local f = parkFlight(L)
+  f:step(0.05, {}, landedMeas{ pitch = 0.3 })
+  t.eq(f.parked, false, "excess tilt refuses park")
+end)
+
+t.test("LDG refuses to park while a tilt input is held", function()
+  local L = fakeLoop(); local f = parkFlight(L)
+  f:step(0.05, { pitchUp = true }, landedMeas())
+  t.eq(f.parked, false, "tilt input refuses park")
+end)
+
+t.test("LDG refuses to park above groundClear", function()
+  local L = fakeLoop(); local f = parkFlight(L)
+  f:step(0.05, {}, landedMeas{ groundDist = 1.4 })
+  t.eq(f.parked, false, "above groundClear refuses park")
+end)
+
+t.test("non-LDG (canPark=false) never sets the parked latch even when grounded+still", function()
+  local L = fakeLoop(); local f = engagedFlight(L)
+  f.canPark = false
+  f.flightMode = "PRECISION"
+  f.park = { groundClear = 1.0, parkDriftEps = 0.15, parkTiltBand = 0.12 }
+  f:step(0.05, {}, landedMeas())
+  t.eq(f.parked, false, "non-LDG cannot set parked")
+end)
+
+-- ---- Task 7 carried finding: comAuto must be able to clear a latched-parked craft ----
+-- HONOR/CLEAR previously cleared ONLY on held.up. But comAuto forces held={} every step (see the
+-- top of step()), so held.up can never fire while comAuto is active -- a latched-parked craft could
+-- never be un-parked by autopilot, and Auto-CoM-trim (meant to climb off a landed state) got stuck.
+t.test("parked latch is CLEARED when comAuto is active, so comAuto can take over from landed", function()
+  local L = fakeLoop()
+  L.mixer = { com = {}, setCom = function(self, c) self.com = c end }
+  local f = Flight.new({ loop = L, pilot = Pilot.new(CFG), registry = modeRegistry() })
+  f.engaged = true
+  f.parked = true                -- pretend LDG latched it earlier
+  f.flightMode = "LDG"
+  f.comAuto = { active = function() return true end,
+    tick = function() return { setpoints = { altitude = 5 } } end, spanFwd = 1, spanRight = 1 }
+  f:step(0.05, {}, groundMeas())
+  t.eq(f.parked, false, "comAuto active clears the parked latch")
+  t.eq(L.armCalls[#L.armCalls], true, "cleared => comAuto branch runs this same tick, loop armed")
+end)
+
 -- ---- comAuto ki capture is scoped to the scheme it captured from ----
 local function kiRegistry()
   local sA = { pitchPid = { ki = 0.10 }, rollPid = { ki = 0.11 } }
