@@ -685,4 +685,15 @@ t.test("M.config (redesign): top-margin -- BACK at y >= 2, and every control (in
   t.truthy(ok, "basalt.update should not error: " .. tostring(err))
 end)
 
+t.test("engine panel: fuel seam", function()
+  local E = require("ui.panels.engine")
+  t.eq(#E.fuelOptions(), 8, "8 fuel options")
+  t.eq(E.fuelCommand("Ethanol").k, "fuel", "command kind")
+  t.eq(E.fuelCommand("Ethanol").id, "Ethanol", "command id")
+  t.eq(E.fuelLabel({ fuel = "Biodiesel", fuelPct = 60 }), "Biodiesel 60%", "label")
+  t.eq(E.fuelLabel({}), "FUEL --", "label fallback")
+  t.eq(E.fuelBad({ badFuel = true }), true, "bad true")
+  t.eq(E.fuelBad({ badFuel = false }), false, "bad false")
+end)
+
 return true

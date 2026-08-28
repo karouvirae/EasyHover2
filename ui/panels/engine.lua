@@ -4,6 +4,7 @@
 -- Lua 5.1 / CC:Tweaked.
 
 local toolkit = require("ui.toolkit")
+local fueltable = require("fcs.fueltable")
 
 local M = {}
 M.id = "engine"
@@ -151,6 +152,27 @@ function M.action(id, ctx)
     return { kind = "engine", op = "prime" }
   end
   return nil
+end
+
+-- ===== fuel seam (pure functions for the fuel picker) =====
+
+function M.fuelOptions()
+  return fueltable.options()
+end
+
+function M.fuelCommand(id)
+  return { k = "fuel", id = id }
+end
+
+function M.fuelLabel(ctx)
+  local n = ctx and ctx.fuel
+  local p = ctx and ctx.fuelPct
+  if n and p then return n .. " " .. p .. "%" end
+  return "FUEL --"
+end
+
+function M.fuelBad(ctx)
+  return (ctx and ctx.badFuel == true) or false
 end
 
 return M
