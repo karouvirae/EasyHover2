@@ -30,6 +30,7 @@ local DEFAULTS = {
   attLimit = 0.6,
   com = { fwd = 0, right = 0, spanFwd = 0, spanRight = 0 },
   groundIdle = { moveEps = 0.5 },
+  park = { groundClear = 1.0, parkDriftEps = 0.15, parkTiltBand = 0.12 },
   profile = { climbHeight = 6, climbRate = 0.6, holdTime = 20, descendRate = 0.7,
               landEps = 0.4, watchdog = 60, overshootMargin = 2, leadCap = 1.0 },
   feel = {
@@ -93,6 +94,27 @@ DEFAULTS.modes.DCPL = {
   caps  = deep(DEFAULTS.modes.CPL.caps),
   feel  = coupledFeel(),
 }
+
+DEFAULTS.modes.LDG = {
+  gains = deep(DEFAULTS.gains),
+  caps  = { pitch = 0.2, roll = 0.2, yaw = 0.4, sway = 0.3, surge = 0.25 },
+  feel  = deep(DEFAULTS.feel),
+}
+-- Gentle landing feel: slow the setpoint-ramp speeds so approach/descent is precise.
+DEFAULTS.modes.LDG.feel.surgeSpeed = 3.0
+DEFAULTS.modes.LDG.feel.surgeLead  = 6.0
+DEFAULTS.modes.LDG.feel.swaySpeed  = 2.0
+DEFAULTS.modes.LDG.feel.swayLead   = 4.0
+DEFAULTS.modes.LDG.feel.climbRate  = 2.5
+
+DEFAULTS.modes.DRN = {
+  gains = deep(DEFAULTS.gains),
+  caps  = { pitch = 0.5, roll = 0.5, yaw = DEFAULTS.caps.yaw, sway = 0, surge = 0 },
+  feel  = deep(DEFAULTS.feel),
+}
+-- Drone tilt feel (WASD tilt): keep tiltCap < attLimit (0.6).
+DEFAULTS.modes.DRN.feel.tiltRate = 0.8
+DEFAULTS.modes.DRN.feel.tiltCap  = 0.5
 
 local M = {}
 
