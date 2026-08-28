@@ -247,6 +247,12 @@
           ["sum"] = "ca1a2a61",
         },
         {
+          ["dst"] = "fcs/fueltable.lua",
+          ["size"] = 1381,
+          ["src"] = "fcs/fueltable.lua",
+          ["sum"] = "0512c63c",
+        },
+        {
           ["dst"] = "fcs/input/config.lua",
           ["size"] = 1001,
           ["src"] = "fcs/input/config.lua",
@@ -284,9 +290,9 @@
         },
         {
           ["dst"] = "fcs/io/cfgspec.lua",
-          ["size"] = 1722,
+          ["size"] = 1854,
           ["src"] = "fcs/io/cfgspec.lua",
-          ["sum"] = "c407f893",
+          ["sum"] = "e0610f6c",
         },
         {
           ["dst"] = "fcs/io/config.lua",
@@ -766,6 +772,12 @@
           ["sum"] = "ca1a2a61",
         },
         {
+          ["dst"] = "fcs/fueltable.lua",
+          ["size"] = 1381,
+          ["src"] = "fcs/fueltable.lua",
+          ["sum"] = "0512c63c",
+        },
+        {
           ["dst"] = "fcs/io/backend.lua",
           ["size"] = 4711,
           ["src"] = "fcs/io/backend.lua",
@@ -779,9 +791,9 @@
         },
         {
           ["dst"] = "fcs/io/cfgspec.lua",
-          ["size"] = 1722,
+          ["size"] = 1854,
           ["src"] = "fcs/io/cfgspec.lua",
-          ["sum"] = "c407f893",
+          ["sum"] = "e0610f6c",
         },
         {
           ["dst"] = "fcs/io/config.lua",
@@ -1320,10 +1332,16 @@
       ["entry"] = "fcs2disk",
       ["files"] = {
         {
+          ["dst"] = "fcs/fueltable.lua",
+          ["size"] = 1381,
+          ["src"] = "fcs/fueltable.lua",
+          ["sum"] = "0512c63c",
+        },
+        {
           ["dst"] = "fcs/io/cfgspec.lua",
-          ["size"] = 1722,
+          ["size"] = 1854,
           ["src"] = "fcs/io/cfgspec.lua",
-          ["sum"] = "c407f893",
+          ["sum"] = "e0610f6c",
         },
         {
           ["dst"] = "fcs/io/fsx.lua",
@@ -1366,10 +1384,16 @@
       ["entry"] = "splitconfig",
       ["files"] = {
         {
+          ["dst"] = "fcs/fueltable.lua",
+          ["size"] = 1381,
+          ["src"] = "fcs/fueltable.lua",
+          ["sum"] = "0512c63c",
+        },
+        {
           ["dst"] = "fcs/io/cfgspec.lua",
-          ["size"] = 1722,
+          ["size"] = 1854,
           ["src"] = "fcs/io/cfgspec.lua",
-          ["sum"] = "c407f893",
+          ["sum"] = "e0610f6c",
         },
         {
           ["dst"] = "fcs/io/fsx.lua",
@@ -1409,5 +1433,5 @@
     ["size"] = 71434,
     ["sum"] = "57671ad7",
   },
-  ["version"] = "e4756eec",
+  ["version"] = "f884dcad",
 }

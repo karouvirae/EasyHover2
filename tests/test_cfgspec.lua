@@ -22,6 +22,21 @@ t.test("load merges saved over defaults via injected reader", function()
   t.eq(m.thrusters.MAIN, "thruster_9")
 end)
 
+t.test("cfgspec fuelcal: default + file + validate", function()
+  t.eq(C.FILES.fuelcal, "eh2_fuelcal.tbl", "filename")
+  t.eq(C.defaults("fuelcal").fuel, "Biodiesel", "default fuel")
+  -- absent file -> merged default
+  local cfg = C.load("fuelcal", function() return nil end)
+  t.eq(cfg.fuel, "Biodiesel", "absent -> default")
+  -- saved file round-trips
+  local stored
+  C.save("fuelcal", { fuel = "Ethanol" }, function(_, body) stored = body end)
+  local back = C.load("fuelcal", function() return stored end)
+  t.eq(back.fuel, "Ethanol", "round-trip")
+  t.eq((C.validate("fuelcal", { fuel = "Diesel" })), true, "valid")
+  t.eq((C.validate("fuelcal", {})), false, "missing fuel invalid")
+end)
+
 t.test("legacy hw_config splits and reassembles losslessly (no calibration lost)", function()
   local hw = require("fcs.io.hwconfig").merge({
     thrusters = { FL = "thruster_1" }, sensors = { gimbal = "gimbal_0" },

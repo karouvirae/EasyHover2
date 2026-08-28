@@ -1,13 +1,14 @@
 local hwconfig = require("fcs.io.hwconfig")
 local tuningdefaults = require("fcs.io.tuningdefaults")
 
-local M = { FILES = { devbind = "eh2_devbind.tbl", senscal = "eh2_senscal.tbl", tuning = "eh2_tuning.tbl" } }
+local M = { FILES = { devbind = "eh2_devbind.tbl", senscal = "eh2_senscal.tbl", tuning = "eh2_tuning.tbl", fuelcal = "eh2_fuelcal.tbl" } }
 
 function M.defaults(kind)
   local d = hwconfig.defaults()
   if kind == "devbind" then return { thrusters = d.thrusters, sensors = d.sensors, fuelRelay = d.fuelRelay } end
   if kind == "senscal" then return d.bindings end
   if kind == "tuning" then return tuningdefaults.get() end
+  if kind == "fuelcal" then return { fuel = require("fcs.fueltable").default } end
   error("unknown cfg kind: " .. tostring(kind))
 end
 
@@ -17,7 +18,7 @@ end
 
 function M.validate(kind, cfg)
   if type(cfg) ~= "table" then return false, "not a table" end
-  local req = ({ devbind = {"thrusters","sensors"}, senscal = {"signPitch","signHeading"}, tuning = {"gains","caps","feel"} })[kind]
+  local req = ({ devbind = {"thrusters","sensors"}, senscal = {"signPitch","signHeading"}, tuning = {"gains","caps","feel"}, fuelcal = {"fuel"} })[kind]
   for _, k in ipairs(req or {}) do if cfg[k] == nil then return false, "missing " .. k end end
   return true
 end
