@@ -22,3 +22,38 @@ t.test("resolves a small duty the coarse PWM would quantise away", function()
   for _ = 1, N do sd:apply({ a = 0.05 }, 0.1); if sd:state("a") then onCount = onCount + 1 end end
   t.near(onCount / N, 0.05, 0.02)              -- ~5% density, not 0 and not 33%
 end)
+t.test("sigma_delta: fuelScale scales the on-duty rate", function()
+  -- duty 0.25 @ dt 0.1 accumulates 0.025/tick -> baseline (scale 1.0) crosses the dt threshold at tick 4.
+  local b1 = recBackend(); local sd1 = SigmaDelta.new({ backend = b1 })
+  local ticks1 = 0
+  for _ = 1, 10 do
+    ticks1 = ticks1 + 1
+    sd1:apply({ a = 0.25 }, 0.1)
+    if sd1:state("a") then break end
+  end
+  t.eq(ticks1, 4, "baseline (scale 1.0) turns on at tick 4")
+
+  -- scale 2.0 doubles the accumulation rate -> crosses the threshold in half the ticks.
+  local b2 = recBackend(); local sd2 = SigmaDelta.new({ backend = b2 })
+  sd2:setFuelScale(2.0)
+  local ticks2 = 0
+  for _ = 1, 10 do
+    ticks2 = ticks2 + 1
+    sd2:apply({ a = 0.25 }, 0.1)
+    if sd2:state("a") then break end
+  end
+  t.eq(ticks2, 2, "scale 2.0 turns on in half the ticks")
+end)
+t.test("sigma_delta: setFuelScale ignores nil/non-positive values", function()
+  local b = recBackend(); local sd = SigmaDelta.new({ backend = b })
+  sd:setFuelScale(nil)
+  sd:setFuelScale(0)
+  sd:setFuelScale(-1)
+  local ticks = 0
+  for _ = 1, 10 do
+    ticks = ticks + 1
+    sd:apply({ a = 0.25 }, 0.1)
+    if sd:state("a") then break end
+  end
+  t.eq(ticks, 4, "invalid scale calls leave default 1.0 in effect")
+end)
