@@ -112,6 +112,17 @@ end
 -- (wpt_disk) are routed to nav.wptdisk separately (Task 1f). Testable: inject runtime.store +
 -- runtime.saveStore.
 function M.handleWptRequest(runtime, msg)
+  if type(msg) == "table" and msg.k == "paramsWatch" then
+    if runtime.nav and runtime.nav.onParamsWatch then
+      runtime.nav:onParamsWatch(msg.on, runtime.diskPresent or function()
+        local ok, drive = pcall(peripheral.find, "drive")
+        if not ok or not drive or not drive.isDiskPresent then return false end
+        local ok2, present = pcall(drive.isDiskPresent)
+        return ok2 and present and true or false
+      end)
+    end
+    return nil
+  end
   if type(msg) == "table" and msg.k == "wpt_disk" then return M.handleDisk(runtime, msg) end
   local reply, newStore, newRev = wptserver.apply(runtime.store, msg, runtime.wptRev or 0)
   if newRev ~= (runtime.wptRev or 0) then
@@ -186,7 +197,7 @@ function M.routeModem(runtime, ch, replyCh, msg, dist)
   if ch == M.WPT_REQ_CH then
     -- A cockpit NAV-menu sync request: apply + persist, reply on 109.
     local ok, f = pcall(protocol.decode, msg)
-    if ok and type(f) == "table" and (f.k == "wpt_get" or f.k == "wpt_op" or f.k == "wpt_disk") then
+    if ok and type(f) == "table" and (f.k == "wpt_get" or f.k == "wpt_op" or f.k == "wpt_disk" or f.k == "paramsWatch") then
       local reply = M.handleWptRequest(runtime, f)
       if reply and runtime.wptLink then pcall(function() runtime.wptLink:send(reply) end) end
     end
@@ -256,6 +267,22 @@ function M.run(deps)
     while true do
       pcall(function() runtime.nav:step(os.epoch("utc")) end)
       sleep((runtime.config.intervalMs or 250) / 1000)
+    end
+  end)
+
+  -- Disk presence for gated navfix.disk: filtered pulls flip the local boolean always
+  -- (not polling); Runtime:frame publishes disk only while paramsWatch is on.
+  -- These schedules never send a navfix themselves -- step() is the only publisher.
+  basalt.schedule(function()
+    while true do
+      os.pullEvent("disk")
+      if runtime.nav then runtime.nav.disk = true end
+    end
+  end)
+  basalt.schedule(function()
+    while true do
+      os.pullEvent("disk_eject")
+      if runtime.nav then runtime.nav.disk = false end
     end
   end)
 

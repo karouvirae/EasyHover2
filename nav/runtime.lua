@@ -46,6 +46,9 @@ function M.new(opts)
     receiver = opts.receiver or Receiver.new({
       channel = cfg.channel, staleMs = th.maxAgeMs or 3000, now = opts.now,
     }),
+    -- PARAMS extras: disk rides navfix only while paramsWatch is on.
+    paramsWatch = false,
+    disk = false,
   }, R)
   -- The relay link (fire-and-forget onto the wired network). Injected `link` wins (tests), else
   -- wrap the wired modem on the relay channel.
@@ -115,6 +118,17 @@ function R:heading()
   return self._fcsSnap and self._fcsSnap.compassHeading or nil
 end
 
+--- PARAMS watch (UI fire-and-forget on the wpt request link). Seed disk once on the rising
+--- edge via an injected probe; later disk/disk_eject events flip self.disk locally.
+--- frame() publishes disk only while this flag is on.
+function R:onParamsWatch(on, diskPresent)
+  on = on and true or false
+  if on and not self.paramsWatch and diskPresent then
+    self.disk = diskPresent() and true or false
+  end
+  self.paramsWatch = on
+end
+
 --- Build the GPS fix relay frame (fix may be nil so the craft still learns NAV is alive). Heading is
 --- NOT bundled here -- the FCS broadcasts its own compassHeading directly; NAV just reads it back.
 function R:frame(now)
@@ -122,7 +136,9 @@ function R:frame(now)
   local f = self:computeFix(now)
   local gs = M.groundSpeed(self._lastFix, self._lastT, f, now)
   if f then self._lastFix, self._lastT = f, now end
-  return { k = "navfix", fix = f, gs = gs, at = now }
+  local out = { k = "navfix", fix = f, gs = gs, at = now }
+  if self.paramsWatch then out.disk = self.disk and true or false end
+  return out
 end
 
 --- Compute + relay one GPS fix frame onto the wired network. Fire-and-forget (latest-wins).

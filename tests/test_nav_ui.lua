@@ -282,3 +282,26 @@ t.test("app.handleWptRequest routes wpt_disk to handleDisk", function()
   local rep = App.handleDisk(runtime, { k = "wpt_disk", op = "export" }, { mount = nil })
   t.eq(rep.k, "wpt_disk_res"); t.eq(rep.ok, false)
 end)
+
+t.test("handleWptRequest paramsWatch is fire-and-forget and does not persist the store", function()
+  local runtime = { store = { waypoints = {}, routes = {} }, wptRev = 0, saveStore = function() error("must not persist") end,
+    nav = require("nav.runtime").new({ config = { channel = 1, relay = { channel = 107 } }, now = function() return 0 end }) }
+  local reply = App.handleWptRequest(runtime, { k = "paramsWatch", on = true })
+  t.eq(reply, nil)
+  t.eq(runtime.nav.paramsWatch, true)
+end)
+
+t.test("routeModem delivers paramsWatch on the wpt request channel without a reply", function()
+  local protocol = require("fcs.comms.protocol")
+  local replies = {}
+  local runtime = App.buildRuntime({
+    gpsModem = fakeDev(), wiredModem = fakeDev(),
+    configPath = "/no_such_nav.tbl", now = function() return 0 end,
+  })
+  runtime.wptLink = { send = function(_, f) replies[#replies + 1] = f end }
+  runtime.saveStore = function() error("must not persist") end
+  App.routeModem(runtime, App.WPT_REQ_CH, App.WPT_REPLY_CH,
+    protocol.encode({ k = "paramsWatch", on = true }), nil)
+  t.eq(runtime.nav.paramsWatch, true)
+  t.eq(#replies, 0, "paramsWatch is fire-and-forget -- no reply on 109")
+end)
