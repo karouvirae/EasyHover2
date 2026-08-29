@@ -367,22 +367,10 @@
           ["sum"] = "1cf8f73a",
         },
         {
-          ["dst"] = "fcs/schemes/coupled.lua",
-          ["size"] = 505,
-          ["src"] = "dist/fcs/schemes/coupled.lua",
-          ["sum"] = "22b9b343",
-        },
-        {
           ["dst"] = "fcs/schemes/cruise.lua",
           ["size"] = 279,
           ["src"] = "dist/fcs/schemes/cruise.lua",
           ["sum"] = "82c55f6b",
-        },
-        {
-          ["dst"] = "fcs/schemes/decoupled.lua",
-          ["size"] = 109,
-          ["src"] = "dist/fcs/schemes/decoupled.lua",
-          ["sum"] = "61bcbcaf",
         },
         {
           ["dst"] = "fcs/schemes/drone.lua",
@@ -850,22 +838,10 @@
           ["sum"] = "1cf8f73a",
         },
         {
-          ["dst"] = "fcs/schemes/coupled.lua",
-          ["size"] = 505,
-          ["src"] = "dist/fcs/schemes/coupled.lua",
-          ["sum"] = "22b9b343",
-        },
-        {
           ["dst"] = "fcs/schemes/cruise.lua",
           ["size"] = 279,
           ["src"] = "dist/fcs/schemes/cruise.lua",
           ["sum"] = "82c55f6b",
-        },
-        {
-          ["dst"] = "fcs/schemes/decoupled.lua",
-          ["size"] = 109,
-          ["src"] = "dist/fcs/schemes/decoupled.lua",
-          ["sum"] = "61bcbcaf",
         },
         {
           ["dst"] = "fcs/schemes/drone.lua",
@@ -1445,5 +1421,5 @@
     ["size"] = 71434,
     ["sum"] = "57671ad7",
   },
-  ["version"] = "ad5536bb",
+  ["version"] = "928b5e7b",
 }
