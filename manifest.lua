@@ -971,9 +971,9 @@
         },
         {
           ["dst"] = "ui/basalt/app.lua",
-          ["size"] = 15740,
+          ["size"] = 15791,
           ["src"] = "dist/ui/basalt/app.lua",
-          ["sum"] = "3bdf5aca",
+          ["sum"] = "17e0cb14",
         },
         {
           ["dst"] = "ui/basalt/bitconfig/dtc.lua",
@@ -1163,9 +1163,9 @@
         },
         {
           ["dst"] = "ui/basalt/renderpolicy.lua",
-          ["size"] = 1369,
+          ["size"] = 1426,
           ["src"] = "dist/ui/basalt/renderpolicy.lua",
-          ["sum"] = "3ca9994f",
+          ["sum"] = "60fb5f83",
         },
         {
           ["dst"] = "ui/basalt/senssource.lua",
@@ -1433,5 +1433,5 @@
     ["size"] = 71434,
     ["sum"] = "57671ad7",
   },
-  ["version"] = "2ae0b358",
+  ["version"] = "d08c4c86",
 }
