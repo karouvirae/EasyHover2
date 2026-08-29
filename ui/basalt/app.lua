@@ -706,6 +706,9 @@ function M.buildState(runtime, now)
     -- freeze on link loss like they always have; only heading is required to blank.
     heading      = linkUp and latest.compassHeading or nil,
     loopHz       = latest.loopHz,
+    fuel         = latest.fuel,
+    fuelPct      = latest.fuelPct,
+    badFuel      = latest.badFuel,
     engineMaster = e.master,
     feeding      = e.feeding,
     pulses       = e.pulses,

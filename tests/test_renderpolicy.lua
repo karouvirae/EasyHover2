@@ -67,6 +67,28 @@ t.test("sigFlight: going stale at all is a change", function()
   t.truthy(a ~= b, "stale toggling on changes sigFlight")
 end)
 
+-- ===== sigFlight: fuel fields must be signature-tracked (a fuel-only telemetry change must repaint) =====
+
+t.test("sigFlight changes when badFuel flips false->true", function()
+  local base = { fuel = "Ethanol", fuelPct = 100, badFuel = false }
+  local a = RP.sigFlight(base)
+  local b = RP.sigFlight({ fuel = "Ethanol", fuelPct = 100, badFuel = true })
+  t.truthy(a ~= b, "badFuel flip moves sigFlight")
+end)
+
+t.test("sigFlight changes when fuelPct changes", function()
+  local base = { fuel = "Ethanol", fuelPct = 100, badFuel = false }
+  local a = RP.sigFlight(base)
+  local b = RP.sigFlight({ fuel = "Ethanol", fuelPct = 55, badFuel = false })
+  t.truthy(a ~= b, "fuelPct change moves sigFlight")
+end)
+
+t.test("sigFlight is stable when nothing relevant changed, including fuel fields held constant", function()
+  local a = RP.sigFlight({ fuel = "Ethanol", fuelPct = 100, badFuel = false, pumpAmount = 100 })
+  local b = RP.sigFlight({ fuel = "Ethanol", fuelPct = 100, badFuel = false, pumpAmount = 100 })
+  t.eq(a, b, "identical state -> identical sigFlight")
+end)
+
 -- ===== per-panel isolation =====
 
 t.test("sigPfd changes when pitch changes but NOT when a fuel field changes", function()

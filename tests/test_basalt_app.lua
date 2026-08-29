@@ -221,6 +221,32 @@ t.test("buildState sources pitch/roll/sas from the FCS snapshot (rx), not a loca
   t.eq(s.pitch, 0.1); t.eq(s.roll, -0.2); t.eq(s.sas, 5)
 end)
 
+t.test("buildState threads fuel/fuelPct/badFuel from the FCS snapshot (rx) into the flat state", function()
+  local runtime = {
+    rx = { latest = function() return { fuel = "Ethanol", fuelPct = 200, badFuel = false } end },
+    engine = { status = function() return {} end }, hbRx = { up = function() return true end },
+    state = { pumpFrac = 0, tankFrac = 0 },
+    nav = {}, uiRev = 1,
+  }
+  local s = M.buildState(runtime, 1000)
+  t.eq(s.fuel, "Ethanol")
+  t.eq(s.fuelPct, 200)
+  t.eq(s.badFuel, false)
+end)
+
+t.test("buildState threads badFuel=true from the FCS snapshot (rx) into the flat state", function()
+  local runtime = {
+    rx = { latest = function() return { fuel = "Kerosene", fuelPct = 40, badFuel = true } end },
+    engine = { status = function() return {} end }, hbRx = { up = function() return true end },
+    state = { pumpFrac = 0, tankFrac = 0 },
+    nav = {}, uiRev = 1,
+  }
+  local s = M.buildState(runtime, 1000)
+  t.eq(s.fuel, "Kerosene")
+  t.eq(s.fuelPct, 40)
+  t.eq(s.badFuel, true)
+end)
+
 t.test("routeModem stores a navfix relay (fix present) into runtime.nav", function()
   local runtime = newRuntime()
   local frame = { k = "navfix", fix = { x = 10, y = 82, z = -20, age = 0, source = "gps", nBeacons = 4, quality = 1.0 },
