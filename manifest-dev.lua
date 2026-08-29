@@ -971,9 +971,9 @@
         },
         {
           ["dst"] = "ui/basalt/app.lua",
-          ["size"] = 55155,
+          ["size"] = 55509,
           ["src"] = "ui/basalt/app.lua",
-          ["sum"] = "2d43b357",
+          ["sum"] = "1e2a824b",
         },
         {
           ["dst"] = "ui/basalt/bitconfig/dtc.lua",
@@ -1228,6 +1228,12 @@
           ["sum"] = "50593fe2",
         },
         {
+          ["dst"] = "ui/fuelrate.lua",
+          ["size"] = 2504,
+          ["src"] = "ui/fuelrate.lua",
+          ["sum"] = "a35a2742",
+        },
+        {
           ["dst"] = "ui/monitors.lua",
           ["size"] = 1777,
           ["src"] = "ui/monitors.lua",
@@ -1247,9 +1253,9 @@
         },
         {
           ["dst"] = "ui/panels/engine.lua",
-          ["size"] = 5176,
+          ["size"] = 5920,
           ["src"] = "ui/panels/engine.lua",
-          ["sum"] = "bbdacf2f",
+          ["sum"] = "377b72bb",
         },
         {
           ["dst"] = "ui/panels/fcs.lua",
@@ -1433,5 +1439,5 @@
     ["size"] = 71434,
     ["sum"] = "57671ad7",
   },
-  ["version"] = "40f9162b",
+  ["version"] = "033bcfd1",
 }

@@ -247,6 +247,18 @@ t.test("buildState threads badFuel=true from the FCS snapshot (rx) into the flat
   t.eq(s.badFuel, true)
 end)
 
+t.test("buildState threads fuelEst from runtime.state", function()
+  local est = { state = "drain", mbPerMin = 450, secondsLeft = 1080 }
+  local runtime = {
+    rx = { latest = function() return {} end },
+    engine = { status = function() return {} end }, hbRx = { up = function() return true end },
+    state = { pumpFrac = 0, tankFrac = 0, fuelEst = est },
+    nav = {}, uiRev = 1,
+  }
+  local s = M.buildState(runtime, 1000)
+  t.eq(s.fuelEst, est, "fuelEst propagated into state")
+end)
+
 t.test("routeModem stores a navfix relay (fix present) into runtime.nav", function()
   local runtime = newRuntime()
   local frame = { k = "navfix", fix = { x = 10, y = 82, z = -20, age = 0, source = "gps", nBeacons = 4, quality = 1.0 },

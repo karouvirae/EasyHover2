@@ -1228,6 +1228,12 @@
           ["sum"] = "417659c7",
         },
         {
+          ["dst"] = "ui/fuelrate.lua",
+          ["size"] = 1311,
+          ["src"] = "dist/ui/fuelrate.lua",
+          ["sum"] = "93f612cd",
+        },
+        {
           ["dst"] = "ui/monitors.lua",
           ["size"] = 423,
           ["src"] = "dist/ui/monitors.lua",
@@ -1433,5 +1439,5 @@
     ["size"] = 71434,
     ["sum"] = "57671ad7",
   },
-  ["version"] = "d08c4c86",
+  ["version"] = "18624055",
 }

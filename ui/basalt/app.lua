@@ -42,6 +42,7 @@ local Theme     = require("ui.theme")
 local Engine    = require("ui.engine")
 local RelayWriter = require("ui.relaywriter")
 local Fuel      = require("ui.fuel")
+local FuelRate  = require("ui.fuelrate")
 local CfgServer = require("ui.cfgserver")
 local renderpolicy = require("ui.basalt.renderpolicy")
 local fcslink   = require("ui.basalt.fcslink")
@@ -533,6 +534,7 @@ function M.buildRuntime(deps)
   end
 
   local fuelReaders = { pump = makeFuelReader("pump"), tank = makeFuelReader("tank") }
+  local fuelRate = FuelRate.new(config.fuel and config.fuel.rate)
 
   -- Not auto-started: FCS SYNC (a later page task) starts/stops this on demand.
   local cfgserver = CfgServer.new({ read = read, dir = "/" })
@@ -548,6 +550,7 @@ function M.buildRuntime(deps)
 
     engine = engine,
     fuelReaders = fuelReaders,
+    fuelRate = fuelRate,
     cfgserver = cfgserver,
     config = config,
     rebindRelay = rebindRelay,
@@ -717,6 +720,7 @@ function M.buildState(runtime, now)
     tankFrac     = runtime.state.tankFrac,
     pumpAmount   = runtime.state.pumpAmount,   -- raw solid count (merged page: % vs manual max)
     tankMb       = runtime.state.tankMb,       -- raw liquid mB (merged page: shown raw, gauge vs manual max)
+    fuelEst      = runtime.state.fuelEst,      -- adaptive fuel time-to-empty estimate (ui/fuelrate)
     pitch        = latest.pitch,               -- PFD: attitude, sourced from the FCS snapshot
     roll         = latest.roll,
     sas          = latest.surgeVel,
@@ -854,6 +858,8 @@ function M.startScheduled(basalt, runtime, frameRecs)
         Fuel.read(runtime.fuelReaders.pump, runtime.config.fuel.pump.kind, runtime.config.fuel.pump)
       runtime.state.tankFrac, runtime.state.tankMb =
         Fuel.read(runtime.fuelReaders.tank, runtime.config.fuel.tank.kind, runtime.config.fuel.tank)
+      runtime.fuelRate:push(runtime.state.tankMb, os.epoch("utc"))
+      runtime.state.fuelEst = runtime.fuelRate:read()
       sleep(3.0)
     end
   end)
