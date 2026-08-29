@@ -747,6 +747,38 @@ t.test("M.calfuel: apply() reflects telemetry fuel/badFuel (no-optimistic UI)", 
   t.truthy(ok, "basalt.update should not error: " .. tostring(err))
 end)
 
+t.test("emc_main shows FLOW/LEFT from fuelEst", function()
+  local basalt = BasaltApp.ensureBasalt()
+  local frame = basalt.createFrame()
+  frame:setSize(36, 17)   -- the real EMC top-region size (flight.lua M.split of the 36x38 overhead)
+
+  local engine = newEngineStub(true)
+  local runtime = {
+    engine = engine,
+    config = {
+      relay = { name = "relay_1", side = "back" },
+      fuel = {
+        pump = { name = "chest_1", kind = "inventory", empty = 0, full = 1000 },
+        tank = { name = "tank_1",  kind = "fluid",     empty = 0, full = 500000 },
+      },
+    },
+  }
+  local region = { push = function() end, pop = function() end }
+
+  local built = M.main(basalt, frame, region, runtime)
+
+  built.apply({ fuelEst = { state = "drain", mbPerMin = 450, secondsLeft = 18 * 60 } })
+  t.eq(built.elements.flowLabel:getText(), "FLOW 450 mB/m", "flow rendered")
+  t.eq(built.elements.leftLabel:getText(), "LEFT 18m", "left rendered")
+
+  built.apply({ fuelEst = { state = "idle" } })
+  t.eq(built.elements.flowLabel:getText(), "FLOW 0 mB/m", "idle flow")
+  t.eq(built.elements.leftLabel:getText(), "LEFT --", "idle left")
+
+  local ok, err = pcall(function() basalt.update("timer", -1) end)
+  t.truthy(ok, "basalt.update should not error: " .. tostring(err))
+end)
+
 t.test("engine panel: fuel seam", function()
   local E = require("ui.panels.engine")
   t.eq(#E.fuelOptions(), 8, "8 fuel options")

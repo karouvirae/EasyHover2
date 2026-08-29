@@ -177,11 +177,10 @@ end
 --   y3  <bar x=2..>  128x  green/gray ProgressBar (height 1) + right-justified int+unit value
 --   y4  "Liquid Main BDSL" label (fit; falls back to "Liq Main BDSL" if the full text clips)
 --   y5  <bar x=2..>  180B  same bar/value treatment, liquid units
---   y6  [ENG SW][PRIME]    height 1 (was 3), common width via ui.basalt.btnfit.grid
---   y7  blank
---   y8  MASTER light (1-char colored block + text) -- logic unchanged, shifted down
---   y9  FEED light -- unchanged, shifted
---   y10 CONFIG full-width drill -- unchanged, shifted
+--   y6  "FLOW <n> mB/m" (left half) / "LEFT <t>" (right half) -- fuel time-estimate readouts
+--       (state.fuelEst), directly under the Liquid Main bar; split iw across ix0..ix1.
+--   y7  [ENG SW][PRIME]    3-row outlined buttons, common width
+--   MASTER/FEED lights + CONFIG drill sit lower, inside/beside the status box (see below)
 -- Outlined 3-row button: a Basalt button with a subpixel rounded border (native addBorder). Returns
 -- the button; call btn:addBorder(colour) to recolour the outline on state change.
 local function outlinedButton(frame, x, y, wd, text, borderColor)
@@ -237,6 +236,14 @@ function M.main(basalt, frame, region, runtime)
   local mainBar = frame:addProgressBar({ x = ix0, y = 5, width = iw, height = 1 })
   mainBar:setProgressColor(colors.green); mainBar:setBackground(colors.gray)
 
+  -- ===== FLOW / LEFT fuel-time readouts, directly under the Liquid Main tank bar (y5) -- the free
+  -- y6 row, split into left/right halves within the inner content x-range. =====
+  local flowW = math.floor(iw / 2)
+  local leftW = iw - flowW
+  local flowLabel = frame:addLabel({ x = ix0, y = 6, width = flowW, height = 1, autoSize = false, text = "" })
+  local leftLabel = frame:addLabel({ x = ix0 + flowW, y = 6, width = leftW, height = 1, autoSize = false, text = "" })
+  flowLabel:setForeground(Theme.role("font")); leftLabel:setForeground(Theme.role("font"))
+
   -- ===== ENG SW (green/red feedback) + PRIME (orange) -- 3-row outlined, centred + spaced =====
   local btnW, btnGap, btnY = 10, 2, 7
   local bx0 = math.max(ix0, math.floor((w - (btnW * 2 + btnGap)) / 2) + 1)
@@ -281,6 +288,9 @@ function M.main(basalt, frame, region, runtime)
     mainBar:setProgress(round(Fuel.manualFrac(state.tankMb, cfg.fuel.tank.full) * 100))
     setVal(mainValLabel, tostring(math.floor((state.tankMb or 0) / 1000)) .. "B")
 
+    flowLabel:setText(EnginePanel.flowLabel(state and state.fuelEst))
+    leftLabel:setText(EnginePanel.leftLabel(state and state.fuelEst))
+
     local bound = relayBound(runtime)
     -- ENG SW outline: green(on) / red(off) when a relay is bound, else gray (disabled).
     engBtn:addBorder(bound and (state.engineMaster and colors.green or colors.red) or colors.gray)
@@ -312,6 +322,7 @@ function M.main(basalt, frame, region, runtime)
     elements = {
       pmpLabel = pmpLabel, pmpBar = pmpBar, pmpValLabel = pmpValLabel,
       mainLabel = mainLabel, mainBar = mainBar, mainValLabel = mainValLabel,
+      flowLabel = flowLabel, leftLabel = leftLabel,
       engSw = engBtn, primeBtn = primeBtn,
       masterText = masterText, feedText = feedText,
       configBtn = configBtn,
