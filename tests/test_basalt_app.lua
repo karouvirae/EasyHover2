@@ -247,6 +247,17 @@ t.test("buildState threads badFuel=true from the FCS snapshot (rx) into the flat
   t.eq(s.badFuel, true)
 end)
 
+t.test("buildState: masterMode passes through from telemetry", function()
+  local runtime = {
+    rx = { latest = function() return { flightMode = "MAN", masterMode = "DCPL" } end },
+    engine = { status = function() return {} end }, hbRx = { up = function() return true end },
+    state = { pumpFrac = 0, tankFrac = 0 },
+    nav = {}, uiRev = 1,
+  }
+  local s = M.buildState(runtime, 1000)
+  t.eq(s.masterMode, "DCPL", "masterMode carried to cadence state")
+end)
+
 t.test("buildState threads fuelEst from runtime.state", function()
   local est = { state = "drain", mbPerMin = 450, secondsLeft = 1080 }
   local runtime = {
