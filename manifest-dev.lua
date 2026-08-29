@@ -1151,9 +1151,9 @@
         },
         {
           ["dst"] = "ui/basalt/renderpolicy.lua",
-          ["size"] = 6005,
+          ["size"] = 6062,
           ["src"] = "ui/basalt/renderpolicy.lua",
-          ["sum"] = "191a75de",
+          ["sum"] = "5bb6a764",
         },
         {
           ["dst"] = "ui/basalt/senssource.lua",
@@ -1427,5 +1427,5 @@
     ["size"] = 71434,
     ["sum"] = "57671ad7",
   },
-  ["version"] = "b3b5112f",
+  ["version"] = "d01fa464",
 }

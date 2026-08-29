@@ -47,6 +47,20 @@ t.test("M.FLIGHT_MS and M.PARAMS_MS have the spec'd exact values", function()
   t.eq(RP.PARAMS_MS, 1000, "PARAMS_MS")
 end)
 
+-- ===== sigFlight: masterMode/trimDir must be signature-tracked (no-optimistic-UI repaint) =====
+
+t.test("sigFlight changes when masterMode flips CPL->DCPL (master button must repaint)", function()
+  local a = RP.sigFlight({ flightMode = "PRECISION", masterMode = "CPL" })
+  local b = RP.sigFlight({ flightMode = "PRECISION", masterMode = "DCPL" })
+  t.truthy(a ~= b, "masterMode flip moves sigFlight")
+end)
+
+t.test("sigFlight changes when trimDir flips (TRIM button must repaint)", function()
+  local a = RP.sigFlight({ masterMode = "CPL", trimDir = -1 })
+  local b = RP.sigFlight({ masterMode = "CPL", trimDir = 1 })
+  t.truthy(a ~= b, "trimDir flip moves sigFlight")
+end)
+
 -- ===== sigFlight: blink-fold rule =====
 
 t.test("sigFlight folds blinkPhase to a constant when healthy (fcsStale=false)", function()

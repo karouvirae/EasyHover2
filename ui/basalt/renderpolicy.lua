@@ -58,7 +58,8 @@ function M.sigFlight(state)
   local parts = {
     qn(state.pumpAmount, 1), qn(state.tankMb, 1),
     tostring(state.feeding), tostring(state.engaged), tostring(state.gndSafety),
-    tostring(state.flightMode), tostring(state.engineMaster), tostring(state.pulses),
+    tostring(state.flightMode), tostring(state.masterMode), tostring(state.trimDir),
+    tostring(state.engineMaster), tostring(state.pulses),
     tostring(state.fcsStale), (state.fcsStale and tostring(state.blinkPhase) or "-"),
     tostring(state.fuel), tostring(state.fuelPct), tostring(state.badFuel),
     tostring(state.fuelEst and state.fuelEst.state),
