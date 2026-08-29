@@ -40,6 +40,8 @@ end)
 -- MAN drift-relax: while the pilot actively tilts, the horizontal position hold must not
 -- fight the bank-drift. Modelled by resetting the position setpoints to the MEASURED
 -- position each tick so the translate loop sees ~zero error; releasing tilt freezes them.
+-- Covered by pilot.lua's unified drift rule (any tilt mode relaxes while tilting); the
+-- relaxTiltDrift field itself is now inert (kept here to show it is harmless to pass).
 local MANPOL = { tilt = true, surge = "position", relaxTiltDrift = true }
 
 t.test("MAN relaxes horizontal hold while tilting (position setpoints track measured)", function()
@@ -62,7 +64,9 @@ t.test("MAN re-holds position after tilt release (freezes, ignores further drift
   t.near(sp.surgePos, 3, 1e-9, "surgePos frozen at tilt-release position")
 end)
 
-t.test("PRECISION does NOT relax (no relaxTiltDrift flag): hold stays put under drift", function()
+-- PRECISION has policy.tilt=false and no held tilt keys, and driftArrest defaults true (CPL-like
+-- hands-off), so the unified rule never fires: the hold stays put under drift.
+t.test("PRECISION hands-off (driftArrest default true): hold stays put under drift", function()
   local p = Pilot.new(FEEL); p:setMode({ tilt = false, surge = "position" }, FEEL); p:reset(meas())
   local sp = p:update(0.1, {}, { altitude=0, heading=0, swayPos=3, surgePos=3 })
   t.near(sp.swayPos, 0, 1e-9, "PRECISION holds its setpoint (0), not the drifted 3")
