@@ -127,21 +127,37 @@ function M.build(basalt, frame, runtime)
     px = px + width
   end
 
-  -- Live auto-trim UP/DN child button (Task 7): permanently visible, one row below the mode
-  -- selector. Enabled/meaningful only in CPL/DCPL (FcsPanel.trimActive) -- disabled/"TRIM --"
+  -- Master (coupling) selector row (Task 12): CPL/DCPL, a SECOND exclusive group independent of
+  -- the flight-mode row above -- one row directly below it. Same row-splitting pattern (the last
+  -- switch absorbs any remainder so the row never overshoots iw).
+  local masterTop = phTop + 1
+  local mCount = #FcsPanel.MASTERS
+  local mW = math.max(1, math.floor(iw / mCount))
+  local masterSwitches = {}
+  local mx = x
+  for i, id in ipairs(FcsPanel.MASTERS) do
+    local width = (i == mCount) and math.max(1, iw - (mW * (mCount - 1))) or mW
+    masterSwitches[id] = Switch.make(frame, { x = mx, y = masterTop, width = width, height = 1,
+      text = FcsPanel.MASTER_LABEL[id] or id })
+    mx = mx + width
+  end
+
+  -- Live auto-trim UP/DN child button (Task 7): permanently visible, one row below the master
+  -- selector (shifted down one row from phTop+1 to make room for the master row above). Enabled/
+  -- meaningful only in CPL/DCPL (FcsPanel.trimActive reads state.masterMode) -- disabled/"TRIM --"
   -- otherwise. onClick sends the OPPOSITE of the currently-reported trimDir (toggle); no
   -- optimistic UI -- apply(state) below is the only thing that ever flips its color/text.
-  local trimBtn = Switch.make(frame, { x = x, y = phTop + 1, width = iw, height = 1, text = "TRIM --" })
+  local trimBtn = Switch.make(frame, { x = x, y = phTop + 2, width = iw, height = 1, text = "TRIM --" })
   trimBtn.button:onClick(function()
     local latest = runtime.rx:latest() or {}
     local nextId = ((latest.trimDir or -1) > 0) and "trimDn" or "trimUp"
     M._onButton(runtime, nextId, os.epoch("utc"))
   end)
 
-  -- statusTop shifted down one row (bumped from phTop+2) to make room for the trim button above.
+  -- statusTop shifted down one more row (bumped from phTop+3) to make room for the master row.
   local statusWant = #FIELD_ORDER
-  local statusTop = phTop + 3
-  if statusTop + statusWant - 1 > h then statusTop = math.max(phTop + 2, h - statusWant + 1) end
+  local statusTop = phTop + 4
+  if statusTop + statusWant - 1 > h then statusTop = math.max(phTop + 3, h - statusWant + 1) end
 
   local labels = {}
   for i, name in ipairs(FIELD_ORDER) do
@@ -163,6 +179,15 @@ function M.build(basalt, frame, runtime)
   for _, id in ipairs(MODE_ORDER) do
     local sw = modeSwitches[id]
     sw.button:onClick(function()
+      M._onButton(runtime, id, os.epoch("utc"))
+    end)
+  end
+
+  -- Master switches: same intent seam, same no-optimistic-UI discipline -- tapping only SENDS
+  -- FcsPanel.action(id) (a raw { k = "masterMode", id = id } command); apply(state) below is the
+  -- only thing that ever lights a master switch, driven by the reported state.masterMode.
+  for _, id in ipairs(FcsPanel.MASTERS) do
+    masterSwitches[id].button:onClick(function()
       M._onButton(runtime, id, os.epoch("utc"))
     end)
   end
@@ -197,6 +222,12 @@ function M.build(basalt, frame, runtime)
       modeSwitches[id].set(FcsPanel.modeActive(state, id) and "on" or "off")
     end
 
+    -- Master switches: independent exclusive group, lit ONLY from the reported state.masterMode
+    -- (FcsPanel.masterActive), same no-optimistic-UI discipline as the flight-mode row above.
+    for _, id in ipairs(FcsPanel.MASTERS) do
+      masterSwitches[id].set(FcsPanel.masterActive(state, id) and "on" or "off")
+    end
+
     -- Live auto-trim child button: only meaningful in CPL/DCPL. No-optimistic-UI -- reflects
     -- ONLY the reported state.trimDir, never the tap that sent the command.
     if FcsPanel.trimActive(state) then
@@ -216,6 +247,11 @@ function M.build(basalt, frame, runtime)
       modeBtns = (function()
         local m = {}
         for _, id in ipairs(MODE_ORDER) do m[id] = modeSwitches[id] and modeSwitches[id].button end
+        return m
+      end)(),
+      masterBtns = (function()
+        local m = {}
+        for _, id in ipairs(FcsPanel.MASTERS) do m[id] = masterSwitches[id] and masterSwitches[id].button end
         return m
       end)(),
       trimBtn = trimBtn.button,

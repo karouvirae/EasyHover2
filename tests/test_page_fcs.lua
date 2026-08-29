@@ -114,8 +114,11 @@ t.test("M.build constructs the element tree; apply() + one render pass do not er
   t.truthy(h.elements.modeBtns.PRECISION ~= nil, "PRECISION mode switch present")
   t.truthy(h.elements.modeBtns.MAN ~= nil, "MAN mode switch present")
   t.truthy(h.elements.modeBtns.CRUISE ~= nil, "CRUISE mode switch present")
-  t.truthy(h.elements.modeBtns.CPL ~= nil, "CPL mode switch present")
-  t.truthy(h.elements.modeBtns.DCPL ~= nil, "DCPL mode switch present")
+  t.truthy(h.elements.modeBtns.LDG ~= nil, "LDG mode switch present")
+  t.truthy(h.elements.modeBtns.DRN ~= nil, "DRN mode switch present")
+  t.truthy(h.elements.masterBtns ~= nil, "masterBtns table present")
+  t.truthy(h.elements.masterBtns.CPL ~= nil, "CPL master switch present")
+  t.truthy(h.elements.masterBtns.DCPL ~= nil, "DCPL master switch present")
   t.truthy(h.elements.trimBtn ~= nil, "trimBtn element present")
 
   local sampleState = {
@@ -167,13 +170,20 @@ t.test("FIT CHECK: mode selector row fits a realistic narrow frame width (14 col
   local runtime = newRuntime({ engaged = false, gndSafety = false, positionHold = false, mode = "GROUND" })
   local h = M.build(basalt, frame, runtime)
 
-  t.truthy(h.elements.modeBtns.CPL ~= nil, "CPL present on the narrow frame too")
-  t.truthy(h.elements.modeBtns.DCPL ~= nil, "DCPL present on the narrow frame too")
+  t.truthy(h.elements.masterBtns.CPL ~= nil, "CPL present on the narrow frame too")
+  t.truthy(h.elements.masterBtns.DCPL ~= nil, "DCPL present on the narrow frame too")
 
   for id, btn in pairs(h.elements.modeBtns) do
     local ex, ew = btn:getX(), btn:getWidth()
     t.truthy(ex + ew - 1 <= frameW - 1,
       id .. " switch overshoots the interior width: x=" .. tostring(ex) .. " width=" .. tostring(ew) ..
+      " frameW=" .. tostring(frameW))
+  end
+
+  for id, btn in pairs(h.elements.masterBtns) do
+    local ex, ew = btn:getX(), btn:getWidth()
+    t.truthy(ex + ew - 1 <= frameW - 1,
+      id .. " master switch overshoots the interior width: x=" .. tostring(ex) .. " width=" .. tostring(ew) ..
       " frameW=" .. tostring(frameW))
   end
 end)
@@ -193,30 +203,65 @@ t.test("M.build's apply() reflects gndSafety-on: engage disabled", function()
   t.eq(h.elements.engageBtn:getEnabled(), false, "engage disabled when gndSafety on")
 end)
 
-t.test("M.build's apply() reflects trimDir while in CPL/DCPL", function()
+t.test("M.build's apply() reflects trimDir while in CPL/DCPL (gated on masterMode)", function()
   local basalt = BasaltApp.ensureBasalt()
   local frame = basalt.createFrame()
 
   local runtime = newRuntime({ engaged = true, gndSafety = false, positionHold = false, mode = "FLIGHT" })
   local h = M.build(basalt, frame, runtime)
 
+  -- Trim gating is on masterMode, NOT flightMode -- flightMode here is a real flight mode (MAN)
+  -- while masterMode carries CPL/DCPL, mirroring the two independent exclusive groups.
   local ok, err = pcall(h.apply, {
     engaged = true, gndSafety = false, positionHold = false, mode = "FLIGHT",
     altitude = 10, vSpeed = 0, heading = 0, loopHz = 20, linkUp = true, uiRev = 1,
-    flightMode = "CPL", trimDir = 1,
+    flightMode = "MAN", masterMode = "CPL", trimDir = 1,
   })
-  t.truthy(ok, "apply should not error with flightMode CPL: " .. tostring(err))
+  t.truthy(ok, "apply should not error with masterMode CPL: " .. tostring(err))
   t.eq(h.elements.trimBtn:getEnabled(), true, "trim button enabled in CPL")
   t.eq(h.elements.trimBtn:getText(), "TRIM UP", "trim button shows TRIM UP when trimDir==1")
+  -- No-optimistic-UI master highlight: CPL is the reported masterMode, so both switches read
+  -- enabled (neither is "disabled") -- mirrors the existing mode-switch assertions above, which
+  -- likewise can only observe "not disabled" (on/off share enabled==true; see switchbtn.lua).
+  t.eq(h.elements.masterBtns.CPL:getEnabled(), true, "CPL master switch enabled once apply() has run")
+  t.eq(h.elements.masterBtns.DCPL:getEnabled(), true, "DCPL master switch enabled once apply() has run")
 
   local ok2, err2 = pcall(h.apply, {
     engaged = true, gndSafety = false, positionHold = false, mode = "FLIGHT",
     altitude = 10, vSpeed = 0, heading = 0, loopHz = 20, linkUp = true, uiRev = 1,
-    flightMode = "DCPL", trimDir = -1,
+    flightMode = "MAN", masterMode = "DCPL", trimDir = -1,
   })
-  t.truthy(ok2, "apply should not error with flightMode DCPL: " .. tostring(err2))
+  t.truthy(ok2, "apply should not error with masterMode DCPL: " .. tostring(err2))
   t.eq(h.elements.trimBtn:getEnabled(), true, "trim button enabled in DCPL")
   t.eq(h.elements.trimBtn:getText(), "TRIM DN", "trim button shows TRIM DN when trimDir==-1")
+end)
+
+t.test("page/fcs: master switches present and driven by masterMode", function()
+  local basalt = BasaltApp.ensureBasalt()
+  local frame = basalt.createFrame()
+
+  local runtime = newRuntime({ engaged = false, gndSafety = false, positionHold = false, mode = "GROUND" })
+  local h = M.build(basalt, frame, runtime)
+
+  t.truthy(h.elements.masterBtns.CPL ~= nil, "CPL master switch present")
+  t.truthy(h.elements.masterBtns.DCPL ~= nil, "DCPL master switch present")
+
+  local ok, err = pcall(h.apply, {
+    engaged = false, gndSafety = false, positionHold = false, mode = "GROUND",
+    altitude = 0, vSpeed = 0, heading = 0, loopHz = 0, linkUp = false, uiRev = 0,
+    flightMode = "MAN", masterMode = "DCPL",
+  })
+  t.truthy(ok, "apply should not error with masterMode DCPL: " .. tostring(err))
+  t.eq(h.elements.masterBtns.DCPL:getEnabled(), true, "DCPL switch enabled once apply() has run")
+  t.eq(h.elements.masterBtns.CPL:getEnabled(), true, "CPL switch enabled once apply() has run")
+
+  local ok2, err2 = pcall(h.apply, {
+    engaged = false, gndSafety = false, positionHold = false, mode = "GROUND",
+    altitude = 0, vSpeed = 0, heading = 0, loopHz = 0, linkUp = false, uiRev = 0,
+    flightMode = "MAN", masterMode = "CPL",
+  })
+  t.truthy(ok2, "apply should not error with masterMode CPL: " .. tostring(err2))
+  t.eq(h.elements.masterBtns.CPL:getEnabled(), true, "CPL switch enabled once apply() has run")
 end)
 
 return true

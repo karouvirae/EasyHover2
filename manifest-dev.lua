@@ -1097,9 +1097,9 @@
         },
         {
           ["dst"] = "ui/basalt/pages/fcs.lua",
-          ["size"] = 10860,
+          ["size"] = 12637,
           ["src"] = "ui/basalt/pages/fcs.lua",
-          ["sum"] = "361727af",
+          ["sum"] = "38160e4b",
         },
         {
           ["dst"] = "ui/basalt/pages/flight.lua",
@@ -1427,5 +1427,5 @@
     ["size"] = 71434,
     ["sum"] = "57671ad7",
   },
-  ["version"] = "d01fa464",
+  ["version"] = "3344941c",
 }
