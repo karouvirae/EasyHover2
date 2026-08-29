@@ -65,6 +65,8 @@ local fuelState = { thrusterFuel = {}, fuelMain = nil }
 
 local pilot  = Pilot.new(inputCfg.default)
 pilot:setMode(registry.byId[registry.default].policy, registry.byId[registry.default].feel)
+local Master = require("fcs.modes.master")
+pilot:setMaster(Master.byId[Master.default].driftArrest)
 local flight = Flight.new({ loop = loop, pilot = pilot, registry = registry, config = config,
   moveEps = tuning.groundIdle and tuning.groundIdle.moveEps,
   park = tuning.park,
@@ -79,6 +81,10 @@ local flight = Flight.new({ loop = loop, pilot = pilot, registry = registry, con
     local ok2, present = pcall(drive.isDiskPresent)
     return ok2 and present and true or false
   end })
+
+-- Seed the loop trim once at boot from the flight object's own defaults (trimDir/trimGain come
+-- from the default flight mode's feel -- see fcs/runtime/flight.lua defaultTrimDir/Flight.new).
+loop:setTrim(flight.trimDir, flight.trimGain)
 
 -- Apply the boot default descriptor's flags so ground-sense matches the starting mode (LDG).
 do

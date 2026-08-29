@@ -11,3 +11,10 @@ t.test("buildLoop returns a loop plus the mode registry, LDG active", function()
   t.truthy(reg.byId.LDG and reg.byId.DRN, "LDG/DRN present")
   t.eq(loop.scheme, reg.byId.LDG.scheme, "loop starts on LDG scheme")
 end)
+
+t.test("buildLoop: registry has five flight modes and no CPL/DCPL", function()
+  local backend = { sensors = function() return { onGround = false } end }
+  local _, reg = hover.buildLoop(backend)
+  t.eq(#reg.order, 5, "five flight modes from buildLoop")
+  t.eq(reg.byId.CPL, nil, "no CPL")
+end)
