@@ -288,8 +288,8 @@ function M.main(basalt, frame, region, runtime)
     mainBar:setProgress(round(Fuel.manualFrac(state.tankMb, cfg.fuel.tank.full) * 100))
     setVal(mainValLabel, tostring(math.floor((state.tankMb or 0) / 1000)) .. "B")
 
-    flowLabel:setText(EnginePanel.flowLabel(state and state.fuelEst))
-    leftLabel:setText(EnginePanel.leftLabel(state and state.fuelEst))
+    flowLabel:setText(fit(EnginePanel.flowLabel(state and state.fuelEst), flowW))
+    leftLabel:setText(fit(EnginePanel.leftLabel(state and state.fuelEst), leftW))
 
     local bound = relayBound(runtime)
     -- ENG SW outline: green(on) / red(off) when a relay is bound, else gray (disabled).

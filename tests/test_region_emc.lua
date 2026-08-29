@@ -775,6 +775,17 @@ t.test("emc_main shows FLOW/LEFT from fuelEst", function()
   t.eq(built.elements.flowLabel:getText(), "FLOW 0 mB/m", "idle flow")
   t.eq(built.elements.leftLabel:getText(), "LEFT --", "idle left")
 
+  -- Truncation (Minor finding from the whole-branch review): FLOW/LEFT setText must route through
+  -- the module's fit() helper like every other Label in this file, so an oversized formatted string
+  -- never WRAPS under Basalt's Label.autoSize=false (see the file header note) -- it gets truncated
+  -- instead. mbPerMin=99999999 formats to "FLOW 99999999 mB/m" (19 chars), which exceeds flowLabel's
+  -- width (16 cols at this 36-wide region, iw=32 split in half).
+  built.apply({ fuelEst = { state = "drain", mbPerMin = 99999999, secondsLeft = 60 } })
+  local flowText = built.elements.flowLabel:getText()
+  t.truthy(#flowText <= built.elements.flowLabel:getWidth(),
+    "FLOW label text must be truncated to its width (" .. built.elements.flowLabel:getWidth() ..
+    "), not left over-long (got " .. #flowText .. " chars: " .. flowText .. ")")
+
   local ok, err = pcall(function() basalt.update("timer", -1) end)
   t.truthy(ok, "basalt.update should not error: " .. tostring(err))
 end)
