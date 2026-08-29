@@ -16,7 +16,7 @@
 - **No optimistic UI:** buttons/switches reflect only reported telemetry (`state.flightMode` / `state.masterMode` / `state.trimDir`), never the tap.
 - **Master mode is ALWAYS set** — there is no "no master" state. Boot default `CPL`.
 - **Trim never touches forward thrusters.** It is a pitch-demand feedforward realized as a lift-thruster differential; never MAIN/FRL/FRR.
-- **Tests are registered** in the `suites` array in `tests/run_headless.sh`. Adding a test file requires adding its module path there; deleting one requires removing it.
+- **Tests are registered** in the `suites` array in `tests/run_headless.sh`. Adding a test file requires adding its module path there; deleting one requires removing it. NOTE: `tests/run_headless_dist.sh` keeps its OWN duplicated suites list, but it is only invoked in Task 15 — so per-task test add/delete touches ONLY `run_headless.sh`; the dist runner's list is reconciled once, in Task 15 (remove the deleted coupled tests: `test_scheme_coupled`, `test_keymap_coupled`, `test_pilot_coupled`; add the new tests: `test_modes_master`, `test_pilot_drift`, `test_loop_trim`, `test_flight_master`), before running the dist suite.
 - **Test framework API:** `local t = require("tests.framework")`; `t.test(name, fn)`, `t.eq(a,b,msg)`, `t.near(a,b,tol,msg)`, `t.truthy(v,msg)`.
 - **Do NOT hand-edit** `dist/**`, `tests/.craftos/**` — those are build artifacts (`dist/**` is regenerated in the final task).
 - **Manifest sync gate (IMPORTANT):** `tests/run_headless.sh` hard-gates on `tools/run_gen.sh --check` — it refuses to run any test until `manifest.lua`/`manifest-dev.lua` match the current require-closure. Any change to a source file in the FCS/UI closure puts the manifest out of sync. So in EVERY task: after your source edits, run `bash tools/run_gen.sh` (regenerates the manifest via CraftOS-PC; idempotent), then run the suite, and `git add manifest.lua manifest-dev.lua` into your task commit. `manifest*.lua` is a GENERATED file — regenerating it with the tool is required, not a hand-edit.
@@ -1028,6 +1028,8 @@ npm run build   # == node tools/build.mjs
 ```
 
 Expected: `dist/` refreshed, manifests rewritten, no error. (Check `git status` shows only generated files changed.)
+
+- [ ] **Step 2b: Reconcile the dist runner's suites list** — `tests/run_headless_dist.sh` has its OWN hardcoded `suites` array that drifted during the feature. Edit it to match the current test set: REMOVE `"tests.test_scheme_coupled"`, `"tests.test_keymap_coupled"`, `"tests.test_pilot_coupled"` (all deleted), and ADD `"tests.test_modes_master"`, `"tests.test_pilot_drift"`, `"tests.test_loop_trim"`, `"tests.test_flight_master"` (all created this feature). Cross-check the final list against `run_headless.sh`'s `suites` array so the two match (modulo any pre-existing intentional differences).
 
 - [ ] **Step 3: Run the dist suite + manifest sync check** — Run:
 
