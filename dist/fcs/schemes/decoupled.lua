@@ -1,1 +1,0 @@
-local a=require("fcs.schemes.coupled")local b={}function b.new(c)return a.new(c,{decoupled=true})end;return b

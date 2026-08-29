@@ -1,6 +1,7 @@
 -- fcs/runtime/flight.lua
 local ComAuto = require("fcs.comauto")
 local fueltable = require("fcs.fueltable")
+local Master = require("fcs.modes.master")
 local Flight = {}
 Flight.__index = Flight
 
@@ -36,6 +37,12 @@ function Flight.new(deps)
     engaged = false, gndSafety = true, positionHold = false,
     fuelPump = false, flightMode = (deps.registry and deps.registry.default) or "PRECISION", parked = false,
     trimDir = defaultTrimDir(deps.registry),
+    masterMode = (deps.masterDefault) or Master.default,
+    trimGain = (function()
+      local d = deps.registry and deps.registry.byId and deps.registry.default
+        and deps.registry.byId[deps.registry.default]
+      return (d and d.feel and d.feel.trimGain) or 0
+    end)(),
     compassSign = deps.compassSign or (deps.config and deps.config.bindings and deps.config.bindings.compassSign) or 1,
     _needReset = false, _loopHz = 0, noFuel = false,
     -- PARAMS extras (devWarn/disk) ride telemetry only while paramsWatch is on.
@@ -90,11 +97,20 @@ function Flight:handleCommand(cmd)
     self.groundSense = d.groundSense or false
     if self.setGroundSense then self.setGroundSense(self.groundSense) end
     self.trimDir = (d.feel and d.feel.trimDir) or self.trimDir
+    self.trimGain = (d.feel and d.feel.trimGain) or self.trimGain
+    if self.loop.setTrim then self.loop:setTrim(self.trimDir, self.trimGain) end
     return true
     elseif k == "flightTrim" then
     local dir = (cmd.dir and cmd.dir < 0) and -1 or 1
     self.trimDir = dir
     if self.pilot.setTrimDir then self.pilot:setTrimDir(dir) end
+    if self.loop.setTrim then self.loop:setTrim(self.trimDir, self.trimGain) end
+    return true
+  elseif k == "masterMode" then
+    local d = Master.byId[cmd.id]
+    if not d then return true end
+    self.masterMode = cmd.id
+    if self.pilot.setMaster then self.pilot:setMaster(d.driftArrest) end
     return true
   elseif k == "comAuto" then
     if cmd.op == "abort" then
@@ -249,6 +265,7 @@ function Flight:step(dt, held, meas)
     self.parked = false
     self.loop:arm(false)
   end
+  if self.loop.setTrim then self.loop:setTrim(self.trimDir, self.trimGain) end
   local r = self.loop:cycle(dt, meas)
   self.lastDiag = r   -- exposed for optional flight instrumentation (demands/duties)
   if dt > 0 then self._loopHz = 1 / dt end
@@ -266,6 +283,7 @@ function Flight:snapshot(r, meas)
     fuel = self.fuelName, fuelPct = fueltable.pctOf(self.fuelName), badFuel = fueltable.isBad(self.fuelName),
     mode = self.parked and "PARKED" or ((r and r.mode) or self.loop:getMode()),
     flightMode = self.flightMode,
+    masterMode = self.masterMode,
     trimDir = self.trimDir,
     -- DISPLAY altitude = true-Y baro (baroMsl) so the cockpit ALT matches F3. The control loop
     -- cycles on m.altitude (AGL) independently; only this telemetry field is retargeted. Falls back

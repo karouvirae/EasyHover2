@@ -1,0 +1,1 @@
+local a={MASTERS={"CPL","DCPL"},default="CPL",byId={CPL={id="CPL",driftArrest=true},DCPL={id="DCPL",driftArrest=false}}}return a

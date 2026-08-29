@@ -337,6 +337,12 @@
           ["sum"] = "684940b4",
         },
         {
+          ["dst"] = "fcs/modes/master.lua",
+          ["size"] = 565,
+          ["src"] = "fcs/modes/master.lua",
+          ["sum"] = "d3b9287a",
+        },
+        {
           ["dst"] = "fcs/modes/registry.lua",
           ["size"] = 2007,
           ["src"] = "fcs/modes/registry.lua",
@@ -350,9 +356,9 @@
         },
         {
           ["dst"] = "fcs/runtime/flight.lua",
-          ["size"] = 14102,
+          ["size"] = 14986,
           ["src"] = "fcs/runtime/flight.lua",
-          ["sum"] = "3853e43c",
+          ["sum"] = "56c57538",
         },
         {
           ["dst"] = "fcs/runtime/loop.lua",
@@ -1421,5 +1427,5 @@
     ["size"] = 71434,
     ["sum"] = "57671ad7",
   },
-  ["version"] = "e86007e2",
+  ["version"] = "21bae782",
 }
