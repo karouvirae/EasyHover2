@@ -18,8 +18,10 @@
 - **Trim never touches forward thrusters.** It is a pitch-demand feedforward realized as a lift-thruster differential; never MAIN/FRL/FRR.
 - **Tests are registered** in the `suites` array in `tests/run_headless.sh`. Adding a test file requires adding its module path there; deleting one requires removing it.
 - **Test framework API:** `local t = require("tests.framework")`; `t.test(name, fn)`, `t.eq(a,b,msg)`, `t.near(a,b,tol,msg)`, `t.truthy(v,msg)`.
-- **Do NOT hand-edit** `dist/**`, `tests/.craftos/**`, `manifest*.lua` — those are build artifacts regenerated in the final task.
-- **Run the suite** with `bash tests/run_headless.sh` from the repo root; expect `NNNN passed, 0 failed`.
+- **Do NOT hand-edit** `dist/**`, `tests/.craftos/**` — those are build artifacts (`dist/**` is regenerated in the final task).
+- **Manifest sync gate (IMPORTANT):** `tests/run_headless.sh` hard-gates on `tools/run_gen.sh --check` — it refuses to run any test until `manifest.lua`/`manifest-dev.lua` match the current require-closure. Any change to a source file in the FCS/UI closure puts the manifest out of sync. So in EVERY task: after your source edits, run `bash tools/run_gen.sh` (regenerates the manifest via CraftOS-PC; idempotent), then run the suite, and `git add manifest.lua manifest-dev.lua` into your task commit. `manifest*.lua` is a GENERATED file — regenerating it with the tool is required, not a hand-edit.
+- **Mid-sequence the suite is NOT fully green:** obsolete tests for behavior a later task removes/rewrites are updated in THAT task, so cases owned by not-yet-done tasks fail until then. Your dispatch names the expected-deferred failures. Success for your task = your own new/changed cases pass AND you introduce no NEW failures outside that named set. Also clean up any obsolete case that lives in a test file YOUR task edits.
+- **Run the suite** with `bash tests/run_headless.sh` from the repo root; the final line reads `NNNN passed, M failed` (M = the named expected-deferred failures, 0 by the final task).
 - **Commit** after each task with the shown message.
 
 ## File Structure
