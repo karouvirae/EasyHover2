@@ -99,6 +99,18 @@ t.test("sigFlight reacts to fuelEst change", function()
   t.eq(RP.sigFlight(base), a, "stable when unchanged")
 end)
 
+t.test("sigFlight ignores tas/loopHz while PARAMS closed; includes them when open", function()
+  local a = RP.sigFlight({ tas = 1, loopHz = 10 })
+  local b = RP.sigFlight({ tas = 99, loopHz = 2 })
+  t.eq(a, b, "PARAMS-closed GPS/loop must not repaint FLIGHT")
+  local c = RP.sigFlight({ paramsOpen = true, tas = 1, loopHz = 10 })
+  local d = RP.sigFlight({ paramsOpen = true, tas = 99, loopHz = 10 })
+  t.truthy(c ~= d, "PARAMS-open TAS change moves sigFlight")
+  local e = RP.sigFlight({ paramsOpen = false })
+  local f = RP.sigFlight({ paramsOpen = true })
+  t.truthy(e ~= f, "opening PARAMS moves sigFlight")
+end)
+
 -- ===== per-panel isolation =====
 
 t.test("sigPfd changes when pitch changes but NOT when a fuel field changes", function()

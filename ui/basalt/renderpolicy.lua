@@ -55,7 +55,7 @@ end
 -- the blink only costs anything once the FCS actually goes missing (mirrors cadence.lua's M.sig).
 function M.sigFlight(state)
   state = state or {}
-  return table.concat({
+  local parts = {
     qn(state.pumpAmount, 1), qn(state.tankMb, 1),
     tostring(state.feeding), tostring(state.engaged), tostring(state.gndSafety),
     tostring(state.flightMode), tostring(state.engineMaster), tostring(state.pulses),
@@ -64,7 +64,19 @@ function M.sigFlight(state)
     tostring(state.fuelEst and state.fuelEst.state),
     qn(state.fuelEst and state.fuelEst.mbPerMin, 1),
     qn(state.fuelEst and state.fuelEst.secondsLeft, 1),
-  }, "|")
+    tostring(state.paramsOpen or false),
+  }
+  if state.paramsOpen then
+    parts[#parts + 1] = qn(state.tas, 10)
+    parts[#parts + 1] = qn(state.loopHz, 1)
+    parts[#parts + 1] = qn(state.uiLoopMs, 1)
+    parts[#parts + 1] = qn(state.navLoopMs, 1)
+    parts[#parts + 1] = tostring(state.gpsQuality or "-")
+    parts[#parts + 1] = tostring(state.devWarn)
+    parts[#parts + 1] = tostring(state.diskFcs)
+    parts[#parts + 1] = tostring(state.diskNav)
+  end
+  return table.concat(parts, "|")
 end
 
 -- ===== M.sigParams(state): the tuning/params page's live COM-auto status only =====
