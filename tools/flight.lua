@@ -265,6 +265,12 @@ local function controlTask()
       -- mid-step is re-raised so parallel.waitForAny unwinds and safeShutdown() runs.
       flight.devWarn = not ok
       if not ok then shared.controlErr = fault.orReraise(err) end
+      -- Hard-fail: last successful snap still goes out on tel. Stamp gated extras
+      -- onto it so PARAMS DEV WRN shows ON without calling sensors()/step().
+      if not ok and flight.paramsWatch and shared.snap then
+        shared.snap.devWarn = true
+        shared.snap.disk = flight.disk and true or false
+      end
       timer = os.startTimer(0)   -- ALWAYS re-arm, even if the step threw, so the loop never stalls
     elseif ev[1] == "disk" then
       flight.disk = true
