@@ -61,3 +61,20 @@ t.test("flight page builds both regions, applies, and a region drill bumps uiRev
   local ok, err = pcall(function() basalt.update("timer", -1) end)
   t.truthy(ok, "basalt.update should not error: " .. tostring(err))
 end)
+
+t.test("pushing fcs_params opens the watch; popping closes it", function()
+  local basalt = BasaltApp.ensureBasalt()
+  local frame = basalt.createFrame()
+  local cmdSent = {}
+  local rt = stubRuntime()
+  rt.sender = { send = function(_, cmd) return { k = "cmd", cmd = cmd } end }
+  rt.links = { tel = { send = function(_, f) cmdSent[#cmdSent+1] = f end } }
+  rt.wptClient = { link = { send = function() end } }
+  local page = Flight.build(basalt, frame, rt, nil)
+  page.elements.bottom:push("fcs_params")
+  t.eq(rt.paramsOpen, true)
+  t.eq(cmdSent[1].cmd.k, "paramsWatch"); t.eq(cmdSent[1].cmd.on, true)
+  page.elements.bottom:pop()
+  t.eq(rt.paramsOpen, false)
+  t.eq(cmdSent[2].cmd.on, false)
+end)

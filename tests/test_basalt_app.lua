@@ -841,3 +841,59 @@ t.test("buildState: a live link that drops is NOT stale until past the drop grac
   t.eq(M.buildState(runtime, 13000).fcsStale, false, "3000ms since last beat < 4000 drop grace")
   t.eq(M.buildState(runtime, 14500).fcsStale, true, "4500ms since last beat > 4000 drop grace")
 end)
+
+-- ===== Task 4: PARAMS watch edge + gated extras in buildState / routeModem =====
+
+t.test("setParamsOpen is edge-only and sends paramsWatch on both FCS cmd and NAV link", function()
+  local sent, navSent = {}, {}
+  local runtime = {
+    paramsOpen = false,
+    sender = { send = function(_, cmd) return { k = "cmd", cmd = cmd } end },
+    links = { tel = { send = function(_, f) sent[#sent+1] = f end } },
+    wptClient = { link = { send = function(_, f) navSent[#navSent+1] = f end } },
+    state = {},
+  }
+  M.setParamsOpen(runtime, true)
+  t.eq(runtime.paramsOpen, true)
+  t.eq(sent[1].cmd.k, "paramsWatch"); t.eq(sent[1].cmd.on, true)
+  t.eq(navSent[1].k, "paramsWatch"); t.eq(navSent[1].on, true)
+  M.setParamsOpen(runtime, true)
+  t.eq(#sent, 1, "second open does not send")
+  M.setParamsOpen(runtime, false)
+  t.eq(sent[2].cmd.on, false)
+  t.eq(navSent[2].on, false)
+end)
+
+t.test("buildState copies PARAMS extras only while paramsOpen", function()
+  local runtime = {
+    rx = { latest = function() return { devWarn = true, disk = true, loopHz = 10, flightMode = "LDG" } end },
+    engine = { status = function() return {} end }, hbRx = { up = function() return true end },
+    state = { pumpFrac = 0, tankFrac = 0, uiLoopMs = 12 },
+    nav = { gpsQuality = 0.9, loopMs = 250, disk = true, tas = 8 },
+    uiRev = 1, paramsOpen = false,
+  }
+  local closed = M.buildState(runtime, 1000)
+  t.eq(closed.devWarn, nil); t.eq(closed.diskFcs, nil)
+  t.eq(closed.uiLoopMs, nil); t.eq(closed.gpsQuality, nil)
+  t.eq(closed.tas, 8, "tas is always-on navfix, still copied")
+  runtime.paramsOpen = true
+  local open = M.buildState(runtime, 1000)
+  t.eq(open.devWarn, true); t.eq(open.diskFcs, true)
+  t.eq(open.uiLoopMs, 12); t.eq(open.gpsQuality, 0.9)
+  t.eq(open.navLoopMs, 250); t.eq(open.diskNav, true)
+  t.eq(open.paramsOpen, true)
+end)
+
+t.test("routeModem copies gpsQuality/disk/loopMs from navfix only while paramsOpen", function()
+  local runtime = newRuntime()
+  runtime.paramsOpen = false
+  local frame = { k = "navfix", fix = { x = 1, y = 2, z = 3, quality = 0.9 }, gs = 5, disk = true, at = 1000 }
+  M.routeModem(runtime, 107, protocol.encode(frame))
+  t.eq(runtime.nav.tas, 5)
+  t.eq(runtime.nav.gpsQuality, nil, "closed: do not copy quality")
+  t.eq(runtime.nav.disk, nil)
+  runtime.paramsOpen = true
+  M.routeModem(runtime, 107, protocol.encode(frame))
+  t.eq(runtime.nav.gpsQuality, 0.9)
+  t.eq(runtime.nav.disk, true)
+end)

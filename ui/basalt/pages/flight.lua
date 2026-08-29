@@ -39,8 +39,15 @@ function M.build(basalt, frame, runtime, nav)
     },
   })
 
-  local bottom = Region.new(basalt, frame, {
-    x = 1, y = topH + 1, width = w, height = botH, root = "fcs_main", onNav = bump,
+  -- Bottom onNav also edges the PARAMS watch (FCS cmd + NAV link). Lazy-require app so this
+  -- module can load from app.lua's M.PAGES table without a circular require.
+  local bottom
+  bottom = Region.new(basalt, frame, {
+    x = 1, y = topH + 1, width = w, height = botH, root = "fcs_main",
+    onNav = function()
+      bump()
+      require("ui.basalt.app").setParamsOpen(runtime, bottom:top() == "fcs_params")
+    end,
     screens = {
       fcs_main   = function(b, f, r) return FcsRegion.main(b, f, r, runtime) end,
       fcs_params = function(b, f, r) return FcsRegion.params(b, f, r, runtime) end,

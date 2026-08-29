@@ -617,6 +617,15 @@ function M.routeModem(runtime, ch, msg)
     runtime.nav.fixZ   = n.fix and n.fix.z or nil
     runtime.nav.tas    = n.gs
     runtime.nav.fixOk  = n.fix ~= nil
+    -- PARAMS extras (quality/disk/loopMs): copy only while the watch is open so GPS jitter
+    -- cannot dirty the overhead panel when PARAMS is closed.
+    if runtime.paramsOpen then
+      runtime.nav.gpsQuality = n.fix and n.fix.quality or nil
+      runtime.nav.disk = n.disk
+      local now = os.epoch("utc")
+      runtime.nav.loopMs = now - (runtime.nav._lastFixAt or now)
+      runtime.nav._lastFixAt = now
+    end
     return nil
   end
 
@@ -634,6 +643,29 @@ function M.routeModem(runtime, ch, msg)
   end
 
   return nil
+end
+
+-- ===== PARAMS-open watch (edge-only) =====
+
+-- M.setParamsOpen(runtime, open)
+-- PARAMS is open when the merged flight page's bottom region top is `fcs_params`. Edge-only:
+-- duplicate open/close (flag already equals `open`) sends nothing. Rising edge sends
+-- `{ k = "paramsWatch", on = true }` on the FCS command path AND the NAV wpt-request link;
+-- falling edge sends `on = false` and clears leftover local stamps so they cannot leak.
+function M.setParamsOpen(runtime, open)
+  if runtime.paramsOpen == open then return end
+  runtime.paramsOpen = open
+  runtime.links.tel:send(runtime.sender:send({ k = "paramsWatch", on = open }))
+  if runtime.wptClient and runtime.wptClient.link then
+    runtime.wptClient.link:send({ k = "paramsWatch", on = open })
+  end
+  if not open then
+    if runtime.state then runtime.state.uiLoopMs = nil end
+    local nv = runtime.nav
+    if nv then
+      nv.gpsQuality, nv.loopMs, nv.disk, nv._lastFixAt = nil, nil, nil, nil
+    end
+  end
 end
 
 -- ===== Cadence state assembly (pure) =====
@@ -692,6 +724,18 @@ function M.buildState(runtime, now)
       end
     end
   end
+  -- PARAMS extras: always-on tas/loopHz/flightMode already live on this table. The PARAMS-only
+  -- fields (devWarn/diskFcs/uiLoopMs/navLoopMs/gpsQuality/diskNav) copy only while open.
+  local paramsOpen = runtime.paramsOpen and true or false
+  local devWarn, diskFcs, uiLoopMs, navLoopMs, gpsQuality, diskNav
+  if paramsOpen then
+    devWarn = latest.devWarn
+    diskFcs = latest.disk
+    uiLoopMs = runtime.state and runtime.state.uiLoopMs or nil
+    navLoopMs = nv and nv.loopMs or nil
+    gpsQuality = nv and nv.gpsQuality or nil
+    diskNav = nv and nv.disk or nil
+  end
   return {
     engaged      = latest.engaged,
     gndSafety    = latest.gndSafety,
@@ -731,6 +775,13 @@ function M.buildState(runtime, now)
     fcsStale     = fcsStale,    -- FLIGHT feedback buttons blink the missing-FCS cue when true
     blinkPhase   = blinkPhase,  -- 0/1 outline blink phase (only meaningful while fcsStale)
     uiRev        = runtime.uiRev,
+    paramsOpen   = paramsOpen,
+    devWarn      = devWarn,
+    diskFcs      = diskFcs,
+    uiLoopMs     = uiLoopMs,
+    navLoopMs    = navLoopMs,
+    gpsQuality   = gpsQuality,
+    diskNav      = diskNav,
   }
 end
 
@@ -886,6 +937,12 @@ function M.startScheduled(basalt, runtime, frameRecs)
   basalt.schedule(function()
     while true do
       local now = os.epoch("utc")
+      -- UI LOOP stamp: period between successive render-gate iterations, only while PARAMS is
+      -- open. Closed: leave previous/nil (setParamsOpen nils uiLoopMs on the falling edge).
+      if runtime.paramsOpen and runtime.state then
+        runtime.state.uiLoopMs = now - (runtime.state._uiLoopAt or now)
+        runtime.state._uiLoopAt = now
+      end
       local state = M.buildState(runtime, now)
       local pfdMs = (runtime.config.pfd and runtime.config.pfd.renderMs) or 100
       for _, rec in pairs(frameRecs) do
