@@ -113,17 +113,19 @@ function M.main(basalt, frame, region, runtime)
   gndBtn:onClick(function() M._onFcs(runtime, "gnd", os.epoch("utc")) end)
   paramBtn:onClick(function() region:push("fcs_params") end)
 
-  -- Mode buttons: 2-row chip buttons, all the same size, 3 across. modeCtrls holds every real mode
-  -- (FcsPanel.MODES) so apply() can colour the active one green (radio: one active across ALL of
-  -- CPL/DCPL + flight modes, per the current FCS contract).
+  -- Mode buttons: 2-row chip buttons, all the same size, 3 across. modeCtrls holds every FLIGHT mode
+  -- (FcsPanel.MODES) so apply() can colour the active one green (radio across flight modes only).
+  -- masterCtrls holds the master/coupling modes (FcsPanel.MASTERS) -- a SEPARATE independent radio
+  -- (a craft can be, e.g., CRUISE+CPL simultaneously).
   local col = { 3, 14, 25 }
   local modeCtrls = {}
+  local masterCtrls = {}
 
   -- ===== Sub-region 2: master modes CPL/DCPL + TRIM (one cycling button, orange chip). =====
   for i, id in ipairs({ "CPL", "DCPL" }) do
-    local c = chipButton(frame, col[i], 8, 10, FcsPanel.MODE_LABEL[id] or id)
+    local c = chipButton(frame, col[i], 8, 10, FcsPanel.MASTER_LABEL[id] or id)
     c.onClick(function() M._onMode(runtime, id) end)
-    modeCtrls[id] = c
+    masterCtrls[id] = c
   end
   local trimCtrl = chipButton(frame, col[3], 8, 10, "TRIM --")
   trimCtrl.setChip(colors.orange)   -- TRIM is a stateless action (orange), not a radio mode
@@ -165,6 +167,14 @@ function M.main(basalt, frame, region, runtime)
         modeCtrls[id].setBorder(blink)   -- nil (healthy) -> removeBorder; a colour (stale) -> blink outline
       end
     end
+    -- Master chips: same green/red radio treatment + blink outline, keyed off masterActive/state.masterMode
+    -- (a SEPARATE exclusive group from the flight modes above).
+    for _, id in ipairs(FcsPanel.MASTERS) do
+      if masterCtrls[id] then
+        masterCtrls[id].setChip(FcsPanel.masterActive(state, id) and colors.green or colors.red)
+        masterCtrls[id].setBorder(blink)
+      end
+    end
     -- TRIM: orange chip always; label cycles / reads the live direction (or "TRIM --" when inactive).
     trimCtrl.setText(FcsPanel.trimActive(state) and FcsPanel.trimLabel(state) or "TRIM --")
   end
@@ -173,7 +183,7 @@ function M.main(basalt, frame, region, runtime)
     id = "fcs_main", apply = apply,
     elements = {
       fcsBtn = fcsBtn, gndBtn = gndBtn, paramBtn = paramBtn,
-      modeCtrls = modeCtrls, trimCtrl = trimCtrl, placeholders = placeholders,
+      modeCtrls = modeCtrls, masterCtrls = masterCtrls, trimCtrl = trimCtrl, placeholders = placeholders,
     },
   }
 end

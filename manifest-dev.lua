@@ -1145,9 +1145,9 @@
         },
         {
           ["dst"] = "ui/basalt/regions/fcs.lua",
-          ["size"] = 12504,
+          ["size"] = 13063,
           ["src"] = "ui/basalt/regions/fcs.lua",
-          ["sum"] = "3a0a8c63",
+          ["sum"] = "9d3560d6",
         },
         {
           ["dst"] = "ui/basalt/renderpolicy.lua",
@@ -1427,5 +1427,5 @@
     ["size"] = 71434,
     ["sum"] = "57671ad7",
   },
-  ["version"] = "3344941c",
+  ["version"] = "ae4baec7",
 }

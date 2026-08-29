@@ -1,10 +1,11 @@
 -- tests/test_region_fcs_modes.lua
--- 5-mode selector (PRECISION/MAN/CRUISE/CPL/DCPL) on the merged flight page's FCS region
--- (ui/basalt/regions/fcs.lua's fcs_main screen). 5 switches no longer fit one row on the region's
--- ~14-col width, so the region wraps them 3-then-2 across two rows with short ASCII labels
--- (ui.panels.fcs's MODE_LABEL) -- covered by a FIT CHECK against an explicit small/narrow frame,
--- not the wide headless terminal (see tests/test_bitconfig_tuning.lua's "every screen must fit a
--- REALISTIC monitor" regression for the same convention).
+-- Two independent exclusive chip groups on the merged flight page's FCS region
+-- (ui/basalt/regions/fcs.lua's fcs_main screen): 5 flight-mode chips (PRECISION/MAN/CRUISE/LDG/DRN,
+-- in modeCtrls) + 2 master-mode chips (CPL/DCPL, in masterCtrls). Chips wrap 3-then-2 across rows
+-- with short ASCII labels (ui.panels.fcs's MODE_LABEL/MASTER_LABEL) -- covered by a FIT CHECK
+-- against an explicit small/narrow frame, not the wide headless terminal (see
+-- tests/test_bitconfig_tuning.lua's "every screen must fit a REALISTIC monitor" regression for the
+-- same convention).
 local t = require("tests.framework")
 local FcsRegion = require("ui.basalt.regions.fcs")
 local Region = require("ui.basalt.region")
@@ -20,14 +21,15 @@ local function stubRuntime(latest)
   }, sent
 end
 
-t.test("region exposes the mode selector wiring, seven modes", function()
+t.test("region exposes the mode selector wiring, five flight modes + two master modes", function()
   -- The region builds from ui.panels.fcs; assert the shared contract is used.
   local F = require("ui.panels.fcs")
-  t.eq(#F.MODES, 7, "region selector uses the shared 7-mode list (PRECISION/MAN/CRUISE/CPL/DCPL/LDG/DRN)")
+  t.eq(#F.MODES, 5, "region selector uses the shared 5-mode flight list (PRECISION/MAN/CRUISE/LDG/DRN)")
+  t.eq(#F.MASTERS, 2, "region master selector uses the shared 2-mode master list (CPL/DCPL)")
   t.truthy(FcsRegion.main, "region module loads and exposes main()")
 end)
 
-t.test("fcs_main: modeCtrls include CPL/DCPL + PRE/MAN/CRU, and every chip fits the real 36x21 region", function()
+t.test("fcs_main: masterCtrls hold CPL/DCPL, modeCtrls hold PRE/MAN/CRU (+LDG/DRN), every chip fits the real 36x21 region", function()
   local basalt = BasaltApp.ensureBasalt()
   local parent = basalt.createFrame()
   local rt = stubRuntime({ engaged = false, gndSafety = false, mode = "GROUND" })
@@ -43,37 +45,44 @@ t.test("fcs_main: modeCtrls include CPL/DCPL + PRE/MAN/CRU, and every chip fits 
 
   local rec = r.built.fcs_main
   t.truthy(rec ~= nil, "fcs_main built")
-  -- modeCtrls holds ALL real modes: master CPL/DCPL (sub-region 2) + flight PRE/MAN/CRU (sub-region 3).
+  -- modeCtrls holds the flight modes (sub-region 3); masterCtrls holds CPL/DCPL (sub-region 2) -- two
+  -- independent exclusive groups now.
   local modeCtrls = rec.handle.elements.modeCtrls
+  local masterCtrls = rec.handle.elements.masterCtrls
 
   t.truthy(modeCtrls.PRECISION ~= nil, "PRECISION chip present")
   t.truthy(modeCtrls.MAN ~= nil, "MAN chip present")
   t.truthy(modeCtrls.CRUISE ~= nil, "CRUISE chip present")
-  t.truthy(modeCtrls.CPL ~= nil, "CPL chip present")
-  t.truthy(modeCtrls.DCPL ~= nil, "DCPL chip present")
+  t.truthy(modeCtrls.LDG ~= nil, "LDG chip present")
+  t.truthy(modeCtrls.DRN ~= nil, "DRN chip present")
+  t.truthy(masterCtrls ~= nil, "masterCtrls table exported")
+  t.truthy(masterCtrls.CPL ~= nil, "CPL chip present in masterCtrls")
+  t.truthy(masterCtrls.DCPL ~= nil, "DCPL chip present in masterCtrls")
 
-  -- FIT CHECK against the region's own child frame (36 cols wide). Mode chips are chipButton controls
-  -- -- their placed element is .label (a raw button); no chip may overshoot the frame width.
+  -- FIT CHECK against the region's own child frame (36 cols wide). Mode/master chips are chipButton
+  -- controls -- their placed element is .label (a raw button); no chip may overshoot the frame width.
   local frameW = rec.frame:getSize()
   t.eq(frameW, 36, "sanity: the region's child frame is the real 36-col size")
 
-  for id, sw in pairs(modeCtrls) do
-    local ex, ew = sw.label:getX(), sw.label:getWidth()
-    t.truthy(ex + ew - 1 <= frameW,
-      id .. " chip overshoots the frame width: x=" .. tostring(ex) .. " width=" .. tostring(ew) ..
-      " frameW=" .. tostring(frameW))
+  for _, group in ipairs({ modeCtrls, masterCtrls }) do
+    for id, sw in pairs(group) do
+      local ex, ew = sw.label:getX(), sw.label:getWidth()
+      t.truthy(ex + ew - 1 <= frameW,
+        id .. " chip overshoots the frame width: x=" .. tostring(ex) .. " width=" .. tostring(ew) ..
+        " frameW=" .. tostring(frameW))
+    end
   end
 
   local ok, err = pcall(function() basalt.update("timer", -1) end)
   t.truthy(ok, "basalt.update should not error: " .. tostring(err))
 end)
 
-t.test("MODE_LABEL.DCPL is the full DCPL label, not the old DCP abbreviation", function()
+t.test("MASTER_LABEL.DCPL is the full DCPL label, not the old DCP abbreviation", function()
   local F = require("ui.panels.fcs")
-  t.eq(F.MODE_LABEL.DCPL, "DCPL", "DCPL label reads DCPL, not DCP")
+  t.eq(F.MASTER_LABEL.DCPL, "DCPL", "DCPL label reads DCPL, not DCP")
 end)
 
-t.test("fcs_main: top margin + overshoot fit, and the five displayed mode chips share one common width (36x21)", function()
+t.test("fcs_main: top margin + overshoot fit, and each group's chips share one common width (36x21)", function()
   local basalt = BasaltApp.ensureBasalt()
   local parent = basalt.createFrame()
   local rt = stubRuntime({ engaged = false, gndSafety = false, mode = "GROUND" })
@@ -99,6 +108,7 @@ t.test("fcs_main: top margin + overshoot fit, and the five displayed mode chips 
   placed[#placed + 1] = { name = "gnd", btn = els.gndBtn }
   placed[#placed + 1] = { name = "params", btn = els.paramBtn }
   for id, sw in pairs(els.modeCtrls) do placed[#placed + 1] = { name = "mode:" .. id, btn = sw.label } end
+  for id, sw in pairs(els.masterCtrls) do placed[#placed + 1] = { name = "master:" .. id, btn = sw.label } end
   t.truthy(els.trimCtrl ~= nil, "trim toggle present in elements")
   placed[#placed + 1] = { name = "trim", btn = els.trimCtrl.label }
 
@@ -112,12 +122,20 @@ t.test("fcs_main: top margin + overshoot fit, and the five displayed mode chips 
   t.eq(els.gndBtn:getWidth(), els.fcsBtn:getWidth(), "gnd shares fcs's width")
   t.truthy(els.paramBtn:getWidth() >= els.fcsBtn:getWidth(), "PARAM is at least as wide as FCS/GND")
 
-  -- The 5 mode chips share one common width.
+  -- The 5 flight chips share one common width (in modeCtrls).
   local modeW
-  for _, id in ipairs({ "PRECISION", "MAN", "CRUISE", "CPL", "DCPL" }) do
+  for _, id in ipairs({ "PRECISION", "MAN", "CRUISE", "LDG", "DRN" }) do
     local w = els.modeCtrls[id].label:getWidth()
     if not modeW then modeW = w end
     t.eq(w, modeW, id .. " shares the common mode-group width")
+  end
+
+  -- The 2 master chips share one common width (in masterCtrls) -- an independent group from modeCtrls.
+  local masterW
+  for _, id in ipairs({ "CPL", "DCPL" }) do
+    local w = els.masterCtrls[id].label:getWidth()
+    if not masterW then masterW = w end
+    t.eq(w, masterW, id .. " shares the common master-group width")
   end
 
   local ok, err = pcall(function() basalt.update("timer", -1) end)
@@ -136,7 +154,7 @@ t.test("trim toggle: no-optimistic-UI, gated by FcsPanel.trimActive, labelled TR
     },
   })
 
-  r:apply({ flightMode = "CPL", trimDir = 1 })
+  r:apply({ masterMode = "CPL", trimDir = 1 })
   local trimCtrl = r.built.fcs_main.handle.elements.trimCtrl
   t.eq(trimCtrl.label:getText(), "TRIM UP", "coupled + trimDir>0 -> TRIM UP")
 
@@ -197,7 +215,7 @@ t.test("fcs_main: missing-FCS blink cue drives the OUTLINE only (mode-chip borde
   -- their feedback-colour border, chip keeps its live green/red. (apply() lazily builds fcs_main first.)
   r:apply({ fcsStale = false, engaged = true, gndSafety = false, flightMode = "PRECISION" })
   local els = r.built.fcs_main.handle.elements
-  local cpl = els.modeCtrls.CPL
+  local cpl = els.masterCtrls.CPL
   t.eq(cpl.chip.get("borderTop"), false, "healthy: mode chip has NO outline")
   t.eq(els.fcsBtn.get("borderColor"), colors.green, "healthy: FCS border = engaged green")
 
