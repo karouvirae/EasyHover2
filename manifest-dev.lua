@@ -350,9 +350,9 @@
         },
         {
           ["dst"] = "fcs/runtime/flight.lua",
-          ["size"] = 13547,
+          ["size"] = 14102,
           ["src"] = "fcs/runtime/flight.lua",
-          ["sum"] = "ed330194",
+          ["sum"] = "3853e43c",
         },
         {
           ["dst"] = "fcs/runtime/loop.lua",
@@ -458,9 +458,9 @@
         },
         {
           ["dst"] = "tools/flight.lua",
-          ["size"] = 16741,
+          ["size"] = 17476,
           ["src"] = "tools/flight.lua",
-          ["sum"] = "1498b410",
+          ["sum"] = "bd8e0de2",
         },
         {
           ["dst"] = "tools/hover_test.lua",
@@ -535,9 +535,9 @@
         },
         {
           ["dst"] = "nav/app.lua",
-          ["size"] = 13649,
+          ["size"] = 14687,
           ["src"] = "nav/app.lua",
-          ["sum"] = "5e8b3dd8",
+          ["sum"] = "062f93f1",
         },
         {
           ["dst"] = "nav/comms/gpsproto.lua",
@@ -583,9 +583,9 @@
         },
         {
           ["dst"] = "nav/runtime.lua",
-          ["size"] = 7140,
+          ["size"] = 7780,
           ["src"] = "nav/runtime.lua",
-          ["sum"] = "e454c3a2",
+          ["sum"] = "cf39171b",
         },
         {
           ["dst"] = "nav/ui/config.lua",
@@ -971,9 +971,9 @@
         },
         {
           ["dst"] = "ui/basalt/app.lua",
-          ["size"] = 55509,
+          ["size"] = 58080,
           ["src"] = "ui/basalt/app.lua",
-          ["sum"] = "1e2a824b",
+          ["sum"] = "6c3be2d9",
         },
         {
           ["dst"] = "ui/basalt/bitconfig/dtc.lua",
@@ -1121,9 +1121,9 @@
         },
         {
           ["dst"] = "ui/basalt/pages/flight.lua",
-          ["size"] = 2458,
+          ["size"] = 2753,
           ["src"] = "ui/basalt/pages/flight.lua",
-          ["sum"] = "e6f8dab7",
+          ["sum"] = "27c14141",
         },
         {
           ["dst"] = "ui/basalt/pages/nav.lua",
@@ -1136,6 +1136,12 @@
           ["size"] = 8031,
           ["src"] = "ui/basalt/pages/pfd.lua",
           ["sum"] = "55690c37",
+        },
+        {
+          ["dst"] = "ui/basalt/params.lua",
+          ["size"] = 1597,
+          ["src"] = "ui/basalt/params.lua",
+          ["sum"] = "e3512b31",
         },
         {
           ["dst"] = "ui/basalt/picker.lua",
@@ -1157,15 +1163,15 @@
         },
         {
           ["dst"] = "ui/basalt/regions/fcs.lua",
-          ["size"] = 12734,
+          ["size"] = 12504,
           ["src"] = "ui/basalt/regions/fcs.lua",
-          ["sum"] = "558debc4",
+          ["sum"] = "3a0a8c63",
         },
         {
           ["dst"] = "ui/basalt/renderpolicy.lua",
-          ["size"] = 5528,
+          ["size"] = 6005,
           ["src"] = "ui/basalt/renderpolicy.lua",
-          ["sum"] = "940e85ac",
+          ["sum"] = "191a75de",
         },
         {
           ["dst"] = "ui/basalt/senssource.lua",
@@ -1439,5 +1445,5 @@
     ["size"] = 71434,
     ["sum"] = "57671ad7",
   },
-  ["version"] = "201859fe",
+  ["version"] = "61c05058",
 }
