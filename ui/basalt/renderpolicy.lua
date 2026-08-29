@@ -61,6 +61,9 @@ function M.sigFlight(state)
     tostring(state.flightMode), tostring(state.engineMaster), tostring(state.pulses),
     tostring(state.fcsStale), (state.fcsStale and tostring(state.blinkPhase) or "-"),
     tostring(state.fuel), tostring(state.fuelPct), tostring(state.badFuel),
+    tostring(state.fuelEst and state.fuelEst.state),
+    qn(state.fuelEst and state.fuelEst.mbPerMin, 1),
+    qn(state.fuelEst and state.fuelEst.secondsLeft, 1),
   }, "|")
 end
 

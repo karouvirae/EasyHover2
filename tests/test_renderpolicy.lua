@@ -89,6 +89,16 @@ t.test("sigFlight is stable when nothing relevant changed, including fuel fields
   t.eq(a, b, "identical state -> identical sigFlight")
 end)
 
+t.test("sigFlight reacts to fuelEst change", function()
+  local base = { fuelEst = { state="drain", mbPerMin=450, secondsLeft=1080 } }
+  local a = RP.sigFlight(base)
+  local b = RP.sigFlight({ fuelEst = { state="drain", mbPerMin=900, secondsLeft=540 } })
+  local c = RP.sigFlight({ fuelEst = { state="idle", mbPerMin=0 } })
+  t.truthy(a ~= b, "rate change dirties the gate")
+  t.truthy(a ~= c, "state change dirties the gate")
+  t.eq(RP.sigFlight(base), a, "stable when unchanged")
+end)
+
 -- ===== per-panel isolation =====
 
 t.test("sigPfd changes when pitch changes but NOT when a fuel field changes", function()
