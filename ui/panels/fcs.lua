@@ -116,21 +116,36 @@ function M.render(ctx, w, h)
   return dl
 end
 
--- ===== Flight-mode selector (Task 12; CPL/DCPL added Task 6 of the CPL/DCPL modes feature) =====
--- PRECISION / MAN / CRUISE / CPL / DCPL, driven purely by reported telemetry -- no optimistic UI.
--- M.MODES lists the selectable modes; M.modeActive(ctx, id) is true only when the LATEST
+-- ===== Flight-mode selector (Task 12; LDG/DRN added later; split from master modes Task 10) =====
+-- PRECISION / MAN / CRUISE / LDG / DRN, driven purely by reported telemetry -- no optimistic UI.
+-- M.MODES lists the selectable flight modes; M.modeActive(ctx, id) is true only when the LATEST
 -- reported ctx.flightMode equals id (ctx==nil/{} means nothing is active yet -- no optimism).
-M.MODES = { "PRECISION", "MAN", "CRUISE", "CPL", "DCPL", "LDG", "DRN" }
+-- CPL/DCPL are a SEPARATE exclusive group -- see M.MASTERS below -- since a craft can be, e.g.,
+-- CRUISE+CPL simultaneously (flight mode and master/coupling mode are independent axes).
+M.MODES = { "PRECISION", "MAN", "CRUISE", "LDG", "DRN" }
 
 -- Short ASCII display labels (CC:T font, no unicode) for the narrow selector surfaces -- the
 -- merged region's ~14-col width can't fit the full mode ids side-by-side once there are 5 of them.
-M.MODE_LABEL = { PRECISION = "PRE", MAN = "MAN", CRUISE = "CRU", CPL = "CPL", DCPL = "DCPL", LDG = "LDG", DRN = "DRN" }
+M.MODE_LABEL = { PRECISION = "PRE", MAN = "MAN", CRUISE = "CRU", LDG = "LDG", DRN = "DRN" }
 
 local MODE_SET = {}
 for _, id in ipairs(M.MODES) do MODE_SET[id] = true end
 
 function M.modeActive(ctx, id)
   return (ctx and ctx.flightMode) == id
+end
+
+-- ===== Master (coupling) selector -- Task 10 =====
+-- CPL / DCPL, a second exclusive group independent of the flight-mode selector above.
+-- M.masterActive(ctx, id) is true only when the LATEST reported ctx.masterMode equals id.
+M.MASTERS = { "CPL", "DCPL" }
+M.MASTER_LABEL = { CPL = "CPL", DCPL = "DCPL" }
+
+local MASTER_SET = {}
+for _, id in ipairs(M.MASTERS) do MASTER_SET[id] = true end
+
+function M.masterActive(ctx, id)
+  return (ctx and ctx.masterMode) == id
 end
 
 -- ===== action(id, ctx) -> effect|nil =====
@@ -143,6 +158,9 @@ end
 function M.action(id, ctx)
   if MODE_SET[id] then
     return { k = "flightMode", id = id }
+  end
+  if MASTER_SET[id] then
+    return { k = "masterMode", id = id }
   end
 
   ctx = ctx or {}
@@ -172,8 +190,8 @@ function M.trimLabel(ctx)
   return ((ctx and ctx.trimDir and ctx.trimDir > 0) and "TRIM UP") or "TRIM DN"
 end
 
-function M.trimActive(ctx)  -- child button only meaningful in a coupled mode
-  return ctx and (ctx.flightMode == "CPL" or ctx.flightMode == "DCPL")
+function M.trimActive(ctx)  -- trim is a master-mode capability; a master is always set once telemetry arrives
+  return ctx and (ctx.masterMode == "CPL" or ctx.masterMode == "DCPL")
 end
 
 -- ===== Exports for the Basalt cockpit page (ui/basalt/pages/fcs.lua) =====
