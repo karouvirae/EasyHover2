@@ -1,8 +1,8 @@
--- fcs/schemes/drone.lua -- DRONE mode: tilt-to-fly. Full attitude + heading + altitude hold
--- (Level's loops), but NO translate loop: sway/surge demands are forced to 0 so the dedicated
--- lateral/main effectors stay idle and the craft moves only by vectoring lift through body tilt.
--- Pilot commands pitch/roll directly (policy.tilt) and auto-levels to a stationary hover on
--- release. Exposes the inner attitude PIDs so comAuto ki-scoping (fcs.runtime.flight) still works.
+-- fcs/schemes/drone.lua -- DRONE mode: tilt-to-fly. Full Level loop passthrough: attitude +
+-- heading + altitude hold AND the horizontal translate loop (sway/surge stabilize on release).
+-- The drone KEYMAP (no translate keys) and the pilot's relax-while-tilting + master drift law
+-- decide the horizontal setpoints upstream; the scheme itself no longer forces sway/surge to 0.
+-- Exposes the inner attitude PIDs so comAuto ki-scoping (fcs.runtime.flight) still works.
 local Level = require("fcs.schemes.level_flight")
 local Drone = {}
 Drone.__index = Drone
@@ -12,8 +12,9 @@ function Drone.new(cfg)
 end
 function Drone:reset() self.inner:reset() end
 function Drone:update(sp, m, dt, freeze, sat)
-  local d = self.inner:update(sp, m, dt, freeze, sat)   -- honors sp.pitch/roll/heading/altitude
-  d.sway, d.surge = 0, 0                                 -- no translate loop in drone mode
-  return d
+  -- Full Level loop: attitude/heading/altitude hold AND the horizontal translate loop, which
+  -- stabilizes on release. The drone KEYMAP (no translate keys) and the pilot's relax-while-
+  -- tilting + master drift law decide the horizontal setpoints; the scheme no longer forces 0.
+  return self.inner:update(sp, m, dt, freeze, sat)
 end
 return Drone

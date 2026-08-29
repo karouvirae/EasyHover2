@@ -374,9 +374,9 @@
         },
         {
           ["dst"] = "fcs/schemes/drone.lua",
-          ["size"] = 1036,
+          ["size"] = 1164,
           ["src"] = "fcs/schemes/drone.lua",
-          ["sum"] = "7297c463",
+          ["sum"] = "ca41f5c4",
         },
         {
           ["dst"] = "fcs/schemes/level_flight.lua",
@@ -845,9 +845,9 @@
         },
         {
           ["dst"] = "fcs/schemes/drone.lua",
-          ["size"] = 1036,
+          ["size"] = 1164,
           ["src"] = "fcs/schemes/drone.lua",
-          ["sum"] = "7297c463",
+          ["sum"] = "ca41f5c4",
         },
         {
           ["dst"] = "fcs/schemes/level_flight.lua",
@@ -1421,5 +1421,5 @@
     ["size"] = 71434,
     ["sum"] = "57671ad7",
   },
-  ["version"] = "7716ffe2",
+  ["version"] = "4d667ffa",
 }
