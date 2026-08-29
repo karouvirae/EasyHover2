@@ -72,7 +72,13 @@ local flight = Flight.new({ loop = loop, pilot = pilot, registry = registry, con
   fuel = function() return fuelState.fuelMain end,
   setFuelScale = function(x) loop:setFuelScale(x) end,
   saveFuel = function(id) cfgspec.save("fuelcal", { fuel = id }, writeFile) end,
-  fuelName = fuelcal.fuel })
+  fuelName = fuelcal.fuel,
+  diskPresent = function()
+    local ok, drive = pcall(peripheral.find, "drive")
+    if not ok or not drive or not drive.isDiskPresent then return false end
+    local ok2, present = pcall(drive.isDiskPresent)
+    return ok2 and present and true or false
+  end })
 
 -- Apply the boot default descriptor's flags so ground-sense matches the starting mode (LDG).
 do
@@ -257,8 +263,13 @@ local function controlTask()
       end)
       -- §11.9: "Terminated" is NEVER swallowed by this device-fault pcall -- a Ctrl+T arriving
       -- mid-step is re-raised so parallel.waitForAny unwinds and safeShutdown() runs.
+      flight.devWarn = not ok
       if not ok then shared.controlErr = fault.orReraise(err) end
       timer = os.startTimer(0)   -- ALWAYS re-arm, even if the step threw, so the loop never stalls
+    elseif ev[1] == "disk" then
+      flight.disk = true
+    elseif ev[1] == "disk_eject" then
+      flight.disk = false
     end
   end
 end

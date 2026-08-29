@@ -38,6 +38,8 @@ function Flight.new(deps)
     trimDir = defaultTrimDir(deps.registry),
     compassSign = deps.compassSign or (deps.config and deps.config.bindings and deps.config.bindings.compassSign) or 1,
     _needReset = false, _loopHz = 0, noFuel = false,
+    -- PARAMS extras (devWarn/disk) ride telemetry only while paramsWatch is on.
+    paramsWatch = false, disk = false, devWarn = false, diskPresent = deps.diskPresent,
   }, Flight)
 end
 
@@ -109,6 +111,13 @@ function Flight:handleCommand(cmd)
       return true
     end
     return false
+  elseif k == "paramsWatch" then
+    local on = cmd.on and true or false
+    if on and not self.paramsWatch and self.diskPresent then
+      self.disk = self.diskPresent() and true or false
+    end
+    self.paramsWatch = on
+    return true
   end
   return false
 end
@@ -250,7 +259,7 @@ end
 -- by the runtime wiring (Task D3) which has the backend handle.
 function Flight:snapshot(r, meas)
   local m = meas or {}
-  return {
+  local snap = {
     engaged = self.engaged, gndSafety = self.gndSafety,
     positionHold = self.positionHold, fuelPump = self.fuelPump, parked = self.parked,
     noFuel = self.noFuel,
@@ -276,6 +285,11 @@ function Flight:snapshot(r, meas)
       captured = self.comAuto.captured,
     } or nil,
   }
+  if self.paramsWatch then
+    snap.devWarn = self.devWarn and true or false
+    snap.disk = self.disk and true or false
+  end
+  return snap
 end
 
 return Flight

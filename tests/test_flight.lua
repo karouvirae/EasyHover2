@@ -446,3 +446,43 @@ end)
 t.test("flight: default fuel is Biodiesel", function()
   t.eq(newFlight().fuelName, "Biodiesel", "defaults to baseline")
 end)
+
+-- ---- PARAMS watch: gated snapshot extras (devWarn / disk) ----
+t.test("paramsWatch is off by default; snapshot omits devWarn and disk", function()
+  local f = Flight.new({ loop = fakeLoop(), pilot = Pilot.new(CFG) })
+  t.eq(f.paramsWatch, false)
+  local snap = f:snapshot(nil, meas())
+  t.eq(snap.devWarn, nil)
+  t.eq(snap.disk, nil)
+end)
+
+t.test("paramsWatch on publishes devWarn and disk; off omits them again", function()
+  local seeded = 0
+  local f = Flight.new({
+    loop = fakeLoop(), pilot = Pilot.new(CFG),
+    diskPresent = function() seeded = seeded + 1; return true end,
+  })
+  t.truthy(f:handleCommand({ k = "paramsWatch", on = true }))
+  t.eq(f.paramsWatch, true)
+  t.eq(seeded, 1)
+  t.eq(f.disk, true)
+  f.devWarn = true
+  local snap = f:snapshot(nil, meas())
+  t.eq(snap.devWarn, true)
+  t.eq(snap.disk, true)
+  f:handleCommand({ k = "paramsWatch", on = false })
+  local snap2 = f:snapshot(nil, meas())
+  t.eq(snap2.devWarn, nil)
+  t.eq(snap2.disk, nil)
+end)
+
+t.test("paramsWatch on=true twice does not re-seed the disk", function()
+  local seeded = 0
+  local f = Flight.new({
+    loop = fakeLoop(), pilot = Pilot.new(CFG),
+    diskPresent = function() seeded = seeded + 1; return false end,
+  })
+  f:handleCommand({ k = "paramsWatch", on = true })
+  f:handleCommand({ k = "paramsWatch", on = true })
+  t.eq(seeded, 1, "second on is a no-op seed")
+end)
