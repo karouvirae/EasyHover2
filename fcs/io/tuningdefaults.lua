@@ -44,6 +44,10 @@ local DEFAULTS = {
     surgeLead      = 20.0,
     swaySpeed      = 5.0,
     swayLead       = 10.0,
+
+    climbRampTime  = 1.0,   -- lift ramp: hold time to reach full climbBoost (rampable climb, all modes)
+    climbBoost     = 2.0,   -- sustained-hold climb rate multiplier (tap = 1x, hold ramps to 1+boost)
+    trimGain       = 0.35,  -- forward-trim feedforward gain: demands.pitch += trimDir*trimGain*demands.surge
   },
 }
 
@@ -68,33 +72,6 @@ DEFAULTS.modes.MAN.feel.tiltCap  = 0.40
 DEFAULTS.modes.CRUISE.feel.cruiseThrottleRate = 1.0
 DEFAULTS.modes.CRUISE.feel.cruiseThrottleMax  = 1.0
 
--- CPL/DCPL (plane-style coupled/decoupled): W/S throttle+brake, A/D strafe (sway), arrow-key
--- climb ramp, and a pitch trim so the craft can hold level surge without the pilot fighting the
--- nose-up tendency at speed.
-local function coupledFeel()
-  local f = deep(DEFAULTS.feel)
-  f.throttleRate = 1.0; f.throttleDecay = 1.0; f.brakeGain = 0.5
-  f.slowSurgeRate = 0.3; f.strafeRate = 0.3
-  f.climbRampTime = 1.0; f.climbBoost = 2.0
-  -- Nose-down auto-trim. -1 = nose-down (this craft pitches nose-up on accel). trimGain raised
-  -- 0.1->0.35 (~20deg at full throttle) with a dedicated trimCap (~28deg, under attLimit 0.6) so
-  -- the differential-only pitch-down can actually counter high surge accel. RETUNE in flight.
-  f.trimGain = 0.35; f.trimDir = -1; f.trimCap = 0.5
-  return f
-end
-DEFAULTS.modes.CPL = {
-  gains = deep(DEFAULTS.gains),
-  -- pitch cap 0.4->0.5 so the mixer's lift-differential torque isn't the nose-down limiter.
-  caps  = { pitch = 0.5, roll = 0.4, yaw = DEFAULTS.caps.yaw, sway = DEFAULTS.caps.sway,
-            surge = DEFAULTS.caps.surge, yawRear = DEFAULTS.caps.yaw },
-  feel  = coupledFeel(),
-}
-DEFAULTS.modes.DCPL = {
-  gains = deep(DEFAULTS.gains),
-  caps  = deep(DEFAULTS.modes.CPL.caps),
-  feel  = coupledFeel(),
-}
-
 DEFAULTS.modes.LDG = {
   gains = deep(DEFAULTS.gains),
   caps  = { pitch = 0.2, roll = 0.2, yaw = 0.4, sway = 0.3, surge = 0.25 },
@@ -109,7 +86,7 @@ DEFAULTS.modes.LDG.feel.climbRate  = 2.5
 
 DEFAULTS.modes.DRN = {
   gains = deep(DEFAULTS.gains),
-  caps  = { pitch = 0.5, roll = 0.5, yaw = DEFAULTS.caps.yaw, sway = 0, surge = 0 },
+  caps  = { pitch = 0.5, roll = 0.5, yaw = DEFAULTS.caps.yaw, sway = DEFAULTS.caps.sway, surge = DEFAULTS.caps.surge },
   feel  = deep(DEFAULTS.feel),
 }
 -- Drone tilt feel (WASD tilt): keep tiltCap < attLimit (0.6).
