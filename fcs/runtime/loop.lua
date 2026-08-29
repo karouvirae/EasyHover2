@@ -14,6 +14,7 @@ function Loop.new(cfg)
 end
 function Loop:setpoints(t) self.sp = t end
 function Loop:arm(b) self.armed = b and true or false end
+function Loop:setTrim(dir, gain) self.trimDir = dir or 0; self.trimGain = gain or 0 end
 function Loop:setActive(d)
   self.scheme, self.mixer, self.caps = d.scheme, d.mixer, d.caps or self.caps
   self.scheme:reset()
@@ -64,6 +65,12 @@ function Loop:cycle(rawDt, m)
   -- Previous-cycle envelope saturation (same one-tick-delayed anti-windup pattern as the
   -- heave band's _heaveSat): a demand railed by its cap must stop integrating into that rail.
   local demands = self.scheme:update(self.sp, m, dt, grounded, self._sat)
+  -- Forward trim (master-mode feedforward): the craft pitches nose-up under forward thrust because
+  -- its CoM is not vertically centered. Bias the pitch DEMAND (realized as a lift-thruster
+  -- differential by the mixer -- never the forward thrusters) proportional to the forward thrust
+  -- demand, so the craft holds its intended pitch during acceleration. Applied before the DAMPED
+  -- block so a genuine oscillation trip still zeroes it.
+  demands.pitch = (demands.pitch or 0) + (self.trimDir or 0) * (self.trimGain or 0) * (demands.surge or 0)
   -- The oscillation detector is per-axis and auto-recovering, so mode tracks it every tick:
   -- a trip latches DAMPED, and it falls back to GROUND/NORMAL on its own once the signal is
   -- calm (no longer sticky; clearDamped() still force-resets the detector).
