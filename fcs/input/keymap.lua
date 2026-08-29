@@ -9,8 +9,6 @@ local FLAG = {
   surge = { [-1] = "surgeBack",[1] = "surgeFwd" },
   pitch = { [-1] = "pitchDown", [1] = "pitchUp" },
   roll  = { [-1] = "rollLeft",  [1] = "rollRight" },
-  finesurge = { [-1] = "fineBack", [1] = "fineFwd" },
-  rudder    = { [-1] = "rudderLeft", [1] = "rudderRight" },
 }
 
 -- The held-flag name a single bound code drives, or nil when unbound. Exposed for the
@@ -42,21 +40,6 @@ M.default = {
   [keys.left]  = {axis="roll",  dir=-1}, [keys.right] = {axis="roll",  dir=1},
 }
 
--- CPL/DCPL "plane-style" coupled layout: L-Shift/Space throttle+brake, WASD pitch/roll,
--- QE rear-only rudder, comma/period full yaw, R/F rampable climb/descend, arrows fine
--- surge (slow fwd/back), left/right strafe (sway).
-M.coupled = {
-  [keys.leftShift] = {axis="surge", dir=1},   -- throttle
-  [keys.space]     = {axis="surge", dir=-1},   -- brake
-  [keys.w] = {axis="pitch", dir=-1}, [keys.s] = {axis="pitch", dir=1},   -- nose down / up
-  [keys.a] = {axis="roll",  dir=-1}, [keys.d] = {axis="roll",  dir=1},
-  [keys.q] = {axis="rudder", dir=-1}, [keys.e] = {axis="rudder", dir=1}, -- rear-only rudder
-  [keys.comma] = {axis="yaw", dir=-1}, [keys.period] = {axis="yaw", dir=1}, -- full yaw
-  [keys.r] = {axis="lift", dir=1}, [keys.f] = {axis="lift", dir=-1},     -- rampable climb/descend
-  [keys.up] = {axis="finesurge", dir=1}, [keys.down] = {axis="finesurge", dir=-1}, -- slow surge
-  [keys.left] = {axis="sway", dir=-1}, [keys.right] = {axis="sway", dir=1},         -- strafe
-}
-
 -- DRN drone layout: WASD body tilt (pitch/roll), QE yaw, Space/LShift lift. No translate keys.
 M.drone = {
   [keys.w] = {axis="pitch", dir=-1}, [keys.s] = {axis="pitch", dir=1},   -- nose down / up
@@ -67,7 +50,6 @@ M.drone = {
 }
 
 function M.forMode(id)
-  if id == "CPL" or id == "DCPL" then return M.coupled end
   if id == "DRN" then return M.drone end
   return M.default
 end
