@@ -452,9 +452,9 @@
         },
         {
           ["dst"] = "tools/flight.lua",
-          ["size"] = 7492,
+          ["size"] = 7602,
           ["src"] = "dist/tools/flight.lua",
-          ["sum"] = "ac11e86a",
+          ["sum"] = "1bbedc63",
         },
         {
           ["dst"] = "tools/hover_test.lua",
@@ -953,9 +953,9 @@
         },
         {
           ["dst"] = "ui/basalt/app.lua",
-          ["size"] = 17017,
+          ["size"] = 17042,
           ["src"] = "dist/ui/basalt/app.lua",
-          ["sum"] = "a1b99dbd",
+          ["sum"] = "335793f7",
         },
         {
           ["dst"] = "ui/basalt/bitconfig/dtc.lua",
@@ -1001,9 +1001,9 @@
         },
         {
           ["dst"] = "ui/basalt/bitconfig/tuning.lua",
-          ["size"] = 15911,
+          ["size"] = 15013,
           ["src"] = "dist/ui/basalt/bitconfig/tuning.lua",
-          ["sum"] = "aab5d35d",
+          ["sum"] = "49a3a5b0",
         },
         {
           ["dst"] = "ui/basalt/bitconfig/uical.lua",
@@ -1097,9 +1097,9 @@
         },
         {
           ["dst"] = "ui/basalt/pages/fcs.lua",
-          ["size"] = 2926,
+          ["size"] = 3462,
           ["src"] = "dist/ui/basalt/pages/fcs.lua",
-          ["sum"] = "ee44bc8a",
+          ["sum"] = "c3010411",
         },
         {
           ["dst"] = "ui/basalt/pages/flight.lua",
@@ -1145,15 +1145,15 @@
         },
         {
           ["dst"] = "ui/basalt/regions/fcs.lua",
-          ["size"] = 4795,
+          ["size"] = 4970,
           ["src"] = "dist/ui/basalt/regions/fcs.lua",
-          ["sum"] = "51e42ee2",
+          ["sum"] = "9ca624aa",
         },
         {
           ["dst"] = "ui/basalt/renderpolicy.lua",
-          ["size"] = 1815,
+          ["size"] = 1858,
           ["src"] = "dist/ui/basalt/renderpolicy.lua",
-          ["sum"] = "6d91359c",
+          ["sum"] = "7c23454a",
         },
         {
           ["dst"] = "ui/basalt/senssource.lua",
@@ -1247,9 +1247,9 @@
         },
         {
           ["dst"] = "ui/panels/fcs.lua",
-          ["size"] = 2770,
+          ["size"] = 2957,
           ["src"] = "dist/ui/panels/fcs.lua",
-          ["sum"] = "6d8cd48c",
+          ["sum"] = "3bdf72d2",
         },
         {
           ["dst"] = "ui/relaywriter.lua",
@@ -1427,5 +1427,5 @@
     ["size"] = 71434,
     ["sum"] = "57671ad7",
   },
-  ["version"] = "3ae7e706",
+  ["version"] = "04d30090",
 }
