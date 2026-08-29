@@ -162,6 +162,31 @@ t.test("trim toggle: no-optimistic-UI, gated by FcsPanel.trimActive, labelled TR
   t.eq(trimCtrl.label:getText(), "TRIM --", "uncoupled mode -> disabled TRIM --")
 end)
 
+t.test("fcs_main: masterCtrls chips highlight from reported state.masterMode (exclusive CPL/DCPL radio)", function()
+  local basalt = BasaltApp.ensureBasalt()
+  local parent = basalt.createFrame()
+  local rt = stubRuntime({ engaged = false, gndSafety = false, mode = "GROUND" })
+  local r = Region.new(basalt, parent, {
+    x = 1, y = 1, width = 36, height = 21, root = "fcs_main",
+    screens = {
+      fcs_main   = function(b, f, rg) return FcsRegion.main(b, f, rg, rt) end,
+      fcs_params = function(b, f, rg) return FcsRegion.params(b, f, rg, rt) end,
+    },
+  })
+
+  r:apply({ masterMode = "DCPL", engaged = false, gndSafety = false })
+  local els = r.built.fcs_main.handle.elements
+  t.eq(els.masterCtrls.DCPL.chip:getBackground(), colors.green, "reported masterMode DCPL -> DCPL chip green")
+  t.eq(els.masterCtrls.CPL.chip:getBackground(),  colors.red,   "CPL chip red when DCPL active (exclusive)")
+
+  r:apply({ masterMode = "CPL", engaged = false, gndSafety = false })
+  t.eq(els.masterCtrls.CPL.chip:getBackground(),  colors.green, "reported masterMode CPL -> CPL chip green")
+  t.eq(els.masterCtrls.DCPL.chip:getBackground(), colors.red,   "DCPL chip red when CPL active")
+
+  local ok, err = pcall(function() basalt.update("timer", -1) end)
+  t.truthy(ok, "basalt.update should not error: " .. tostring(err))
+end)
+
 t.test("fcs_main (Task 11): DRN + LDG are real clickable radio chips; only TRK remains a placeholder", function()
   local basalt = BasaltApp.ensureBasalt()
   local parent = basalt.createFrame()

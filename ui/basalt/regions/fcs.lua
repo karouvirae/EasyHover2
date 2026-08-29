@@ -1,9 +1,12 @@
 -- ui/basalt/regions/fcs.lua
 -- FCS region screens for the merged flight page (bottom region). Two screens:
---   fcs_main   : [FCS][GND][PARAMS] color-switches, the flight mode selector (PRE/MAN/CRU/CPL/DCPL),
---                and a live auto-trim toggle -- all laid out with ui.basalt.btnfit.grid (common
---                per-group width, each row independently centered) instead of manual column
---                splitting (ui.panels.fcs's MODES/MODE_LABEL/action/modeActive/trimLabel/
+--   fcs_main   : [FCS][GND][PARAMS] color-switches, two INDEPENDENT exclusive chip groups -- the
+--                flight-mode selector (PRE/MAN/CRU/LDG/DRN, radio on state.flightMode) and the
+--                master/coupling selector (CPL/DCPL, radio on state.masterMode; a craft can be, e.g.,
+--                CRUISE+CPL simultaneously) -- and a live auto-trim toggle keyed off masterMode --
+--                all laid out with ui.basalt.btnfit.grid (common per-group width, each row
+--                independently centered) instead of manual column splitting (ui.panels.fcs's
+--                MODES/MODE_LABEL/modeActive + MASTERS/MASTER_LABEL/masterActive/action/trimLabel/
 --                trimActive -- same shared contract Task 12's standalone FCS page selector and its
 --                trim child button use).
 --   fcs_params : the six status lines (MODE/ALT/VSPD/HDG/LOOP/LINK), moved off the main view.
