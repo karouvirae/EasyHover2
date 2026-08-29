@@ -54,3 +54,28 @@ t.test("fcs region screens build + render on a real Region without error", funct
   local ok, err = pcall(function() basalt.update("timer", -1) end)
   t.truthy(ok, "basalt.update should not error: " .. tostring(err))
 end)
+
+t.test("fcs_params apply shows flightMode/TAS/loopHz, not loop-state MODE", function()
+  local basalt = BasaltApp.ensureBasalt()
+  local parent = basalt.createFrame()
+  local rt = stubRuntime({ engaged = true, gndSafety = false })
+  local r = Region.new(basalt, parent, {
+    x = 1, y = 1, width = 36, height = 20, root = "fcs_params",
+    screens = {
+      fcs_params = function(b, f, rg) return FcsRegion.params(b, f, rg, rt) end,
+    },
+  })
+  r:apply({
+    mode = "PARKED", flightMode = "LDG", tas = 8.2, loopHz = 10,
+    altitude = 12, vSpeed = 0.5, heading = 90, linkUp = true, gndSafety = false,
+  })
+  local L = r.built.fcs_params.handle.elements.labels
+  local function txt(name) return L[name].lbl:getText() end
+  t.truthy(txt("MODE"):find("LDG/%-%-%-%-", 1, false), "MODE is flight mode, not PARKED")
+  t.truthy(not txt("MODE"):find("PARKED", 1, true), "loop state must not appear")
+  t.truthy(txt("TRUSPD"):find("8ms", 1, true), "TRU SPD from tas")
+  t.truthy(txt("FCSLOOP"):find("100ms", 1, true), "FCS LOOP from loopHz")
+  t.truthy(txt("PROXWRN"):find("OFF", 1, true))
+  t.truthy(txt("APLOOP"):find("%-%-ms", 1, false))
+  t.truthy(txt("APMODE"):find("IDLE", 1, true))
+end)
