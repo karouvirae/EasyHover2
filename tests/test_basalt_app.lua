@@ -864,6 +864,20 @@ t.test("setParamsOpen is edge-only and sends paramsWatch on both FCS cmd and NAV
   t.eq(navSent[2].on, false)
 end)
 
+t.test("setParamsOpen close nils leftover UI loop stamp so reopen is not the closed gap", function()
+  local runtime = {
+    paramsOpen = false,
+    sender = { send = function(_, cmd) return { k = "cmd", cmd = cmd } end },
+    links = { tel = { send = function() end } },
+    state = { _uiLoopAt = 1000, uiLoopMs = 250 },
+  }
+  M.setParamsOpen(runtime, true)
+  runtime.state._uiLoopAt = 1000
+  M.setParamsOpen(runtime, false)
+  t.eq(runtime.state._uiLoopAt, nil, "close must drop _uiLoopAt so the next open starts a 0ms first sample")
+  t.eq(runtime.state.uiLoopMs, nil)
+end)
+
 t.test("buildState copies PARAMS extras only while paramsOpen", function()
   local runtime = {
     rx = { latest = function() return { devWarn = true, disk = true, loopHz = 10, flightMode = "LDG" } end },

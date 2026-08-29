@@ -660,7 +660,7 @@ function M.setParamsOpen(runtime, open)
     runtime.wptClient.link:send({ k = "paramsWatch", on = open })
   end
   if not open then
-    if runtime.state then runtime.state.uiLoopMs = nil end
+    if runtime.state then runtime.state.uiLoopMs, runtime.state._uiLoopAt = nil, nil end
     local nv = runtime.nav
     if nv then
       nv.gpsQuality, nv.loopMs, nv.disk, nv._lastFixAt = nil, nil, nil, nil
