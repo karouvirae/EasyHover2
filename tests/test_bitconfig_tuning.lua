@@ -129,84 +129,76 @@ local function deepEq(a, b)
   return true
 end
 
-t.test("M.MODES lists PRECISION, MAN, CRUISE, CPL, DCPL in that order", function()
+t.test("M.MODES lists PRECISION, MAN, CRUISE, LDG, DRN in that order (Task 14: CPL/DCPL are master modes, not flight modes)", function()
   t.eq(#M.MODES, 5)
   t.eq(M.MODES[1], "PRECISION")
   t.eq(M.MODES[2], "MAN")
   t.eq(M.MODES[3], "CRUISE")
-  t.eq(M.MODES[4], "CPL")
-  t.eq(M.MODES[5], "DCPL")
+  t.eq(M.MODES[4], "LDG")
+  t.eq(M.MODES[5], "DRN")
 end)
 
-t.test("CPL/DCPL are in MODES and expose their feel extras", function()
+t.test("tuning editor: no CPL/DCPL extra rows; trim/ramp are shared base FEEL rows", function()
   local T = require("ui.basalt.bitconfig.tuning")
+  -- CPL/DCPL are no longer tunable flight modes
   local has = {}; for _, m in ipairs(T.MODES) do has[m] = true end
-  t.truthy(has.CPL and has.DCPL, "CPL/DCPL tunable")
-  local defaults = require("fcs.io.tuningdefaults").get()
-  local rows = T.rows(defaults, "CPL")
-  local ids = {}; for _, r in ipairs(rows) do ids[r.id] = true end
-  t.truthy(ids["feel.throttleRate"] and ids["feel.brakeGain"] and ids["feel.trimGain"], "CPL feel extras present")
+  t.truthy(not has.CPL and not has.DCPL, "CPL/DCPL are not tunable flight modes")
+  local specCPL = T.specFor and T.specFor("CPL", "feel.trimGain")
+  t.eq(specCPL, nil, "no CPL-scoped trimGain row")
+  -- trimGain/climbBoost/climbRampTime now resolve for a base flight mode (e.g. MAN)
+  t.truthy(T.specFor("MAN", "feel.trimGain"), "trimGain tunable on a flight mode")
+  t.truthy(T.specFor("MAN", "feel.climbBoost"), "climbBoost tunable on a flight mode")
+  t.truthy(T.specFor("MAN", "feel.climbRampTime"), "climbRampTime tunable on a flight mode")
 end)
 
-t.test("M.rows(cfg,'CPL') includes the 34 base rows + 8 CPL feel extras (no trimDir)", function()
-  local rows = M.rows(tuningdefaults.get(), "CPL")
-  t.eq(#rows, 42, "34 base + 8 CPL feel extras")
-  local ids = {}
-  for _, r in ipairs(rows) do
-    ids[r.id] = r
-    t.truthy(r.id ~= "feel.trimDir", "trimDir is NOT a tuning-stepper row (Task 7 FCS-page toggle)")
-  end
-  local expected = {
-    "feel.throttleRate", "feel.throttleDecay", "feel.brakeGain", "feel.slowSurgeRate",
-    "feel.strafeRate", "feel.climbRampTime", "feel.climbBoost", "feel.trimGain",
-  }
-  local defaults = tuningdefaults.get()
-  for _, id in ipairs(expected) do
-    t.truthy(ids[id], "CPL row present: " .. id)
-    t.eq(ids[id].group, "FEEL")
-    t.eq(ids[id].value, defaults.modes.CPL.feel[id:match("feel%.(.+)")])
-  end
-end)
-
-t.test("M.rows(cfg,'DCPL') includes the 34 base rows + 8 DCPL feel extras (no trimDir)", function()
-  local rows = M.rows(tuningdefaults.get(), "DCPL")
-  t.eq(#rows, 42, "34 base + 8 DCPL feel extras")
+t.test("M.rows(cfg,'LDG') includes the 34 base rows + the 3 rows shared by every flight mode (trim/ramp), no own extras", function()
+  local rows = M.rows(tuningdefaults.get(), "LDG")
+  t.eq(#rows, 37, "34 base + 3 shared trim/ramp rows")
   local ids = {}
   for _, r in ipairs(rows) do ids[r.id] = r end
-  local expected = {
-    "feel.throttleRate", "feel.throttleDecay", "feel.brakeGain", "feel.slowSurgeRate",
-    "feel.strafeRate", "feel.climbRampTime", "feel.climbBoost", "feel.trimGain",
-  }
   local defaults = tuningdefaults.get()
-  for _, id in ipairs(expected) do
-    t.truthy(ids[id], "DCPL row present: " .. id)
+  for _, id in ipairs({ "feel.climbRampTime", "feel.climbBoost", "feel.trimGain" }) do
+    t.truthy(ids[id], "LDG row present: " .. id)
     t.eq(ids[id].group, "FEEL")
-    t.eq(ids[id].value, defaults.modes.DCPL.feel[id:match("feel%.(.+)")])
+    t.eq(ids[id].value, defaults.modes.LDG.feel[id:match("feel%.(.+)")])
   end
 end)
 
-t.test("ISOLATION: M.apply(cfg,'CPL','feel.brakeGain',+1) writes modes.CPL.feel.brakeGain only -- DCPL/MAN/CRUISE/top-level untouched", function()
+t.test("M.rows(cfg,'DRN') includes the 34 base rows + its own tiltRate/tiltCap + the 3 shared trim/ramp rows", function()
+  local rows = M.rows(tuningdefaults.get(), "DRN")
+  t.eq(#rows, 39, "34 base + 2 DRN tilt extras + 3 shared trim/ramp rows")
+  local ids = {}
+  for _, r in ipairs(rows) do ids[r.id] = r end
+  local defaults = tuningdefaults.get()
+  for _, id in ipairs({ "feel.tiltRate", "feel.tiltCap", "feel.climbRampTime", "feel.climbBoost", "feel.trimGain" }) do
+    t.truthy(ids[id], "DRN row present: " .. id)
+    t.eq(ids[id].group, "FEEL")
+    t.eq(ids[id].value, defaults.modes.DRN.feel[id:match("feel%.(.+)")])
+  end
+end)
+
+t.test("ISOLATION: M.apply(cfg,'LDG','feel.trimGain',+1) writes modes.LDG.feel.trimGain only -- DRN/MAN/CRUISE/top-level untouched", function()
   local cfg = tuningdefaults.get()
   local before = tuningdefaults.get()
-  local out = M.apply(cfg, "CPL", "feel.brakeGain", 1)
-  t.near(out.modes.CPL.feel.brakeGain, before.modes.CPL.feel.brakeGain + 0.05, 1e-9)
-  t.truthy(deepEq(out.modes.DCPL, before.modes.DCPL), "modes.DCPL unchanged")
+  local out = M.apply(cfg, "LDG", "feel.trimGain", 1)
+  t.near(out.modes.LDG.feel.trimGain, before.modes.LDG.feel.trimGain + 0.01, 1e-9)
+  t.truthy(deepEq(out.modes.DRN, before.modes.DRN), "modes.DRN unchanged")
   t.truthy(deepEq(out.modes.MAN, before.modes.MAN), "modes.MAN unchanged")
   t.truthy(deepEq(out.modes.CRUISE, before.modes.CRUISE), "modes.CRUISE unchanged")
   t.truthy(deepEq(out.feel, before.feel), "top-level feel unchanged")
 end)
 
-t.test("M.resetMode(cfg,'DCPL') resets ONLY modes.DCPL -- modes.CPL and rest of the tree intact", function()
+t.test("M.resetMode(cfg,'DRN') resets ONLY modes.DRN -- modes.LDG and rest of the tree intact", function()
   local cfg = tuningdefaults.get()
-  cfg.modes.DCPL.feel.trimGain = 0.999
-  cfg.modes.CPL.feel.trimGain = 0.888
+  cfg.modes.DRN.feel.trimGain = 0.999
+  cfg.modes.LDG.feel.trimGain = 0.888
   cfg.gains.pitch.kp = 0.777
 
-  local out = M.resetMode(cfg, "DCPL")
+  local out = M.resetMode(cfg, "DRN")
   local defaults = tuningdefaults.get()
 
-  t.truthy(deepEq(out.modes.DCPL, defaults.modes.DCPL), "modes.DCPL reset to defaults")
-  t.eq(out.modes.CPL.feel.trimGain, 0.888, "modes.CPL left intact")
+  t.truthy(deepEq(out.modes.DRN, defaults.modes.DRN), "modes.DRN reset to defaults")
+  t.eq(out.modes.LDG.feel.trimGain, 0.888, "modes.LDG left intact")
   t.eq(out.gains.pitch.kp, 0.777, "top-level left intact")
 end)
 
@@ -230,7 +222,7 @@ t.test("REGRESSION: M.rows(cfg) with no mode arg == M.rows(cfg,'PRECISION')", fu
     t.eq(a[i].id, b[i].id)
     t.eq(a[i].value, b[i].value)
   end
-  t.eq(#a, 34)
+  t.eq(#a, 37, "34 base rows + the 3 rows shared by every flight mode (trim/ramp)")
 end)
 
 t.test("REGRESSION: M.apply(cfg,rowId,delta) with no mode arg == M.apply(cfg,'PRECISION',rowId,delta)", function()
@@ -255,9 +247,9 @@ t.test("M.rows(cfg,'MAN') reads from modes.MAN subtree, not top-level", function
   t.eq(pFound.value, tuningdefaults.get().gains.pitch.kp)
 end)
 
-t.test("M.rows(cfg,'MAN') includes the 34 base rows + tiltRate/tiltCap extras (FEEL group)", function()
+t.test("M.rows(cfg,'MAN') includes the 34 base rows + tiltRate/tiltCap + the 3 shared trim/ramp rows (FEEL group)", function()
   local rows = M.rows(tuningdefaults.get(), "MAN")
-  t.eq(#rows, 36)
+  t.eq(#rows, 39, "34 base + 2 MAN tilt extras + 3 shared trim/ramp rows")
   local tiltRate, tiltCap
   for _, r in ipairs(rows) do
     if r.id == "feel.tiltRate" then tiltRate = r end
@@ -271,9 +263,9 @@ t.test("M.rows(cfg,'MAN') includes the 34 base rows + tiltRate/tiltCap extras (F
   t.eq(tiltCap.value, tuningdefaults.get().modes.MAN.feel.tiltCap)
 end)
 
-t.test("M.rows(cfg,'CRUISE') includes the 34 base rows + cruiseThrottleRate/Max extras (FEEL group)", function()
+t.test("M.rows(cfg,'CRUISE') includes the 34 base rows + cruiseThrottleRate/Max + the 3 shared trim/ramp rows (FEEL group)", function()
   local rows = M.rows(tuningdefaults.get(), "CRUISE")
-  t.eq(#rows, 36)
+  t.eq(#rows, 39, "34 base + 2 CRUISE throttle extras + 3 shared trim/ramp rows")
   local rate, max
   for _, r in ipairs(rows) do
     if r.id == "feel.cruiseThrottleRate" then rate = r end
@@ -287,13 +279,19 @@ t.test("M.rows(cfg,'CRUISE') includes the 34 base rows + cruiseThrottleRate/Max 
   t.eq(max.value, tuningdefaults.get().modes.CRUISE.feel.cruiseThrottleMax)
 end)
 
-t.test("M.rows(cfg,'PRECISION') has no tilt/cruise-throttle extras (34 rows only)", function()
+t.test("M.rows(cfg,'PRECISION') has no tilt/cruise-throttle extras, but DOES have the 3 shared trim/ramp rows (37 rows)", function()
   local rows = M.rows(tuningdefaults.get(), "PRECISION")
-  t.eq(#rows, 34)
+  t.eq(#rows, 37, "34 base + 3 shared trim/ramp rows")
+  local ids = {}
   for _, r in ipairs(rows) do
+    ids[r.id] = r
     t.truthy(r.id ~= "feel.tiltRate" and r.id ~= "feel.tiltCap"
       and r.id ~= "feel.cruiseThrottleRate" and r.id ~= "feel.cruiseThrottleMax",
       "no per-mode extra leaked into PRECISION rows: " .. r.id)
+  end
+  for _, id in ipairs({ "feel.climbRampTime", "feel.climbBoost", "feel.trimGain" }) do
+    t.truthy(ids[id], "PRECISION row present: " .. id)
+    t.eq(ids[id].group, "FEEL")
   end
 end)
 
@@ -537,7 +535,7 @@ t.test("M.build: GAINS axis screen's BASE button homes the 3 non-axis gains rows
   t.truthy(ids["gains.heaveMax"], "gains.heaveMax present on BASE screen")
 end)
 
-t.test("M.build: CAPS/FEEL have no axis layer -- CAPS is flat; PRECISION FEEL is flat; MAN/CRUISE FEEL splits into BASE/MODE FEEL (fit fix)", function()
+t.test("M.build: CAPS/FEEL have no axis layer -- CAPS is flat; every mode's FEEL splits into BASE/MODE FEEL (fit fix, Task 14: PRECISION joins the split now that trim/ramp are shared)", function()
   local basalt, frame, nav, read, write, delete = newHarness()
   local h = M.build(basalt, frame, nil, nav, read, write, delete)
   local region = h.elements.region
@@ -548,10 +546,29 @@ t.test("M.build: CAPS/FEEL have no axis layer -- CAPS is flat; PRECISION FEEL is
   t.eq(#region.built.edit_PRECISION_CAPS.handle.elements.rowSlots, 5, "5 CAPS rows")
 
   region:pop(); h.apply({})
-  region:push("edit_PRECISION_FEEL"); h.apply({})
-  t.eq(#region.built.edit_PRECISION_FEEL.handle.elements.rowSlots, 8, "8 FEEL rows for PRECISION (no extras) -- stays flat")
+  -- PRECISION's FEEL is now 11 rows (8 base + 3 shared trim/ramp) -- too many for one flat
+  -- screen (title+11+footer=13 > budget 10) -- so it now ALSO routes through feel_menu, same as
+  -- every other mode.
+  region:push("feel_menu_PRECISION"); h.apply({})
+  t.eq(region:top(), "feel_menu_PRECISION")
+  local precFeelMenu = region.built.feel_menu_PRECISION.handle
+  t.truthy(precFeelMenu.elements.baseBtn ~= nil, "feel_menu_PRECISION has a BASE FEEL button")
+  t.truthy(precFeelMenu.elements.extraBtn ~= nil, "feel_menu_PRECISION has a MODE FEEL button")
 
-  region:pop(); region:pop() -- back to modes
+  region:push("edit_PRECISION_FEEL_base"); h.apply({})
+  t.eq(#region.built.edit_PRECISION_FEEL_base.handle.elements.rowSlots, 8, "8 base FEEL rows for PRECISION")
+
+  region:pop(); h.apply({})
+  region:push("edit_PRECISION_FEEL_extra"); h.apply({})
+  local precFeelExtra = region.built.edit_PRECISION_FEEL_extra.handle.elements.rowSlots
+  t.eq(#precFeelExtra, 3, "PRECISION MODE FEEL has exactly the 3 shared trim/ramp rows (no own extras)")
+  local precExtraIds = {}
+  for _, slot in ipairs(precFeelExtra) do precExtraIds[slot.id] = true end
+  t.truthy(precExtraIds["feel.trimGain"], "PRECISION MODE FEEL includes feel.trimGain")
+  t.truthy(precExtraIds["feel.climbRampTime"], "PRECISION MODE FEEL includes feel.climbRampTime")
+  t.truthy(precExtraIds["feel.climbBoost"], "PRECISION MODE FEEL includes feel.climbBoost")
+
+  region:pop(); region:pop(); region:pop() -- back to modes
   region:push("cat_MAN"); h.apply({})
   local catMan = region.built.cat_MAN.handle
   t.truthy(catMan.elements.catBtns.FEEL ~= nil, "cat_MAN has a FEEL button")
@@ -575,14 +592,17 @@ t.test("M.build: CAPS/FEEL have no axis layer -- CAPS is flat; PRECISION FEEL is
   region:pop(); h.apply({})
   region:push("edit_MAN_FEEL_extra"); h.apply({})
   local manFeelExtra = region.built.edit_MAN_FEEL_extra.handle.elements.rowSlots
-  t.eq(#manFeelExtra, 2, "MODE FEEL has exactly MAN's 2 per-mode extras")
+  t.eq(#manFeelExtra, 5, "MODE FEEL has MAN's 2 own extras + the 3 rows shared by every flight mode")
   local extraIds = {}
   for _, slot in ipairs(manFeelExtra) do extraIds[slot.id] = true end
   t.truthy(extraIds["feel.tiltRate"], "MODE FEEL includes feel.tiltRate")
   t.truthy(extraIds["feel.tiltCap"], "MODE FEEL includes feel.tiltCap")
+  t.truthy(extraIds["feel.trimGain"], "MODE FEEL includes shared feel.trimGain")
+  t.truthy(extraIds["feel.climbRampTime"], "MODE FEEL includes shared feel.climbRampTime")
+  t.truthy(extraIds["feel.climbBoost"], "MODE FEEL includes shared feel.climbBoost")
 end)
 
-t.test("M.build: CRUISE FEEL also splits into BASE/MODE FEEL, with CRUISE's own throttle extras", function()
+t.test("M.build: CRUISE FEEL also splits into BASE/MODE FEEL, with CRUISE's own throttle extras + the 3 shared trim/ramp rows", function()
   local basalt, frame, nav, read, write, delete = newHarness()
   local h = M.build(basalt, frame, nil, nav, read, write, delete)
   local region = h.elements.region
@@ -591,55 +611,56 @@ t.test("M.build: CRUISE FEEL also splits into BASE/MODE FEEL, with CRUISE's own 
   region:push("feel_menu_CRUISE"); h.apply({})
   region:push("edit_CRUISE_FEEL_extra"); h.apply({})
   local extra = region.built.edit_CRUISE_FEEL_extra.handle.elements.rowSlots
-  t.eq(#extra, 2, "MODE FEEL has exactly CRUISE's 2 per-mode extras")
+  t.eq(#extra, 5, "MODE FEEL has CRUISE's 2 own extras + the 3 rows shared by every flight mode")
   local ids = {}
   for _, slot in ipairs(extra) do ids[slot.id] = true end
   t.truthy(ids["feel.cruiseThrottleRate"], "MODE FEEL includes feel.cruiseThrottleRate")
   t.truthy(ids["feel.cruiseThrottleMax"], "MODE FEEL includes feel.cruiseThrottleMax")
+  t.truthy(ids["feel.trimGain"], "MODE FEEL includes shared feel.trimGain")
+  t.truthy(ids["feel.climbRampTime"], "MODE FEEL includes shared feel.climbRampTime")
+  t.truthy(ids["feel.climbBoost"], "MODE FEEL includes shared feel.climbBoost")
 end)
 
-t.test("M.build: CPL FEEL splits into BASE/MODE FEEL, with CPL's own 8 throttle/brake/strafe/climb/trim extras", function()
+t.test("M.build: LDG FEEL splits into BASE/MODE FEEL, with only the 3 rows shared by every flight mode (no own extras)", function()
   local basalt, frame, nav, read, write, delete = newHarness()
   local h = M.build(basalt, frame, nil, nav, read, write, delete)
   local region = h.elements.region
 
-  region:push("cat_CPL"); h.apply({})
-  region:push("feel_menu_CPL"); h.apply({})
-  region:push("edit_CPL_FEEL_extra"); h.apply({})
-  local extra = region.built.edit_CPL_FEEL_extra.handle.elements.rowSlots
-  t.eq(#extra, 8, "MODE FEEL has exactly CPL's 8 per-mode extras")
-  local ids = {}
-  for _, slot in ipairs(extra) do ids[slot.id] = true end
-  for _, id in ipairs({
-    "feel.throttleRate", "feel.throttleDecay", "feel.brakeGain", "feel.slowSurgeRate",
-    "feel.strafeRate", "feel.climbRampTime", "feel.climbBoost", "feel.trimGain",
-  }) do
-    t.truthy(ids[id], "MODE FEEL includes " .. id)
-  end
-
-  region:pop(); h.apply({})
-  region:push("edit_CPL_FEEL_base"); h.apply({})
-  local base = region.built.edit_CPL_FEEL_base.handle.elements.rowSlots
-  t.eq(#base, 8, "BASE FEEL has the 8 base feel rows, no per-mode extras")
-  for _, slot in ipairs(base) do
-    t.truthy(ids[slot.id] == nil, "BASE FEEL excludes CPL's own extras: " .. slot.id)
-  end
-end)
-
-t.test("M.build: DCPL FEEL splits into BASE/MODE FEEL, with DCPL's own 8 throttle/brake/strafe/climb/trim extras", function()
-  local basalt, frame, nav, read, write, delete = newHarness()
-  local h = M.build(basalt, frame, nil, nav, read, write, delete)
-  local region = h.elements.region
-
-  region:push("cat_DCPL"); h.apply({})
-  region:push("feel_menu_DCPL"); h.apply({})
-  region:push("edit_DCPL_FEEL_extra"); h.apply({})
-  local extra = region.built.edit_DCPL_FEEL_extra.handle.elements.rowSlots
-  t.eq(#extra, 8, "MODE FEEL has exactly DCPL's 8 per-mode extras")
+  region:push("cat_LDG"); h.apply({})
+  region:push("feel_menu_LDG"); h.apply({})
+  region:push("edit_LDG_FEEL_extra"); h.apply({})
+  local extra = region.built.edit_LDG_FEEL_extra.handle.elements.rowSlots
+  t.eq(#extra, 3, "MODE FEEL has exactly the 3 rows shared by every flight mode")
   local ids = {}
   for _, slot in ipairs(extra) do ids[slot.id] = true end
   t.truthy(ids["feel.trimGain"], "MODE FEEL includes feel.trimGain")
-  t.truthy(ids["feel.throttleRate"], "MODE FEEL includes feel.throttleRate")
+  t.truthy(ids["feel.climbRampTime"], "MODE FEEL includes feel.climbRampTime")
+  t.truthy(ids["feel.climbBoost"], "MODE FEEL includes feel.climbBoost")
+
+  region:pop(); h.apply({})
+  region:push("edit_LDG_FEEL_base"); h.apply({})
+  local base = region.built.edit_LDG_FEEL_base.handle.elements.rowSlots
+  t.eq(#base, 8, "BASE FEEL has the 8 base feel rows, no per-mode extras")
+  for _, slot in ipairs(base) do
+    t.truthy(ids[slot.id] == nil, "BASE FEEL excludes LDG's shared extras: " .. slot.id)
+  end
+end)
+
+t.test("M.build: DRN FEEL splits into BASE/MODE FEEL, with DRN's own tiltRate/tiltCap + the 3 shared trim/ramp rows", function()
+  local basalt, frame, nav, read, write, delete = newHarness()
+  local h = M.build(basalt, frame, nil, nav, read, write, delete)
+  local region = h.elements.region
+
+  region:push("cat_DRN"); h.apply({})
+  region:push("feel_menu_DRN"); h.apply({})
+  region:push("edit_DRN_FEEL_extra"); h.apply({})
+  local extra = region.built.edit_DRN_FEEL_extra.handle.elements.rowSlots
+  t.eq(#extra, 5, "MODE FEEL has DRN's 2 own tilt extras + the 3 rows shared by every flight mode")
+  local ids = {}
+  for _, slot in ipairs(extra) do ids[slot.id] = true end
+  t.truthy(ids["feel.tiltRate"], "MODE FEEL includes feel.tiltRate")
+  t.truthy(ids["feel.tiltCap"], "MODE FEEL includes feel.tiltCap")
+  t.truthy(ids["feel.trimGain"], "MODE FEEL includes shared feel.trimGain")
 end)
 
 t.test("M.build: '?' opens a help screen with real glossary content (help_alt, help_modes)", function()
@@ -767,9 +788,11 @@ t.test("REGRESSION: every tuning screen's deepest row fits a realistic ~12-row m
     end
   end
   -- Sanity floor: modes(1) + cat*5 + gains_axis*5 + edit GAINS axis(30) + GAINS base*5 + CAPS*5 +
-  -- (PRECISION FEEL flat*1 + feel_menu*4 + FEEL base*4 + FEEL extra*4) = 1+5+5+30+5+5+13 = 64
-  -- (5 modes: PRECISION, MAN, CRUISE, CPL, DCPL -- the last 4 each split FEEL into BASE/MODE).
-  t.truthy(checked >= 64, "walked all non-help screens across every mode, got " .. checked)
+  -- (feel_menu*5 + FEEL base*5 + FEEL extra*5) = 1+5+5+30+5+5+15 = 66
+  -- (5 modes: PRECISION, MAN, CRUISE, LDG, DRN -- Task 14: EVERY mode now splits FEEL into
+  -- BASE/MODE, including PRECISION, since the 3 rows shared by every flight mode -- trim/ramp --
+  -- push its FEEL past the flat-screen budget too).
+  t.truthy(checked >= 66, "walked all non-help screens across every mode, got " .. checked)
 end)
 
 return true
