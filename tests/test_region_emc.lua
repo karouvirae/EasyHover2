@@ -758,4 +758,17 @@ t.test("engine panel: fuel seam", function()
   t.eq(E.fuelBad({ badFuel = false }), false, "bad false")
 end)
 
+t.test("engine panel: flow/left labels per state", function()
+  local E = require("ui.panels.engine")
+  t.eq(E.flowLabel({ state="drain", mbPerMin=450 }), "FLOW 450 mB/m", "drain flow")
+  t.eq(E.leftLabel({ state="drain", secondsLeft=18*60 }), "LEFT 18m", "drain left <1h")
+  t.eq(E.leftLabel({ state="drain", secondsLeft=65*60 }), "LEFT 1h05m", "drain left >=1h zero-pad")
+  t.eq(E.flowLabel({ state="idle" }), "FLOW 0 mB/m", "idle flow")
+  t.eq(E.leftLabel({ state="idle" }), "LEFT --", "idle left")
+  t.eq(E.flowLabel({ state="refuel" }), "FLOW +", "refuel flow")
+  t.eq(E.leftLabel({ state="refuel" }), "LEFT +", "refuel left")
+  t.eq(E.flowLabel({ state="unknown" }), "FLOW --", "unknown flow")
+  t.eq(E.leftLabel(nil), "LEFT --", "nil left")
+end)
+
 return true

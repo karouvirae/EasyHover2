@@ -175,4 +175,28 @@ function M.fuelBad(ctx)
   return (ctx and ctx.badFuel == true) or false
 end
 
+-- ===== flow/left time-estimate seam (pure functions) =====
+
+function M.flowLabel(est)
+  local st = est and est.state
+  if st == "refuel" then return "FLOW +" end
+  if st == "idle" then return "FLOW 0 mB/m" end
+  if st == "drain" then return string.format("FLOW %d mB/m", math.floor((est.mbPerMin or 0) + 0.5)) end
+  return "FLOW --"
+end
+
+function M.leftLabel(est)
+  local st = est and est.state
+  if st == "refuel" then return "LEFT +" end
+  if st == "drain" then
+    local s = est.secondsLeft
+    if type(s) == "number" and s > 0 then
+      local m = math.floor(s / 60)
+      if m < 60 then return string.format("LEFT %dm", m) end
+      return string.format("LEFT %dh%02dm", math.floor(m / 60), m % 60)
+    end
+  end
+  return "LEFT --"
+end
+
 return M
