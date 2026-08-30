@@ -965,9 +965,9 @@
         },
         {
           ["dst"] = "ui/basalt/bitconfig/fcssync.lua",
-          ["size"] = 1653,
+          ["size"] = 1406,
           ["src"] = "dist/ui/basalt/bitconfig/fcssync.lua",
-          ["sum"] = "7d45f3f3",
+          ["sum"] = "8625daff",
         },
         {
           ["dst"] = "ui/basalt/bitconfig/hub.lua",
@@ -1097,15 +1097,15 @@
         },
         {
           ["dst"] = "ui/basalt/pages/emc.lua",
-          ["size"] = 2985,
+          ["size"] = 609,
           ["src"] = "dist/ui/basalt/pages/emc.lua",
-          ["sum"] = "6b5df71b",
+          ["sum"] = "1481d960",
         },
         {
           ["dst"] = "ui/basalt/pages/fcs.lua",
-          ["size"] = 3462,
+          ["size"] = 608,
           ["src"] = "dist/ui/basalt/pages/fcs.lua",
-          ["sum"] = "c3010411",
+          ["sum"] = "1e3e8c7c",
         },
         {
           ["dst"] = "ui/basalt/pages/flight.lua",
@@ -1439,5 +1439,5 @@
     ["size"] = 71434,
     ["sum"] = "57671ad7",
   },
-  ["version"] = "e924e10b",
+  ["version"] = "50b92d23",
 }
