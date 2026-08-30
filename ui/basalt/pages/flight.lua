@@ -1,5 +1,5 @@
 -- ui/basalt/pages/flight.lua
--- The merged flight page for the overhead 1x2 monitors: a compact EMC view stacked over a compact
+-- The merged flight page for the overhead 3x2 monitor (3 high x 2 wide): a compact EMC view stacked over a compact
 -- FCS view in ONE frame, but as two INDEPENDENT regions -- each has its own nav stack, so drilling
 -- one half (EMC config / CAL FUEL, or FCS params) never touches the other. Content-based split (the
 -- boundary is not the block seam); every region screen is compact enough to fit its rows.

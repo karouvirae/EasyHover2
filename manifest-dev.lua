@@ -953,9 +953,9 @@
         },
         {
           ["dst"] = "ui/basalt/app.lua",
-          ["size"] = 58470,
+          ["size"] = 58487,
           ["src"] = "ui/basalt/app.lua",
-          ["sum"] = "4ba288d1",
+          ["sum"] = "4468c14f",
         },
         {
           ["dst"] = "ui/basalt/bitconfig/dtc.lua",
@@ -1103,9 +1103,9 @@
         },
         {
           ["dst"] = "ui/basalt/pages/flight.lua",
-          ["size"] = 2753,
+          ["size"] = 2770,
           ["src"] = "ui/basalt/pages/flight.lua",
-          ["sum"] = "27c14141",
+          ["sum"] = "9d90a755",
         },
         {
           ["dst"] = "ui/basalt/pages/nav.lua",
@@ -1433,5 +1433,5 @@
     ["size"] = 71434,
     ["sum"] = "57671ad7",
   },
-  ["version"] = "df5b6a88",
+  ["version"] = "600ee158",
 }
