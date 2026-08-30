@@ -1121,9 +1121,9 @@
         },
         {
           ["dst"] = "ui/basalt/params.lua",
-          ["size"] = 1597,
+          ["size"] = 1780,
           ["src"] = "ui/basalt/params.lua",
-          ["sum"] = "e3512b31",
+          ["sum"] = "b42bd741",
         },
         {
           ["dst"] = "ui/basalt/picker.lua",
@@ -1427,5 +1427,5 @@
     ["size"] = 71434,
     ["sum"] = "57671ad7",
   },
-  ["version"] = "2a708797",
+  ["version"] = "012fdf67",
 }

@@ -1,11 +1,12 @@
 local t = require("tests.framework")
 local P = require("ui.basalt.params")
 
-t.test("modeText uses short MODE_LABEL and a placeholder master half", function()
-  t.eq(P.modeText("PRECISION"), "PRE/----")
-  t.eq(P.modeText("LDG"), "LDG/----")
-  t.eq(P.modeText("CPL"), "CPL/----")
-  t.eq(P.modeText(nil), "--/----")
+t.test("modeText shows short flight label / master mode; ---- per nil half", function()
+  t.eq(P.modeText("PRECISION", "CPL"), "PRE/CPL")
+  t.eq(P.modeText("MAN", "DCPL"), "MAN/DCPL")
+  t.eq(P.modeText("LDG", "CPL"), "LDG/CPL")
+  t.eq(P.modeText("PRECISION", nil), "PRE/----")   -- master unknown -> placeholder half
+  t.eq(P.modeText(nil, nil), "--/----")
 end)
 
 t.test("spdText matches PFD TAS integer + ms suffix", function()
@@ -31,10 +32,10 @@ end)
 
 t.test("values: live MODE/TRUSPD/FCSLOOP; placeholders for A/P and PROX; flags default off", function()
   local v = P.values({
-    flightMode = "LDG", tas = 8.2, loopHz = 10,
+    flightMode = "LDG", masterMode = "CPL", tas = 8.2, loopHz = 10,
     altitude = 12, vSpeed = 0.5, heading = 90, linkUp = true, gndSafety = false,
   })
-  t.eq(v.MODE, "LDG/----")
+  t.eq(v.MODE, "LDG/CPL")
   t.eq(v.TRUSPD, "8ms")
   t.eq(v.FCSLOOP, "100ms")
   t.eq(v.PROXWRN, "OFF")

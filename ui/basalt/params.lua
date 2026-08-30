@@ -3,9 +3,11 @@ local M = {}
 
 local function round(x) return math.floor((x or 0) + 0.5) end
 
-function M.modeText(id)
-  if id == nil then return "--/----" end
-  return (FcsPanel.MODE_LABEL[id] or tostring(id)) .. "/----"
+-- FCS MODE field: "<flight>/<master>", e.g. "PRE/CPL". "----" per half only when that half is nil.
+function M.modeText(id, master)
+  local f = (id == nil) and "--" or (FcsPanel.MODE_LABEL[id] or tostring(id))
+  local m = (master == nil) and "----" or tostring(master)
+  return f .. "/" .. m
 end
 
 function M.spdText(tas)
@@ -33,7 +35,7 @@ function M.values(state)
   state = state or {}
   local fv = FcsPanel.fieldValues(state)
   return {
-    MODE = M.modeText(state.flightMode),
+    MODE = M.modeText(state.flightMode, state.masterMode),
     ALT = fv.ALT .. "m",
     TRUSPD = M.spdText(state.tas),
     VSPD = fv.VSPD .. "ms",
