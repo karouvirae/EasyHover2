@@ -1,264 +1,35 @@
 -- ui/basalt/pages/fcs.lua
--- FCS (flight controller status + engage/safety) cockpit page: Basalt port of ui/panels/fcs.lua's
--- ENGAGE / DISENGAGE / GND SAFE controls and status overview, plus (Task 12) a live
--- PRECISION / MAN / CRUISE flight-mode selector. POS HOLD + CLR DAMP are NOT here -- they move to
--- the A/P page (Task 18).
---
--- Follows the Task 15 template EXACTLY (see ui/basalt/pages/emc.lua's header comment for the full
--- Basalt API provenance notes -- not re-derived here): module exports `M.id`, `M.title`, a
--- Basalt-free testable `M._onButton(runtime, id, now)` intent seam, and `M.build(basalt, frame,
--- runtime) -> { id, apply(state), elements }` with an idempotent apply() that only reads `state`
--- (the canonical flat cadence state -- ui/basalt/app.lua:M.buildState) and never polls peripherals.
---
--- NO peripheral/Basalt access at module LOAD -- everything lives inside M.build/M._onButton/the
--- apply() closure, so `require("ui.basalt.pages.fcs")` loads clean headless.
-local FcsPanel = require("ui.panels.fcs")
-local Theme    = require("ui.theme")
-local Switch   = require("ui.basalt.switchbtn")
-local btnfit   = require("ui.basalt.btnfit")
+-- Standalone FCS cockpit page: the FLIGHT-graphical FCS region (ui/basalt/regions/fcs.lua) hosted
+-- full-frame with a FULL border on a single monitor -- same composition as ui/basalt/pages/flight.lua's
+-- bottom region, one region alone. The six status lines live behind the graphical PARAM drilldown
+-- (the FLIGHT design); the master/coupling row + TRIM come from fcs_main. NO peripheral/Basalt access
+-- at module load.
+local Region    = require("ui.basalt.region")
+local FcsRegion = require("ui.basalt.regions.fcs")
 
 local M = {}
 M.id = "fcs"
 M.title = "FCS"
 
--- ===== M._onButton: the TESTABLE intent seam. No Basalt here. =====
---
--- Mirrors ui/main.lua's applyEffect "command" block EXACTLY (kind=="command":
--- telLink:send(sender:send(effect.cmd))), just addressed through `runtime.links.tel` /
--- `runtime.sender` instead of ui/main.lua's module-local telLink/sender. Button INTENT gating
--- (engage blocked while gndSafety is on) goes through ui.panels.fcs's M.action so semantics stay
--- identical to the old terminal-rendered UI.
---
--- ctx only needs the four fields ui.panels.fcs.action() actually reads for engage/disengage/
--- gndSafety -- engaged/gndSafety/positionHold/mode -- read from the latest telemetry snapshot
--- (runtime.rx:latest()), same source ui/basalt/app.lua:M.buildState draws the cadence state from.
---
--- Mode ids (PRECISION/MAN/CRUISE, Task 12): FcsPanel.action(id) returns the RAW flightMode
--- command { k = "flightMode", id = id } (no `.kind`/`.cmd` wrapper -- see ui/panels/fcs.lua's
--- M.action doc comment), so it is sent AS the command itself, through the exact same
--- `runtime.links.tel:send(runtime.sender:send(cmd))` call the wrapped button actions use below --
--- same command path as ENGAGE/DISENGAGE/GND SAFE, just unwrapped one level.
-function M._onButton(runtime, id, now)
-  local latest = runtime.rx:latest() or {}
-  local ctx = {
-    engaged      = latest.engaged,
-    gndSafety    = latest.gndSafety,
-    positionHold = latest.positionHold,
-    mode         = latest.mode,
-  }
-  local effect = FcsPanel.action(id, ctx)
-  if not effect then return nil end
+local FULL_EDGES = { top = true, bottom = true, left = true, right = true }
 
-  local cmd = (effect.kind == "command") and effect.cmd or effect
-  if cmd then
-    runtime.links.tel:send(runtime.sender:send(cmd))
-  end
-
-  return effect
-end
-
--- ===== M.build: construct the element tree =====
-
-local CTRL_ORDER = { "engage", "disengage", "gndSafety" }
-local CTRL_LABEL = {
-  engage    = "ENGAGE",
-  disengage = "DISENGAGE",
-  gndSafety = "GND SAFE",
-}
-
--- Live flight-mode selector row (Task 12): one switch per FcsPanel.MODES id
--- (PRECISION/MAN/CRUISE), labelled by the mode id itself. Real onClick + apply() wiring -- no
--- longer the disabled ALT HLD/HDG HLD/AUTO placeholders. No-optimistic-UI: green comes ONLY from
--- apply(state) reading the reported state.flightMode via FcsPanel.modeActive, never from the tap.
-local MODE_ORDER = FcsPanel.MODES
-
--- FIELD_ORDER indexes ui.panels.fcs's fieldValues(ctx) table (keyed MODE/ALT/VSPD/HDG/LOOP/LINK).
--- FIELD_LABEL is the ON-SCREEN prefix text for each -- identical to the key except MODE, which
--- shows the derived loop state (NORMAL/GROUND/DAMPED/PARKED) and is relabelled STATE here so it
--- reads distinctly from the new PRECISION/MAN/CRUISE mode selector above (LOOP is already taken --
--- it shows loopHz).
-local FIELD_ORDER = { "MODE", "ALT", "VSPD", "HDG", "LOOP", "LINK" }
-local FIELD_LABEL = { MODE = "STATE", ALT = "ALT", VSPD = "VSPD", HDG = "HDG", LOOP = "LOOP", LINK = "LINK" }
-
--- state -> Basalt background/foreground/enabled, mirroring ui/toolkit.lua's BUTTON_BG mapping
--- (on/active -> green, off -> red, idle -> gray, disabled -> gray box with dim text) so the
--- cockpit page reads identically to the old panel. Covers every state ui.panels.fcs's
--- buttonStates() can emit for engage (active/disabled/idle), disengage (active/idle), and
--- gndSafety (on/off).
-local BUTTON_STYLE = {
-  on       = { bg = "green",  fg = "white",     enabled = true  },
-  active   = { bg = "green",  fg = "white",     enabled = true  },
-  off      = { bg = "red",    fg = "white",     enabled = true  },
-  idle     = { bg = "gray",   fg = "white",     enabled = true  },
-  disabled = { bg = "gray",   fg = "lightGray", enabled = false },
-}
-
-function M.build(basalt, frame, runtime)
+function M.build(basalt, frame, runtime, nav)
   local w, h = frame:getSize()
-  local x = 2
-  local iw = math.max(1, w - 2)
-
-  -- Compact label-sized control buttons, centred, one per row (was full-width tall bars) --
-  -- same composition as emc.lua's engine controls.
-  local ctrlTop = 2
-  local ctrlLabels = {}
-  for i, id in ipairs(CTRL_ORDER) do ctrlLabels[i] = CTRL_LABEL[id] end
-  local ctrlGeo = btnfit.grid(ctrlLabels, { x0 = 1, availW = w, y0 = ctrlTop, perRow = 1, gap = 0, align = "center" })
-
-  local buttons = {}
-  for i, id in ipairs(CTRL_ORDER) do
-    buttons[id] = frame:addButton({ x = ctrlGeo[i].x, y = ctrlGeo[i].y, width = ctrlGeo[i].w, height = 1, text = CTRL_LABEL[id] })
+  local region
+  local function onNav()
+    runtime.uiRev = (runtime.uiRev or 0) + 1
+    -- Edge the PARAMS watch (FCS cmd + NAV link), same as flight.lua's bottom region.
+    require("ui.basalt.app").setParamsOpen(runtime, region:top() == "fcs_params")
   end
-  local y = ctrlGeo[#ctrlGeo].y + 1
-
-  -- Mode-selector row: one switch per MODE_ORDER id, side-by-side, splitting the interior width
-  -- (the last one absorbs any remainder so the row never overshoots iw) -- same row-splitting
-  -- pattern the old placeholder row used, now built with ui/basalt/switchbtn.lua's Switch.make so
-  -- each one is a real color-state switch (reused the same way ui/basalt/regions/fcs.lua's
-  -- fcs/gnd switches are built).
-  local phTop = y + 1
-  local phCount = #MODE_ORDER
-  local phW = math.max(1, math.floor(iw / phCount))
-  local modeSwitches = {}
-  local px = x
-  for i, id in ipairs(MODE_ORDER) do
-    local width = (i == phCount) and math.max(1, iw - (phW * (phCount - 1))) or phW
-    modeSwitches[id] = Switch.make(frame, { x = px, y = phTop, width = width, height = 1, text = FcsPanel.MODE_LABEL[id] or id })
-    px = px + width
-  end
-
-  -- Master (coupling) selector row (Task 12): CPL/DCPL, a SECOND exclusive group independent of
-  -- the flight-mode row above -- one row directly below it. Same row-splitting pattern (the last
-  -- switch absorbs any remainder so the row never overshoots iw).
-  local masterTop = phTop + 1
-  local mCount = #FcsPanel.MASTERS
-  local mW = math.max(1, math.floor(iw / mCount))
-  local masterSwitches = {}
-  local mx = x
-  for i, id in ipairs(FcsPanel.MASTERS) do
-    local width = (i == mCount) and math.max(1, iw - (mW * (mCount - 1))) or mW
-    masterSwitches[id] = Switch.make(frame, { x = mx, y = masterTop, width = width, height = 1,
-      text = FcsPanel.MASTER_LABEL[id] or id })
-    mx = mx + width
-  end
-
-  -- Live auto-trim UP/DN child button (Task 7): permanently visible, one row below the master
-  -- selector (shifted down one row from phTop+1 to make room for the master row above). Enabled/
-  -- meaningful only in CPL/DCPL (FcsPanel.trimActive reads state.masterMode) -- disabled/"TRIM --"
-  -- otherwise. onClick sends the OPPOSITE of the currently-reported trimDir (toggle); no
-  -- optimistic UI -- apply(state) below is the only thing that ever flips its color/text.
-  local trimBtn = Switch.make(frame, { x = x, y = phTop + 2, width = iw, height = 1, text = "TRIM --" })
-  trimBtn.button:onClick(function()
-    local latest = runtime.rx:latest() or {}
-    local nextId = ((latest.trimDir or -1) > 0) and "trimDn" or "trimUp"
-    M._onButton(runtime, nextId, os.epoch("utc"))
-  end)
-
-  -- statusTop shifted down one more row (bumped from phTop+3) to make room for the master row.
-  local statusWant = #FIELD_ORDER
-  local statusTop = phTop + 4
-  if statusTop + statusWant - 1 > h then statusTop = math.max(phTop + 3, h - statusWant + 1) end
-
-  local labels = {}
-  for i, name in ipairs(FIELD_ORDER) do
-    labels[name] = frame:addLabel({ x = x, y = statusTop + i - 1, width = iw, height = 1, autoSize = false, text = FIELD_LABEL[name] .. " --" })
-  end
-
-  for _, id in ipairs(CTRL_ORDER) do
-    local btn = buttons[id]
-    btn:onClick(function()
-      M._onButton(runtime, id, os.epoch("utc"))
-    end)
-  end
-
-  -- Mode switches: tapping dispatches FcsPanel.action(id) through the SAME M._onButton intent seam
-  -- (and hence the same runtime.links.tel:send(runtime.sender:send(cmd)) command path) the
-  -- ENGAGE/DISENGAGE/GND SAFE buttons above use. No optimistic UI here -- onClick only SENDS the
-  -- command; it never flips the switch itself. The switch only turns green once apply(state) below
-  -- observes the reported state.flightMode confirming this mode (FcsPanel.modeActive).
-  for _, id in ipairs(MODE_ORDER) do
-    local sw = modeSwitches[id]
-    sw.button:onClick(function()
-      M._onButton(runtime, id, os.epoch("utc"))
-    end)
-  end
-
-  -- Master switches: same intent seam, same no-optimistic-UI discipline -- tapping only SENDS
-  -- FcsPanel.action(id) (a raw { k = "masterMode", id = id } command); apply(state) below is the
-  -- only thing that ever lights a master switch, driven by the reported state.masterMode.
-  for _, id in ipairs(FcsPanel.MASTERS) do
-    masterSwitches[id].button:onClick(function()
-      M._onButton(runtime, id, os.epoch("utc"))
-    end)
-  end
-
-  -- apply(state): update elements from the canonical flat cadence state. Idempotent -- safe to
-  -- call repeatedly; only ever SETS element props, never polls peripherals (that discipline lives
-  -- in ui/basalt/app.lua's scheduled loops, off this render-gated path).
-  --
-  -- ui.panels.fcs's fieldValues()/buttonStates() both read ctx.engaged/gndSafety/positionHold/
-  -- mode/altitude/vSpeed/heading/loopHz/linkUp -- the SAME field names the canonical cadence state
-  -- already uses (ui/basalt/app.lua:M.buildState), so `state` is passed straight through with no
-  -- ctx remapping (unlike emc.lua's engine ctx, which does need remapping).
-  local function apply(state)
-    state = state or {}
-
-    local values = FcsPanel.fieldValues(state)
-    for _, name in ipairs(FIELD_ORDER) do
-      labels[name]:setText(FIELD_LABEL[name] .. " " .. values[name])
-    end
-
-    local btnStates = FcsPanel.buttonStates(state)
-    for _, id in ipairs(CTRL_ORDER) do
-      local style = BUTTON_STYLE[btnStates[id]] or BUTTON_STYLE.disabled
-      local btn = buttons[id]
-      btn:setBackground(Theme.role("button"))
-      btn:setForeground(style.enabled == false and Theme.DISABLED_FG or Theme.role("font"))
-      btn:setEnabled(style.enabled)
-    end
-
-    -- No-optimistic-UI: green ONLY when the reported state.flightMode confirms this mode.
-    for _, id in ipairs(MODE_ORDER) do
-      modeSwitches[id].set(FcsPanel.modeActive(state, id) and "on" or "off")
-    end
-
-    -- Master switches: independent exclusive group, lit ONLY from the reported state.masterMode
-    -- (FcsPanel.masterActive), same no-optimistic-UI discipline as the flight-mode row above.
-    for _, id in ipairs(FcsPanel.MASTERS) do
-      masterSwitches[id].set(FcsPanel.masterActive(state, id) and "on" or "off")
-    end
-
-    -- Live auto-trim child button: only meaningful in CPL/DCPL. No-optimistic-UI -- reflects
-    -- ONLY the reported state.trimDir, never the tap that sent the command.
-    if FcsPanel.trimActive(state) then
-      trimBtn.set((state.trimDir or -1) > 0 and "on" or "off")
-      trimBtn.button:setText(FcsPanel.trimLabel(state))
-    else
-      trimBtn.set("disabled")
-      trimBtn.button:setText("TRIM --")
-    end
-  end
-
-  return {
-    id = M.id,
-    apply = apply,
-    elements = {
-      engageBtn = buttons.engage, disengageBtn = buttons.disengage, gndSafetyBtn = buttons.gndSafety,
-      modeBtns = (function()
-        local m = {}
-        for _, id in ipairs(MODE_ORDER) do m[id] = modeSwitches[id] and modeSwitches[id].button end
-        return m
-      end)(),
-      masterBtns = (function()
-        local m = {}
-        for _, id in ipairs(FcsPanel.MASTERS) do m[id] = masterSwitches[id] and masterSwitches[id].button end
-        return m
-      end)(),
-      trimBtn = trimBtn.button,
-      stateLabel = labels.MODE, altLabel = labels.ALT, vspdLabel = labels.VSPD,
-      hdgLabel = labels.HDG, loopLabel = labels.LOOP, linkLabel = labels.LINK,
+  region = Region.new(basalt, frame, {
+    x = 1, y = 1, width = w, height = h, root = "fcs_main", onNav = onNav,
+    screens = {
+      fcs_main   = function(b, f, r) return FcsRegion.main(b, f, r, runtime, { edges = FULL_EDGES }) end,
+      fcs_params = function(b, f, r) return FcsRegion.params(b, f, r, runtime, { edges = FULL_EDGES }) end,
     },
-  }
+  })
+  local function apply(state) region:apply(state) end
+  return { id = M.id, apply = apply, elements = { region = region } }
 end
 
 return M
