@@ -99,7 +99,7 @@ t.test("shouldPersistChannel is false until the manifest is readable", function(
   t.eq(Suite.shouldPersistChannel(false, false, false), false, "failed fetch")
   t.eq(Suite.shouldPersistChannel(true, false, true), false, "--check")
   t.eq(Suite.shouldPersistChannel(false, true, true), false, "--list")
-  t.eq(Suite.shouldPersistChannel(false, false, true), true, "real install after manifest")
+  t.eq(Suite.shouldPersistChannel(false, false, true), true, "real install succeeded")
 end)
 
 t.test("suite checksum matches shared fnv1a", function()

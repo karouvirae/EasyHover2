@@ -1224,6 +1224,9 @@ function Suite.runUI(ctx)
     term.clear()
     term.setCursorPos(1, 1)
     local ok = pcall(Suite.performPlan, ctx.base, ctx.manifest, ctx.spec, ctx.role, plan, ctx.fresh)
+    if ok and ctx.channel and Suite.shouldPersistChannel(false, false, true) then
+      writeRaw(CHANNEL_FILE, ctx.channel .. "\n")
+    end
     ctx.state = Suite.parseState(readFile(STATE_FILE))
     recompute()
     if not ok then
@@ -1397,9 +1400,6 @@ function Suite.main(args)
   if type(manifest) ~= "table" or type(manifest.roles) ~= "table" or not manifest.version then
     die("the release manifest (" .. manifestFile .. ") is not readable (is the source URL right?)")
   end
-  if Suite.shouldPersistChannel(checkOnly, listOnly, true) then
-    writeRaw(CHANNEL_FILE, channel .. "\n")   -- writeRaw bypasses guard by design
-  end
 
   local order = {}
   for name in pairs(manifest.roles) do order[#order + 1] = name end
@@ -1560,6 +1560,7 @@ function Suite.main(args)
       role = role, spec = spec, state = state,
       plan = plan, report = report, fresh = fresh,
       switching = switching, schemaBump = schemaBump, fastPath = fastPath,
+      channel = channel,
     })
   end
 
@@ -1571,7 +1572,11 @@ function Suite.main(args)
     return true
   end
 
-  return Suite.performPlan(base, manifest, spec, role, plan, fresh)
+  local ok = Suite.performPlan(base, manifest, spec, role, plan, fresh)
+  if ok and Suite.shouldPersistChannel(false, false, true) then
+    writeRaw(CHANNEL_FILE, channel .. "\n")
+  end
+  return ok
 end
 
 --- Is the Suite itself current? If not, fetch the new one now -- we are done with our own file
