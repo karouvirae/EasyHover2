@@ -54,9 +54,9 @@ local Fuel   = require("ui.fuel")
 local Uical  = require("ui.basalt.bitconfig.uical")
 local Config = require("ui.config")
 local ConfigPanel = require("ui.panels.config")
-local Picker = require("ui.basalt.picker")
 local btnfit = require("ui.basalt.btnfit")
 local EnginePanel = require("ui.panels.engine")
+local Gfxpicker = require("ui.basalt.instruments.gfxpicker")
 
 local M = {}
 
@@ -431,8 +431,8 @@ end
 --   y3  "SOLID <n>x" label
 --   y4  solid decrements, centered via btnfit.grid: -64  -1
 --   y5  solid increments, centered via btnfit.grid: +1  +64
---   y6  FUEL label + fuel-type Picker trigger (Task 9 -- reuses the y6 spacer row between the two
---       checker boxes; a remote command via M._onFuel, unlike the local manual-max steppers)
+--   y6  FUEL label + fuel-type CHIP trigger (Task 3, option a -- reuses the y6 spacer row between
+--       the two checker boxes; a remote command via M._onFuel, unlike the local manual-max steppers)
 --   y7  "LIQ <n>B" label (n == buckets, i.e. mB/1000)
 --   y8  liquid decrements, centered: -100  -50  -1   (captions are BUCKETS)
 --   y9  liquid increments, centered: +1  +50  +100
@@ -459,16 +459,22 @@ function M.calfuel(basalt, frame, region, runtime, opts)
   local solidUp1  = chipButton(frame, 26, 2, 6, "+1",  colors.orange)
   local solidDn1  = chipButton(frame, 26, 4, 6, "-1",  colors.orange)
 
-  -- FUEL type picker (Task 9): a remote command via M._onFuel (unlike the local manual-max steppers
-  -- above/below). Left caption + a Picker trigger showing the reported fuel + its %, opening the
-  -- 8-fuel modal list on click (ui/basalt/picker.lua). Placed on the free y6 spacer row.
+  -- FUEL type (Task 3, option a -- FLIGHT-graphical): a CHIP trigger showing the reported fuel + %,
+  -- opening a FLIGHT-styled gfxpicker modal. Remote command via M._onFuel (unlike the local
+  -- manual-max steppers above/below). No optimistic UI -- apply() below drives the chip from
+  -- state.fuel. Placed on the free y6 spacer row.
   local fuelPickLabel = frame:addLabel({ x = 3, y = 6, width = 5, height = 1, autoSize = false, text = "FUEL" })
   fuelPickLabel:setForeground(Theme.role("font"))
-  local fuelPick = Picker.make(frame, {
-    x = 9, y = 6, width = 20,
-    options = EnginePanel.fuelOptions(), current = nil, title = "FUEL",
-    onPick = function(value) M._onFuel(runtime, value) end,
-  })
+  local fuelChip = chipButton(frame, 9, 6, 20, "FUEL --", Theme.role("button"))
+  local fuelPicker = Gfxpicker.make(frame)
+  fuelChip.onClick(function()
+    fuelPicker.show({
+      title = "FUEL",
+      options = EnginePanel.fuelOptions(),
+      current = (fuelPicker._current or nil),
+      onPick = function(value) M._onFuel(runtime, value) end,
+    })
+  end)
 
   Gfx.checkerBox(bg, 3, 7, 17, 10, colors.orange)
   local liqLabel = frame:addLabel({ x = 5, y = 8, width = 12, height = 1, autoSize = false, text = "" })
@@ -511,8 +517,11 @@ function M.calfuel(basalt, frame, region, runtime, opts)
     solidLabel:setText(string.format("%-7s%dx", "SOLID", cfg.fuel.pump.full or 0))
     liqLabel:setText(string.format("%-7s%dB", "LIQUID", math.floor((cfg.fuel.tank.full or 0) / 1000)))
 
-    fuelPick.setOptions(EnginePanel.fuelOptions(), state and state.fuel)
+    local fuelName = state and state.fuel
+    fuelPicker._current = fuelName
+    fuelChip.setText(EnginePanel.fuelLabel(state))
     local bad = EnginePanel.fuelBad(state)
+    fuelChip.setChip(bad and colors.red or Theme.role("button"))
     badLabel:setWidth(12)
     badLabel:setText(bad and "BAD FUEL" or "")
     badLabel:setForeground(bad and colors.red or Theme.role("font"))
@@ -526,7 +535,7 @@ function M.calfuel(basalt, frame, region, runtime, opts)
       backBtn = backBtn, solidLabel = solidLabel, liqLabel = liqLabel,
       solidUp64 = solidUp64, solidDn64 = solidDn64, solidUp1 = solidUp1, solidDn1 = solidDn1,
       liqUp100 = liqUp100, liqDn100 = liqDn100, liqUp50 = liqUp50, liqDn50 = liqDn50, liqUp1 = liqUp1, liqDn1 = liqDn1,
-      fuelPickLabel = fuelPickLabel, fuelPick = fuelPick, badLabel = badLabel,
+      fuelPickLabel = fuelPickLabel, fuelChip = fuelChip, fuelPicker = fuelPicker, badLabel = badLabel,
     },
   }
 end

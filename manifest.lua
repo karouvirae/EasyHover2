@@ -1036,6 +1036,12 @@
           ["sum"] = "782ec6f7",
         },
         {
+          ["dst"] = "ui/basalt/instruments/gfxpicker.lua",
+          ["size"] = 3223,
+          ["src"] = "dist/ui/basalt/instruments/gfxpicker.lua",
+          ["sum"] = "7a217b8a",
+        },
+        {
           ["dst"] = "ui/basalt/instruments/panelgfx.lua",
           ["size"] = 3338,
           ["src"] = "dist/ui/basalt/instruments/panelgfx.lua",
@@ -1139,15 +1145,15 @@
         },
         {
           ["dst"] = "ui/basalt/regions/emc.lua",
-          ["size"] = 10167,
+          ["size"] = 10422,
           ["src"] = "dist/ui/basalt/regions/emc.lua",
-          ["sum"] = "26e0cc26",
+          ["sum"] = "b2d97100",
         },
         {
           ["dst"] = "ui/basalt/regions/fcs.lua",
-          ["size"] = 4970,
+          ["size"] = 5057,
           ["src"] = "dist/ui/basalt/regions/fcs.lua",
-          ["sum"] = "9ca624aa",
+          ["sum"] = "86bc5499",
         },
         {
           ["dst"] = "ui/basalt/renderpolicy.lua",
@@ -1433,5 +1439,5 @@
     ["size"] = 71434,
     ["sum"] = "57671ad7",
   },
-  ["version"] = "e2766017",
+  ["version"] = "e924e10b",
 }

@@ -715,12 +715,41 @@ t.test("M.config (redesign): top-margin -- BACK at y >= 2, and every control (in
   t.truthy(ok, "basalt.update should not error: " .. tostring(err))
 end)
 
--- ===== Task 9: emc_calfuel's fuel picker + BAD FUEL warning =====
+-- ===== Task 9 / Task 3 (option a): emc_calfuel's fuel CHIP + gfxpicker + BAD FUEL warning =====
 
-t.test("M.calfuel: fuel picker sends {k=fuel,id} through its wired onPick (M._onFuel)", function()
+t.test("calfuel: fuel chip shows the reported fuel + %, red chip on badFuel", function()
   local basalt = BasaltApp.ensureBasalt()
   local frame = basalt.createFrame()
   frame:setSize(36, 17)   -- the real EMC region size (flight.lua M.split of the 36x38 overhead)
+  local region = { push = function() end, pop = function() end }
+  local runtime = { config = { fuel = newFuelCfg() } }
+
+  local h = M.calfuel(basalt, frame, region, runtime)
+  local el = h.elements
+  t.truthy(el.fuelChip ~= nil, "fuelChip trigger present")
+  t.truthy(el.fuelPicker ~= nil, "fuelPicker (gfxpicker) present")
+  t.truthy(el.badLabel ~= nil, "BAD FUEL label present in elements")
+
+  h.apply({ fuel = "Diesel", fuelPct = 80, badFuel = false })
+  t.eq(el.fuelChip.label:getText(), "Diesel 80%")
+  t.truthy(el.fuelChip.chip:getBackground() ~= colors.red, "ok fuel -> chip not red")
+
+  h.apply({ fuel = "Plant Oil", fuelPct = 20, badFuel = true })
+  t.eq(el.fuelChip.chip:getBackground(), colors.red, "badFuel -> red chip")
+  t.eq(el.badLabel:getText(), "BAD FUEL", "BAD FUEL shown for sub-baseline fuel")
+  t.eq(el.badLabel:getForeground(), colors.red, "BAD FUEL label is red when bad")
+
+  h.apply({ fuel = "Biodiesel", fuelPct = 60, badFuel = false })
+  t.eq(el.badLabel:getText(), "", "hidden for baseline fuel")
+
+  local ok, err = pcall(function() basalt.update("timer", -1) end)
+  t.truthy(ok, "basalt.update should not error: " .. tostring(err))
+end)
+
+t.test("calfuel: tapping the fuel chip opens the modal; picking sends the fuel command", function()
+  local basalt = BasaltApp.ensureBasalt()
+  local frame = basalt.createFrame()
+  frame:setSize(36, 17)
   local region = { push = function() end, pop = function() end }
   local sent = {}
   local runtime = {
@@ -731,47 +760,18 @@ t.test("M.calfuel: fuel picker sends {k=fuel,id} through its wired onPick (M._on
 
   local h = M.calfuel(basalt, frame, region, runtime)
   local el = h.elements
-  t.truthy(el.fuelPick ~= nil, "fuel picker present in elements")
-  t.truthy(el.badLabel ~= nil, "BAD FUEL label present in elements")
 
-  -- Find "Ethanol"'s index the same way the picker's own options list is built (no magic number).
-  local E = require("ui.panels.engine")
-  local idx
-  for i, o in ipairs(E.fuelOptions()) do
-    if o.value == "Ethanol" then idx = i end
-  end
-  t.truthy(idx ~= nil, "Ethanol is a real fuel option")
+  -- Tap the chip trigger -- opens the gfxpicker overlay.
+  el.fuelChip.chip:fireEvent("mouse_click", 1, 1, 1)
+  t.truthy(el.fuelPicker.visible(), "gfxpicker overlay visible after chip tap")
 
-  -- Open the picker (fires the trigger's onClick, which shows the overlay) then tap "Ethanol" -- the
-  -- same overlay.pick() channel tests/test_picker.lua exercises against Picker.make directly.
-  el.fuelPick.trigger:fireEvent("mouse_click", 1, 1, 1)
-  el.fuelPick.overlay.pick(idx)
+  -- Pick index 5 -- "Diesel" per fcs/fueltable.lua's display order (1 Plant Oil, 2 Ethanol,
+  -- 3 Biodiesel, 4 Sulfurized Diesel, 5 Diesel, 6 Gasoline, 7 Kerosene, 8 Turpentine).
+  el.fuelPicker.pick(5)
 
+  t.truthy(#sent >= 1, "a fuel command was sent")
   t.eq(sent[#sent].k, "fuel", "fuel command kind")
-  t.eq(sent[#sent].id, "Ethanol", "fuel command id")
-
-  local ok, err = pcall(function() basalt.update("timer", -1) end)
-  t.truthy(ok, "basalt.update should not error: " .. tostring(err))
-end)
-
-t.test("M.calfuel: apply() reflects telemetry fuel/badFuel (no-optimistic UI)", function()
-  local basalt = BasaltApp.ensureBasalt()
-  local frame = basalt.createFrame()
-  frame:setSize(36, 17)
-  local region = { push = function() end, pop = function() end }
-  local runtime = { config = { fuel = newFuelCfg() } }
-
-  local h = M.calfuel(basalt, frame, region, runtime)
-  local el = h.elements
-
-  h.apply({ fuel = "Plant Oil", fuelPct = 20, badFuel = true })
-  t.eq(el.badLabel:getText(), "BAD FUEL", "BAD FUEL shown for sub-baseline fuel")
-  t.eq(el.badLabel:getForeground(), colors.red, "BAD FUEL label is red when bad")
-  t.eq(el.fuelPick.getValue(), "Plant Oil", "trigger reflects the reported fuel, not a local pick")
-
-  h.apply({ fuel = "Biodiesel", fuelPct = 60, badFuel = false })
-  t.eq(el.badLabel:getText(), "", "hidden for baseline fuel")
-  t.eq(el.fuelPick.getValue(), "Biodiesel", "trigger follows the newly reported fuel")
+  t.eq(sent[#sent].id, "Diesel", "fuel command id")
 
   local ok, err = pcall(function() basalt.update("timer", -1) end)
   t.truthy(ok, "basalt.update should not error: " .. tostring(err))
