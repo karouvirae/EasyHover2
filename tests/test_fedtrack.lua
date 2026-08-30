@@ -1,0 +1,16 @@
+-- tests/test_fedtrack.lua
+local t = require("tests.framework")
+local FedTrack = require("ui.fedtrack")
+
+t.test("fedtrack: first poll nil; drop sets lfed; flat/refill keep it; later drop updates", function()
+  local f = FedTrack.new()
+  t.eq(f:lastFed(), nil, "nil before any poll")
+  t.eq(f:poll(100), nil, "first poll cannot diff")
+  t.eq(f:poll(100), nil, "flat -> still nil (no feed seen yet)")
+  t.eq(f:poll(97), 3, "drop of 3 -> lfed 3")
+  t.eq(f:poll(120), 3, "refill (increase) keeps last lfed")
+  t.eq(f:poll(120), 3, "flat keeps last lfed")
+  t.eq(f:poll(118), 2, "new drop of 2 -> lfed 2")
+  t.eq(f:lastFed(), 2, "lastFed reflects the latest feed")
+  t.eq(f:poll("x"), 2, "non-number tolerated, no change")
+end)
