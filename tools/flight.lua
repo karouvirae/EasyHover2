@@ -34,6 +34,13 @@ pcall(function() term.clear(); term.setCursorPos(1, 1); term.write(Status.status
 
 -- ---- Build the flight-proven control stack (mirror tools/hover_test.lua) ----
 local function loadConfig()
+  local function readSplit(name)
+    local p = "/" .. name
+    if not fs.exists(p) then return nil end
+    local f = fs.open(p, "r"); local body = f.readAll(); f.close(); return body
+  end
+  local assembled = cfgspec.tryAssemble(readSplit)
+  if assembled then return hwconfig.merge(assembled, hwconfig.defaults()) end
   local saved
   if fs.exists(CONFIG_PATH) then
     local f = fs.open(CONFIG_PATH, "r"); saved = textutils.unserialise(f.readAll() or ""); f.close()

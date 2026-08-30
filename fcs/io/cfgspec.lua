@@ -45,4 +45,12 @@ function M.assembleHw(devbind, senscal)
            bindings = senscal }
 end
 
+function M.tryAssemble(read)
+  local db, dbEx, dbErr = M.load("devbind", read)
+  local sc, scEx, scErr = M.load("senscal", read)
+  if dbErr or scErr then return nil, dbErr or scErr end
+  if not dbEx and not scEx then return nil, nil end
+  return M.assembleHw(db, sc)
+end
+
 return M

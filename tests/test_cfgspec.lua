@@ -48,3 +48,19 @@ t.test("legacy hw_config splits and reassembles losslessly (no calibration lost)
   t.eq(hw2.thrusters.FL, "thruster_1"); t.eq(hw2.sensors.gimbal, "gimbal_0")
   t.eq(hw2.fuelRelay, "relay_0"); t.eq(hw2.bindings.heightOffset, -94.5); t.eq(hw2.bindings.signHeading, -1)
 end)
+
+t.test("tryAssemble uses split files when present", function()
+  local files = {
+    ["eh2_devbind.tbl"] = textutils.serialise({ thrusters = { FL = "t_fl" }, sensors = { altimeter = "alt" } }),
+    ["eh2_senscal.tbl"] = textutils.serialise({ signPitch = -1, signHeading = -1 }),
+  }
+  local hw, err = C.tryAssemble(function(name) return files[name] end)
+  t.eq(err, nil)
+  t.eq(hw.thrusters.FL, "t_fl")
+  t.eq(hw.bindings.signHeading, -1)
+end)
+
+t.test("tryAssemble returns nil,nil when neither split exists", function()
+  local hw, err = C.tryAssemble(function() return nil end)
+  t.eq(hw, nil); t.eq(err, nil)
+end)
