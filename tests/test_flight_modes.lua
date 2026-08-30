@@ -92,3 +92,37 @@ t.test("flightTrim command sets pilot trim direction and telemetry echoes it", f
   t.eq(trimSeen, 1, "pilot trim dir updated")
   t.eq(fl:snapshot(nil, {}).trimDir, 1, "telemetry echoes trimDir")
 end)
+
+-- A1: mode switch must re-seed pilot setpoints from last meas so a leashed CRUISE surgePos
+-- cannot slam reverse when entering a position mode under CPL.
+t.test("flightMode switch resets surge setpoint to last meas (no slam)", function()
+  local reg = fakeReg()
+  local active = { setActive = function(self, d) self.d = d end, arm = function() end,
+    getMode = function() return "NORMAL" end, setTrim = function() end }
+  local Pilot = require("fcs.input.pilot")
+  local pil = Pilot.new({ headingRate = 1, climbRate = 1, leadCapVert = 1, surgeSpeed = 10, surgeLead = 20 })
+  pil:setMode({ tilt = false, surge = "throttle" }, pil.cfg)
+  pil:reset({ altitude = 0, heading = 0, swayPos = 0, surgePos = 100 })
+  pil.sp.surgePos = 200
+  local fl = Flight.new({ loop = active, pilot = pil, registry = reg })
+  fl._lastMeas = { altitude = 0, heading = 0, swayPos = 0, surgePos = 80 }
+  fl:handleCommand({ k = "flightMode", id = "PRECISION" })
+  t.near(pil.sp.surgePos, 80, 1e-9, "mode switch reseeds surgePos from _lastMeas")
+end)
+
+t.test("flightMode switch without _lastMeas does not reset pilot (boot)", function()
+  local reg = fakeReg()
+  local active = { setActive = function(self, d) self.d = d end, arm = function() end,
+    getMode = function() return "NORMAL" end, setTrim = function() end }
+  local resetCalls = 0
+  local pil = {
+    setMode = function(self, p, f) self.p, self.f = p, f end,
+    setPositionHold = function() end,
+    reset = function() resetCalls = resetCalls + 1 end,
+    sp = { surgePos = 200 },
+  }
+  local fl = Flight.new({ loop = active, pilot = pil, registry = reg })
+  fl:handleCommand({ k = "flightMode", id = "PRECISION" })
+  t.eq(resetCalls, 0, "boot/no _lastMeas skips pilot:reset")
+  t.eq(pil.sp.surgePos, 200, "surgePos left alone when no meas yet")
+end)

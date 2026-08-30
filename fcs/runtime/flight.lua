@@ -99,6 +99,9 @@ function Flight:handleCommand(cmd)
     self.trimDir = (d.feel and d.feel.trimDir) or self.trimDir
     self.trimGain = (d.feel and d.feel.trimGain) or self.trimGain
     if self.loop.setTrim then self.loop:setTrim(self.trimDir, self.trimGain) end
+    -- A1: reseed pilot setpoints from last meas so a CRUISE-leashed surgePos cannot slam
+    -- reverse under CPL after the switch. Skip when _lastMeas is nil (boot, before first step).
+    if self._lastMeas and self.pilot.reset then self.pilot:reset(self._lastMeas) end
     return true
     elseif k == "flightTrim" then
     local dir = (cmd.dir and cmd.dir < 0) and -1 or 1

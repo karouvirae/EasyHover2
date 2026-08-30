@@ -94,10 +94,16 @@ function Pilot:update(dt, held, meas)
     local starget = (swd ~= 0) and (meas.swayPos + swayLead * swd) or sp.swayPos
     sp.swayPos = leash.step(sp.swayPos, starget, meas.swayPos, dt, swaySpeed, swayLead)
 
-    local surgeSpeed, surgeLead = c.surgeSpeed or c.cruiseSpeed, c.surgeLead or c.maxLead
-    local sud = dirOf(held, "surgeBack", "surgeFwd")
-    local utarget = (sud ~= 0) and (meas.surgePos + surgeLead * sud) or sp.surgePos
-    sp.surgePos = leash.step(sp.surgePos, utarget, meas.surgePos, dt, surgeSpeed, surgeLead)
+    -- CRUISE (policy.surge=="throttle"): do not leash surge ahead of the craft. Throttle
+    -- overwrites surge demand; a standing lead under CPL rails reverse on mode exit (A1).
+    if self.policy.surge ~= "throttle" then
+      local surgeSpeed, surgeLead = c.surgeSpeed or c.cruiseSpeed, c.surgeLead or c.maxLead
+      local sud = dirOf(held, "surgeBack", "surgeFwd")
+      local utarget = (sud ~= 0) and (meas.surgePos + surgeLead * sud) or sp.surgePos
+      sp.surgePos = leash.step(sp.surgePos, utarget, meas.surgePos, dt, surgeSpeed, surgeLead)
+    else
+      sp.surgePos = meas.surgePos or sp.surgePos
+    end
   end
 
   -- Unified horizontal drift rule (master mode). "relax" = snap the position setpoint to measured

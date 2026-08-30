@@ -93,3 +93,15 @@ t.test("existing mode (no translate field) still ramps sway/surge leash", functi
   t.truthy(sp.surgePos > 0, "surgePos ramps forward without translate flag")
   t.truthy(sp.swayPos > 0, "swayPos ramps right without translate flag")
 end)
+
+-- A1: CRUISE drives surge via throttle, not the position leash. Leaving CRUISE under CPL with a
+-- leashed-ahead surgePos rails reverse after detent; keep sp.surgePos on measured while throttle.
+t.test("CRUISE throttle policy does not advance surgePos off measured", function()
+  local p = Pilot.new(FEEL)
+  p:setMode({ tilt = false, surge = "throttle" }, FEEL)
+  p:reset({ altitude = 0, heading = 0, swayPos = 0, surgePos = 100 })
+  local meas = { altitude = 0, heading = 0, swayPos = 0, surgePos = 50, yawRate = 0 }
+  local sp = p:update(0.2, { surgeFwd = true }, meas)
+  t.near(sp.surgePos, 50, 1e-9, "surgePos stays on measured, not leashed ahead")
+  t.truthy((sp.surgeThrottle or 0) > 0, "throttle still ramps under CRUISE")
+end)
