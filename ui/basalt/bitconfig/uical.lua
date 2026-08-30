@@ -233,12 +233,24 @@ function M._applyOp(runtime, effect, deps)
   elseif op == "calFuel" then
     doCalFuel(runtime)
   elseif op == "cycleMode" then
-    -- Flip basic<->latch, re-apply the engine config under the new mode, then re-assert blocked
-    -- (a mode flip changes how blockNow/feed writes the relay -- see engine.lua's basic vs latch
-    -- write paths -- so it needs the SAME re-block discipline as a relay/side change).
+    -- Flip basic<->latch. Entering latch: applyConfig + rebuild writer + rebind + blockNow in
+    -- this click. Leaving latch: config/disk flips to basic immediately, but live Engine.mode
+    -- and the latch writer stay until a real LATCH_LINE_MS BLOCK pulse completes (tick) -- no
+    -- sleep() in the Basalt onClick path.
     local leavingLatch = (runtime.config.engine.mode == "latch")
     if leavingLatch then
       runtime.config.engine.mode = "basic"
+      local now = (deps and deps.now) or runtime.engine.lastNow or 0
+      local function onLeaveDone()
+        if runtime.rebuildEngineWriter then runtime.rebuildEngineWriter() end
+        runtime.rebindRelay()
+        runtime.engine:blockNow()
+      end
+      if runtime.engine.beginLeaveLatch then
+        runtime.engine:beginLeaveLatch(now, onLeaveDone)
+      else
+        onLeaveDone()
+      end
     else
       runtime.config.engine.mode = "latch"
       -- Entering latch: a pulse shorter than LATCH_LINE_MS (150ms, see engine.lua) can't
@@ -247,19 +259,11 @@ function M._applyOp(runtime, effect, deps)
       -- some other way (e.g. floored at 0 in basic mode, then flipped) is saved valid on the
       -- very transition that makes it dangerous. Leaving latch never raises pulseMs.
       if runtime.config.engine.pulseMs < 200 then runtime.config.engine.pulseMs = 200 end
+      runtime.engine:applyConfig(runtime.config.engine)
+      if runtime.rebuildEngineWriter then runtime.rebuildEngineWriter() end
+      runtime.rebindRelay()
+      runtime.engine:blockNow()
     end
-    -- Leave-latch: idle BOTH latch trigger lines via the OLD latch writer/mode FIRST (drop FEED
-    -- if raised, then BLOCK raise+lower). A plain blockNow leaves FEED up (both-lines-high mid-
-    -- feed) and schedules blockLineDownAt -- applyConfig would clear *LineDownAt and leave the
-    -- line HIGH. Entering latch keeps rebuild-then-blockNow (no prior latch lines to idle).
-    if leavingLatch then
-      if runtime.engine.abandonLatch then runtime.engine:abandonLatch()
-      else runtime.engine:blockNow() end
-    end
-    runtime.engine:applyConfig(runtime.config.engine)
-    if runtime.rebuildEngineWriter then runtime.rebuildEngineWriter() end
-    runtime.rebindRelay()
-    runtime.engine:blockNow()
   elseif op == "cycleRelaySide" then
     -- Change the side the engine drives, then re-assert blocked on the NEW side -- same
     -- drain-safety as (re)binding: force a HIGH write so the funnel stays closed.
@@ -354,7 +358,10 @@ function M._onButton(runtime, id, now, deps)
   local ctx = { config = runtime.config, monitors = {}, detected = runtime.detected }
   local effect = ConfigPanel.action(id, ctx)
   if effect and effect.kind == "config" then
-    M._applyOp(runtime, effect, deps)
+    local d = {}
+    for k, v in pairs(deps or {}) do d[k] = v end
+    d.now = now
+    M._applyOp(runtime, effect, d)
   end
   return effect
 end
@@ -547,7 +554,10 @@ function M.build(basalt, frame, runtime, nav, deps)
     local modeLabel = f:addLabel({ x = blockX, y = y, width = labelW, height = 1, autoSize = false, text = "MODE" })
     local modeSw = switchbtn.make(f, { x = dropX, y = y, width = dropW, height = 1, text = "basic" })
     modeSw.button:onClick(function()
-      M._applyOp(runtime, M._modeIntent(), deps)
+      local d = {}
+      for k, v in pairs(deps or {}) do d[k] = v end
+      d.now = os.epoch("utc")
+      M._applyOp(runtime, M._modeIntent(), d)
       refresh()
     end)
     y = y + 1

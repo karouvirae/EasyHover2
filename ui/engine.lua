@@ -57,6 +57,8 @@ function Engine.new(cfg, writer)
   self.feedLineDownAt = nil    -- latch: when to drop the FEED trigger line
   self.blockLineDownAt = nil   -- latch: when to drop the BLOCK trigger line
   self.lastNow = 0             -- latch: last tick timestamp (for now-less blockNow)
+  self.leaveLatchPending = false
+  self.onLeaveLatchDone = nil  -- callback after BLOCK line actually lowers
   return self
 end
 
@@ -97,14 +99,26 @@ function Engine:_writeLatch(feeding, now)
 end
 
 -- Latch mode: drop any trigger line that has been held >= LATCH_LINE_MS. Retries next tick on
--- write failure (down-at stays set).
+-- write failure (down-at stays set). Completing a leave-latch BLOCK drop flips mode to basic and
+-- fires onLeaveLatchDone (rebuild writer) -- never sleep() in the UI click path.
 function Engine:_lowerDueLines(now)
   if self.mode ~= "latch" then return end
   if self.feedLineDownAt and now >= self.feedLineDownAt then
     if self.writer("feed", false) then self.feedLineDownAt = nil end
   end
   if self.blockLineDownAt and now >= self.blockLineDownAt then
-    if self.writer("block", false) then self.blockLineDownAt = nil end
+    if self.writer("block", false) then
+      self.blockLineDownAt = nil
+      if self.leaveLatchPending then
+        self.leaveLatchPending = false
+        self.mode = "basic"
+        self.lastFeeding = nil
+        self.feeding = false
+        local cb = self.onLeaveLatchDone
+        self.onLeaveLatchDone = nil
+        if cb then cb() end
+      end
+    end
   end
 end
 
@@ -154,6 +168,9 @@ end
 function Engine:tick(now)
   self.lastNow = now
   self:_lowerDueLines(now)
+  -- During leave-latch only service line timers; do not feed/reassert until BLOCK is down and
+  -- the writer has been rebuilt via onLeaveLatchDone.
+  if self.leaveLatchPending then return end
 
   -- Periodic re-assert: invalidate the write-on-change dedup so the next _write physically
   -- re-drives the output. This is what makes the master-off "held blocked" state survive a
@@ -206,24 +223,29 @@ function Engine:blockNow()
   return self:_write(false)
 end
 
---- Leave-latch only: idle BOTH trigger lines while mode/writer are still latch, then caller may
--- applyConfig/rebuild. A plain blockNow raises BLOCK and schedules blockLineDownAt; applyConfig
--- would clear *LineDownAt and leave the line HIGH. Mid-feed also both-lines-high if FEED is up.
-function Engine:abandonLatch()
-  if self.mode ~= "latch" then return true end
+--- Leave-latch (no sleep): drop FEED if raised, start a real LATCH_LINE_MS BLOCK pulse while
+-- mode/writer stay latch. When tick lowers BLOCK, mode becomes basic and onDone runs (rebuild
+-- writer + rebind + basic blockNow). Config/disk may already say basic; live mode lags the pulse.
+function Engine:beginLeaveLatch(now, onDone)
+  now = now or self.lastNow or 0
+  if self.mode ~= "latch" then
+    if onDone then onDone() end
+    return true
+  end
+  self.master = false
   self.pulseEndsAt, self.nextPulseAt = nil, nil
+  self.leaveLatchPending = true
+  self.onLeaveLatchDone = onDone
   if self.feedLineDownAt then
     if not self.writer("feed", false) then return false end
     self.feedLineDownAt = nil
   end
-  -- Immediate BLOCK pulse (raise+lower). Do not schedule blockLineDownAt -- we are abandoning.
+  -- Force a BLOCK raise even if lastFeeding was already false.
   if not self.writer("block", true) then return false end
-  if not self.writer("block", false) then return false end
-  self.blockLineDownAt = nil
-  self.feedLineDownAt = nil
   self.lastFeeding = false
   self.feeding = false
-  self.lastWritten = nil
+  self.lastWriteAt = now
+  self.blockLineDownAt = now + LATCH_LINE_MS
   return true
 end
 

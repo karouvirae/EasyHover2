@@ -190,3 +190,25 @@ t.test("applyConfig with same mode does not clear lastFeeding / does not re-fire
   e:tick(300)                        -- master still off -> _write(false); must dedupe
   t.eq(#w.calls, n, "same-mode applyConfig must not cause a re-fired BLOCK pulse")
 end)
+
+t.test("beginLeaveLatch: mode stays latch until BLOCK lowers; rebuild runs after LATCH_LINE_MS", function()
+  -- No sleep() in onClick: beginLeaveLatch starts a real LATCH_LINE_MS BLOCK pulse; tick swaps
+  -- mode/writer only after the line is actually down.
+  local w = fakeLatchWriter()
+  local e = Engine.new(LATCH_CFG, w.fn)
+  e:setMaster(true, 0)               -- mid-feed: FEED raised
+  t.truthy(e.feedLineDownAt)
+  local rebuilds = 0
+  e:beginLeaveLatch(0, function() rebuilds = rebuilds + 1 end)
+  t.eq(e.mode, "latch", "Engine.mode stays latch during the BLOCK pulse")
+  t.eq(rebuilds, 0, "rebuild must not run in the click")
+  t.eq(e.feedLineDownAt, nil, "FEED dropped immediately if it was raised")
+  t.truthy(e.blockLineDownAt, "BLOCK pulse scheduled via LATCH_LINE_MS")
+  e:tick(100)
+  t.eq(e.mode, "latch")
+  t.eq(rebuilds, 0)
+  e:tick(150)
+  t.eq(e.mode, "basic", "mode flips to basic only after BLOCK is down")
+  t.eq(rebuilds, 1, "onLeaveLatchDone fires after BLOCK lowers")
+  t.eq(e.blockLineDownAt, nil)
+end)

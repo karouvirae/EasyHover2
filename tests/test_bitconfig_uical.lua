@@ -23,11 +23,15 @@ local BasaltApp = require("ui.basalt.app")
 -- ===== rebindRelay spy. Mirrors the shape ui/basalt/app.lua's M.buildRuntime returns. =====
 
 local function newStubRuntime()
-  local calls = { rebind = 0, blockNow = 0, abandonLatch = 0, applyConfig = {}, rebuildEngineWriter = 0 }
+  local calls = { rebind = 0, blockNow = 0, beginLeaveLatch = 0, applyConfig = {}, rebuildEngineWriter = 0 }
 
   local engine = {}
   function engine:blockNow() calls.blockNow = calls.blockNow + 1 end
-  function engine:abandonLatch() calls.abandonLatch = calls.abandonLatch + 1 end
+  function engine:beginLeaveLatch(_now, onDone)
+    calls.beginLeaveLatch = calls.beginLeaveLatch + 1
+    -- Stub does not simulate LATCH_LINE_MS; leave-completion tests use a real Engine.
+    if onDone then onDone() end
+  end
   function engine:applyConfig(cfg) calls.applyConfig[#calls.applyConfig + 1] = cfg end
 
   local fuelReadings = { pump = 120, tank = 340 }
@@ -329,10 +333,9 @@ t.test("_applyOp cycleMode: applyConfig + rebindRelay + engine:blockNow all fire
   t.eq(calls.blockNow, 1)
 end)
 
-t.test("_applyOp cycleMode: leave-latch mid-feed idles both latch lines before rebuild", function()
-  -- Leave-latch must DROP FEED if raised, then pulse BLOCK raise+lower, while the latch writer
-  -- is still bound. A plain blockNow leaves FEED up (both-lines-high) and schedules
-  -- blockLineDownAt; applyConfig then clears *LineDownAt so the trigger lines stay HIGH.
+t.test("_applyOp cycleMode: leave-latch defers rebuild until BLOCK line is down (no sleep)", function()
+  -- Config flips to basic immediately; live Engine.mode stays latch and the latch writer stays
+  -- bound until tick lowers BLOCK after LATCH_LINE_MS. No sleep() in the onClick path.
   local Engine = require("ui.engine")
   local writes = {}
   local latchWriter = function(line, value)
@@ -347,8 +350,6 @@ t.test("_applyOp cycleMode: leave-latch mid-feed idles both latch lines before r
     { mode = "latch", pulseMs = 250, intervalMs = 1500, kickstart = true, masterDefault = false },
     latchWriter)
   engine:setMaster(true, 0)   -- mid-feed: FEED raised, lastFeeding=true
-  t.eq(engine.lastFeeding, true)
-  t.truthy(engine.feedLineDownAt, "precondition: FEED line is raised")
 
   local runtime, calls = newStubRuntime()
   runtime.config.engine.mode = "latch"
@@ -357,6 +358,11 @@ t.test("_applyOp cycleMode: leave-latch mid-feed idles both latch lines before r
   runtime.config.engine.kickstart = true
   runtime.config.engine.masterDefault = false
   runtime.engine = engine
+  local realBlockNow = engine.blockNow
+  function engine:blockNow(...)
+    calls.blockNow = calls.blockNow + 1
+    return realBlockNow(self, ...)
+  end
   runtime.rebuildEngineWriter = function()
     calls.rebuildEngineWriter = calls.rebuildEngineWriter + 1
     writes[#writes + 1] = { kind = "rebuild" }
@@ -364,35 +370,40 @@ t.test("_applyOp cycleMode: leave-latch mid-feed idles both latch lines before r
   end
 
   local save = newSaveSpy()
-  M._applyOp(runtime, { kind = "config", op = "cycleMode" }, { save = save })
+  M._applyOp(runtime, { kind = "config", op = "cycleMode" }, { save = save, now = 0 })
 
-  t.eq(runtime.config.engine.mode, "basic")
+  t.eq(runtime.config.engine.mode, "basic", "config/disk truth flips immediately")
+  t.eq(engine.mode, "latch", "live Engine.mode stays latch during BLOCK pulse")
+  t.eq(calls.rebuildEngineWriter, 0, "rebuild must not run in the click")
+  t.eq(engine.feedLineDownAt, nil, "FEED dropped if it was raised")
+  t.truthy(engine.blockLineDownAt, "BLOCK pulse armed")
+
+  local feedDown, blockUp
+  for _, w in ipairs(writes) do
+    if w.kind == "latch" and w.line == "feed" and w.value == false then feedDown = true end
+    if w.kind == "latch" and w.line == "block" and w.value == true then blockUp = true end
+  end
+  t.truthy(feedDown, "FEED must drop before BLOCK rises")
+  t.truthy(blockUp, "BLOCK must rise on the latch writer")
+
+  engine:tick(100)
+  t.eq(engine.mode, "latch")
+  t.eq(calls.rebuildEngineWriter, 0)
+
+  engine:tick(150)
   t.eq(engine.mode, "basic")
-  t.eq(engine.feedLineDownAt, nil, "must not abandon latch with FEED still scheduled HIGH")
-  t.eq(engine.blockLineDownAt, nil, "must not abandon latch with BLOCK still scheduled HIGH")
-
-  local rebuildAt
-  for i, w in ipairs(writes) do
-    if w.kind == "rebuild" then rebuildAt = i; break end
-  end
-  t.truthy(rebuildAt, "rebuildEngineWriter must run")
-
-  local feedDownAt, blockUpAt, blockDownAt
-  for i = 1, rebuildAt - 1 do
-    local w = writes[i]
-    if w.kind == "latch" and w.line == "feed" and w.value == false and not feedDownAt then feedDownAt = i end
-    if w.kind == "latch" and w.line == "block" and w.value == true and not blockUpAt then blockUpAt = i end
-    if w.kind == "latch" and w.line == "block" and w.value == false and blockUpAt and not blockDownAt then
-      blockDownAt = i
-    end
-  end
-  t.truthy(feedDownAt, "leave-latch mid-feed must drop FEED before rebuild")
-  t.truthy(blockUpAt, "leave-latch must raise BLOCK before rebuild")
-  t.truthy(blockDownAt, "leave-latch must lower BLOCK before rebuild (lines idle)")
-  t.eq(feedDownAt < blockUpAt, true, "FEED must drop before BLOCK rises -- no both-lines-high")
-  t.eq(blockUpAt < blockDownAt, true, "BLOCK raise then lower")
   t.eq(calls.rebuildEngineWriter, 1)
   t.eq(calls.rebind, 1)
+  t.eq(calls.blockNow, 1, "basic blockNow after writer rebuild")
+  t.eq(engine.blockLineDownAt, nil)
+
+  local rebuildAt, blockDownAt
+  for i, w in ipairs(writes) do
+    if w.kind == "latch" and w.line == "block" and w.value == false and not blockDownAt then blockDownAt = i end
+    if w.kind == "rebuild" and not rebuildAt then rebuildAt = i end
+  end
+  t.truthy(blockDownAt and rebuildAt, "BLOCK lower and rebuild both happened")
+  t.eq(blockDownAt < rebuildAt, true, "BLOCK must be down before rebuild swaps the writer")
 end)
 
 t.test("_applyOp cycleMode: entering latch clamps a sub-200 pulseMs up to 200", function()
