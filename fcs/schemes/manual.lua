@@ -1,9 +1,10 @@
 -- fcs/schemes/manual.lua -- MANUAL mode: PRECISION's full stabilized horizontal loop
 -- (position-hold sway/surge, heading-hold, alt-hold) PLUS pilot tilt. Unlike its earlier
 -- self it no longer zeroes lateral -- the calibrated Level translate loop stays live so the
--- craft holds station. The "don't fight the bank-drift while tilting" behaviour lives in the
--- pilot (policy.relaxTiltDrift): it relaxes the position setpoints to measured while a tilt
--- key is held, then re-freezes them on release. Composes the frozen level_flight.
+-- craft holds station. The "don't fight the bank-drift while tilting" behaviour now lives in
+-- the pilot's unified master-mode drift rule (not a separate policy.relaxTiltDrift flag): it
+-- relaxes the position setpoints to measured while a tilt key is held, then re-freezes them
+-- on release. Composes the frozen level_flight.
 local Level = require("fcs.schemes.level_flight")
 local Manual = {}
 Manual.__index = Manual

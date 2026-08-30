@@ -170,9 +170,9 @@
         },
         {
           ["dst"] = "fcs/comauto.lua",
-          ["size"] = 4344,
+          ["size"] = 4328,
           ["src"] = "dist/fcs/comauto.lua",
-          ["sum"] = "a39cb187",
+          ["sum"] = "5c874d6f",
         },
         {
           ["dst"] = "fcs/comms/cfgsync.lua",
@@ -689,9 +689,9 @@
         },
         {
           ["dst"] = "fcs/comauto.lua",
-          ["size"] = 4344,
+          ["size"] = 4328,
           ["src"] = "dist/fcs/comauto.lua",
-          ["sum"] = "a39cb187",
+          ["sum"] = "5c874d6f",
         },
         {
           ["dst"] = "fcs/comms/cfgsync.lua",
@@ -1019,9 +1019,9 @@
         },
         {
           ["dst"] = "ui/basalt/configkit.lua",
-          ["size"] = 6855,
+          ["size"] = 7006,
           ["src"] = "dist/ui/basalt/configkit.lua",
-          ["sum"] = "4bfe7ea8",
+          ["sum"] = "af61afe5",
         },
         {
           ["dst"] = "ui/basalt/fcslink.lua",
@@ -1427,5 +1427,5 @@
     ["size"] = 71434,
     ["sum"] = "57671ad7",
   },
-  ["version"] = "04d30090",
+  ["version"] = "b9181ce0",
 }

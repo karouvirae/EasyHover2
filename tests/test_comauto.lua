@@ -38,8 +38,10 @@ t.test("missing reports the first unmet prereq in order", function()
   t.eq(C.missing(ctx({ flightMode = "MAN" })), "mode")
 end)
 
-t.test("CPL is an allowed mode", function()
-  t.eq(C.missing(ctx({ flightMode = "CPL" })), nil)
+t.test("only PRECISION satisfies the mode prereq; CPL is no longer a flight mode", function()
+  t.eq(C.missing(ctx({ flightMode = "PRECISION" })), nil)   -- allowed
+  t.eq(C.missing(ctx({ flightMode = "CPL" })), "mode")       -- CPL is a master mode now, not a flight mode
+  t.eq(C.missing(ctx({ flightMode = "LDG" })), "mode")       -- other flight modes not (yet) eligible
 end)
 
 t.test("lamp is red/green/blue", function()

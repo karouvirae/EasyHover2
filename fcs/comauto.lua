@@ -16,7 +16,7 @@ local LABELS = {
   still    = "NOT MOVING",
   fuel     = "FUEL 20%",
   engaged  = "FCS ENGAGE",
-  mode     = "CPL/PRE",
+  mode     = "PRE",
 }
 
 function M.label(id) return LABELS[id] or tostring(id) end
@@ -47,7 +47,7 @@ function M.missing(ctx)
   if type(ctx.fuelFrac) ~= "number" or ctx.fuelFrac < 0.20 then return "fuel" end
   if not ctx.engaged then return "engaged" end
   local mode = ctx.flightMode
-  if mode ~= "PRECISION" and mode ~= "CPL" then return "mode" end
+  if mode ~= "PRECISION" then return "mode" end
   return nil
 end
 
