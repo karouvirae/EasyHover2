@@ -3,6 +3,16 @@
 -- The interactive run()/buildSources() loop is in-game only and NOT exercised here.
 local t = require("tests.framework")
 
+t.test("closeCfgChannels closes 105 and 106", function()
+  local M = require("fcs.boot.loaderui")
+  local closed = {}
+  M.closeCfgChannels(function()
+    return { close = function(ch) closed[#closed+1] = ch end }
+  end)
+  t.eq(closed[1], M.CFG_CH.req)
+  t.eq(closed[2], M.CFG_CH.reply)
+end)
+
 t.test("loaderui module loads clean (no peripheral/modem/disk access at load time)", function()
   local ok = pcall(require, "fcs.boot.loaderui")
   t.eq(ok, true)

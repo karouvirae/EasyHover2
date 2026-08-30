@@ -247,6 +247,12 @@ function Suite.resolveChannel(flag, markerRaw)
   return "min"
 end
 
+-- Persist /eh2_channel.txt only after the release manifest is readable, and never on
+-- --check/--list. A failed --dev fetch must not flip the computer onto the dev channel.
+function Suite.shouldPersistChannel(checkOnly, listOnly, manifestOk)
+  return (not checkOnly) and (not listOnly) and manifestOk == true
+end
+
 --- Which manifest a channel fetches.
 function Suite.manifestName(channel)
   return (channel == "dev") and "manifest-dev.lua" or "manifest.lua"
@@ -392,7 +398,7 @@ function Suite.extendConfig(spec, path, version)
     -- preserve. It is already backed up above, and the operator is told.
     local ok2 = pcall(function()
       local Config = require(spec.configModule)
-      local fresh = Config.withDefaults({})
+      local fresh = Config.withDefaults({}, path)
       local saved, saveErr = Config.save(path, fresh)
       if not saved then error(tostring(saveErr), 0) end
     end)
@@ -1372,9 +1378,6 @@ function Suite.main(args)
 
   -- ---- release channel: minified (default) or readable source (--dev)
   local channel = Suite.resolveChannel(wantChannel, readFile(CHANNEL_FILE))
-  if not checkOnly and not listOnly then
-    writeRaw(CHANNEL_FILE, channel .. "\n")   -- persist only on a real install, not --check/--list (writeRaw bypasses guard by design)
-  end
   local manifestFile = Suite.manifestName(channel)
   dim("channel: " .. channel .. (wantChannel and " (from flag)" or ""))
 
@@ -1393,6 +1396,9 @@ function Suite.main(args)
   local manifest = textutils.unserialise(body)
   if type(manifest) ~= "table" or type(manifest.roles) ~= "table" or not manifest.version then
     die("the release manifest (" .. manifestFile .. ") is not readable (is the source URL right?)")
+  end
+  if Suite.shouldPersistChannel(checkOnly, listOnly, true) then
+    writeRaw(CHANNEL_FILE, channel .. "\n")   -- writeRaw bypasses guard by design
   end
 
   local order = {}

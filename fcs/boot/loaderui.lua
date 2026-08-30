@@ -218,8 +218,9 @@ end
 
 -- Close the cfgsync request/reply channels the "ui" source may have opened, so the flight
 -- app boots with a clean modem (best-effort; in-game only).
-local function closeCfgChannels()
-  local modem = peripheral.find("modem")
+function M.closeCfgChannels(find)
+  find = find or peripheral.find
+  local modem = find("modem")
   if modem and modem.close then
     pcall(modem.close, M.CFG_CH.req)
     pcall(modem.close, M.CFG_CH.reply)
@@ -295,7 +296,7 @@ function M.run()
   while true do
     for _, concern in ipairs(toPick) do
       local src = pickUntilValid(concern)
-      if src == "ABORT" then return nil end
+      if src == "ABORT" then M.closeCfgChannels(); return nil end
       choices[concern] = src
     end
 
@@ -304,7 +305,7 @@ function M.run()
     local ok, assembled, err, failedConcern = M.finish(choices, sources)
     if ok then
       print("OK -- wrote " .. HW_CONFIG_PATH .. " + " .. TUNING_PATH)
-      closeCfgChannels()
+      M.closeCfgChannels()
       -- Logging choice comes first (per the boot-flow spec), then the boot question. The launcher
       -- turns `logging` into _G.EH2_FLIGHTLOG for tools/flight.lua.
       local logging = confirmLogging()
@@ -314,6 +315,7 @@ function M.run()
       print("returning to console (config saved, FCS not started)")
       return nil
     end
+    M.closeCfgChannels()
     print("FAILED: " .. tostring(err))
     if failedConcern and LABEL[failedConcern] then
       print("re-pick " .. LABEL[failedConcern])
