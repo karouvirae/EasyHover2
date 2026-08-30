@@ -60,6 +60,14 @@ local EnginePanel = require("ui.panels.engine")
 
 local M = {}
 
+-- Border edges the EMC region draws. Stacked in the merged flight page the FCS region below draws
+-- the BOTTOM edge, so the default omits it; a standalone single-region host (ui/basalt/pages/emc.lua)
+-- passes opts.edges = a full box to close it. PURE.
+M.DEFAULT_EDGES = { top = true, left = true, right = true, bottom = false }
+function M._resolveEdges(opts)
+  return (opts and opts.edges) or M.DEFAULT_EDGES
+end
+
 -- Manual-max stepper sizes: a stack (64) for the solid pump max, one bucket (1000 mB) for the
 -- liquid tank max -- pinned constants so M.calfuel's onClick wiring and tests agree on the exact
 -- delta without duplicating the literal. Task 4 adds fine (+/-1) and larger liquid batches
@@ -210,7 +218,7 @@ local function fmtIntervalCompact(ms)
   return string.format("%dm%02ds", math.floor(s / 60), s % 60)
 end
 
-function M.main(basalt, frame, region, runtime)
+function M.main(basalt, frame, region, runtime, opts)
   local w, h = frame:getSize()
 
   -- ===== Background decoration (low z, behind the interactive elements) =====
@@ -219,7 +227,7 @@ function M.main(basalt, frame, region, runtime)
   -- Plus the orange double-border checkered STATUS box (lower-left), inset from the border.
   local bg = frame:addImage({ x = 1, y = 1, width = w, height = h }); bg:resizeImage(w, h); bg.set("z", 1)
   Gfx.clear(bg, w, h)
-  Gfx.border(bg, w, h, colors.green, { top = true, left = true, right = true, bottom = false })
+  Gfx.border(bg, w, h, colors.green, M._resolveEdges(opts))
   -- Status box detached from the ENG SW button above (gap at h-7); 2-subpixel checkered orange border.
   local boxC0, boxR0, boxC1, boxR1 = 3, math.max(4, h - 6), 17, h - 2
   Gfx.checkerBox(bg, boxC0, boxR0, boxC1, boxR1, colors.orange)
@@ -349,7 +357,7 @@ function M.config(basalt, frame, region, runtime, deps)
   -- frame wraps the whole flight panel) + an orange checkered STATUS box holding the 3 readouts.
   local bg = frame:addImage({ x = 1, y = 1, width = w, height = h }); bg:resizeImage(w, h); bg.set("z", 1)
   Gfx.clear(bg, w, h)
-  Gfx.border(bg, w, h, colors.green, { top = true, left = true, right = true, bottom = false })
+  Gfx.border(bg, w, h, colors.green, M._resolveEdges(deps))
   local boxC0, boxR0, boxC1, boxR1 = 8, 2, 28, 7
   Gfx.checkerBox(bg, boxC0, boxR0, boxC1, boxR1, colors.orange)
 
@@ -432,13 +440,13 @@ end
 --       only, never shown until apply() sees state.badFuel true)
 -- 8 content rows total (y2..y9) plus the fuel picker/warning on the two spacer rows, all well inside
 -- the real 36x17 EMC region (ui/basalt/pages/flight.lua's M.split of the 36x38 overhead).
-function M.calfuel(basalt, frame, region, runtime)
+function M.calfuel(basalt, frame, region, runtime, opts)
   local w, h = frame:getSize()
 
   -- Background: panel border (TOP+LEFT+RIGHT -- the FCS region below draws the bottom).
   local bg = frame:addImage({ x = 1, y = 1, width = w, height = h }); bg:resizeImage(w, h); bg.set("z", 1)
   Gfx.clear(bg, w, h)
-  Gfx.border(bg, w, h, colors.green, { top = true, left = true, right = true, bottom = false })
+  Gfx.border(bg, w, h, colors.green, M._resolveEdges(opts))
 
   -- Each fuel: an orange checkered box on the LEFT (label + aligned value), with its +/- steppers on
   -- the RIGHT -- same magnitude / opposite sign grouped vertically (+ above -). Steppers are orange

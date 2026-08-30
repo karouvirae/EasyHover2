@@ -53,6 +53,14 @@ local function blinkOutline(phase) return (phase == 1) and colors.red or colors.
 
 local M = {}
 
+-- Border edges the FCS region draws. Stacked in the merged flight page the EMC region above draws
+-- the TOP edge, so the default omits it; a standalone single-region host (ui/basalt/pages/fcs.lua)
+-- passes opts.edges = a full box to close it. PURE.
+M.DEFAULT_EDGES = { top = false, bottom = true, left = true, right = true }
+function M._resolveEdges(opts)
+  return (opts and opts.edges) or M.DEFAULT_EDGES
+end
+
 local FIELD_ORDER = { "MODE", "ALT", "VSPD", "HDG", "LOOP", "LINK" }
 
 -- ===== testable intent seam (no Basalt) =====
@@ -94,14 +102,14 @@ end
 -- internal y=2. Groups are laid out with btnfit.grid (Task 1): each group gets one common column
 -- width (the widest label in that group) and is centered independently within the full frame
 -- width (availW=w -- no left/right inset, only the row-1 top margin).
-function M.main(basalt, frame, region, runtime)
+function M.main(basalt, frame, region, runtime, opts)
   local w, h = frame:getSize()
 
   -- Panel border (low z, behind content): the FCS region draws BOTTOM + LEFT + RIGHT edges; the EMC
   -- region above draws the TOP edge -- together they wrap the whole flight panel with no line between.
   local bg = frame:addImage({ x = 1, y = 1, width = w, height = h }); bg:resizeImage(w, h); bg.set("z", 1)
   Gfx.clear(bg, w, h)
-  Gfx.border(bg, w, h, colors.green, { top = false, bottom = true, left = true, right = true })
+  Gfx.border(bg, w, h, colors.green, M._resolveEdges(opts))
 
   -- Two orange dividers split the region into 3 sub-regions (inset, not touching the border).
   Gfx.hline(bg, 6, 4, w - 3, colors.orange)
@@ -192,7 +200,7 @@ function M.main(basalt, frame, region, runtime)
 end
 
 -- ===== fcs_params =====
-function M.params(basalt, frame, region, runtime)
+function M.params(basalt, frame, region, runtime, opts)
   local w, h = frame:getSize()
 
   -- Background: panel border (BOTTOM+LEFT+RIGHT -- the EMC region above draws the top, so it stays
@@ -200,7 +208,7 @@ function M.params(basalt, frame, region, runtime)
   -- telemetry/UI/autopilot (bottom).
   local bg = frame:addImage({ x = 1, y = 1, width = w, height = h }); bg:resizeImage(w, h); bg.set("z", 1)
   Gfx.clear(bg, w, h)
-  Gfx.border(bg, w, h, colors.green, { top = false, bottom = true, left = true, right = true })
+  Gfx.border(bg, w, h, colors.green, M._resolveEdges(opts))
   Gfx.checkerBox(bg, 3, 2, 34, 8, colors.orange)     -- flight parameters
   Gfx.checkerBox(bg, 3, 10, 34, 16, colors.orange)   -- telemetry / UI / autopilot
 

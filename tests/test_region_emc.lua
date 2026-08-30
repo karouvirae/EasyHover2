@@ -847,4 +847,22 @@ t.test("engine panel: flow/left labels per state", function()
   t.eq(E.leftLabel(nil), "LEFT --", "nil left")
 end)
 
+-- ===== Task 1: border edges resolver (standalone-panel hosting) =====
+
+t.test("_resolveEdges: nil opts -> DEFAULT_EDGES (top+left+right, no bottom)", function()
+  local e = M._resolveEdges(nil)
+  t.eq(e.top, true); t.eq(e.left, true); t.eq(e.right, true); t.eq(e.bottom, false)
+  t.eq(e, M.DEFAULT_EDGES, "nil opts returns the module default table")
+end)
+
+t.test("_resolveEdges: opts.edges override wins (full box)", function()
+  local full = { top = true, bottom = true, left = true, right = true }
+  local e = M._resolveEdges({ edges = full })
+  t.eq(e, full)
+end)
+
+t.test("_resolveEdges: opts without edges falls back to DEFAULT_EDGES", function()
+  t.eq(M._resolveEdges({ scan = function() return {} end }), M.DEFAULT_EDGES)
+end)
+
 return true

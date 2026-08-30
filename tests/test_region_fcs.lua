@@ -79,3 +79,16 @@ t.test("fcs_params apply shows flightMode/TAS/loopHz, not loop-state MODE", func
   t.truthy(txt("APLOOP"):find("%-%-ms", 1, false))
   t.truthy(txt("APMODE"):find("IDLE", 1, true))
 end)
+
+-- ===== Task 1: border edges resolver (standalone-panel hosting) =====
+
+t.test("_resolveEdges: nil opts -> DEFAULT_EDGES (bottom+left+right, no top)", function()
+  local e = FcsRegion._resolveEdges(nil)
+  t.eq(e.bottom, true); t.eq(e.left, true); t.eq(e.right, true); t.eq(e.top, false)
+  t.eq(e, FcsRegion.DEFAULT_EDGES)
+end)
+
+t.test("_resolveEdges: opts.edges override wins (full box)", function()
+  local full = { top = true, bottom = true, left = true, right = true }
+  t.eq(FcsRegion._resolveEdges({ edges = full }), full)
+end)
