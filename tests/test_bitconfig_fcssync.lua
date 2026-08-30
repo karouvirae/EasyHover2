@@ -144,12 +144,11 @@ t.test("M.build: constructs the element tree; apply() + one render pass do not e
   t.eq(h.id, "fcssync")
   t.truthy(type(h.apply) == "function", "apply should be a function")
   t.truthy(h.elements ~= nil, "elements table should be exposed")
-  t.truthy(h.elements.headerLabel ~= nil, "headerLabel present")
+  t.truthy(h.elements.titleLabel ~= nil, "titleLabel present")
   t.truthy(h.elements.serverLbl ~= nil, "serverLbl present")
   t.truthy(h.elements.linkLbl ~= nil, "linkLbl present")
-  t.truthy(h.elements.startBtn ~= nil, "startBtn present")
-  t.truthy(h.elements.stopBtn ~= nil, "stopBtn present")
-  t.truthy(h.elements.backBtn ~= nil, "backBtn present")
+  t.truthy(h.elements.ssRow ~= nil and h.elements.ssRow.buttons[1] ~= nil, "START/STOP action row present")
+  t.truthy(h.elements.backRow ~= nil, "back row present")
 
   local ok, err = pcall(h.apply, {})
   t.truthy(ok, "apply should not error: " .. tostring(err))
@@ -176,18 +175,22 @@ t.test("M.build: apply() updates labels based on running status", function()
 
   local h = M.build(basalt, frame, runtime, nav)
 
-  -- Initial apply: server stopped
+  -- Initial apply: server stopped -- START enabled (off), STOP disabled
   h.apply({})
   t.eq(h.elements.serverLbl:getText(), "SERVER: STOPPED")
   t.eq(h.elements.linkLbl:getText(), "LINK: STOPPED")
+  t.eq(h.elements.ssRow.buttons[1].state, "off", "START should be off (enabled) when stopped")
+  t.eq(h.elements.ssRow.buttons[2].state, "disabled", "STOP should be disabled when stopped")
 
-  -- Change status to running + fresh
+  -- Change status to running + fresh -- START disabled, STOP enabled (off)
   runtime.cfgserver.status = function(self)
     return { running = true, lastSeen = os.epoch("utc") - 1000 }
   end
   h.apply({})
   t.eq(h.elements.serverLbl:getText(), "SERVER: RUNNING")
   t.eq(h.elements.linkLbl:getText(), "LINK: FCS ACTIVE")
+  t.eq(h.elements.ssRow.buttons[1].state, "disabled", "START should be disabled when running")
+  t.eq(h.elements.ssRow.buttons[2].state, "off", "STOP should be off (enabled) when running")
 
   -- Change status to running + stale
   runtime.cfgserver.status = function(self)

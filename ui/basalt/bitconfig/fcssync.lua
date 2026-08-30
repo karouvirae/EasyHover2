@@ -11,7 +11,7 @@
 -- NO peripheral/Basalt access at module LOAD -- everything lives inside M.build/the closures it
 -- returns, so `require("ui.basalt.bitconfig.fcssync")` loads clean headless.
 
-local btnfit = require("ui.basalt.btnfit")
+local configkit = require("ui.basalt.configkit")
 
 local M = {}
 M.id = "fcssync"
@@ -64,7 +64,7 @@ function M.build(basalt, frame, runtime, nav)
   local x = 2
   local iw = math.max(1, w - 2)
 
-  local headerLabel = frame:addLabel({ x = x, y = 2, width = iw, height = 1, autoSize = false, text = M.title })
+  local titleLabel = configkit.titleRow(frame, w, M.title)
 
   local dataTop = 3
   local serverLbl = frame:addLabel({ x = x, y = dataTop, width = iw, height = 1, autoSize = false, text = "SERVER: --" })
@@ -72,25 +72,16 @@ function M.build(basalt, frame, runtime, nav)
 
   local footerY = dataTop + 3
 
-  -- Compact, label-sized + centred (was a full-width split / bar).
-  local ssGeo = btnfit.grid({ "START", "STOP" }, { x0 = 1, availW = w, y0 = footerY, gap = 1, align = "center" })
-  local startBtn = frame:addButton({ x = ssGeo[1].x, y = footerY, width = ssGeo[1].w, height = 1, text = "START" })
-  local stopBtn  = frame:addButton({ x = ssGeo[2].x, y = footerY, width = ssGeo[2].w, height = 1, text = "STOP" })
-
-  local ssBackGeo = btnfit.grid({ "< BACK" }, { x0 = 1, availW = w, y0 = footerY + 1, gap = 1, align = "center" })
-  local backBtn = frame:addButton({ x = ssBackGeo[1].x, y = footerY + 1, width = ssBackGeo[1].w, height = 1, text = "< BACK" })
-
-  startBtn:onClick(function()
-    M._onButton(runtime, "start", os.epoch("utc"))
-  end)
-
-  stopBtn:onClick(function()
-    M._onButton(runtime, "stop", os.epoch("utc"))
-  end)
-
-  backBtn:onClick(function()
-    if nav then nav:pop() end
-  end)
+  -- configkit chrome (matches the rest of the NAV/BIT-CONFIG tree, e.g. tuning.lua): a compact
+  -- START/STOP actionRow, then a separate actionRow holding just the "< BACK" back item (which
+  -- pins itself to the bottom frame row regardless of the y passed here).
+  local ssRow = configkit.actionRow(frame, { x = x, y = footerY, w = iw }, {
+    { label = "START", onClick = function() M._onButton(runtime, "start", os.epoch("utc")) end },
+    { label = "STOP",  onClick = function() M._onButton(runtime, "stop",  os.epoch("utc")) end },
+  })
+  local backRow = configkit.actionRow(frame, { x = x, y = footerY + 1, w = iw }, {
+    { id = "back", label = "<", onClick = function() if nav then nav:pop() end end },
+  })
 
   -- apply(state): read runtime.cfgserver:status() live (a cheap table read, NOT a peripheral
   -- poll -- safe on the render path), set the SERVER + LINK Labels via M.linkStatus, and
@@ -111,20 +102,19 @@ function M.build(basalt, frame, runtime, nav)
     linkLbl:setText("LINK: " .. linkText)
 
     -- Disable START when running, STOP when stopped
-    startBtn:setEnabled(not status.running)
-    stopBtn:setEnabled(status.running)
+    ssRow.setState(1, status.running and "disabled" or "off")   -- START
+    ssRow.setState(2, status.running and "off" or "disabled")   -- STOP
   end
 
   return {
     id = M.id,
     apply = apply,
     elements = {
-      headerLabel = headerLabel,
+      titleLabel = titleLabel,
       serverLbl = serverLbl,
       linkLbl = linkLbl,
-      startBtn = startBtn,
-      stopBtn = stopBtn,
-      backBtn = backBtn,
+      ssRow = ssRow,
+      backRow = backRow,
     },
   }
 end
