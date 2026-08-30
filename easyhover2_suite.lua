@@ -379,7 +379,7 @@ function Suite.extendConfig(spec, path, version)
 
     -- EH2's standalone config module returns the saved table pre-merge, so the merge
     -- over fresh defaults is explicit here (v1's lib.config merged inside load()).
-    cfg = Config.withDefaults(cfg)
+    cfg = Config.withDefaults(cfg, path)
     local saved, saveErr = Config.save(path, cfg)
     if not saved then error(tostring(saveErr), 0) end
     return "extended"

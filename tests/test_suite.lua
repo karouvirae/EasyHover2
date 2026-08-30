@@ -220,6 +220,26 @@ t.test("backupConfig keeps one latest copy PER FILE (does not wipe siblings)", f
   fs.delete(a); fs.delete(b); fs.delete("/easyhover2_backup")
 end)
 
+t.test("withDefaults on eh2_tuning.tbl path does not inject thrusters", function()
+  local merged = Config.withDefaults(
+    { gains = { hoverDuty = 0.26 }, caps = {}, feel = {} },
+    "/eh2_tuning.tbl")
+  t.eq(merged.thrusters, nil, "split tuning must not gain fused thrusters")
+  t.eq(merged.gains.hoverDuty, 0.26)
+end)
+
+t.test("extendConfig on eh2_tuning.tbl does not inject thrusters", function()
+  local path = "/eh2_tuning.tbl"
+  Config.save(path, { gains = { hoverDuty = 0.26 }, caps = {}, feel = {} })
+  local spec = { configModule = "fcs.io.config", luaPath = "/" }
+  local result = Suite.extendConfig(spec, path, "verX")
+  t.eq(result, "extended")
+  local cfg = Config.load(path)
+  t.eq(cfg.thrusters, nil, "extended tuning has no thrusters key")
+  t.eq(cfg.gains.hoverDuty, 0.26)
+  fs.delete(path)
+end)
+
 t.test("extendConfig uses the manifest's configModule (additive)", function()
   local path = "/eh2_hw_config.tbl"
   local Config = require("fcs.io.config")
