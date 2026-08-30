@@ -130,6 +130,10 @@ local function logCycle(dt, m)
   if not LOGGING then return end
   local r = flight.lastDiag or {}
   local dem = r.demands or {}
+  -- Log-site-only pure read (never called when LOGGING is false): reconstructs the PID
+  -- split/saturation/trim bundle from already-stored loop/scheme state. See fcs/runtime/loop.lua
+  -- Loop:diag. ONE call per logged cycle -- no per-cycle work is added to the control path.
+  local d = flight.loop:diag(pilot.sp, m)
   local sample = {
     t = (os.epoch("utc") - logT0) / 1000, dt = dt,
     phase = flight.engaged and (m.onGround and "ENG-GND" or "ENGAGED") or "IDLE",
@@ -140,6 +144,17 @@ local function logCycle(dt, m)
     swayPos = m.swayPos, surgePos = m.surgePos, onGround = m.onGround,
     heave = dem.heave, dPitch = dem.pitch, dRoll = dem.roll, dYaw = dem.yaw,
     dSway = dem.sway, dSurge = dem.surge, duties = r.duties,
+    -- Setpoints (THE COLUMN CONTRACT new columns 1): from pilot.sp, log-site read only.
+    sp_pitch = pilot.sp and pilot.sp.pitch or 0, sp_roll = pilot.sp and pilot.sp.roll or 0,
+    sp_hdg = pilot.sp and pilot.sp.heading or 0, sp_sway = pilot.sp and pilot.sp.swayPos or 0,
+    sp_surge = pilot.sp and pilot.sp.surgePos or 0,
+    -- PID split / saturation (new columns 3-4): STORED, from Loop:diag (pure read above).
+    terms = d.terms, sat = d.sat, heaveBanded = d.heaveBanded,
+    -- Trim feedforward (new column 5): the exact bias Loop:cycle adds to demands.pitch.
+    ff_pitch = (d.trimDir or 0) * (d.trimGain or 0) * ((dem.surge) or 0),
+    -- Context (new column 6): plain fields already published on the Flight instance
+    -- (fcs/runtime/flight.lua Flight.new / :snapshot) -- no new peripheral read.
+    master = flight.masterMode, noFuel = flight.noFuel or false,
   }
   logSummary:add(sample)                                   -- summary always covers the whole flight
   -- Buffer the RAW captured sample (duties snapshotted), NOT a formatted string. The 34-column
