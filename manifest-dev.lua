@@ -218,21 +218,21 @@
         },
         {
           ["dst"] = "fcs/control/heading.lua",
-          ["size"] = 718,
+          ["size"] = 1070,
           ["src"] = "fcs/control/heading.lua",
-          ["sum"] = "dba36754",
+          ["sum"] = "b920ca83",
         },
         {
           ["dst"] = "fcs/control/pid.lua",
-          ["size"] = 1326,
+          ["size"] = 1673,
           ["src"] = "fcs/control/pid.lua",
-          ["sum"] = "e3ff2e53",
+          ["sum"] = "26fd29bb",
         },
         {
           ["dst"] = "fcs/control/translate.lua",
-          ["size"] = 663,
+          ["size"] = 972,
           ["src"] = "fcs/control/translate.lua",
-          ["sum"] = "0a0ad68c",
+          ["sum"] = "ae98bd52",
         },
         {
           ["dst"] = "fcs/envelope.lua",
@@ -737,21 +737,21 @@
         },
         {
           ["dst"] = "fcs/control/heading.lua",
-          ["size"] = 718,
+          ["size"] = 1070,
           ["src"] = "fcs/control/heading.lua",
-          ["sum"] = "dba36754",
+          ["sum"] = "b920ca83",
         },
         {
           ["dst"] = "fcs/control/pid.lua",
-          ["size"] = 1326,
+          ["size"] = 1673,
           ["src"] = "fcs/control/pid.lua",
-          ["sum"] = "e3ff2e53",
+          ["sum"] = "26fd29bb",
         },
         {
           ["dst"] = "fcs/control/translate.lua",
-          ["size"] = 663,
+          ["size"] = 972,
           ["src"] = "fcs/control/translate.lua",
-          ["sum"] = "0a0ad68c",
+          ["sum"] = "ae98bd52",
         },
         {
           ["dst"] = "fcs/envelope.lua",
@@ -1439,5 +1439,5 @@
     ["size"] = 71434,
     ["sum"] = "57671ad7",
   },
-  ["version"] = "a6b5ecdb",
+  ["version"] = "99959ec3",
 }

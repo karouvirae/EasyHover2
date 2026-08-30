@@ -32,4 +32,15 @@ function Pid:update(sp, meas, dt, saturated)
   end
   return self.kp * err + self.i + d
 end
+-- Pure read: reconstructs {err, P, I, D} from ALREADY-STORED state (self.i / self.dFilt),
+-- matching :update()'s last return exactly. No mutation. Log-time only.
+function Pid:terms(sp, meas)
+  local err = sp - meas
+  return {
+    err = err,
+    P = self.kp * err,
+    I = self.i,
+    D = (self.kd ~= 0) and (-self.kd * self.dFilt) or 0,
+  }
+end
 return Pid

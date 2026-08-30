@@ -17,4 +17,15 @@ function H:update(sp, meas, yawRate, dt, freeze)
   end
   return self.kp * err + self.i - self.kd * (yawRate or 0)
 end
+-- Pure read: reconstructs {err, P, I, D} from ALREADY-STORED state (self.i), matching
+-- :update()'s same wrapped err and last return exactly. No mutation. Log-time only.
+function H:terms(sp, meas, yawRate)
+  local err = angle.wrap(sp - meas)
+  return {
+    err = err,
+    P = self.kp * err,
+    I = self.i,
+    D = -self.kd * (yawRate or 0),
+  }
+end
 return H
