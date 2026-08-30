@@ -146,9 +146,9 @@
         },
         {
           ["dst"] = "fcs/bringup/instrument.lua",
-          ["size"] = 4817,
+          ["size"] = 7022,
           ["src"] = "dist/fcs/bringup/instrument.lua",
-          ["sum"] = "08bb3811",
+          ["sum"] = "c6f2ee10",
         },
         {
           ["dst"] = "fcs/bringup/logbuffer.lua",
@@ -218,21 +218,21 @@
         },
         {
           ["dst"] = "fcs/control/heading.lua",
-          ["size"] = 556,
+          ["size"] = 656,
           ["src"] = "dist/fcs/control/heading.lua",
-          ["sum"] = "771120b3",
+          ["sum"] = "24f95c79",
         },
         {
           ["dst"] = "fcs/control/pid.lua",
-          ["size"] = 765,
+          ["size"] = 877,
           ["src"] = "dist/fcs/control/pid.lua",
-          ["sum"] = "2a6b305b",
+          ["sum"] = "9e646a0e",
         },
         {
           ["dst"] = "fcs/control/translate.lua",
-          ["size"] = 521,
+          ["size"] = 614,
           ["src"] = "dist/fcs/control/translate.lua",
-          ["sum"] = "d4a55f8c",
+          ["sum"] = "003c08ed",
         },
         {
           ["dst"] = "fcs/envelope.lua",
@@ -362,9 +362,9 @@
         },
         {
           ["dst"] = "fcs/runtime/loop.lua",
-          ["size"] = 2186,
+          ["size"] = 2429,
           ["src"] = "dist/fcs/runtime/loop.lua",
-          ["sum"] = "9ad6eadb",
+          ["sum"] = "7c46761c",
         },
         {
           ["dst"] = "fcs/safety/oscillation.lua",
@@ -386,9 +386,9 @@
         },
         {
           ["dst"] = "fcs/schemes/level_flight.lua",
-          ["size"] = 1329,
+          ["size"] = 1733,
           ["src"] = "dist/fcs/schemes/level_flight.lua",
-          ["sum"] = "67ddca4e",
+          ["sum"] = "8497603b",
         },
         {
           ["dst"] = "fcs/schemes/manual.lua",
@@ -452,9 +452,9 @@
         },
         {
           ["dst"] = "tools/flight.lua",
-          ["size"] = 7602,
+          ["size"] = 7963,
           ["src"] = "dist/tools/flight.lua",
-          ["sum"] = "1bbedc63",
+          ["sum"] = "1858b30b",
         },
         {
           ["dst"] = "tools/hover_test.lua",
@@ -671,9 +671,9 @@
         },
         {
           ["dst"] = "fcs/bringup/instrument.lua",
-          ["size"] = 4817,
+          ["size"] = 7022,
           ["src"] = "dist/fcs/bringup/instrument.lua",
-          ["sum"] = "08bb3811",
+          ["sum"] = "c6f2ee10",
         },
         {
           ["dst"] = "fcs/bringup/logbuffer.lua",
@@ -737,21 +737,21 @@
         },
         {
           ["dst"] = "fcs/control/heading.lua",
-          ["size"] = 556,
+          ["size"] = 656,
           ["src"] = "dist/fcs/control/heading.lua",
-          ["sum"] = "771120b3",
+          ["sum"] = "24f95c79",
         },
         {
           ["dst"] = "fcs/control/pid.lua",
-          ["size"] = 765,
+          ["size"] = 877,
           ["src"] = "dist/fcs/control/pid.lua",
-          ["sum"] = "2a6b305b",
+          ["sum"] = "9e646a0e",
         },
         {
           ["dst"] = "fcs/control/translate.lua",
-          ["size"] = 521,
+          ["size"] = 614,
           ["src"] = "dist/fcs/control/translate.lua",
-          ["sum"] = "d4a55f8c",
+          ["sum"] = "003c08ed",
         },
         {
           ["dst"] = "fcs/envelope.lua",
@@ -833,9 +833,9 @@
         },
         {
           ["dst"] = "fcs/runtime/loop.lua",
-          ["size"] = 2186,
+          ["size"] = 2429,
           ["src"] = "dist/fcs/runtime/loop.lua",
-          ["sum"] = "9ad6eadb",
+          ["sum"] = "7c46761c",
         },
         {
           ["dst"] = "fcs/safety/oscillation.lua",
@@ -857,9 +857,9 @@
         },
         {
           ["dst"] = "fcs/schemes/level_flight.lua",
-          ["size"] = 1329,
+          ["size"] = 1733,
           ["src"] = "dist/fcs/schemes/level_flight.lua",
-          ["sum"] = "67ddca4e",
+          ["sum"] = "8497603b",
         },
         {
           ["dst"] = "fcs/schemes/manual.lua",
@@ -1439,5 +1439,5 @@
     ["size"] = 71434,
     ["sum"] = "57671ad7",
   },
-  ["version"] = "50b92d23",
+  ["version"] = "3279e6e2",
 }
