@@ -236,7 +236,8 @@ function M._applyOp(runtime, effect, deps)
     -- Flip basic<->latch, re-apply the engine config under the new mode, then re-assert blocked
     -- (a mode flip changes how blockNow/feed writes the relay -- see engine.lua's basic vs latch
     -- write paths -- so it needs the SAME re-block discipline as a relay/side change).
-    if runtime.config.engine.mode == "latch" then
+    local leavingLatch = (runtime.config.engine.mode == "latch")
+    if leavingLatch then
       runtime.config.engine.mode = "basic"
     else
       runtime.config.engine.mode = "latch"
@@ -247,6 +248,10 @@ function M._applyOp(runtime, effect, deps)
       -- very transition that makes it dangerous. Leaving latch never raises pulseMs.
       if runtime.config.engine.pulseMs < 200 then runtime.config.engine.pulseMs = 200 end
     end
+    -- Leave-latch: RESET the Powered Latch via the OLD latch writer/mode FIRST. Engine.mode and
+    -- engine.writer are still latch until applyConfig/rebuild; if we rebuild to the basic
+    -- 1-arg writer first, blockNow cannot pulse the BLOCK trigger and a mid-feed latch stays SET.
+    if leavingLatch then runtime.engine:blockNow() end
     runtime.engine:applyConfig(runtime.config.engine)
     if runtime.rebuildEngineWriter then runtime.rebuildEngineWriter() end
     runtime.rebindRelay()

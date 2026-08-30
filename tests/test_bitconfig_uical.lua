@@ -328,6 +328,51 @@ t.test("_applyOp cycleMode: applyConfig + rebindRelay + engine:blockNow all fire
   t.eq(calls.blockNow, 1)
 end)
 
+t.test("_applyOp cycleMode: leave-latch mid-feed pulses BLOCK via latch writer before rebuild", function()
+  -- If rebuild swaps to the basic 1-arg writer before blockNow, the Powered Latch can stay SET
+  -- (FEED was last) because basic writes cannot pulse the BLOCK trigger line.
+  local Engine = require("ui.engine")
+  local writes = {}
+  local latchWriter = function(line, value)
+    writes[#writes + 1] = { kind = "latch", line = line, value = value }
+    return true
+  end
+  local basicWriter = function(sig)
+    writes[#writes + 1] = { kind = "basic", sig = sig }
+    return true
+  end
+  local engine = Engine.new(
+    { mode = "latch", pulseMs = 250, intervalMs = 1500, kickstart = true, masterDefault = false },
+    latchWriter)
+  engine:setMaster(true, 0)   -- mid-feed: FEED raised, lastFeeding=true
+  t.eq(engine.lastFeeding, true)
+
+  local runtime, calls = newStubRuntime()
+  runtime.config.engine.mode = "latch"
+  runtime.config.engine.pulseMs = 250
+  runtime.config.engine.intervalMs = 1500
+  runtime.config.engine.kickstart = true
+  runtime.config.engine.masterDefault = false
+  runtime.engine = engine
+  runtime.rebuildEngineWriter = function()
+    calls.rebuildEngineWriter = calls.rebuildEngineWriter + 1
+    engine.writer = basicWriter
+  end
+
+  local save = newSaveSpy()
+  M._applyOp(runtime, { kind = "config", op = "cycleMode" }, { save = save })
+
+  t.eq(runtime.config.engine.mode, "basic")
+  t.eq(engine.mode, "basic")
+  local sawLatchBlock
+  for _, w in ipairs(writes) do
+    if w.kind == "latch" and w.line == "block" and w.value == true then sawLatchBlock = true end
+  end
+  t.truthy(sawLatchBlock, "leave-latch must pulse BLOCK on the OLD latch writer before rebuild")
+  t.eq(calls.rebuildEngineWriter, 1)
+  t.eq(calls.rebind, 1)
+end)
+
 t.test("_applyOp cycleMode: entering latch clamps a sub-200 pulseMs up to 200", function()
   local runtime = newStubRuntime()
   runtime.config.engine.pulseMs = 100

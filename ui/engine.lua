@@ -223,11 +223,17 @@ end
 
 function Engine:applyConfig(cfg)
   self.cfg = cfg
-  self.mode = (cfg.mode == "latch") and "latch" or "basic"
-  self.lastWritten = nil
-  self.lastFeeding = nil
-  self.feedLineDownAt = nil
-  self.blockLineDownAt = nil
+  self.lastWritten = nil  -- always: force basic re-assert on next write
+  -- Mode flip only: stepEngine/toggle also call applyConfig without blockNow; clearing
+  -- lastFeeding/*LineDownAt on every cfg tweak would re-pulse latch lines or drop a
+  -- still-held trigger line. Preserve latch state unless the mode actually changes.
+  local newMode = (cfg.mode == "latch") and "latch" or "basic"
+  if newMode ~= self.mode then
+    self.mode = newMode
+    self.lastFeeding = nil
+    self.feedLineDownAt = nil
+    self.blockLineDownAt = nil
+  end
 end
 
 return Engine

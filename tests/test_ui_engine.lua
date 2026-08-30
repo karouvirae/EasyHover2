@@ -175,3 +175,18 @@ t.test("applyConfig flips Engine.mode from cfg.mode", function()
   e:applyConfig({ mode = "latch", pulseMs = 250, intervalMs = 1000, invert = false })
   t.eq(e.mode, "latch")
 end)
+
+t.test("applyConfig with same mode does not clear lastFeeding / does not re-fire latch BLOCK", function()
+  -- stepEngine/toggle call applyConfig without blockNow; clearing lastFeeding would make the
+  -- next held-blocked tick re-pulse BLOCK (nil ~= false), which is a spurious latch trigger.
+  local w = fakeLatchWriter()
+  local e = Engine.new(LATCH_CFG, w.fn)
+  e:tick(0); e:tick(150)             -- boot BLOCK raise+drop; lastFeeding=false
+  t.eq(e.lastFeeding, false)
+  local n = #w.calls
+  e:applyConfig({ mode = "latch", pulseMs = 300, intervalMs = 1500, kickstart = true, masterDefault = false })
+  t.eq(e.mode, "latch")
+  t.eq(e.lastFeeding, false, "same-mode applyConfig must preserve lastFeeding")
+  e:tick(300)                        -- master still off -> _write(false); must dedupe
+  t.eq(#w.calls, n, "same-mode applyConfig must not cause a re-fired BLOCK pulse")
+end)
