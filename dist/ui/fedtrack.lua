@@ -1,0 +1,1 @@
+local a={}a.__index=a;function a.new()return setmetatable({prev=nil,lfed=nil},a)end;function a:poll(b)if type(b)~="number"then return self.lfed end;if self.prev and b<self.prev then self.lfed=self.prev-b end;self.prev=b;return self.lfed end;function a:lastFed()return self.lfed end;return a
