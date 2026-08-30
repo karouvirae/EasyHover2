@@ -175,6 +175,20 @@ function M.fuelBad(ctx)
   return (ctx and ctx.badFuel == true) or false
 end
 
+-- 4-char uppercase fuel abbreviation (first 4 letters of the de-spaced name): Biodiesel -> BIOD,
+-- Sulfurized Diesel -> SULF. nil/empty -> nil.
+function M.fuelAbbr(name)
+  if type(name) ~= "string" or name == "" then return nil end
+  return name:gsub("%s", ""):sub(1, 4):upper()
+end
+
+-- Glance calibration readout "<ABBR> <pct>%" (e.g. "BIOD 60%"); "----" when the fuel is unknown.
+function M.fuelCalText(name, pct)
+  local a = M.fuelAbbr(name)
+  if not a then return "----" end
+  return a .. " " .. tostring(pct or "?") .. "%"
+end
+
 -- ===== flow/left time-estimate seam (pure functions) =====
 
 function M.flowLabel(est)

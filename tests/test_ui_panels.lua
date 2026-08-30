@@ -107,6 +107,16 @@ t.test("engine gauges + buttons stay on-screen on a narrow (portrait) monitor", 
   t.eq(btns, 3)
 end)
 
+t.test("engine fuel abbrev + calibration text", function()
+  t.eq(eng.fuelAbbr("Biodiesel"), "BIOD")
+  t.eq(eng.fuelAbbr("Ethanol"), "ETHA")
+  t.eq(eng.fuelAbbr("Sulfurized Diesel"), "SULF")
+  t.eq(eng.fuelAbbr(nil), nil)
+  t.eq(eng.fuelCalText("Biodiesel", 60), "BIOD 60%")
+  t.eq(eng.fuelCalText("Ethanol", 200), "ETHA 200%")
+  t.eq(eng.fuelCalText(nil, nil), "----")
+end)
+
 local cfgp = require("ui.panels.config")
 
 local CCTX = { config = require("ui.config").defaults(), monitors = { "monitor_0", "monitor_1" }, detected = nil }
