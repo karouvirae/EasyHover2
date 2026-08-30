@@ -41,7 +41,7 @@ function M.applyScalarSign(config, key, sign) config.bindings[key] = sign; retur
 
 function M.applyHeading(config, result)
   local b = config.bindings
-  b.signHeading = result.sign; b.headingScale = result.scale
+  b.signHeading = result.sign; b.compassSign = result.sign; b.headingScale = result.scale
   return config
 end
 
