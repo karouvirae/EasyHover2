@@ -288,4 +288,9 @@ function Engine:applyConfig(cfg)
   end
 end
 
+-- FCS telemetry noFuel: force chute master off (reported state only; UI never invents it).
+function Engine:applyTel(latest, now)
+  if latest and latest.noFuel then self:setMaster(false, now) end
+end
+
 return Engine

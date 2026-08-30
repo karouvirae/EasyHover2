@@ -121,6 +121,9 @@ end
 function M._onEngine(runtime, id, now)
   if id == "engSw" then
     if not relayBound(runtime) then return nil end
+    -- Refuse master-on while FCS reports noFuel; master-off stays allowed.
+    local latest = runtime.rx and runtime.rx.latest and runtime.rx:latest()
+    if not runtime.engine.master and latest and latest.noFuel then return nil end
     runtime.engine:toggleMaster(now)
     return { op = "toggleMaster" }
   elseif id == "prime" then

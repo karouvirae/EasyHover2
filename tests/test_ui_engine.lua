@@ -261,3 +261,22 @@ t.test("beginLeaveLatch: FEED drop failure does not set pending", function()
   t.truthy(e.feedLineDownAt, "FEED down-at stays so tick can retry the drop")
   t.eq(e.mode, "latch")
 end)
+
+t.test("applyTel noFuel forces master off", function()
+  local e = Engine.new({ pulseMs = 50, intervalMs = 1000, invert = false, kickstart = false },
+    function() return true end)
+  e:setMaster(true, 0)
+  t.eq(e.master, true)
+  e:applyTel({ noFuel = true }, 10)
+  t.eq(e.master, false)
+end)
+
+t.test("applyTel without noFuel leaves master on", function()
+  local e = Engine.new({ pulseMs = 50, intervalMs = 1000, invert = false, kickstart = false },
+    function() return true end)
+  e:setMaster(true, 0)
+  e:applyTel({ noFuel = false }, 10)
+  t.eq(e.master, true)
+  e:applyTel(nil, 11)
+  t.eq(e.master, true)
+end)

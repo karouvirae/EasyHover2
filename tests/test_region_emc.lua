@@ -130,6 +130,38 @@ t.test("_onEngine: an unrecognised id returns nil and calls nothing", function()
   t.eq(calls.feedNow, 0)
 end)
 
+t.test("_onEngine: engSw refuses toggle-on while latest.noFuel", function()
+  local engine, calls = newEngineStub(false)
+  local runtime = {
+    engine = engine,
+    config = { relay = { name = "relay_1", side = "back" }, fuel = newFuelCfg() },
+    isRelayReady = function() return true end,
+    rx = { latest = function() return { noFuel = true } end },
+  }
+
+  local result = M._onEngine(runtime, "engSw", 1000)
+
+  t.eq(result, nil, "noFuel blocks master-on")
+  t.eq(calls.toggleMaster, 0)
+  t.eq(engine.master, false)
+end)
+
+t.test("_onEngine: engSw still toggles off while latest.noFuel", function()
+  local engine, calls = newEngineStub(true)
+  local runtime = {
+    engine = engine,
+    config = { relay = { name = "relay_1", side = "back" }, fuel = newFuelCfg() },
+    isRelayReady = function() return true end,
+    rx = { latest = function() return { noFuel = true } end },
+  }
+
+  local result = M._onEngine(runtime, "engSw", 1000)
+
+  t.eq(calls.toggleMaster, 1)
+  t.eq(engine.master, false)
+  t.truthy(result ~= nil and result.op == "toggleMaster")
+end)
+
 -- ===== M._setMax: pure-of-Basalt manual-max stepper, with a save spy =====
 
 local function newSaveSpy()

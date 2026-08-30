@@ -892,7 +892,11 @@ function M.startScheduled(basalt, runtime, frameRecs)
     local n, lastFeed, lastBeat = 0, nil, 0
     while true do
       local now = os.epoch("utc")
-      pcall(function() runtime.engine:tick(now) end)
+      pcall(function()
+        local latest = runtime.rx and runtime.rx.latest and runtime.rx:latest()
+        runtime.engine:applyTel(latest, now)
+        runtime.engine:tick(now)
+      end)
       -- UI-log probe (no-op when logging off): log every feed/master transition immediately, plus a
       -- ~1s heartbeat, so a wedged feed shows in the log as either a frozen heartbeat (tick loop
       -- starved) or feed=true heartbeats that never clear (tick runs but pulse never ends).
