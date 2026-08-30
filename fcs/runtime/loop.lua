@@ -89,4 +89,16 @@ function Loop:cycle(rawDt, m)
   self:apply(duties, dt)
   return { mode = self.mode, m = m, demands = demands, duties = duties }
 end
+-- Pure log-site read: bundles PID terms + saturation + trim from already-stored loop/scheme
+-- state. No mutation, no :update()/:cycle() call. Log-time only (called from a gated logCycle).
+function Loop:diag(sp, m)
+  local level = (self.scheme and self.scheme.inner) or self.scheme
+  return {
+    terms = (level and level.terms) and level:terms(sp, m) or nil,
+    sat = self._sat or {},
+    heaveBanded = (level and level._heaveSat) or false,
+    trimDir = self.trimDir or 0,
+    trimGain = self.trimGain or 0,
+  }
+end
 return Loop
