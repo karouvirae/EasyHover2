@@ -111,6 +111,7 @@
       ["dirs"] = {
         "fcs",
         "tools",
+        "ui",
       },
       ["entry"] = "startup.lua",
       ["files"] = {
@@ -140,9 +141,9 @@
         },
         {
           ["dst"] = "fcs/boot/loaderui.lua",
-          ["size"] = 14273,
+          ["size"] = 14344,
           ["src"] = "fcs/boot/loaderui.lua",
-          ["sum"] = "c29c2484",
+          ["sum"] = "840eb606",
         },
         {
           ["dst"] = "fcs/bringup/instrument.lua",
@@ -272,9 +273,9 @@
         },
         {
           ["dst"] = "fcs/input/pilot.lua",
-          ["size"] = 8029,
+          ["size"] = 8328,
           ["src"] = "fcs/input/pilot.lua",
-          ["sum"] = "f6b33a0f",
+          ["sum"] = "1ef773de",
         },
         {
           ["dst"] = "fcs/io/backend.lua",
@@ -290,15 +291,15 @@
         },
         {
           ["dst"] = "fcs/io/cfgspec.lua",
-          ["size"] = 1854,
+          ["size"] = 2126,
           ["src"] = "fcs/io/cfgspec.lua",
-          ["sum"] = "e0610f6c",
+          ["sum"] = "457c3fea",
         },
         {
           ["dst"] = "fcs/io/config.lua",
-          ["size"] = 1327,
+          ["size"] = 2252,
           ["src"] = "fcs/io/config.lua",
-          ["sum"] = "b5668d6d",
+          ["sum"] = "bf8dd50c",
         },
         {
           ["dst"] = "fcs/io/fsx.lua",
@@ -356,9 +357,9 @@
         },
         {
           ["dst"] = "fcs/runtime/flight.lua",
-          ["size"] = 14986,
+          ["size"] = 15258,
           ["src"] = "fcs/runtime/flight.lua",
-          ["sum"] = "56c57538",
+          ["sum"] = "84f5900c",
         },
         {
           ["dst"] = "fcs/runtime/loop.lua",
@@ -446,15 +447,15 @@
         },
         {
           ["dst"] = "tools/calibrate.lua",
-          ["size"] = 12149,
+          ["size"] = 12353,
           ["src"] = "tools/calibrate.lua",
-          ["sum"] = "4b5efded",
+          ["sum"] = "91628c91",
         },
         {
           ["dst"] = "tools/flight.lua",
-          ["size"] = 19014,
+          ["size"] = 19332,
           ["src"] = "tools/flight.lua",
-          ["sum"] = "356599e3",
+          ["sum"] = "c4616f9e",
         },
         {
           ["dst"] = "tools/hover_test.lua",
@@ -464,9 +465,9 @@
         },
         {
           ["dst"] = "tools/probe.lua",
-          ["size"] = 4801,
+          ["size"] = 4949,
           ["src"] = "tools/probe.lua",
-          ["sum"] = "e098797a",
+          ["sum"] = "fde01bd6",
         },
         {
           ["dst"] = "tools/probe_batch.lua",
@@ -479,6 +480,12 @@
           ["size"] = 746,
           ["src"] = "tools/probe_modem.lua",
           ["sum"] = "5ad5da21",
+        },
+        {
+          ["dst"] = "ui/config.lua",
+          ["size"] = 3557,
+          ["src"] = "ui/config.lua",
+          ["sum"] = "e7b8b655",
         },
       },
       ["luaPath"] = "/",
@@ -785,15 +792,15 @@
         },
         {
           ["dst"] = "fcs/io/cfgspec.lua",
-          ["size"] = 1854,
+          ["size"] = 2126,
           ["src"] = "fcs/io/cfgspec.lua",
-          ["sum"] = "e0610f6c",
+          ["sum"] = "457c3fea",
         },
         {
           ["dst"] = "fcs/io/config.lua",
-          ["size"] = 1327,
+          ["size"] = 2252,
           ["src"] = "fcs/io/config.lua",
-          ["sum"] = "b5668d6d",
+          ["sum"] = "bf8dd50c",
         },
         {
           ["dst"] = "fcs/io/fsx.lua",
@@ -911,15 +918,15 @@
         },
         {
           ["dst"] = "tools/binddevices.lua",
-          ["size"] = 3752,
+          ["size"] = 3888,
           ["src"] = "tools/binddevices.lua",
-          ["sum"] = "9ea0f196",
+          ["sum"] = "a943dd23",
         },
         {
           ["dst"] = "tools/calibrate.lua",
-          ["size"] = 12149,
+          ["size"] = 12353,
           ["src"] = "tools/calibrate.lua",
-          ["sum"] = "4b5efded",
+          ["sum"] = "91628c91",
         },
         {
           ["dst"] = "tools/fnv1a.lua",
@@ -935,9 +942,9 @@
         },
         {
           ["dst"] = "tools/probe.lua",
-          ["size"] = 4801,
+          ["size"] = 4949,
           ["src"] = "tools/probe.lua",
-          ["sum"] = "e098797a",
+          ["sum"] = "fde01bd6",
         },
         {
           ["dst"] = "tools/probe_batch.lua",
@@ -953,9 +960,9 @@
         },
         {
           ["dst"] = "ui/basalt/app.lua",
-          ["size"] = 58487,
+          ["size"] = 58989,
           ["src"] = "ui/basalt/app.lua",
-          ["sum"] = "4468c14f",
+          ["sum"] = "6b22f6d1",
         },
         {
           ["dst"] = "ui/basalt/bitconfig/dtc.lua",
@@ -1007,9 +1014,9 @@
         },
         {
           ["dst"] = "ui/basalt/bitconfig/uical.lua",
-          ["size"] = 36449,
+          ["size"] = 37752,
           ["src"] = "ui/basalt/bitconfig/uical.lua",
-          ["sum"] = "c8da5c2b",
+          ["sum"] = "b7d63084",
         },
         {
           ["dst"] = "ui/basalt/btnfit.lua",
@@ -1145,9 +1152,9 @@
         },
         {
           ["dst"] = "ui/basalt/regions/emc.lua",
-          ["size"] = 31177,
+          ["size"] = 31411,
           ["src"] = "ui/basalt/regions/emc.lua",
-          ["sum"] = "032b6b75",
+          ["sum"] = "176b92bf",
         },
         {
           ["dst"] = "ui/basalt/regions/fcs.lua",
@@ -1157,9 +1164,9 @@
         },
         {
           ["dst"] = "ui/basalt/renderpolicy.lua",
-          ["size"] = 6081,
+          ["size"] = 6113,
           ["src"] = "ui/basalt/renderpolicy.lua",
-          ["sum"] = "43a2f6f7",
+          ["sum"] = "7ec2fab5",
         },
         {
           ["dst"] = "ui/basalt/senssource.lua",
@@ -1211,9 +1218,9 @@
         },
         {
           ["dst"] = "ui/engine.lua",
-          ["size"] = 9097,
+          ["size"] = 11800,
           ["src"] = "ui/engine.lua",
-          ["sum"] = "be1b7b09",
+          ["sum"] = "c169b740",
         },
         {
           ["dst"] = "ui/fedtrack.lua",
@@ -1345,9 +1352,9 @@
         },
         {
           ["dst"] = "fcs/io/cfgspec.lua",
-          ["size"] = 1854,
+          ["size"] = 2126,
           ["src"] = "fcs/io/cfgspec.lua",
-          ["sum"] = "e0610f6c",
+          ["sum"] = "457c3fea",
         },
         {
           ["dst"] = "fcs/io/fsx.lua",
@@ -1397,9 +1404,9 @@
         },
         {
           ["dst"] = "fcs/io/cfgspec.lua",
-          ["size"] = 1854,
+          ["size"] = 2126,
           ["src"] = "fcs/io/cfgspec.lua",
-          ["sum"] = "e0610f6c",
+          ["sum"] = "457c3fea",
         },
         {
           ["dst"] = "fcs/io/fsx.lua",
@@ -1436,8 +1443,8 @@
     },
   },
   ["updater"] = {
-    ["size"] = 71434,
-    ["sum"] = "57671ad7",
+    ["size"] = 71732,
+    ["sum"] = "49b47afa",
   },
-  ["version"] = "d86c2637",
+  ["version"] = "49ba8889",
 }
