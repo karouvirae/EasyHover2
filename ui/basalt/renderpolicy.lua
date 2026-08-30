@@ -66,6 +66,7 @@ function M.sigFlight(state)
     qn(state.fuelEst and state.fuelEst.mbPerMin, 1),
     qn(state.fuelEst and state.fuelEst.secondsLeft, 1),
     tostring(state.paramsOpen or false),
+    tostring(state.uiRev or 0),
   }
   if state.paramsOpen then
     parts[#parts + 1] = qn(state.tas, 10)

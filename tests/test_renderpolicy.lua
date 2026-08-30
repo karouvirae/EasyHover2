@@ -67,6 +67,12 @@ t.test("sigFlight changes when lfed changes (LFED must repaint)", function()
   t.truthy(a ~= b, "lfed change moves sigFlight")
 end)
 
+t.test("sigFlight changes when uiRev bumps (region nav must repaint)", function()
+  local a = RP.sigFlight({ uiRev = 0 })
+  local b = RP.sigFlight({ uiRev = 1 })
+  t.truthy(a ~= b, "uiRev bump moves sigFlight")
+end)
+
 -- ===== sigFlight: blink-fold rule =====
 
 t.test("sigFlight folds blinkPhase to a constant when healthy (fcsStale=false)", function()
