@@ -248,6 +248,7 @@ function M._applyOp(runtime, effect, deps)
       if runtime.config.engine.pulseMs < 200 then runtime.config.engine.pulseMs = 200 end
     end
     runtime.engine:applyConfig(runtime.config.engine)
+    if runtime.rebuildEngineWriter then runtime.rebuildEngineWriter() end
     runtime.rebindRelay()
     runtime.engine:blockNow()
   elseif op == "cycleRelaySide" then

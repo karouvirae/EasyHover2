@@ -165,3 +165,13 @@ t.test("latch: a lost BLOCK latch is re-fired by the periodic re-assert", functi
   end
   t.truthy(refired, "BLOCK latch re-asserted")
 end)
+
+t.test("applyConfig flips Engine.mode from cfg.mode", function()
+  local Engine = require("ui.engine")
+  local writes = {}
+  local e = Engine.new({ mode = "basic", pulseMs = 250, intervalMs = 1000, invert = false },
+    function(sig) writes[#writes+1] = sig; return true end)
+  t.eq(e.mode, "basic")
+  e:applyConfig({ mode = "latch", pulseMs = 250, intervalMs = 1000, invert = false })
+  t.eq(e.mode, "latch")
+end)

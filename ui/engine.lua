@@ -223,7 +223,11 @@ end
 
 function Engine:applyConfig(cfg)
   self.cfg = cfg
+  self.mode = (cfg.mode == "latch") and "latch" or "basic"
   self.lastWritten = nil
+  self.lastFeeding = nil
+  self.feedLineDownAt = nil
+  self.blockLineDownAt = nil
 end
 
 return Engine

@@ -23,7 +23,7 @@ local BasaltApp = require("ui.basalt.app")
 -- ===== rebindRelay spy. Mirrors the shape ui/basalt/app.lua's M.buildRuntime returns. =====
 
 local function newStubRuntime()
-  local calls = { rebind = 0, blockNow = 0, applyConfig = {} }
+  local calls = { rebind = 0, blockNow = 0, applyConfig = {}, rebuildEngineWriter = 0 }
 
   local engine = {}
   function engine:blockNow() calls.blockNow = calls.blockNow + 1 end
@@ -46,6 +46,7 @@ local function newStubRuntime()
       tank = function() return fuelReadings.tank end,
     },
     rebindRelay = function() calls.rebind = calls.rebind + 1 end,
+    rebuildEngineWriter = function() calls.rebuildEngineWriter = calls.rebuildEngineWriter + 1 end,
   }
 
   return runtime, calls
@@ -322,6 +323,7 @@ t.test("_applyOp cycleMode: applyConfig + rebindRelay + engine:blockNow all fire
   M._applyOp(runtime, { kind = "config", op = "cycleMode" }, deps)
 
   t.eq(#calls.applyConfig, 1)
+  t.eq(calls.rebuildEngineWriter, 1)
   t.eq(calls.rebind, 1)
   t.eq(calls.blockNow, 1)
 end)

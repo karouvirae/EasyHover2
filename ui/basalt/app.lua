@@ -488,10 +488,16 @@ function M.buildRuntime(deps)
 
   -- Physical write edge (ui/relaywriter.lua): basic mode drives config.relay.side and releases the
   -- previously driven side when the side changes; latch mode drives the block/feed lines instead
-  -- (M.makeEngineWriter picks by config.engine.mode).
+  -- (M.makeEngineWriter picks by config.engine.mode). Engine.mode is snapshotted at Engine.new;
+  -- cycleMode must call rebuildEngineWriter after applyConfig so the writer arity matches the
+  -- new mode (1-arg basic vs 2-arg latch).
   local writer = M.makeEngineWriter(RelayWriter, function() return relay end, config)
 
   local engine = Engine.new(config.engine, writer)
+
+  local function rebuildEngineWriter()
+    engine.writer = M.makeEngineWriter(RelayWriter, function() return relay end, config)
+  end
 
   -- Fuel readers (sink over config.fuel.<role>; pure fraction math lives in ui/fuel.lua).
   local function makeFuelReader(role)
@@ -557,6 +563,7 @@ function M.buildRuntime(deps)
     cfgserver = cfgserver,
     config = config,
     rebindRelay = rebindRelay,
+    rebuildEngineWriter = rebuildEngineWriter,
     isRelayReady = isRelayReady,
     uiRev = 0,
     -- Session UI logger (no-op unless the launcher set _G.EH2_UILOG). Records raw input, scheduled-
