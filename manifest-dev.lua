@@ -953,9 +953,9 @@
         },
         {
           ["dst"] = "ui/basalt/app.lua",
-          ["size"] = 58118,
+          ["size"] = 58470,
           ["src"] = "ui/basalt/app.lua",
-          ["sum"] = "c5112303",
+          ["sum"] = "4ba288d1",
         },
         {
           ["dst"] = "ui/basalt/bitconfig/dtc.lua",
@@ -1151,9 +1151,9 @@
         },
         {
           ["dst"] = "ui/basalt/renderpolicy.lua",
-          ["size"] = 6062,
+          ["size"] = 6081,
           ["src"] = "ui/basalt/renderpolicy.lua",
-          ["sum"] = "5bb6a764",
+          ["sum"] = "43a2f6f7",
         },
         {
           ["dst"] = "ui/basalt/senssource.lua",
@@ -1208,6 +1208,12 @@
           ["size"] = 9097,
           ["src"] = "ui/engine.lua",
           ["sum"] = "be1b7b09",
+        },
+        {
+          ["dst"] = "ui/fedtrack.lua",
+          ["size"] = 1008,
+          ["src"] = "ui/fedtrack.lua",
+          ["sum"] = "3302c64b",
         },
         {
           ["dst"] = "ui/fuel.lua",
@@ -1427,5 +1433,5 @@
     ["size"] = 71434,
     ["sum"] = "57671ad7",
   },
-  ["version"] = "012fdf67",
+  ["version"] = "a0813500",
 }

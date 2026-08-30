@@ -61,6 +61,12 @@ t.test("sigFlight changes when trimDir flips (TRIM button must repaint)", functi
   t.truthy(a ~= b, "trimDir flip moves sigFlight")
 end)
 
+t.test("sigFlight changes when lfed changes (LFED must repaint)", function()
+  local a = RP.sigFlight({ lfed = 1 })
+  local b = RP.sigFlight({ lfed = 4 })
+  t.truthy(a ~= b, "lfed change moves sigFlight")
+end)
+
 -- ===== sigFlight: blink-fold rule =====
 
 t.test("sigFlight folds blinkPhase to a constant when healthy (fcsStale=false)", function()
