@@ -66,7 +66,8 @@ local LEGACY_CONFIG_PATH = "/eh2_hw_config.tbl"
 -- /eh2_hw_config.tbl is present, migrates the calibration out of it (read-through,
 -- nothing lost). `read(filename) -> bodyStringOrNil`.
 function M._loadCal(read)
-  local cfg, existed = cfgspec.load("senscal", read)
+  local cfg, existed, err = cfgspec.load("senscal", read)
+  if err then return nil, err end
   if not existed then
     local legacyBody = read(LEGACY_CONFIG_PATH)
     if legacyBody ~= nil then
@@ -255,7 +256,9 @@ end
 
 function M.run()
   local shim = require("fcs.io.shim")
-  local config = { sensors = loadSensors(realRead), bindings = M._loadCal(realRead) }
+  local bindings, calErr = M._loadCal(realRead)
+  if calErr then print("corrupt " .. cfgspec.FILES.senscal .. ": " .. tostring(calErr)); return end
+  local config = { sensors = loadSensors(realRead), bindings = bindings }
   while true do
     print("\n== EH2 CALIBRATE == 1 attitude 2 lateral 3 surge 4 heading 5 ground 6 constants 7 review q quit")
     local ch = read()

@@ -21,8 +21,9 @@ local realWrite = fsx.writeAtomic
 -- Prefers eh2_devbind.tbl; if absent AND the old combined /eh2_hw_config.tbl
 -- is present, migrates the binding out of it (read-through, nothing lost).
 -- Mirrors tools/binddevices.lua's loadBinding verbatim.
-local function loadBinding(read)
-  local cfg, existed = cfgspec.load("devbind", read)
+function M.loadBinding(read)
+  local cfg, existed, err = cfgspec.load("devbind", read)
+  if err then return nil, err end
   if not existed then
     local legacyBody = read(LEGACY_CONFIG_PATH)
     if legacyBody ~= nil then
@@ -50,7 +51,8 @@ end
 function M.run()
   local shim = require("fcs.io.shim")
   local Backend = require("fcs.io.backend")
-  local config = loadBinding(realRead)
+  local config, bindErr = M.loadBinding(realRead)
+  if bindErr then print("corrupt " .. cfgspec.FILES.devbind .. ": " .. tostring(bindErr)); return end
   while true do
     print("\n== EH2 PROBE == 1 discover 2 bind 3 sensors 4 thruster 5 timing 6 roles 7 methods q quit")
     local ch = read()

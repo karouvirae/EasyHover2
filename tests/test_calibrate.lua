@@ -3,6 +3,15 @@ local C = require("tools.calibrate")
 
 local function cfg() return { thrusters={}, sensors={}, bindings={} } end
 
+t.test("_loadCal returns err on unparseable split and not defaults", function()
+  local cfg, err = C._loadCal(function(name)
+    if name == "eh2_senscal.tbl" then return "not a table" end
+    return nil
+  end)
+  t.eq(cfg, nil)
+  t.eq(err, "unparseable")
+end)
+
 t.test("average of a list", function() t.near(C.average({2,4,6}), 4, 1e-9) end)
 t.test("average of empty is 0", function() t.near(C.average({}), 0, 1e-9) end)
 t.test("peakByAbs picks largest magnitude, keeping sign", function()

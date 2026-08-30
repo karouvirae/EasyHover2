@@ -40,8 +40,9 @@ local realWrite = fsx.writeAtomic
 -- Load the existing device binding so a re-run edits rather than clobbers.
 -- Prefers eh2_devbind.tbl; if absent AND the old combined /eh2_hw_config.tbl
 -- is present, migrates the binding out of it (read-through, nothing lost).
-local function loadBinding(read)
-  local cfg, existed = cfgspec.load("devbind", read)
+function M.loadBinding(read)
+  local cfg, existed, err = cfgspec.load("devbind", read)
+  if err then return nil, err end
   if not existed then
     local legacyBody = read(LEGACY_CONFIG_PATH)
     if legacyBody ~= nil then
@@ -79,7 +80,8 @@ end
 
 function M.run()
   local shim = require("fcs.io.shim")
-  local cfg = loadBinding(realRead)
+  local cfg, err = M.loadBinding(realRead)
+  if err then print("corrupt " .. cfgspec.FILES.devbind .. ": " .. tostring(err)); return end
   local defaults = cfgspec.defaults("devbind")
   local c = M.candidates(buildDescriptors(shim))
 

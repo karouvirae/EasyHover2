@@ -1,5 +1,15 @@
 local t = require("tests.framework")
 
+t.test("loadBinding returns err on unparseable split and not defaults", function()
+  local B = require("tools.binddevices")
+  local cfg, err = B.loadBinding(function(name)
+    if name == "eh2_devbind.tbl" then return "not a table" end
+    return nil
+  end)
+  t.eq(cfg, nil)
+  t.eq(err, "unparseable")
+end)
+
 t.test("binddevices.assign sets the right slot; candidates split by kind", function()
   local B = require("tools.binddevices"); local cfg = require("fcs.io.cfgspec").defaults("devbind")
   B.assign(cfg, "thruster", "FL", "thruster_2"); t.eq(cfg.thrusters.FL, "thruster_2")

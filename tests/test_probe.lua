@@ -1,5 +1,14 @@
 local t = require("tests.framework")
 local probe = require("tools.probe")
+t.test("loadBinding returns err on unparseable split and not defaults", function()
+  local cfg, err = probe.loadBinding(function(name)
+    if name == "eh2_devbind.tbl" then return "not a table" end
+    return nil
+  end)
+  t.eq(cfg, nil)
+  t.eq(err, "unparseable")
+end)
+
 t.test("bind assigns a thruster role to a peripheral name", function()
   local c = { thrusters = { FL = false }, sensors = {} }
   local out = probe.bind(c, "FL", "thruster_7")
