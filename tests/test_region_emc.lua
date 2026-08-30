@@ -356,6 +356,21 @@ t.test("M.config (redesign): INVERT readout reflects config.engine.invert", func
   t.truthy(h.elements.invLbl:getText():find("ON", 1, true), "INVERT: ON when config.engine.invert is true")
 end)
 
+t.test("emc_config: FUEL row shows the calibration (ABBR pct%) from reported state.fuel/fuelPct", function()
+  local basalt = BasaltApp.ensureBasalt()
+  local frame = basalt.createFrame()
+  frame:setSize(36, 17)
+  local region = { push = function() end, pop = function() end }
+  local runtime = { uiRev = 0, config = {
+    relay = { name = "relay_2", side = "top" }, fuel = newFuelCfg(),
+    engine = { pulseMs = 250, intervalMs = 330000, invert = false, kickstart = true, masterDefault = false } } }
+  local h = M.config(basalt, frame, region, runtime, { scan = function() return {} end })
+  h.apply({ fuel = "Biodiesel", fuelPct = 60 })
+  t.eq(h.elements.fuelLabel:getText(), "FUEL:   BIOD 60%", "ABBR + pct from telemetry")
+  h.apply({})
+  t.eq(h.elements.fuelLabel:getText(), "FUEL:   ----", "---- when fuel unknown")
+end)
+
 t.test("M.config: picking a relay through its wired onPick (Uical._pickBind) re-blocks -- DRAIN SAFETY -- and M.config's own bump() fires", function()
   local basalt = BasaltApp.ensureBasalt()
   local frame = basalt.createFrame()
@@ -493,6 +508,21 @@ t.test("emc_main: apply() reflects state.pumpAmount/tankMb via manual-max fracti
 
   local ok, err = pcall(function() basalt.update("timer", -1) end)
   t.truthy(ok, "basalt.update should not error: " .. tostring(err))
+end)
+
+t.test("emc_main: LFED shows solid fuel fed last feed (state.lfed) as 'n BZC', '-- BZC' when nil", function()
+  local basalt = BasaltApp.ensureBasalt()
+  local frame = basalt.createFrame()
+  local runtime = { engine = newEngineStub(true), config = {
+    relay = { name = "relay_1", side = "back" },
+    fuel = { pump = { name = "chest_1", kind = "inventory", empty = 0, full = 1000 },
+             tank = { name = "tank_1", kind = "fluid", empty = 0, full = 4000 } } } }
+  local region = { push = function() end, pop = function() end }
+  local handle = M.main(basalt, frame, region, runtime)
+  handle.apply({ lfed = 3 })
+  t.eq(handle.elements.lfedLabel:getText(), "LFED 3 BZC", "n BZC when fed")
+  handle.apply({ lfed = nil })
+  t.eq(handle.elements.lfedLabel:getText(), "LFED -- BZC", "-- BZC before any feed")
 end)
 
 -- ===== Task 3: fuel-panel redesign -- label-over-bar, colored bars, int+unit values, compact =====

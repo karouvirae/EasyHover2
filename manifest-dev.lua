@@ -1139,9 +1139,9 @@
         },
         {
           ["dst"] = "ui/basalt/regions/emc.lua",
-          ["size"] = 29951,
+          ["size"] = 30480,
           ["src"] = "ui/basalt/regions/emc.lua",
-          ["sum"] = "403c2c84",
+          ["sum"] = "d5409e96",
         },
         {
           ["dst"] = "ui/basalt/regions/fcs.lua",
@@ -1433,5 +1433,5 @@
     ["size"] = 71434,
     ["sum"] = "57671ad7",
   },
-  ["version"] = "a0813500",
+  ["version"] = "df5b6a88",
 }

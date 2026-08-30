@@ -260,9 +260,10 @@ function M.main(basalt, frame, region, runtime)
   local function setLed(row, on)
     bg:setPixel(ledX, boxR0 + row, string.char(7), colors.toBlit(on and colors.green or colors.red), "f")
   end
-  -- LFED placeholder (upcoming fuel feature) on the 3rd box row -- static for now, no LED.
-  frame:addLabel({ x = tx, y = boxR0 + 3, width = 8, height = 1, autoSize = false,
-    text = string.format("%-5s%-3s", "LFED", "XX") }):setForeground(Theme.role("font"))
+  -- LFED = solid fuel fed on the last feed (state.lfed, from ui/fedtrack). No LED (a count, not a
+  -- state), so the row may use the full box width. Driven by apply() below.
+  local lfedLabel = frame:addLabel({ x = tx, y = boxR0 + 3, width = 12, height = 1, autoSize = false, text = "" })
+  lfedLabel:setForeground(Theme.role("font"))
 
   -- ===== CONFIG (blue outline) 3-row, right of the status box -- sized to its label =====
   local configBtn = outlinedButton(frame, 22, boxR0 + 1, 10, "CONFIG", colors.blue)
@@ -313,6 +314,9 @@ function M.main(basalt, frame, region, runtime)
     feedText:setText(string.format("%-5s%-3s", "FEED", state.feeding and "YES" or "NO"))
     setLed(1, state.engineMaster and true or false)
     setLed(2, state.feeding and true or false)
+    lfedLabel:setWidth(12)
+    lfedLabel:setText(string.format("%-5s%s", "LFED",
+      state.lfed and (round(state.lfed) .. " " .. M.SOLID_ABBR) or ("-- " .. M.SOLID_ABBR)))
   end
 
   apply({})
@@ -324,7 +328,7 @@ function M.main(basalt, frame, region, runtime)
       mainLabel = mainLabel, mainBar = mainBar, mainValLabel = mainValLabel,
       flowLabel = flowLabel, leftLabel = leftLabel,
       engSw = engBtn, primeBtn = primeBtn,
-      masterText = masterText, feedText = feedText,
+      masterText = masterText, feedText = feedText, lfedLabel = lfedLabel,
       configBtn = configBtn,
     },
   }
@@ -349,11 +353,12 @@ function M.config(basalt, frame, region, runtime, deps)
   local boxC0, boxR0, boxC1, boxR1 = 8, 2, 28, 7
   Gfx.checkerBox(bg, boxC0, boxR0, boxC1, boxR1, colors.orange)
 
-  -- Status readouts inside the box (black interior), spaced from the border. Row 1 = FUEL placeholder
-  -- (upcoming fuel feature); INVERT gets a red/green state LED like the EMC region's ENG/FEED.
+  -- Status readouts inside the box (black interior), spaced from the border. Row 1 = FUEL calibration
+  -- glance readout (reported fuel + %, e.g. "BIOD 60%"); INVERT gets a red/green state LED like ENG/FEED.
+  -- Width 17 so the widest value ("ETHA 200%") aligns with the PULSE/INTRVL/INVERT rows (%-8s).
   local tx = boxC0 + 2
-  frame:addLabel({ x = tx, y = boxR0 + 1, width = 16, height = 1, autoSize = false,
-    text = string.format("%-8s%s", "FUEL:", "XXXX") }):setForeground(Theme.role("font"))
+  local fuelLabel = frame:addLabel({ x = tx, y = boxR0 + 1, width = 17, height = 1, autoSize = false, text = "" })
+  fuelLabel:setForeground(Theme.role("font"))
   local pulseLbl = frame:addLabel({ x = tx, y = boxR0 + 2, width = 16, height = 1, autoSize = false, text = "" })
   local intLbl   = frame:addLabel({ x = tx, y = boxR0 + 3, width = 16, height = 1, autoSize = false, text = "" })
   local invLbl   = frame:addLabel({ x = tx, y = boxR0 + 4, width = 11, height = 1, autoSize = false, text = "" })
@@ -385,8 +390,10 @@ function M.config(basalt, frame, region, runtime, deps)
   local function apply(state)
     state = state or {}
     local e = runtime.config.engine or {}
-    -- Labels padded to a fixed width so the values line up vertically across the 3 rows. Width guard
+    -- Labels padded to a fixed width so the values line up vertically across the rows. Width guard
     -- (as on the tape/PFD) keeps the aligned text from wrap-clipping on an unsettled rebuild.
+    fuelLabel:setWidth(17)
+    fuelLabel:setText(string.format("%-8s%s", "FUEL:", EnginePanel.fuelCalText(state.fuel, state.fuelPct)))
     pulseLbl:setWidth(16); intLbl:setWidth(16); invLbl:setWidth(11)
     pulseLbl:setText(string.format("%-8s%dms", "PULSE:", e.pulseMs or 0))
     intLbl:setText(string.format("%-8s%s", "INTRVL:", fmtIntervalCompact(e.intervalMs)))
@@ -401,6 +408,7 @@ function M.config(basalt, frame, region, runtime, deps)
   return {
     apply = apply,
     elements = {
+      fuelLabel = fuelLabel,
       pulseLbl = pulseLbl, intLbl = intLbl, invLbl = invLbl,
       pulseDn = pulseDn, pulseUp = pulseUp, intDn = intDn, intUp = intUp, invBtn = invBtn,
       calFuelBtn = calFuelBtn, backBtn = backBtn,
