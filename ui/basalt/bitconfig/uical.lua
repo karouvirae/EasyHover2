@@ -236,33 +236,43 @@ function M._applyOp(runtime, effect, deps)
     -- Flip basic<->latch. Entering latch: applyConfig + rebuild writer + rebind + blockNow in
     -- this click. Leaving latch: config/disk flips to basic immediately, but live Engine.mode
     -- and the latch writer stay until a real LATCH_LINE_MS BLOCK pulse completes (tick) -- no
-    -- sleep() in the Basalt onClick path.
-    local leavingLatch = (runtime.config.engine.mode == "latch")
-    if leavingLatch then
-      runtime.config.engine.mode = "basic"
-      local now = (deps and deps.now) or runtime.engine.lastNow or 0
-      local function onLeaveDone()
+    -- sleep() in the Basalt onClick path. A second MODE click while leaveLatchPending is a
+    -- no-op: config is already basic, and entering latch here would race onLeaveDone.
+    if not runtime.engine.leaveLatchPending then
+      local leavingLatch = (runtime.config.engine.mode == "latch")
+      if leavingLatch then
+        -- Flip first so a sync onLeaveDone (stub / already-basic engine) rebuilds a basic
+        -- writer. Revert if beginLeaveLatch fails -- leave did not start.
+        runtime.config.engine.mode = "basic"
+        local now = (deps and deps.now) or runtime.engine.lastNow or 0
+        local function onLeaveDone()
+          if runtime.rebuildEngineWriter then runtime.rebuildEngineWriter() end
+          runtime.rebindRelay()
+          runtime.engine:blockNow()
+        end
+        local started
+        if runtime.engine.beginLeaveLatch then
+          started = runtime.engine:beginLeaveLatch(now, onLeaveDone)
+        else
+          onLeaveDone()
+          started = true
+        end
+        if not started then
+          runtime.config.engine.mode = "latch"
+        end
+      else
+        runtime.config.engine.mode = "latch"
+        -- Entering latch: a pulse shorter than LATCH_LINE_MS (150ms, see engine.lua) can't
+        -- reliably clear the FEED trigger line before the BLOCK pulse would rise -- same floor
+        -- stepEngine enforces going forward. Correct it here too so a value that got below 200
+        -- some other way (e.g. floored at 0 in basic mode, then flipped) is saved valid on the
+        -- very transition that makes it dangerous. Leaving latch never raises pulseMs.
+        if runtime.config.engine.pulseMs < 200 then runtime.config.engine.pulseMs = 200 end
+        runtime.engine:applyConfig(runtime.config.engine)
         if runtime.rebuildEngineWriter then runtime.rebuildEngineWriter() end
         runtime.rebindRelay()
         runtime.engine:blockNow()
       end
-      if runtime.engine.beginLeaveLatch then
-        runtime.engine:beginLeaveLatch(now, onLeaveDone)
-      else
-        onLeaveDone()
-      end
-    else
-      runtime.config.engine.mode = "latch"
-      -- Entering latch: a pulse shorter than LATCH_LINE_MS (150ms, see engine.lua) can't
-      -- reliably clear the FEED trigger line before the BLOCK pulse would rise -- same floor
-      -- stepEngine enforces going forward. Correct it here too so a value that got below 200
-      -- some other way (e.g. floored at 0 in basic mode, then flipped) is saved valid on the
-      -- very transition that makes it dangerous. Leaving latch never raises pulseMs.
-      if runtime.config.engine.pulseMs < 200 then runtime.config.engine.pulseMs = 200 end
-      runtime.engine:applyConfig(runtime.config.engine)
-      if runtime.rebuildEngineWriter then runtime.rebuildEngineWriter() end
-      runtime.rebindRelay()
-      runtime.engine:blockNow()
     end
   elseif op == "cycleRelaySide" then
     -- Change the side the engine drives, then re-assert blocked on the NEW side -- same

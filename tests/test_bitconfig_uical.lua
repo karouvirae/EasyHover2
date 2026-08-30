@@ -31,6 +31,7 @@ local function newStubRuntime()
     calls.beginLeaveLatch = calls.beginLeaveLatch + 1
     -- Stub does not simulate LATCH_LINE_MS; leave-completion tests use a real Engine.
     if onDone then onDone() end
+    return true
   end
   function engine:applyConfig(cfg) calls.applyConfig[#calls.applyConfig + 1] = cfg end
 
@@ -429,6 +430,121 @@ t.test("_applyOp cycleMode: leaving latch does NOT raise pulseMs", function()
 
   t.eq(runtime.config.engine.mode, "basic")
   t.eq(runtime.config.engine.pulseMs, 100, "leaving latch leaves pulseMs untouched")
+end)
+
+t.test("_applyOp cycleMode: sync onLeaveDone rebuilds with config already basic", function()
+  -- Stub beginLeaveLatch completes in the click. rebuildEngineWriter reads config.engine.mode,
+  -- so config must already be basic when onDone runs (flip-then-revert, not flip-after).
+  local runtime, calls = newStubRuntime()
+  runtime.config.engine.mode = "latch"
+  local modeAtRebuild
+  runtime.rebuildEngineWriter = function()
+    calls.rebuildEngineWriter = calls.rebuildEngineWriter + 1
+    modeAtRebuild = runtime.config.engine.mode
+  end
+  M._applyOp(runtime, { kind = "config", op = "cycleMode" }, { save = newSaveSpy() })
+  t.eq(runtime.config.engine.mode, "basic")
+  t.eq(modeAtRebuild, "basic", "sync onLeaveDone must rebuild after config is already basic")
+end)
+
+t.test("_applyOp cycleMode: beginLeaveLatch false does not flip config to basic", function()
+  -- cycleMode must not treat leave as started when beginLeaveLatch returns false: config/disk
+  -- stay latch, pending is clear, tick is not stuck in the leave early-return.
+  local Engine = require("ui.engine")
+  local writes = {}
+  local allow = { blockUp = false }
+  local latchWriter = function(line, value)
+    writes[#writes + 1] = { kind = "latch", line = line, value = value }
+    if line == "block" and value == true and not allow.blockUp then return false end
+    return true
+  end
+  local engine = Engine.new(
+    { mode = "latch", pulseMs = 250, intervalMs = 1500, kickstart = true, masterDefault = false },
+    latchWriter)
+  engine:setMaster(true, 0)
+
+  local runtime, calls = newStubRuntime()
+  runtime.config.engine.mode = "latch"
+  runtime.config.engine.pulseMs = 250
+  runtime.engine = engine
+  runtime.rebuildEngineWriter = function()
+    calls.rebuildEngineWriter = calls.rebuildEngineWriter + 1
+  end
+
+  local save, saveCalls = newSaveSpy()
+  M._applyOp(runtime, { kind = "config", op = "cycleMode" }, { save = save, now = 0 })
+
+  t.eq(runtime.config.engine.mode, "latch", "config must stay latch when leave did not start")
+  t.eq(engine.mode, "latch")
+  t.eq(engine.leaveLatchPending, false)
+  t.eq(engine.blockLineDownAt, nil)
+  t.eq(calls.rebuildEngineWriter, 0)
+  t.eq(saveCalls[#saveCalls].cfg.engine.mode, "latch")
+
+  allow.blockUp = true
+  local n = #writes
+  engine:tick(10)
+  t.eq(engine.leaveLatchPending, false, "tick must not be stuck in leave early-return")
+  local retried
+  for i = n + 1, #writes do
+    if writes[i].kind == "latch" and writes[i].line == "block" and writes[i].value == true then retried = true end
+  end
+  t.truthy(retried, "tick after failed leave must still be able to pulse BLOCK")
+end)
+
+t.test("_applyOp cycleMode: second MODE click while leave pending is a no-op", function()
+  -- Config flips to basic immediately on a successful leave start. A second MODE click within
+  -- LATCH_LINE_MS would otherwise take the enter-latch path (applyConfig/rebuild) while
+  -- onLeaveDone can still fire and swap the writer back.
+  local Engine = require("ui.engine")
+  local writes = {}
+  local latchWriter = function(line, value)
+    writes[#writes + 1] = { kind = "latch", line = line, value = value }
+    return true
+  end
+  local basicWriter = function(sig)
+    writes[#writes + 1] = { kind = "basic", sig = sig }
+    return true
+  end
+  local engine = Engine.new(
+    { mode = "latch", pulseMs = 250, intervalMs = 1500, kickstart = true, masterDefault = false },
+    latchWriter)
+  engine:setMaster(true, 0)
+
+  local runtime, calls = newStubRuntime()
+  runtime.config.engine.mode = "latch"
+  runtime.config.engine.pulseMs = 250
+  runtime.engine = engine
+  local realBlockNow = engine.blockNow
+  function engine:blockNow(...)
+    calls.blockNow = calls.blockNow + 1
+    return realBlockNow(self, ...)
+  end
+  runtime.rebuildEngineWriter = function()
+    calls.rebuildEngineWriter = calls.rebuildEngineWriter + 1
+    writes[#writes + 1] = { kind = "rebuild" }
+    engine.writer = basicWriter
+  end
+
+  local save = newSaveSpy()
+  M._applyOp(runtime, { kind = "config", op = "cycleMode" }, { save = save, now = 0 })
+  t.eq(runtime.config.engine.mode, "basic")
+  t.eq(engine.mode, "latch")
+  t.eq(engine.leaveLatchPending, true)
+  t.eq(calls.rebuildEngineWriter, 0)
+
+  local applyN = #calls.applyConfig
+  M._applyOp(runtime, { kind = "config", op = "cycleMode" }, { save = save, now = 50 })
+  t.eq(runtime.config.engine.mode, "basic", "second click must not enter latch while leave is pending")
+  t.eq(engine.mode, "latch")
+  t.eq(engine.leaveLatchPending, true)
+  t.eq(calls.rebuildEngineWriter, 0, "second click must not rebuild the writer")
+  t.eq(#calls.applyConfig, applyN, "second click must not applyConfig into latch")
+
+  engine:tick(150)
+  t.eq(engine.mode, "basic")
+  t.eq(engine.leaveLatchPending, false)
+  t.eq(calls.rebuildEngineWriter, 1, "onLeaveDone still rebuilds once after BLOCK lowers")
 end)
 
 -- ===== M._applyOp: cycleRelaySide with effect.which -- basic side (default) vs latch block/feed =====

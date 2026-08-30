@@ -234,18 +234,27 @@ function Engine:beginLeaveLatch(now, onDone)
   end
   self.master = false
   self.pulseEndsAt, self.nextPulseAt = nil, nil
-  self.leaveLatchPending = true
-  self.onLeaveLatchDone = onDone
   if self.feedLineDownAt then
-    if not self.writer("feed", false) then return false end
+    if not self.writer("feed", false) then
+      self.leaveLatchPending = false
+      self.onLeaveLatchDone = nil
+      return false
+    end
     self.feedLineDownAt = nil
   end
-  -- Force a BLOCK raise even if lastFeeding was already false.
-  if not self.writer("block", true) then return false end
+  -- Force a BLOCK raise even if lastFeeding was already false. Pending is armed only after
+  -- this write succeeds -- otherwise tick would early-return forever with no blockLineDownAt.
+  if not self.writer("block", true) then
+    self.leaveLatchPending = false
+    self.onLeaveLatchDone = nil
+    return false
+  end
   self.lastFeeding = false
   self.feeding = false
   self.lastWriteAt = now
   self.blockLineDownAt = now + LATCH_LINE_MS
+  self.leaveLatchPending = true
+  self.onLeaveLatchDone = onDone
   return true
 end
 

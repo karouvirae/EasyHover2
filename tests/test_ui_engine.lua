@@ -211,4 +211,53 @@ t.test("beginLeaveLatch: mode stays latch until BLOCK lowers; rebuild runs after
   t.eq(e.mode, "basic", "mode flips to basic only after BLOCK is down")
   t.eq(rebuilds, 1, "onLeaveLatchDone fires after BLOCK lowers")
   t.eq(e.blockLineDownAt, nil)
+  t.eq(e.leaveLatchPending, false)
+end)
+
+t.test("beginLeaveLatch: BLOCK raise failure does not set pending (tick not stuck)", function()
+  -- Setting leaveLatchPending before the BLOCK write succeeds leaves pending true with no
+  -- blockLineDownAt; tick then early-returns forever and never retries the RESET pulse.
+  local allow = { blockUp = false }
+  local w = { calls = {} }
+  w.fn = function(line, value)
+    w.calls[#w.calls + 1] = { line = line, value = value }
+    if line == "block" and value == true and not allow.blockUp then return false end
+    return true
+  end
+  local e = Engine.new(LATCH_CFG, w.fn)
+  e:setMaster(true, 0)               -- mid-feed: FEED raised so drop + BLOCK raise both run
+  local rebuilds = 0
+  local ok = e:beginLeaveLatch(0, function() rebuilds = rebuilds + 1 end)
+  t.eq(ok, false)
+  t.eq(e.leaveLatchPending, false, "pending must not stick after BLOCK raise failure")
+  t.eq(e.blockLineDownAt, nil, "BLOCK pulse not armed on failed raise")
+  t.eq(e.mode, "latch")
+  t.eq(rebuilds, 0)
+  allow.blockUp = true
+  local n = #w.calls
+  e:tick(10)
+  t.eq(e.leaveLatchPending, false, "tick must not early-return as if leave were in flight")
+  local retried
+  for i = n + 1, #w.calls do
+    if w.calls[i].line == "block" and w.calls[i].value == true then retried = true end
+  end
+  t.truthy(retried, "tick after failed leave must still be able to pulse BLOCK")
+end)
+
+t.test("beginLeaveLatch: FEED drop failure does not set pending", function()
+  local w = { calls = {} }
+  w.fn = function(line, value)
+    w.calls[#w.calls + 1] = { line = line, value = value }
+    if line == "feed" and value == false then return false end
+    return true
+  end
+  local e = Engine.new(LATCH_CFG, w.fn)
+  e:setMaster(true, 0)
+  t.truthy(e.feedLineDownAt)
+  local ok = e:beginLeaveLatch(0, function() end)
+  t.eq(ok, false)
+  t.eq(e.leaveLatchPending, false, "pending must not stick after FEED drop failure")
+  t.eq(e.blockLineDownAt, nil)
+  t.truthy(e.feedLineDownAt, "FEED down-at stays so tick can retry the drop")
+  t.eq(e.mode, "latch")
 end)
