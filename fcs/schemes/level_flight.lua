@@ -42,4 +42,16 @@ function Scheme:update(sp, m, dt, freeze, sat)
     surge = self.surgeTc:update(sp.surgePos or 0, m.surgePos or 0, m.surgeVel or 0, dt, freeze or sat.surge),
   }
 end
+-- Pure read: assembles the 6 per-axis {err,P,I,D} term tables by delegating to each
+-- controller's own :terms(). No mutation, no :update() call. Log-time only.
+function Scheme:terms(sp, m)
+  return {
+    alt   = self.altPid:terms(sp.altitude or 0, m.altitude or 0),
+    pitch = self.pitchPid:terms(sp.pitch or 0, m.pitch or 0),
+    roll  = self.rollPid:terms(sp.roll or 0, m.roll or 0),
+    yaw   = self.headingPid:terms(sp.heading or 0, m.heading or 0, m.yawRate or 0),
+    sway  = self.swayTc:terms(sp.swayPos or 0, m.swayPos or 0, m.swayVel or 0),
+    surge = self.surgeTc:terms(sp.surgePos or 0, m.surgePos or 0, m.surgeVel or 0),
+  }
+end
 return Scheme
