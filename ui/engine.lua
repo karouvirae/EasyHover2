@@ -206,6 +206,27 @@ function Engine:blockNow()
   return self:_write(false)
 end
 
+--- Leave-latch only: idle BOTH trigger lines while mode/writer are still latch, then caller may
+-- applyConfig/rebuild. A plain blockNow raises BLOCK and schedules blockLineDownAt; applyConfig
+-- would clear *LineDownAt and leave the line HIGH. Mid-feed also both-lines-high if FEED is up.
+function Engine:abandonLatch()
+  if self.mode ~= "latch" then return true end
+  self.pulseEndsAt, self.nextPulseAt = nil, nil
+  if self.feedLineDownAt then
+    if not self.writer("feed", false) then return false end
+    self.feedLineDownAt = nil
+  end
+  -- Immediate BLOCK pulse (raise+lower). Do not schedule blockLineDownAt -- we are abandoning.
+  if not self.writer("block", true) then return false end
+  if not self.writer("block", false) then return false end
+  self.blockLineDownAt = nil
+  self.feedLineDownAt = nil
+  self.lastFeeding = false
+  self.feeding = false
+  self.lastWritten = nil
+  return true
+end
+
 function Engine:status(now)
   local remaining = nil
   if self.master and self.nextPulseAt then

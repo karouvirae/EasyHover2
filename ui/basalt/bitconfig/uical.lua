@@ -248,10 +248,14 @@ function M._applyOp(runtime, effect, deps)
       -- very transition that makes it dangerous. Leaving latch never raises pulseMs.
       if runtime.config.engine.pulseMs < 200 then runtime.config.engine.pulseMs = 200 end
     end
-    -- Leave-latch: RESET the Powered Latch via the OLD latch writer/mode FIRST. Engine.mode and
-    -- engine.writer are still latch until applyConfig/rebuild; if we rebuild to the basic
-    -- 1-arg writer first, blockNow cannot pulse the BLOCK trigger and a mid-feed latch stays SET.
-    if leavingLatch then runtime.engine:blockNow() end
+    -- Leave-latch: idle BOTH latch trigger lines via the OLD latch writer/mode FIRST (drop FEED
+    -- if raised, then BLOCK raise+lower). A plain blockNow leaves FEED up (both-lines-high mid-
+    -- feed) and schedules blockLineDownAt -- applyConfig would clear *LineDownAt and leave the
+    -- line HIGH. Entering latch keeps rebuild-then-blockNow (no prior latch lines to idle).
+    if leavingLatch then
+      if runtime.engine.abandonLatch then runtime.engine:abandonLatch()
+      else runtime.engine:blockNow() end
+    end
     runtime.engine:applyConfig(runtime.config.engine)
     if runtime.rebuildEngineWriter then runtime.rebuildEngineWriter() end
     runtime.rebindRelay()
