@@ -16,6 +16,7 @@ local frame     = require("fcs.frame")
 local hover     = require("tools.hover_test")
 local Flight    = require("fcs.runtime.flight")
 local fault     = require("fcs.runtime.fault")
+local fsx       = require("fcs.io.fsx")
 local keymap    = require("fcs.input.keymap")
 local Pilot     = require("fcs.input.pilot")
 local inputCfg  = require("fcs.input.config")
@@ -62,7 +63,7 @@ local function readFile(name)
   local f = fs.open(p, "r"); local body = f.readAll(); f.close(); return body
 end
 local function writeFile(name, body)
-  local f = fs.open("/" .. name, "w"); f.write(body); f.close(); return true
+  return fsx.writeAtomic("/" .. name, body)
 end
 local fuelcal = cfgspec.load("fuelcal", readFile)   -- { fuel = "Biodiesel" } by default
 local fuelScale0 = fueltable.scaleFor(fuelcal.fuel) or 1.0
@@ -334,8 +335,10 @@ local function commandTask()
     local _, _, ch, _, msg = os.pullEvent("modem_message")
     local frame_ = cmdLink:onMessage(ch, msg)
     if frame_ then
-      local ack = recv:receive(frame_, function(cmd) flight:handleCommand(cmd) end)
-      if ack then cmdLink:send(ack) end
+      fault.protect(function()
+        local ack = recv:receive(frame_, function(cmd) flight:handleCommand(cmd) end)
+        if ack then cmdLink:send(ack) end
+      end)
     end
   end
 end
@@ -343,7 +346,9 @@ end
 local function healthTask()
   while true do
     local beat = hbTx:beat(os.epoch("utc") / 1000)
-    if beat then hbLink:send(beat) end
+    if beat then
+      fault.protect(function() hbLink:send(beat) end)
+    end
     sleep(0.25)
   end
 end

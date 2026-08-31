@@ -11,3 +11,26 @@ t.test("orReraise: other errors become strings for the console, not re-raised", 
   t.eq(fault.orReraise("sensor boom"), "sensor boom")
   t.eq(fault.orReraise(false), "false")
 end)
+
+t.test("protect: success returns true and does not throw", function()
+  local ran = false
+  local ok, err = require("fcs.runtime.fault").protect(function() ran = true end)
+  t.eq(ok, true)
+  t.eq(err, nil)
+  t.eq(ran, true)
+end)
+
+t.test("protect: non-Terminated error returns false, string, does not throw", function()
+  local ok, err = require("fcs.runtime.fault").protect(function() error("disk") end)
+  t.eq(ok, false)
+  t.eq(type(err), "string")
+  t.truthy(string.find(err, "disk", 1, true))
+end)
+
+t.test("protect: Terminated is re-raised", function()
+  local ok, err = pcall(function()
+    require("fcs.runtime.fault").protect(function() error("Terminated", 0) end)
+  end)
+  t.eq(ok, false)
+  t.eq(err, "Terminated")
+end)
