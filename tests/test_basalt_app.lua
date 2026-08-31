@@ -410,6 +410,19 @@ t.test("applyEventTop calls apply on every built nav page, even if it is not the
   t.eq(applied, 1, "only the NAV handle applied (not PFD)")
 end)
 
+t.test("tickWptFreshness applies nav only on a true-to-false drop", function()
+  local runtime = newRuntime()
+  runtime.wptClient.lastReplyAt = 0
+  runtime.wptClient.online = true
+  local applied = 0
+  local recs = { a = { built = { nav = { handle = { apply = function() applied = applied + 1 end } } } } }
+  local n = M.tickWptFreshness(runtime, recs, 10000)
+  t.eq(runtime.wptClient.online, false)
+  t.eq(n, 1)
+  t.eq(applied, 1)
+  t.eq(M.tickWptFreshness(runtime, recs, 11000), 0, "already false: no second apply")
+end)
+
 t.test("buildState clears a stale routeActive when its route was deleted on the NAV PC", function()
   local runtime = newRuntime()
   local now = os.epoch("utc")

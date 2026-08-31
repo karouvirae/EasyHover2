@@ -62,15 +62,34 @@ function C:stale(now, maxAge)
   return (now - self.lastReplyAt) > (maxAge or 6000)
 end
 
+--- refreshOnline(now, maxAge) -> online after applying stale(). If the last reply is older than
+--- maxAge (default 6000 ms), clears online. Recovery is onReply, not this function. `now` defaults
+--- to self.now().
+function C:refreshOnline(now, maxAge)
+  now = now or self.now()
+  if self:stale(now, maxAge) then self.online = false end
+  return self.online
+end
+
 -- ===== fire-and-forget sends (async). The reply lands via the UI modem router -> onReply. =====
 --- request(): ask the NAV PC for the full store (refreshes the cache when the reply arrives).
-function C:request() if self.link then self.link:send(M.getFrame()) end end
+--- Always sends (recovery poll) after refreshOnline so a silent NAV can come back.
+function C:request()
+  self:refreshOnline()
+  if self.link then self.link:send(M.getFrame()) end
+end
 
 --- mutate(op, args): send a store op (addWpt/editWpt/deleteWpt/...); the reply carries the fresh
---- store (or an err surfaced in lastErr).
-function C:mutate(op, args) if self.link then self.link:send(M.opFrame(op, args, self.rev)) end end
+--- store (or an err surfaced in lastErr). No-ops when the NAV PC is stale -- do not send into the void.
+function C:mutate(op, args)
+  if not self:refreshOnline() then return end
+  if self.link then self.link:send(M.opFrame(op, args, self.rev)) end
+end
 
---- diskOp(op): scan/import/export/clean on the NAV PC's disk drive.
-function C:diskOp(op) if self.link then self.link:send(M.diskFrame(op)) end end
+--- diskOp(op): scan/import/export/clean on the NAV PC's disk drive. No-ops when stale.
+function C:diskOp(op)
+  if not self:refreshOnline() then return end
+  if self.link then self.link:send(M.diskFrame(op)) end
+end
 
 return M

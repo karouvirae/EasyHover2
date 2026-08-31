@@ -171,6 +171,23 @@ t.test("wptedit has HERE/MAN/EDIT/DEL and no console Inputs", function()
   t.eq(els.xIn, nil)
 end)
 
+t.test("wptedit HERE is disabled when the wptClient is stale", function()
+  -- A client that still looks online after one reply, but is past the 6000 ms window, must
+  -- paint HERE disabled on apply -- otherwise parked NAV keeps looking writable.
+  local basalt = BasaltApp.ensureBasalt()
+  local frame = basalt.createFrame()
+  local Client = require("ui.basalt.wptclient")
+  local c = Client.new({ now = function() return 20000 end })
+  c:onReply({ k = "wpt_store", store = { waypoints = {}, routes = {} }, rev = 1 }, 10000)
+  t.eq(c.online, true, "still online until refreshOnline runs")
+  local h = M.build(basalt, frame, { wptClient = c }, Nav.new("nav"))
+  local region = h.elements.region
+  region:push("wptedit")
+  h.apply({})
+  local els = region.built.wptedit.handle.elements
+  t.eq(els.actionRow.buttons[1].state, "disabled", "HERE disabled when NAV is stale")
+end)
+
 t.test("M.build: clicking [BIT/CONFIG] button invokes M._onButton and pushes nav", function()
   local basalt = BasaltApp.ensureBasalt()
   local frame = basalt.createFrame()

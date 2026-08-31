@@ -58,4 +58,36 @@ t.test("onReply ignores garbage without crashing", function()
   t.eq(#c.store.waypoints, 0)
 end)
 
+t.test("stale: no reply is stale; a fresh reply is not; past 6000 ms is", function()
+  local c = Client.new({ now = function() return 10000 end })
+  t.eq(c:stale(10000), true)
+  c:onReply({ k = "wpt_store", store = { waypoints = {}, routes = {} }, rev = 1 }, 10000)
+  t.eq(c:stale(10000), false)
+  t.eq(c:stale(10000 + 6000), false)
+  t.eq(c:stale(10000 + 6001), true)
+end)
+
+t.test("refreshOnline clears online when stale", function()
+  local c = Client.new({ now = function() return 20000 end })
+  c:onReply({ k = "wpt_store", store = { waypoints = {}, routes = {} }, rev = 1 }, 10000)
+  t.eq(c.online, true)
+  t.eq(c:refreshOnline(20000), false)
+  t.eq(c.online, false)
+end)
+
+t.test("mutate and diskOp do not send when stale; request still does", function()
+  local sent = {}
+  local c = Client.new({
+    now = function() return 20000 end,
+    link = { send = function(_, f) sent[#sent + 1] = f end },
+  })
+  c:onReply({ k = "wpt_store", store = { waypoints = {}, routes = {} }, rev = 1 }, 10000)
+  c:mutate("addWpt", { name = "X" })
+  c:diskOp("export")
+  t.eq(#sent, 0)
+  c:request()
+  t.eq(#sent, 1)
+  t.eq(sent[1].k, "wpt_get")
+end)
+
 return true

@@ -132,6 +132,18 @@ function M.build(basalt, frame, runtime, nav)
   local function client() return runtime and runtime.wptClient end
   local function store() local c = client(); return (c and c.store) or { waypoints = {}, routes = {} } end
 
+  -- Refresh-time stale gate: mutate/disk action rows go disabled when the NAV PC is silent.
+  -- Tabs stay enabled so the operator can still read the last cache.
+  local function isLive()
+    local c = client()
+    return c and c:refreshOnline() or false
+  end
+  local function setRowLive(row, live)
+    for i = 1, #row.buttons do
+      row.setState(i, live and "off" or "disabled")
+    end
+  end
+
   -- Craft position for "ADD here": x/z from the NAV fix, y from the FCS baro (true-Y) telemetry.
   local function craftPos()
     local nv = (runtime and runtime.nav) or {}
@@ -142,7 +154,9 @@ function M.build(basalt, frame, runtime, nav)
 
   local function sendMutation(kind, form, selectedName)
     local eff = M._wptArgs(kind, form, craftPos(), selectedName)
-    if eff and client() then client():mutate(eff.op, eff.args) end
+    -- Stale: do not report success (SAVE would pop and drop the draft) and do not send.
+    if not (eff and isLive()) then return nil end
+    client():mutate(eff.op, eff.args)
     return eff
   end
 
@@ -235,7 +249,10 @@ function M.build(basalt, frame, runtime, nav)
       { label = "< BACK", onClick = function() region:pop() end },
     })
 
-    refresh = function() list.setItems(W.filter(store(), "all")) end
+    refresh = function()
+      setRowLive(actionRow, isLive())
+      list.setItems(W.filter(store(), "all"))
+    end
     refresh()
 
     return { apply = function(_s) refresh() end,
@@ -293,6 +310,7 @@ function M.build(basalt, frame, runtime, nav)
     })
 
     refresh = function()
+      saveRow.setState(1, isLive() and "off" or "disabled")
       nameBtn:setText(draft.name ~= "" and draft.name or "...")
       typeBtn:setText(draft.type or "base")
       xBtn:setText(draft.x ~= "" and draft.x or "...")
@@ -327,6 +345,9 @@ function M.build(basalt, frame, runtime, nav)
       { label = "< BACK", onClick = function() region:pop() end },
     })
     local function refresh()
+      local live = isLive()
+      setRowLive(row1, live)
+      setRowLive(row2, live)
       local c = client()
       local ld = c and c.lastDisk
       if ld and ld.op == "scan" and ld.result then
@@ -367,7 +388,10 @@ function M.build(basalt, frame, runtime, nav)
         fmt = function(r) return tostring(r.name) end, onSelect = function(r) sel = r and r.name or nil end })
       local backRow = configkit.actionRow(ff, { x = 1, y = ffh, w = ffw }, {
         { label = "< BACK", onClick = function() region:pop() end } })
-      refresh = function() list.setItems(store().routes or {}) end
+      refresh = function()
+        setRowLive(row1, isLive())
+        list.setItems(store().routes or {})
+      end
       refresh()
       return { apply = function(_s) refresh() end, elements = { row1 = row1, row2 = row2, list = list, backRow = backRow } }
     end
@@ -409,6 +433,9 @@ function M.build(basalt, frame, runtime, nav)
       local backRow = configkit.actionRow(ff, { x = 1, y = ffh, w = ffw }, {
         { label = "< ROUTES", onClick = function() inner:pop() end } })
       refresh = function()
+        local live = isLive()
+        setRowLive(row1, live)
+        setRowLive(row2, live)
         local r = route(); local items = {}
         if r then for i, leg in ipairs(r.legs) do items[i] = { wpt = leg.wpt, alt = leg.alt, _i = i } end end
         list.setItems(items)

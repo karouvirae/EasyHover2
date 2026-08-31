@@ -116,9 +116,9 @@ Not autopilot. Commands send. `ap` is event-mode; `build()` does not `apply()`. 
 
 Deferred by spec. Same red chip as inactive LDG/DRN, no `onClick`. Will confuse the test, will not fly the craft. A/P ALT HLD / WAYPOINT / RTB are honestly disabled.
 
-### B6. Unassigned monitors stay blank -- KEEP
+### B6. Unassigned monitors stay blank -- accepted / not an issue
 
-`rootForMonitor` does default to `"emc"`, but `Monitors.resolve` puts present-but-unassigned names in `unassigned`, and `buildFrames` only builds `assigned`. The `pages/emc.lua` comment is wrong. SET UI is required.
+Unassigned monitors stay dark by operator choice (2026-08-31). `rootForMonitor` does default to `"emc"`, but `Monitors.resolve` puts present-but-unassigned names in `unassigned`, and `buildFrames` only builds `assigned`. The `pages/emc.lua` comment is wrong. SET UI is required if a picture is wanted; this is not a defect.
 
 ### B7. Gauge titles stay BZC / BDSL -- DOWNGRADE (leftover chrome)
 

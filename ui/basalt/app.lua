@@ -871,6 +871,20 @@ function M.applyEventTop(runtime, frameRecs, screenId)
   return n
 end
 
+-- Drop online when the NAV PC has gone silent, and apply event-mode NAV only on a true->false
+-- edge so a parked page paints "NAV offline" / disabled actions without a click. Returns how
+-- many handles applyEventTop painted (0 when already offline or still fresh).
+function M.tickWptFreshness(runtime, frameRecs, now)
+  local c = runtime and runtime.wptClient
+  if not c then return 0 end
+  local was = c.online
+  local live = c:refreshOnline(now)
+  if was and not live then
+    return M.applyEventTop(runtime, frameRecs, "nav")
+  end
+  return 0
+end
+
 function M.startScheduled(basalt, runtime, frameRecs)
   frameRecs = frameRecs or {}
   runtime.onWptReply = function()
@@ -940,12 +954,18 @@ function M.startScheduled(basalt, runtime, frameRecs)
     end
   end)
 
-  -- (g) NAV store sync poll, 2s: pull the waypoint/route store from the NAV PC so the NAV menu cache
-  -- stays fresh + offline is detected. Cheap (one small frame); the reply lands via routeModem ->
-  -- wptClient:onReply. First request fires immediately so the menu populates as soon as it opens.
+  -- (g) NAV store sync poll, 2s: tick freshness (apply NAV on a true->false drop) then pull the
+  -- waypoint/route store so the cache stays fresh + a silent NAV can recover. Cheap (one small
+  -- frame); the reply lands via routeModem -> wptClient:onReply. First request fires immediately
+  -- so the menu populates as soon as it opens.
   basalt.schedule(function()
     while true do
-      if runtime.wptClient then pcall(function() runtime.wptClient:request() end) end
+      if runtime.wptClient then
+        pcall(function()
+          M.tickWptFreshness(runtime, frameRecs, os.epoch("utc"))
+          runtime.wptClient:request()
+        end)
+      end
       sleep(2.0)
     end
   end)
