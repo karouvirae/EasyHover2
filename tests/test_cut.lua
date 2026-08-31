@@ -91,3 +91,54 @@ t.test("all: discovers via opts and zeros", function()
   t.eq(power.t0, 0)
   t.eq(power.m0, nil)
 end)
+
+local function readAll(path)
+  local f = fs.open(path, "r")
+  t.truthy(f, "missing " .. path)
+  local body = f.readAll() or ""
+  f.close()
+  return body
+end
+
+local function firstPos(body, needle)
+  local i = body:find(needle, 1, true)
+  t.truthy(i, "expected to find " .. needle)
+  return i
+end
+
+t.test("launchers/fcs.lua cuts before the boot loader", function()
+  local body = readAll("/launchers/fcs.lua")
+  local cutAt = firstPos(body, "fcs.io.cut")
+  local bootAt = firstPos(body, "loaderui")
+  t.truthy(cutAt < bootAt, "cut must run before loaderui")
+end)
+
+t.test("launchers/flight.lua cuts before tools.flight", function()
+  local body = readAll("/launchers/flight.lua")
+  local cutAt = firstPos(body, "fcs.io.cut")
+  local flightAt = firstPos(body, "tools.flight")
+  t.truthy(cutAt < flightAt, "cut must run before tools.flight")
+end)
+
+t.test("tools/flight.lua cuts at process start and in safeShutdown", function()
+  local body = readAll("/tools/flight.lua")
+  local startAt = firstPos(body, "package.path")
+  local firstCut = firstPos(body, "cut.all")
+  local loadAt = body:find("loadConfig", 1, true) or body:find("Backend.new", 1, true)
+  t.truthy(loadAt, "expected loadConfig or Backend.new")
+  t.truthy(firstCut > startAt and firstCut < loadAt, "cut.all before config/backend")
+  local shut = firstPos(body, "local function safeShutdown")
+  local shutCut = body:find("cut.all", shut, true)
+  t.truthy(shutCut, "safeShutdown calls cut.all")
+end)
+
+t.test("tools/hover_test.lua run() cuts before baseline", function()
+  local body = readAll("/tools/hover_test.lua")
+  t.truthy(body:find("fcs.io.cut", 1, true), "hover_test must require fcs.io.cut")
+  local runAt = firstPos(body, "local function run")
+  local cutAt = body:find("fcs.io.cut", runAt, true) or body:find("cut.all", runAt, true)
+  local baseAt = body:find("baseline(", runAt, true)
+  t.truthy(cutAt, "run() must call cut")
+  t.truthy(baseAt, "run() must call baseline")
+  t.truthy(cutAt < baseAt, "cut before baseline")
+end)

@@ -1,2 +1,3 @@
 package.path = "/?.lua;/?/init.lua;" .. package.path
+pcall(function() require("fcs.io.cut").all() end)
 require("tools.flight")

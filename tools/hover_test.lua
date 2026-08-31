@@ -10,6 +10,7 @@ local Loop     = require("fcs.runtime.loop")
 local Registry = require("fcs.modes.registry")
 local Profile  = require("fcs.bringup.profile")
 local Inst     = require("fcs.bringup.instrument")
+local cut      = require("fcs.io.cut")
 
 local CONFIG_PATH = "/eh2_hw_config.tbl"
 local LOG_PATH  = "/eh2_hover_log.csv"
@@ -93,6 +94,7 @@ local function flight(backend, loop, profile, summary, heading0, swayPos0, surge
 end
 
 local function run()
+  pcall(cut.all)
   local config = loadConfig()
   local backend = Backend.new(require("fcs.io.shim"), config)
   local loop = buildLoop(backend)

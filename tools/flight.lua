@@ -3,6 +3,9 @@
 -- IN-GAME ONLY (real peripherals + CC globals). Not unit-tested; validated in flight.
 package.path = "/?.lua;/?/init.lua;" .. package.path
 
+local cut = require("fcs.io.cut")
+pcall(cut.all)
+
 local hwconfig  = require("fcs.io.hwconfig")
 local cfgspec   = require("fcs.io.cfgspec")
 local fueltable = require("fcs.fueltable")
@@ -382,6 +385,7 @@ local function safeShutdown()
       for _, id in ipairs(grp) do pcall(function() backend:setThruster(id, false) end) end
     end
   end)
+  pcall(cut.all)
 end
 
 loadT0 = os.epoch("utc")

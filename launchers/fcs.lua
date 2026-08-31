@@ -1,4 +1,5 @@
 package.path = "/?.lua;/?/init.lua;" .. package.path
+pcall(function() require("fcs.io.cut").all() end)
 local loaderui = require("fcs.boot.loaderui")
 local assembled, logging = loaderui.run()
 if assembled then
