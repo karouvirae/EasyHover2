@@ -123,22 +123,38 @@ end)
 t.test("tools/flight.lua cuts at process start and in safeShutdown", function()
   local body = readAll("/tools/flight.lua")
   local startAt = firstPos(body, "package.path")
-  local firstCut = firstPos(body, "cut.all")
-  local loadAt = body:find("loadConfig", 1, true) or body:find("Backend.new", 1, true)
-  t.truthy(loadAt, "expected loadConfig or Backend.new")
+  firstPos(body, "fcs.io.cut")
+  -- Source keeps `cut.all`; luamin renames the local so dist has `<id>.all)`.
+  local firstCut = body:find("cut.all", 1, true) or body:find(".all)", 1, true)
+  t.truthy(firstCut, "expected cut.all (or minified .all)")
+  local loadAt = body:find("loadConfig", 1, true)
+    or body:find("Backend.new", 1, true)
+    or body:find("fcs.io.hwconfig", 1, true)
+  t.truthy(loadAt, "expected loadConfig/Backend or hwconfig require")
   t.truthy(firstCut > startAt and firstCut < loadAt, "cut.all before config/backend")
-  local shut = firstPos(body, "local function safeShutdown")
-  local shutCut = body:find("cut.all", shut, true)
+  local shut = body:find("local function safeShutdown", 1, true)
+  local shutCut
+  if shut then
+    shutCut = body:find("cut.all", shut, true) or body:find(".all)", shut, true)
+  else
+    -- minified: local name gone; second .all) is the shutdown cut
+    shutCut = body:find(".all)", firstCut + 1, true)
+  end
   t.truthy(shutCut, "safeShutdown calls cut.all")
 end)
 
 t.test("tools/hover_test.lua run() cuts before baseline", function()
   local body = readAll("/tools/hover_test.lua")
   t.truthy(body:find("fcs.io.cut", 1, true), "hover_test must require fcs.io.cut")
-  local runAt = firstPos(body, "local function run")
-  local cutAt = body:find("fcs.io.cut", runAt, true) or body:find("cut.all", runAt, true)
-  local baseAt = body:find("baseline(", runAt, true)
+  -- Source: `cut.all` inside `run`. Dist: luamin renames locals (`run`, `cut`, `baseline`).
+  local cutAt = body:find("cut.all", 1, true) or body:find(".all)", 1, true)
   t.truthy(cutAt, "run() must call cut")
-  t.truthy(baseAt, "run() must call baseline")
+  -- Print string survives minify; `baseline(` does not (local renamed).
+  local baseAt = body:find("measuring baseline", 1, true)
+  if not baseAt then
+    local runAt = body:find("local function run", 1, true)
+    if runAt then baseAt = body:find("baseline(", runAt, true) end
+  end
+  t.truthy(baseAt, "run() must reach baseline")
   t.truthy(cutAt < baseAt, "cut before baseline")
 end)

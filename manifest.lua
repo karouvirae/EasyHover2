@@ -302,6 +302,12 @@
           ["sum"] = "067fc030",
         },
         {
+          ["dst"] = "fcs/io/cut.lua",
+          ["size"] = 1132,
+          ["src"] = "dist/fcs/io/cut.lua",
+          ["sum"] = "bce27d2f",
+        },
+        {
           ["dst"] = "fcs/io/fsx.lua",
           ["size"] = 488,
           ["src"] = "dist/fcs/io/fsx.lua",
@@ -411,9 +417,9 @@
         },
         {
           ["dst"] = "flight",
-          ["size"] = 72,
+          ["size"] = 119,
           ["src"] = "dist/launchers/flight.lua",
-          ["sum"] = "a2fcd66d",
+          ["sum"] = "6e571144",
         },
         {
           ["dst"] = "hovertest",
@@ -441,9 +447,9 @@
         },
         {
           ["dst"] = "startup.lua",
-          ["size"] = 163,
+          ["size"] = 210,
           ["src"] = "dist/launchers/fcs.lua",
-          ["sum"] = "e8999a39",
+          ["sum"] = "a5385cb2",
         },
         {
           ["dst"] = "tools/calibrate.lua",
@@ -453,15 +459,15 @@
         },
         {
           ["dst"] = "tools/flight.lua",
-          ["size"] = 8171,
+          ["size"] = 8226,
           ["src"] = "dist/tools/flight.lua",
-          ["sum"] = "87f4c64f",
+          ["sum"] = "d6c1b48c",
         },
         {
           ["dst"] = "tools/hover_test.lua",
-          ["size"] = 3232,
+          ["size"] = 3276,
           ["src"] = "dist/tools/hover_test.lua",
-          ["sum"] = "a5e01a4b",
+          ["sum"] = "261b39bf",
         },
         {
           ["dst"] = "tools/probe.lua",
@@ -803,6 +809,12 @@
           ["sum"] = "067fc030",
         },
         {
+          ["dst"] = "fcs/io/cut.lua",
+          ["size"] = 1132,
+          ["src"] = "dist/fcs/io/cut.lua",
+          ["sum"] = "bce27d2f",
+        },
+        {
           ["dst"] = "fcs/io/fsx.lua",
           ["size"] = 488,
           ["src"] = "dist/fcs/io/fsx.lua",
@@ -936,9 +948,9 @@
         },
         {
           ["dst"] = "tools/hover_test.lua",
-          ["size"] = 3232,
+          ["size"] = 3276,
           ["src"] = "dist/tools/hover_test.lua",
-          ["sum"] = "a5e01a4b",
+          ["sum"] = "261b39bf",
         },
         {
           ["dst"] = "tools/probe.lua",
@@ -1446,5 +1458,5 @@
     ["size"] = 71874,
     ["sum"] = "4f7c615b",
   },
-  ["version"] = "985d6ee8",
+  ["version"] = "d4340180",
 }

@@ -302,6 +302,12 @@
           ["sum"] = "bf8dd50c",
         },
         {
+          ["dst"] = "fcs/io/cut.lua",
+          ["size"] = 1914,
+          ["src"] = "fcs/io/cut.lua",
+          ["sum"] = "c5aa7a85",
+        },
+        {
           ["dst"] = "fcs/io/fsx.lua",
           ["size"] = 2047,
           ["src"] = "fcs/io/fsx.lua",
@@ -411,9 +417,9 @@
         },
         {
           ["dst"] = "flight",
-          ["size"] = 77,
+          ["size"] = 127,
           ["src"] = "launchers/flight.lua",
-          ["sum"] = "07af84ec",
+          ["sum"] = "88e52d13",
         },
         {
           ["dst"] = "hovertest",
@@ -441,9 +447,9 @@
         },
         {
           ["dst"] = "startup.lua",
-          ["size"] = 427,
+          ["size"] = 477,
           ["src"] = "launchers/fcs.lua",
-          ["sum"] = "90b2aa34",
+          ["sum"] = "4bfb24a3",
         },
         {
           ["dst"] = "tools/calibrate.lua",
@@ -453,15 +459,15 @@
         },
         {
           ["dst"] = "tools/flight.lua",
-          ["size"] = 19332,
+          ["size"] = 19399,
           ["src"] = "tools/flight.lua",
-          ["sum"] = "c4616f9e",
+          ["sum"] = "5132d8c2",
         },
         {
           ["dst"] = "tools/hover_test.lua",
-          ["size"] = 5690,
+          ["size"] = 5746,
           ["src"] = "tools/hover_test.lua",
-          ["sum"] = "53c9ac09",
+          ["sum"] = "5c67491d",
         },
         {
           ["dst"] = "tools/probe.lua",
@@ -803,6 +809,12 @@
           ["sum"] = "bf8dd50c",
         },
         {
+          ["dst"] = "fcs/io/cut.lua",
+          ["size"] = 1914,
+          ["src"] = "fcs/io/cut.lua",
+          ["sum"] = "c5aa7a85",
+        },
+        {
           ["dst"] = "fcs/io/fsx.lua",
           ["size"] = 2047,
           ["src"] = "fcs/io/fsx.lua",
@@ -936,9 +948,9 @@
         },
         {
           ["dst"] = "tools/hover_test.lua",
-          ["size"] = 5690,
+          ["size"] = 5746,
           ["src"] = "tools/hover_test.lua",
-          ["sum"] = "53c9ac09",
+          ["sum"] = "5c67491d",
         },
         {
           ["dst"] = "tools/probe.lua",
@@ -1446,5 +1458,5 @@
     ["size"] = 71874,
     ["sum"] = "4f7c615b",
   },
-  ["version"] = "49ba8889",
+  ["version"] = "ed6426e7",
 }
