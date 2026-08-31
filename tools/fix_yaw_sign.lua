@@ -29,7 +29,9 @@ end
 local oh, oy = cfg.signHeading, cfg.signYawRate
 cfg.signHeading = -1
 cfg.signYawRate = 1
+cfg.compassSign = -1   -- keep the PFD tape sign (rawHeading*compassSign) consistent with signHeading
 cfgspec.save("senscal", cfg, fsx.writeAtomic)
 print(("signHeading: %s -> -1"):format(tostring(oh)))
 print(("signYawRate: %s -> 1  (reverting the earlier wrong flip)"):format(tostring(oy)))
+print("compassSign: -> -1  (PFD tape follows signHeading)")
 print("Saved to " .. cfgspec.FILES.senscal .. ". Now launch:  hovertest")

@@ -13,7 +13,19 @@ function M.defaults(kind)
 end
 
 function M.merge(kind, saved)
-  return hwconfig.merge(saved or {}, M.defaults(kind))
+  saved = saved or {}
+  -- L2: a senscal saved before compassSign existed carries signHeading but no compassSign; the
+  -- default merge would then set compassSign=+1, mirroring the PFD tape on a signHeading=-1 craft.
+  -- Backfill compassSign := signHeading BEFORE merging (on a copy) when it is absent. An explicit
+  -- compassSign the operator set is never touched.
+  if kind == "senscal" and type(saved) == "table"
+     and saved.signHeading ~= nil and saved.compassSign == nil then
+    local copy = {}
+    for k, v in pairs(saved) do copy[k] = v end
+    copy.compassSign = saved.signHeading
+    saved = copy
+  end
+  return hwconfig.merge(saved, M.defaults(kind))
 end
 
 function M.validate(kind, cfg)

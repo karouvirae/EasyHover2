@@ -87,3 +87,27 @@ t.test("tryAssemble still returns nil,err on a corrupt split (no silent fused-ov
   local hw, err = C.tryAssemble(function(name) return files[name] end)
   t.eq(hw, nil); t.truthy(err)
 end)
+
+-- L2: the loop steers by signHeading; the PFD tape reads rawHeading*compassSign. A senscal saved
+-- before compassSign existed has signHeading but no compassSign -> merge defaults it to +1, so on a
+-- craft with signHeading=-1 the tape reads mirrored vs the turn. Backfill compassSign := signHeading
+-- at load when it is absent, so the tape matches the loop without a heading re-cal.
+t.test("senscal load backfills compassSign from signHeading when the cal predates compassSign", function()
+  local body = textutils.serialise({ signPitch = 1, signHeading = -1, signYawRate = 1 })  -- no compassSign
+  local cfg = C.load("senscal", function() return body end)
+  t.eq(cfg.signHeading, -1)
+  t.eq(cfg.compassSign, -1, "backfilled to match signHeading, not defaulted to +1")
+end)
+
+t.test("senscal load keeps an explicit compassSign that differs from signHeading", function()
+  local body = textutils.serialise({ signPitch = 1, signHeading = -1, compassSign = 1 })
+  local cfg = C.load("senscal", function() return body end)
+  t.eq(cfg.compassSign, 1, "operator's explicit compassSign is never overridden")
+end)
+
+t.test("senscal backfill does not fire for other kinds or when signHeading is absent", function()
+  local dev = C.merge("devbind", { thrusters = { FL = "t" } })
+  t.eq(dev.compassSign, nil, "devbind has no compassSign key to invent")
+  local sc = C.merge("senscal", {})                 -- nothing saved -> pure defaults
+  t.eq(sc.compassSign, 1, "default compassSign stays +1 when nothing was saved")
+end)
