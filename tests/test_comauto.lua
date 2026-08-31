@@ -38,10 +38,14 @@ t.test("missing reports the first unmet prereq in order", function()
   t.eq(C.missing(ctx({ flightMode = "MAN" })), "mode")
 end)
 
-t.test("only PRECISION satisfies the mode prereq; CPL is no longer a flight mode", function()
-  t.eq(C.missing(ctx({ flightMode = "PRECISION" })), nil)   -- allowed
+t.test("LDG and PRECISION satisfy the mode prereq; other modes do not", function()
+  -- L1: Auto-COM is a pad procedure. groundSense (hence a real onGround) is LDG-only, so LDG is
+  -- the mode the pilot is actually in on the pad (boot default) -- it MUST satisfy `mode`, or the
+  -- lamp deadlocks (onGround requires LDG, mode required PRECISION -- mutually exclusive live).
+  t.eq(C.missing(ctx({ flightMode = "LDG" })), nil)          -- the pad mode: allowed
+  t.eq(C.missing(ctx({ flightMode = "PRECISION" })), nil)    -- still allowed (heritage; dead on a real pad)
+  t.eq(C.missing(ctx({ flightMode = "CRUISE" })), "mode")    -- non-pad mode rejected
   t.eq(C.missing(ctx({ flightMode = "CPL" })), "mode")       -- CPL is a master mode now, not a flight mode
-  t.eq(C.missing(ctx({ flightMode = "LDG" })), "mode")       -- other flight modes not (yet) eligible
 end)
 
 t.test("lamp is red/green/blue", function()

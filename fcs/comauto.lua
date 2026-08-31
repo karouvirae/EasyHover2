@@ -16,7 +16,7 @@ local LABELS = {
   still    = "NOT MOVING",
   fuel     = "FUEL 20%",
   engaged  = "FCS ENGAGE",
-  mode     = "PRE",
+  mode     = "LDG/PRE",
 }
 
 function M.label(id) return LABELS[id] or tostring(id) end
@@ -46,8 +46,12 @@ function M.missing(ctx)
   if ctx.moving then return "still" end
   if type(ctx.fuelFrac) ~= "number" or ctx.fuelFrac < 0.20 then return "fuel" end
   if not ctx.engaged then return "engaged" end
+  -- Auto-COM is a pad procedure and needs a real onGround reading, which only LDG produces
+  -- (groundSense is LDG-only). So LDG is the eligible pad mode (boot default); PRECISION stays
+  -- accepted for heritage but can never reach here on a live craft (it fails `ground` first).
+  -- Requiring PRECISION alone deadlocked the lamp: onGround needs LDG, mode needed PRECISION.
   local mode = ctx.flightMode
-  if mode ~= "PRECISION" then return "mode" end
+  if mode ~= "PRECISION" and mode ~= "LDG" then return "mode" end
   return nil
 end
 
