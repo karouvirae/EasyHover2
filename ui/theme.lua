@@ -9,27 +9,28 @@
 -- override the theme, so they keep working regardless of the button colour chosen here.
 local M = {}
 
--- ===== the 14 pickable colours (config key -> CC colour slot). "gray" is CC lightGray (medium, so
--- it reads on black); "darkGray" is CC gray (the darker 0x4c4c4c). "lightRed" repurposes the unused
--- `orange` slot, recoloured to a bright red by PALETTE_BASE below. =====
+-- ===== the 15 pickable colours (config key -> CC colour slot). "gray" is CC lightGray (medium, so
+-- it reads on black); "darkGray" is CC gray (the darker 0x4c4c4c). "lightRed" repurposes the `brown`
+-- slot (recoloured to a bright red by PALETTE_BASE); "darkGreen" repurposes the `magenta` slot
+-- (recoloured to a dim green) -- the FCS mode selectors use it for the unselected modes. =====
 M.COLOR_TO_SLOT = {
   lime = colors.lime, green = colors.green, blue = colors.blue, lightBlue = colors.lightBlue,
-  cyan = colors.cyan, magenta = colors.magenta, white = colors.white, gray = colors.lightGray,
+  cyan = colors.cyan, darkGreen = colors.magenta, white = colors.white, gray = colors.lightGray,
   darkGray = colors.gray, red = colors.red, orange = colors.orange, lightRed = colors.brown,
   pink = colors.pink, purple = colors.purple, yellow = colors.yellow,
 }
 
 -- Ordered { key, label } for the pickers (labels are what the user reads).
 M.COLOR_CHOICES = {
-  { "lime", "LIME" }, { "green", "GREEN" }, { "blue", "BLUE" }, { "lightBlue", "LIGHT BLUE" },
-  { "cyan", "CYAN" }, { "magenta", "MAGENTA" }, { "white", "WHITE" }, { "gray", "GRAY" },
+  { "lime", "LIME" }, { "green", "GREEN" }, { "darkGreen", "DK GREEN" }, { "blue", "BLUE" },
+  { "lightBlue", "LIGHT BLUE" }, { "cyan", "CYAN" }, { "white", "WHITE" }, { "gray", "GRAY" },
   { "darkGray", "DARK GRAY" }, { "red", "RED" }, { "orange", "ORANGE" }, { "lightRed", "LIGHT RED" },
   { "pink", "PINK" }, { "purple", "PURPLE" }, { "yellow", "YELLOW" },
 }
 
 -- CC:T default RGBs (dan200 Colour.java) -- needed to compute the grayscale colourblind palette.
 M.DEFAULT_RGB = {
-  [colors.white] = 0xf0f0f0, [colors.orange] = 0xf2b233, [colors.magenta] = 0xe57fd8,
+  [colors.white] = 0xf0f0f0, [colors.orange] = 0xf2b233, [colors.magenta] = 0x14461b,  -- magenta slot = darkGreen
   [colors.lightBlue] = 0x99b2f2, [colors.yellow] = 0xdede6c, [colors.lime] = 0x7fcc19,
   [colors.pink] = 0xf2b2cc, [colors.gray] = 0x4c4c4c, [colors.lightGray] = 0x999999,
   [colors.cyan] = 0x4c99b2, [colors.purple] = 0xb266e5, [colors.blue] = 0x3366cc,
@@ -37,8 +38,9 @@ M.DEFAULT_RGB = {
 }
 
 -- Base palette overrides applied in every mode: recolour the repurposed `brown` slot to a bright
--- "light red" so lightRed is distinct from red (0xcc4c4c) -- and orange keeps its native slot.
-M.PALETTE_BASE = { [colors.brown] = 0xff6a6a }
+-- "light red" (distinct from red 0xcc4c4c) and the repurposed `magenta` slot to a DIM dark green
+-- (the FCS unselected-mode chip -- far darker than CC's native green 0x57a64e).
+M.PALETTE_BASE = { [colors.brown] = 0xff6a6a, [colors.magenta] = 0x14461b }
 
 M.DEFAULTS = { font = "green", button = "darkGray", wpt = "yellow", rt = "blue", colorblind = "none" }
 
@@ -76,7 +78,8 @@ end
 -- blue/orange axis (which red-green types see fine). Helps protan* and deutan* families.
 local RED_GREEN = {
   [colors.red] = 0xd55e00, [colors.green] = 0x009e73, [colors.lime] = 0xf0e442,
-  [colors.orange] = 0xe69f00, [colors.magenta] = 0xcc79a7, [colors.pink] = 0xcc79a7,
+  [colors.orange] = 0xe69f00, [colors.pink] = 0xcc79a7,
+  -- (magenta slot is now the darkGreen mode chip -- keep its dim green from PALETTE_BASE)
 }
 -- Blue-yellow safe: separate blue/cyan and yellow along a distinguishable axis for tritan* types.
 local BLUE_YELLOW = {

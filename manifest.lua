@@ -1170,9 +1170,9 @@
         },
         {
           ["dst"] = "ui/basalt/regions/fcs.lua",
-          ["size"] = 5067,
+          ["size"] = 5080,
           ["src"] = "dist/ui/basalt/regions/fcs.lua",
-          ["sum"] = "901ed291",
+          ["sum"] = "d770b767",
         },
         {
           ["dst"] = "ui/basalt/renderpolicy.lua",
@@ -1296,9 +1296,9 @@
         },
         {
           ["dst"] = "ui/theme.lua",
-          ["size"] = 3581,
+          ["size"] = 3586,
           ["src"] = "dist/ui/theme.lua",
-          ["sum"] = "ddebba0b",
+          ["sum"] = "a294e323",
         },
         {
           ["dst"] = "ui/toolkit.lua",
@@ -1458,5 +1458,5 @@
     ["size"] = 71874,
     ["sum"] = "4f7c615b",
   },
-  ["version"] = "e2df961b",
+  ["version"] = "7361b645",
 }

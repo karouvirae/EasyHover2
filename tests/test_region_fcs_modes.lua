@@ -7,6 +7,7 @@
 -- tests/test_bitconfig_tuning.lua's "every screen must fit a REALISTIC monitor" regression for the
 -- same convention).
 local t = require("tests.framework")
+local Theme = require("ui.theme")
 local FcsRegion = require("ui.basalt.regions.fcs")
 local Region = require("ui.basalt.region")
 local BasaltApp = require("ui.basalt.app")
@@ -176,12 +177,13 @@ t.test("fcs_main: masterCtrls chips highlight from reported state.masterMode (ex
 
   r:apply({ masterMode = "DCPL", engaged = false, gndSafety = false })
   local els = r.built.fcs_main.handle.elements
-  t.eq(els.masterCtrls.DCPL.chip:getBackground(), colors.lime,  "reported masterMode DCPL -> DCPL chip lime (selected)")
-  t.eq(els.masterCtrls.CPL.chip:getBackground(),  colors.green, "CPL chip dim green when DCPL active (unselected, not red)")
+  local DIM = Theme.COLOR_TO_SLOT.darkGreen
+  t.eq(els.masterCtrls.DCPL.chip:getBackground(), colors.lime, "reported masterMode DCPL -> DCPL chip lime (selected)")
+  t.eq(els.masterCtrls.CPL.chip:getBackground(),  DIM,         "CPL chip dim dark-green when DCPL active (unselected, not red)")
 
   r:apply({ masterMode = "CPL", engaged = false, gndSafety = false })
-  t.eq(els.masterCtrls.CPL.chip:getBackground(),  colors.lime,  "reported masterMode CPL -> CPL chip lime (selected)")
-  t.eq(els.masterCtrls.DCPL.chip:getBackground(), colors.green, "DCPL chip dim green when CPL active (unselected)")
+  t.eq(els.masterCtrls.CPL.chip:getBackground(),  colors.lime, "reported masterMode CPL -> CPL chip lime (selected)")
+  t.eq(els.masterCtrls.DCPL.chip:getBackground(), DIM,         "DCPL chip dim dark-green when CPL active (unselected)")
 
   local ok, err = pcall(function() basalt.update("timer", -1) end)
   t.truthy(ok, "basalt.update should not error: " .. tostring(err))

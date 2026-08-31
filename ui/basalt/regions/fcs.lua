@@ -52,10 +52,11 @@ end
 local function blinkOutline(phase) return (phase == 1) and colors.red or colors.gray end
 
 -- Mode-selector chip colours (flight modes + master modes): a bright LIME for the one selected mode
--- and a dim GREEN for the unselected ones -- a radio group, not an alarm. (Red is reserved for the
--- true on/off switches: FCS engage/disengage + GND safety, whose outlines stay green/red.)
+-- and a DIM DARK green for the unselected ones -- a radio group, not an alarm. (Red is reserved for
+-- the true on/off switches: FCS engage/disengage + GND safety, whose outlines stay green/red.)
+-- MODE_UNSEL is the theme's `darkGreen` slot (magenta remapped to a dim green in PALETTE_BASE).
 local MODE_SEL   = colors.lime
-local MODE_UNSEL = colors.green
+local MODE_UNSEL = Theme.COLOR_TO_SLOT.darkGreen
 
 local M = {}
 
