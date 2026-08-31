@@ -167,7 +167,8 @@ if phase == "install" then
   -- the flight app, rather than requiring tools.flight directly.
   check(launcher:find('require%("fcs%.boot%.loaderui"%)') ~= nil,
     "launcher boots the fcs boot loader UI", launcher)
-  check(#launcher < 200, "launcher is a thin shim, not a copy of the entry point",
+  -- cut-on-boot added pcall(cut.all) to this shim (~210 B minified). Still tiny vs tools/flight.lua.
+  check(#launcher < 400, "launcher is a thin shim, not a copy of the entry point",
     ("%d bytes"):format(#launcher))
   check(#noStagingLeftBehind() == 0, "no .eh2new staging files left behind")
 
