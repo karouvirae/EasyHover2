@@ -36,6 +36,31 @@ end)
 t.test("applyScalarSign writes an arbitrary sign binding", function()
   t.eq(C.applyScalarSign(cfg(), "signVelMedial", -1).bindings.signVelMedial, -1)
 end)
+
+-- L3: applyHeading calibrates signHeading CONSISTENT with the signYawRate present at the time
+-- (headingSignScale cross-checks them). Re-running LATERAL rewrites signYawRate; if it flips and
+-- heading was already set, signHeading must flip too or the heading loop becomes a negative spring
+-- (Flight #9). Untouched when yawRate is unchanged or heading was never calibrated.
+t.test("applyLateral flips signHeading when a re-run inverts signYawRate (keeps the pair consistent)", function()
+  local c = { bindings = { signHeading = -1, compassSign = -1, signYawRate = 1 } }
+  C.applyLateral(c, { signFront = 1, signRear = -1, signYawRate = -1 })   -- yawRate flips +1 -> -1
+  t.eq(c.bindings.signYawRate, -1, "new yawRate sign written")
+  t.eq(c.bindings.signHeading, 1, "signHeading flipped to stay consistent with the flipped yawRate")
+  t.eq(c.bindings.compassSign, 1, "compassSign follows signHeading")
+end)
+
+t.test("applyLateral leaves signHeading when signYawRate is unchanged", function()
+  local c = { bindings = { signHeading = -1, compassSign = -1, signYawRate = 1 } }
+  C.applyLateral(c, { signFront = 1, signRear = -1, signYawRate = 1 })    -- same yawRate sign
+  t.eq(c.bindings.signHeading, -1, "heading untouched when the pair already agrees")
+  t.eq(c.bindings.compassSign, -1)
+end)
+
+t.test("applyLateral does not invent signHeading when heading was never calibrated", function()
+  local c = { bindings = { signYawRate = 1 } }                            -- no signHeading yet
+  C.applyLateral(c, { signFront = 1, signRear = -1, signYawRate = -1 })
+  t.eq(c.bindings.signHeading, nil, "no heading to flip -> left unset")
+end)
 t.test("applyHeading writes sign and scale", function()
   local c = C.applyHeading(cfg(), {sign=-1, scale=math.pi/180})
   t.eq(c.bindings.signHeading, -1); t.near(c.bindings.headingScale, math.pi/180, 1e-9)

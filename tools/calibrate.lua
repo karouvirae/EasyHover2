@@ -33,7 +33,16 @@ end
 
 function M.applyLateral(config, result)
   local b = config.bindings
+  local oldYaw = b.signYawRate or 1
   b.signVelFront = result.signFront; b.signVelRear = result.signRear; b.signYawRate = result.signYawRate
+  -- L3: signHeading was calibrated CONSISTENT with the signYawRate at the time (headingSignScale
+  -- cross-checks them). If re-running LATERAL flips signYawRate and heading is already set, flip
+  -- signHeading (and compassSign) the same way so the pair stays consistent -- otherwise the
+  -- heading loop becomes a negative spring (Flight #9). No-op when yawRate is unchanged or heading unset.
+  if b.signHeading ~= nil and oldYaw ~= 0 and result.signYawRate == -oldYaw then
+    b.signHeading = -b.signHeading
+    if b.compassSign ~= nil then b.compassSign = b.signHeading end
+  end
   return config
 end
 
