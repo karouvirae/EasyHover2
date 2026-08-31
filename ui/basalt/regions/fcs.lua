@@ -51,6 +51,12 @@ end
 -- Missing-FCS cue colour for a FLIGHT feedback button's OUTLINE: blinks gray (inert) <-> red (off feedback).
 local function blinkOutline(phase) return (phase == 1) and colors.red or colors.gray end
 
+-- Mode-selector chip colours (flight modes + master modes): a bright LIME for the one selected mode
+-- and a dim GREEN for the unselected ones -- a radio group, not an alarm. (Red is reserved for the
+-- true on/off switches: FCS engage/disengage + GND safety, whose outlines stay green/red.)
+local MODE_SEL   = colors.lime
+local MODE_UNSEL = colors.green
+
 local M = {}
 
 -- Border edges the FCS region draws. Stacked in the merged flight page the EMC region above draws
@@ -159,7 +165,7 @@ function M.main(basalt, frame, region, runtime, opts)
   end
   local placeholders = {}
   placeholders[1] = chipButton(frame, col[3], 17, 10, "TRK")
-  placeholders[1].setChip(colors.red)   -- placeholder: TRK wired later via the A/P maneuver executor
+  placeholders[1].setChip(MODE_UNSEL)   -- placeholder (unselected look); TRK wired later via the A/P executor
 
   local function apply(state)
     state = state or {}
@@ -170,19 +176,19 @@ function M.main(basalt, frame, region, runtime, opts)
     -- FCS / GND outlines: normally green engaged/on, red disengaged/off; blink when stale.
     fcsBtn:addBorder(blink or (state.engaged and colors.green or colors.red))
     gndBtn:addBorder(blink or (state.gndSafety and colors.green or colors.red))
-    -- Mode chips: green for the one active mode, red for the rest (radio across all real modes). Add a
-    -- blinking outline when stale; hide it (button-bg colour) otherwise.
+    -- Mode chips: bright LIME for the one active mode, dim GREEN for the rest (radio, not an alarm).
+    -- Add a blinking outline when stale; hide it (button-bg colour) otherwise.
     for _, id in ipairs(FcsPanel.MODES) do
       if modeCtrls[id] then  -- only update modes that have UI buttons in this region
-        modeCtrls[id].setChip(FcsPanel.modeActive(state, id) and colors.green or colors.red)
+        modeCtrls[id].setChip(FcsPanel.modeActive(state, id) and MODE_SEL or MODE_UNSEL)
         modeCtrls[id].setBorder(blink)   -- nil (healthy) -> removeBorder; a colour (stale) -> blink outline
       end
     end
-    -- Master chips: same green/red radio treatment + blink outline, keyed off masterActive/state.masterMode
+    -- Master chips: same lime/dim-green radio treatment + blink outline, keyed off masterActive/state.masterMode
     -- (a SEPARATE exclusive group from the flight modes above).
     for _, id in ipairs(FcsPanel.MASTERS) do
       if masterCtrls[id] then
-        masterCtrls[id].setChip(FcsPanel.masterActive(state, id) and colors.green or colors.red)
+        masterCtrls[id].setChip(FcsPanel.masterActive(state, id) and MODE_SEL or MODE_UNSEL)
         masterCtrls[id].setBorder(blink)
       end
     end

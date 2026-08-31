@@ -176,12 +176,12 @@ t.test("fcs_main: masterCtrls chips highlight from reported state.masterMode (ex
 
   r:apply({ masterMode = "DCPL", engaged = false, gndSafety = false })
   local els = r.built.fcs_main.handle.elements
-  t.eq(els.masterCtrls.DCPL.chip:getBackground(), colors.green, "reported masterMode DCPL -> DCPL chip green")
-  t.eq(els.masterCtrls.CPL.chip:getBackground(),  colors.red,   "CPL chip red when DCPL active (exclusive)")
+  t.eq(els.masterCtrls.DCPL.chip:getBackground(), colors.lime,  "reported masterMode DCPL -> DCPL chip lime (selected)")
+  t.eq(els.masterCtrls.CPL.chip:getBackground(),  colors.green, "CPL chip dim green when DCPL active (unselected, not red)")
 
   r:apply({ masterMode = "CPL", engaged = false, gndSafety = false })
-  t.eq(els.masterCtrls.CPL.chip:getBackground(),  colors.green, "reported masterMode CPL -> CPL chip green")
-  t.eq(els.masterCtrls.DCPL.chip:getBackground(), colors.red,   "DCPL chip red when CPL active")
+  t.eq(els.masterCtrls.CPL.chip:getBackground(),  colors.lime,  "reported masterMode CPL -> CPL chip lime (selected)")
+  t.eq(els.masterCtrls.DCPL.chip:getBackground(), colors.green, "DCPL chip dim green when CPL active (unselected)")
 
   local ok, err = pcall(function() basalt.update("timer", -1) end)
   t.truthy(ok, "basalt.update should not error: " .. tostring(err))
