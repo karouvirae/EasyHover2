@@ -1080,9 +1080,9 @@
         },
         {
           ["dst"] = "ui/basalt/instruments/tape.lua",
-          ["size"] = 3272,
+          ["size"] = 3625,
           ["src"] = "ui/basalt/instruments/tape.lua",
-          ["sum"] = "d69b3d38",
+          ["sum"] = "935c46db",
         },
         {
           ["dst"] = "ui/basalt/keypad.lua",
@@ -1140,9 +1140,9 @@
         },
         {
           ["dst"] = "ui/basalt/pages/pfd.lua",
-          ["size"] = 5709,
+          ["size"] = 7850,
           ["src"] = "ui/basalt/pages/pfd.lua",
-          ["sum"] = "43c04d87",
+          ["sum"] = "7380e677",
         },
         {
           ["dst"] = "ui/basalt/params.lua",
@@ -1164,9 +1164,9 @@
         },
         {
           ["dst"] = "ui/basalt/regions/emc.lua",
-          ["size"] = 31411,
+          ["size"] = 31276,
           ["src"] = "ui/basalt/regions/emc.lua",
-          ["sum"] = "176b92bf",
+          ["sum"] = "5fcf79ff",
         },
         {
           ["dst"] = "ui/basalt/regions/fcs.lua",
@@ -1458,5 +1458,5 @@
     ["size"] = 71874,
     ["sum"] = "4f7c615b",
   },
-  ["version"] = "d7f12248",
+  ["version"] = "a6e040de",
 }

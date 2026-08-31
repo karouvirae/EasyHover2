@@ -21,6 +21,13 @@ function M.signedDelta(angle, ref)
   return ((angle - ref + 180) % 360) - 180
 end
 
+-- True when heading `a` is within `tol` degrees of heading `b` (angle-wrapped). Used by the PFD to
+-- highlight a band label / the current-heading readout when it matches the target bearing.
+function M.isOnHeading(a, b, tol)
+  if type(a) ~= "number" or type(b) ~= "number" then return false end
+  return math.abs(M.signedDelta(a, b)) < (tol or 1)
+end
+
 function M.lubberCol(w) return math.ceil(w / 2) end
 
 function M.lubberLabel(heading)

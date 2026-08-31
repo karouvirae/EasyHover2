@@ -462,22 +462,10 @@ function M.calfuel(basalt, frame, region, runtime, opts)
   local solidUp1  = chipButton(frame, 26, 2, 6, "+1",  colors.orange)
   local solidDn1  = chipButton(frame, 26, 4, 6, "-1",  colors.orange)
 
-  -- FUEL type (Task 3, option a -- FLIGHT-graphical): a CHIP trigger showing the reported fuel + %,
-  -- opening a FLIGHT-styled gfxpicker modal. Remote command via M._onFuel (unlike the local
-  -- manual-max steppers above/below). No optimistic UI -- apply() below drives the chip from
-  -- state.fuel. Placed on the free y6 spacer row.
-  local fuelPickLabel = frame:addLabel({ x = 3, y = 6, width = 5, height = 1, autoSize = false, text = "FUEL" })
-  fuelPickLabel:setForeground(Theme.role("font"))
-  local fuelChip = chipButton(frame, 9, 6, 20, "FUEL --", Theme.role("button"))
+  -- FUEL type picker: opened from the fuel button at the BOTTOM (next to BACK, mirroring the Engine
+  -- config region's CAL FUEL + BACK) rather than a squeezed chip between the two checker boxes. The
+  -- y6 spacer row is left free. Remote command via M._onFuel; apply() drives the button from state.fuel.
   local fuelPicker = Gfxpicker.make(frame)
-  fuelChip.onClick(function()
-    fuelPicker.show({
-      title = "FUEL",
-      options = EnginePanel.fuelOptions(),
-      current = (fuelPicker._current or nil),
-      onPick = function(value) M._onFuel(runtime, value) end,
-    })
-  end)
 
   Gfx.checkerBox(bg, 3, 7, 17, 10, colors.orange)
   local liqLabel = frame:addLabel({ x = 5, y = 8, width = 12, height = 1, autoSize = false, text = "" })
@@ -495,9 +483,20 @@ function M.calfuel(basalt, frame, region, runtime, opts)
   local badLabel = frame:addLabel({ x = 3, y = 11, width = 12, height = 1, autoSize = false, text = "" })
   badLabel:setForeground(Theme.role("font"))
 
-  -- BACK (blue outlined, 3-row) centred at the bottom, matching the other menu back buttons.
-  local backBtn = outlinedButton(frame, math.max(1, math.floor((w - 10) / 2) + 1), 12, 10, "< BACK", colors.blue)
+  -- Fuel picker (left) + BACK (right), 3-row blue-outlined, side by side at the bottom -- mirrors
+  -- the Engine config region's CAL FUEL + BACK. The fuel button shows the current fuel and opens
+  -- the gfxpicker modal.
+  local fuelBtn = outlinedButton(frame, 3, 12, 20, "FUEL", colors.blue)
+  local backBtn = outlinedButton(frame, 24, 12, 10, "< BACK", colors.blue)
 
+  fuelBtn:onClick(function()
+    fuelPicker.show({
+      title = "FUEL",
+      options = EnginePanel.fuelOptions(),
+      current = (fuelPicker._current or nil),
+      onPick = function(value) M._onFuel(runtime, value) end,
+    })
+  end)
   backBtn:onClick(function() region:pop() end)
   solidDn64.onClick(function() M._setMax(runtime, "pump", -M.SOLID_STEP) end)
   solidDn1.onClick(function() M._setMax(runtime, "pump", -M.SOLID_FINE) end)
@@ -522,9 +521,9 @@ function M.calfuel(basalt, frame, region, runtime, opts)
 
     local fuelName = state and state.fuel
     fuelPicker._current = fuelName
-    fuelChip.setText(EnginePanel.fuelLabel(state))
     local bad = EnginePanel.fuelBad(state)
-    fuelChip.setChip(bad and colors.red or Theme.role("button"))
+    fuelBtn:setText(fit(EnginePanel.fuelLabel(state), 18))
+    fuelBtn:setForeground(bad and colors.red or Theme.role("font"))
     badLabel:setWidth(12)
     badLabel:setText(bad and "BAD FUEL" or "")
     badLabel:setForeground(bad and colors.red or Theme.role("font"))
@@ -538,7 +537,7 @@ function M.calfuel(basalt, frame, region, runtime, opts)
       backBtn = backBtn, solidLabel = solidLabel, liqLabel = liqLabel,
       solidUp64 = solidUp64, solidDn64 = solidDn64, solidUp1 = solidUp1, solidDn1 = solidDn1,
       liqUp100 = liqUp100, liqDn100 = liqDn100, liqUp50 = liqUp50, liqDn50 = liqDn50, liqUp1 = liqUp1, liqDn1 = liqDn1,
-      fuelPickLabel = fuelPickLabel, fuelChip = fuelChip, fuelPicker = fuelPicker, badLabel = badLabel,
+      fuelBtn = fuelBtn, fuelPicker = fuelPicker, badLabel = badLabel,
     },
   }
 end

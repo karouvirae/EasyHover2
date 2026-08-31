@@ -758,16 +758,16 @@ t.test("calfuel: fuel chip shows the reported fuel + %, red chip on badFuel", fu
 
   local h = M.calfuel(basalt, frame, region, runtime)
   local el = h.elements
-  t.truthy(el.fuelChip ~= nil, "fuelChip trigger present")
+  t.truthy(el.fuelBtn ~= nil, "fuel picker button present (bottom, next to BACK)")
   t.truthy(el.fuelPicker ~= nil, "fuelPicker (gfxpicker) present")
   t.truthy(el.badLabel ~= nil, "BAD FUEL label present in elements")
 
   h.apply({ fuel = "Diesel", fuelPct = 80, badFuel = false })
-  t.eq(el.fuelChip.label:getText(), "Diesel 80%")
-  t.truthy(el.fuelChip.chip:getBackground() ~= colors.red, "ok fuel -> chip not red")
+  t.eq(el.fuelBtn:getText(), "Diesel 80%")
+  t.truthy(el.fuelBtn:getForeground() ~= colors.red, "ok fuel -> button text not red")
 
   h.apply({ fuel = "Plant Oil", fuelPct = 20, badFuel = true })
-  t.eq(el.fuelChip.chip:getBackground(), colors.red, "badFuel -> red chip")
+  t.eq(el.fuelBtn:getForeground(), colors.red, "badFuel -> red button text")
   t.eq(el.badLabel:getText(), "BAD FUEL", "BAD FUEL shown for sub-baseline fuel")
   t.eq(el.badLabel:getForeground(), colors.red, "BAD FUEL label is red when bad")
 
@@ -793,9 +793,9 @@ t.test("calfuel: tapping the fuel chip opens the modal; picking sends the fuel c
   local h = M.calfuel(basalt, frame, region, runtime)
   local el = h.elements
 
-  -- Tap the chip trigger -- opens the gfxpicker overlay.
-  el.fuelChip.chip:fireEvent("mouse_click", 1, 1, 1)
-  t.truthy(el.fuelPicker.visible(), "gfxpicker overlay visible after chip tap")
+  -- Tap the fuel button -- opens the gfxpicker overlay.
+  el.fuelBtn:fireEvent("mouse_click", 1, 1, 1)
+  t.truthy(el.fuelPicker.visible(), "gfxpicker overlay visible after fuel-button tap")
 
   -- Pick index 5 -- "Diesel" per fcs/fueltable.lua's display order (1 Plant Oil, 2 Ethanol,
   -- 3 Biodiesel, 4 Sulfurized Diesel, 5 Diesel, 6 Gasoline, 7 Kerosene, 8 Turpentine).
