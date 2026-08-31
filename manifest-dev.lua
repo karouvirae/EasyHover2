@@ -185,7 +185,7 @@
           ["dst"] = "fcs/comms/command.lua",
           ["size"] = 3142,
           ["src"] = "fcs/comms/command.lua",
-          ["sum"] = "fdf07098",
+          ["sum"] = "2d8b9878",
         },
         {
           ["dst"] = "fcs/comms/health.lua",
@@ -357,9 +357,9 @@
         },
         {
           ["dst"] = "fcs/runtime/fault.lua",
-          ["size"] = 301,
+          ["size"] = 423,
           ["src"] = "fcs/runtime/fault.lua",
-          ["sum"] = "449a1ece",
+          ["sum"] = "b8bbdeca",
         },
         {
           ["dst"] = "fcs/runtime/flight.lua",
@@ -459,9 +459,9 @@
         },
         {
           ["dst"] = "tools/flight.lua",
-          ["size"] = 19399,
+          ["size"] = 19492,
           ["src"] = "tools/flight.lua",
-          ["sum"] = "5132d8c2",
+          ["sum"] = "db6d511d",
         },
         {
           ["dst"] = "tools/hover_test.lua",
@@ -716,7 +716,7 @@
           ["dst"] = "fcs/comms/command.lua",
           ["size"] = 3142,
           ["src"] = "fcs/comms/command.lua",
-          ["sum"] = "fdf07098",
+          ["sum"] = "2d8b9878",
         },
         {
           ["dst"] = "fcs/comms/health.lua",
@@ -1458,5 +1458,5 @@
     ["size"] = 71874,
     ["sum"] = "4f7c615b",
   },
-  ["version"] = "db54a1d8",
+  ["version"] = "7303bef5",
 }

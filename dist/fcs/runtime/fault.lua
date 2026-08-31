@@ -1,1 +1,1 @@
-local a={}function a.orReraise(b)if b=="Terminated"then error(b,0)end;return tostring(b)end;return a
+local a={}function a.orReraise(b)if b=="Terminated"then error(b,0)end;return tostring(b)end;function a.protect(c)local d,b=pcall(c)if not d then return false,a.orReraise(b)end;return true end;return a
