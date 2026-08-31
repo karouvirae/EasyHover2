@@ -55,7 +55,9 @@ local RECIPES = {
               build = function(b, f) return P("ui.basalt.pages.pfd").build(b, f, {}, nil) end },
 
   -- Overhead (2w x 3h = 36x38): merged FLIGHT page + its in-context region drilldowns
-  flight        = { W = 36, H = 38, build = flightBuild },
+  flight        = { W = 36, H = 38, build = flightBuild,
+                    state = { engaged = true, gndSafety = false, flightMode = "LDG", masterMode = "CPL",
+                              fuel = "Biodiesel", fuelPct = 60 } },
   flight_engine = { W = 36, H = 38, build = flightBuild, postBuild = function(h) h.elements.top:push("emc_config") end },
   flight_calfuel= { W = 36, H = 38, build = flightBuild, postBuild = function(h) h.elements.top:push("emc_calfuel") end },
   flight_params = { W = 36, H = 38, build = flightBuild, postBuild = function(h) h.elements.bottom:push("fcs_params") end },
