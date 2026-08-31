@@ -29,7 +29,6 @@ local DEFAULTS = {
   dtMax = 0.5,
   attLimit = 0.6,
   com = { fwd = 0, right = 0, spanFwd = 0, spanRight = 0 },
-  groundIdle = { moveEps = 0.5 },
   park = { groundClear = 1.0, parkDriftEps = 0.15, parkTiltBand = 0.12 },
   profile = { climbHeight = 6, climbRate = 0.6, holdTime = 20, descendRate = 0.7,
               landEps = 0.4, watchdog = 60, overshootMargin = 2, leadCap = 1.0 },

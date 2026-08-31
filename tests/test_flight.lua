@@ -132,7 +132,7 @@ t.test("climb un-parks: engaged + on-ground + climb held => loop armed", functio
   t.eq(L.armed, true, "climb intent arms for liftoff")
 end)
 
-t.test("motion un-parks: engaged + on-ground but moving > moveEps => loop armed", function()
+t.test("engaged + on-ground + moving => loop armed (a no-canPark flight never latches parked)", function()
   local L = fakeLoop(); local f = engagedFlight(L)
   f:step(0.1, {}, groundMeas{ surgeVel = 2.0 })   -- scraping forward over terrain
   t.eq(L.armed, true, "moving craft treated as in-flight, not parked")

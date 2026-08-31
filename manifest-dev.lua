@@ -327,9 +327,9 @@
         },
         {
           ["dst"] = "fcs/io/tuningdefaults.lua",
-          ["size"] = 4018,
+          ["size"] = 3984,
           ["src"] = "fcs/io/tuningdefaults.lua",
-          ["sum"] = "794b4189",
+          ["sum"] = "8b9685fa",
         },
         {
           ["dst"] = "fcs/leash.lua",
@@ -363,9 +363,9 @@
         },
         {
           ["dst"] = "fcs/runtime/flight.lua",
-          ["size"] = 15258,
+          ["size"] = 15183,
           ["src"] = "fcs/runtime/flight.lua",
-          ["sum"] = "84f5900c",
+          ["sum"] = "a373bc15",
         },
         {
           ["dst"] = "fcs/runtime/loop.lua",
@@ -459,9 +459,9 @@
         },
         {
           ["dst"] = "tools/flight.lua",
-          ["size"] = 19492,
+          ["size"] = 19431,
           ["src"] = "tools/flight.lua",
-          ["sum"] = "db6d511d",
+          ["sum"] = "c8f8b8f3",
         },
         {
           ["dst"] = "tools/hover_test.lua",
@@ -834,9 +834,9 @@
         },
         {
           ["dst"] = "fcs/io/tuningdefaults.lua",
-          ["size"] = 4018,
+          ["size"] = 3984,
           ["src"] = "fcs/io/tuningdefaults.lua",
-          ["sum"] = "794b4189",
+          ["sum"] = "8b9685fa",
         },
         {
           ["dst"] = "fcs/mixer/level_flight.lua",
@@ -1382,9 +1382,9 @@
         },
         {
           ["dst"] = "fcs/io/tuningdefaults.lua",
-          ["size"] = 4018,
+          ["size"] = 3984,
           ["src"] = "fcs/io/tuningdefaults.lua",
-          ["sum"] = "794b4189",
+          ["sum"] = "8b9685fa",
         },
         {
           ["dst"] = "fcs2disk",
@@ -1434,9 +1434,9 @@
         },
         {
           ["dst"] = "fcs/io/tuningdefaults.lua",
-          ["size"] = 4018,
+          ["size"] = 3984,
           ["src"] = "fcs/io/tuningdefaults.lua",
-          ["sum"] = "794b4189",
+          ["sum"] = "8b9685fa",
         },
         {
           ["dst"] = "splitconfig",
@@ -1458,5 +1458,5 @@
     ["size"] = 71874,
     ["sum"] = "4f7c615b",
   },
-  ["version"] = "479902ce",
+  ["version"] = "c54b6363",
 }

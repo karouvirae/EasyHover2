@@ -79,7 +79,6 @@ pilot:setMode(registry.byId[registry.default].policy, registry.byId[registry.def
 local Master = require("fcs.modes.master")
 pilot:setMaster(Master.byId[Master.default].driftArrest)
 local flight = Flight.new({ loop = loop, pilot = pilot, registry = registry, config = config,
-  moveEps = tuning.groundIdle and tuning.groundIdle.moveEps,
   park = tuning.park,
   setGroundSense = function(b) backend:setGroundSense(b) end,
   fuel = function() return fuelState.fuelMain end,

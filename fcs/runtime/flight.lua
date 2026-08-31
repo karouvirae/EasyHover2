@@ -16,7 +16,6 @@ end
 function Flight.new(deps)
   return setmetatable({
     loop = deps.loop, pilot = deps.pilot, registry = deps.registry,
-    moveEps = deps.moveEps or 0.5,   -- ground-idle motion gate (blocks/s)
     -- §11.8 no-fuel interlock: deps.fuel is an injected getter returning the mean lift-thruster
     -- fuel fraction (0..1) or nil when the gauge has never read. Reads the FCS's already-polled
     -- 1 Hz snapshot -- no extra mainThread I/O, no UI/NAV sensor polling. minFuel trips the
