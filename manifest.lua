@@ -1061,16 +1061,16 @@
           ["sum"] = "7a217b8a",
         },
         {
+          ["dst"] = "ui/basalt/instruments/glyph.lua",
+          ["size"] = 1755,
+          ["src"] = "dist/ui/basalt/instruments/glyph.lua",
+          ["sum"] = "530e5dd7",
+        },
+        {
           ["dst"] = "ui/basalt/instruments/panelgfx.lua",
           ["size"] = 3338,
           ["src"] = "dist/ui/basalt/instruments/panelgfx.lua",
           ["sum"] = "f93305f0",
-        },
-        {
-          ["dst"] = "ui/basalt/instruments/readout.lua",
-          ["size"] = 943,
-          ["src"] = "dist/ui/basalt/instruments/readout.lua",
-          ["sum"] = "95f27c51",
         },
         {
           ["dst"] = "ui/basalt/instruments/sensread.lua",
@@ -1140,9 +1140,9 @@
         },
         {
           ["dst"] = "ui/basalt/pages/pfd.lua",
-          ["size"] = 2339,
+          ["size"] = 2868,
           ["src"] = "dist/ui/basalt/pages/pfd.lua",
-          ["sum"] = "753cdc92",
+          ["sum"] = "caf1d437",
         },
         {
           ["dst"] = "ui/basalt/params.lua",
@@ -1458,5 +1458,5 @@
     ["size"] = 71874,
     ["sum"] = "4f7c615b",
   },
-  ["version"] = "d499a640",
+  ["version"] = "2d54afb5",
 }

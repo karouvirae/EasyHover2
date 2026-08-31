@@ -1,146 +1,129 @@
 -- ui/basalt/pages/pfd.lua
--- PFD cockpit page: heading tape (top) + FPM attitude indicator (center) + ALT/SPD readouts
--- (lower-right), all in ONE Basalt frame / ONE apply(). Follows the Task 15 page template
--- (see ui/basalt/pages/ap.lua): exports M.id/M.title and M.build(basalt, frame, runtime, nav)
--- -> { id, apply(state), elements }; apply() only reads the flat instrument state and SETS
--- element text, never polls peripherals (that discipline lives in ui/basalt/app.lua's scheduled
--- loops, off this render-gated path). Rendering follows the codebase row-Label idiom: full-width
--- autoSize=false Labels, updated via :setText().
+-- PFD cockpit page: heading tape (top) + attitude indicator (center) + SPD / TGT / ALT readouts
+-- (bottom). The numbers you scan -- current HEADING, SPD, ALT and the TGT distance -- are drawn as
+-- compact 2-cell-tall GAPLESS subpixel digits (ui/basalt/instruments/glyph.lua, via panelgfx's
+-- inversion-aware M.cell), so they read at a glance while staying small enough to all fit with the
+-- ADI near full height. The tape scale, labels and cardinal marks stay 1-cell. apply() only reads
+-- flat instrument state and redraws the canvases; no peripheral access (that lives in app.lua).
 --
 -- NO peripheral/Basalt access at module LOAD -- everything lives inside M.build / apply().
-local Tape     = require("ui.basalt.instruments.tape")
-local ADI      = require("ui.basalt.instruments.adi")
-local Readout  = require("ui.basalt.instruments.readout")
-local Theme    = require("ui.theme")
+local Tape    = require("ui.basalt.instruments.tape")
+local ADI     = require("ui.basalt.instruments.adi")
+local Glyph   = require("ui.basalt.instruments.glyph")
+local Theme   = require("ui.theme")
 
 local M = {}
 M.id = "pfd"
 M.title = "PFD"
-
--- Centre-body glyph for the attitude aircraft symbol (see ADI.BODIES): "circle" | "ring" | "square"
--- | "diamond". Build-time constant for now; a DISPLAY toggle can flip it later.
 M.BODY = "circle"
-
--- Sky/ground palette for the attitude fill. The default brown slot is repurposed by the theme, so the
--- PFD sets it back to a real brown ON ITS OWN TERM (the PFD monitor never shows lightRed). Sky reuses
--- the light-blue slot as-is.
 M.GROUND_RGB = 0x6b4a2f
+
+-- Row budget on the 2x2 PFD surface (36x24): tape (3), ADI (17, -11%), big readouts (4).
+M.TAPE_H = 3
+M.RO_H   = 4
+
+local function round(x) return math.floor(x + 0.5) end
+
+local function clear(img, w, h)
+  for cy = 1, h do for cx = 1, w do img:setPixel(cx, cy, " ", "f", "f") end end
+end
+
+-- ---- TAPE: 1-cell scrolling scale + lubber + bug (row 1), big 2-cell current heading (rows 2-3). ----
+local function drawTape(img, w, h, heading, tgt, tgtColor, fontColor)
+  clear(img, w, h)
+  local lub = Tape.lubberCol(w)
+  if type(heading) == "number" then
+    Glyph.small(img, Tape.row(heading, w), 1, 1, fontColor, colors.black)
+    Glyph.small(img, "^", lub, 1, colors.white, colors.black)
+    Glyph.drawCentered(img, Tape.lubberLabel(heading), lub, 2, fontColor)
+  else
+    Glyph.drawCentered(img, "---", lub, 2, fontColor)
+  end
+  if tgt and type(heading) == "number" then
+    local col = Tape.bugCol(tgt.bearing, heading, w)
+    if col then Glyph.small(img, "v", col, 1, tgtColor, colors.black)
+    elseif type(tgt.relBearing) == "number" then
+      Glyph.small(img, tgt.relBearing >= 0 and ">" or "<", tgt.relBearing >= 0 and w or 1, 1, tgtColor, colors.black)
+    end
+  end
+end
+
+-- ---- READOUTS: SPD (left) / TGT distance (center) / ALT (right), each a big 2-cell number. ----
+local function altPieces(state)
+  local src = state.altSource or "Baro"
+  if src == "GPS" then
+    return (state.gpsFixOk and type(state.gpsAlt) == "number") and tostring(round(state.gpsAlt)) or "---", "GPS"
+  end
+  local v = state.baroAlt; if v == nil then v = state.altitude end
+  return (type(v) == "number") and tostring(round(v)) or "---", "Baro"
+end
+local function spdPieces(state)
+  local src = state.spdSource or "SAS"
+  if src == "TAS" then
+    return (state.gpsFixOk and type(state.tas) == "number") and tostring(round(state.tas)) or "---", "TAS"
+  end
+  return (type(state.sas) == "number") and tostring(round(state.sas)) or "---", "SAS"
+end
+
+local function drawReadouts(img, w, h, state, tgt, tgtColor, fontColor)
+  clear(img, w, h)
+  local altV, altU = altPieces(state)
+  local spdV, spdU = spdPieces(state)
+  -- ALT: label (row 1) + big value (rows 2-3), left.
+  Glyph.small(img, "ALT " .. altU, 1, 1, fontColor, colors.black)
+  Glyph.draw(img, altV, 1, 2, fontColor)
+  -- SPD: label + big value, right-aligned to the edge.
+  local spdX = math.max(1, w - Glyph.width(spdV) + 1)
+  Glyph.small(img, "SPD " .. spdU, math.max(1, w - #("SPD " .. spdU) + 1), 1, fontColor, colors.black)
+  Glyph.draw(img, spdV, spdX, 2, fontColor)
+  -- TGT: name (row 1) + big distance (rows 2-3) + alt-delta/arrow (row 4), centered.
+  if tgt then
+    local cx = 14
+    Glyph.small(img, ("TGT " .. tostring(tgt.name or "?")):sub(1, 9), cx, 1, tgtColor, colors.black)
+    local dist = (type(tgt.distanceH) == "number") and tostring(round(tgt.distanceH)) or "--"
+    local endx = Glyph.draw(img, dist, cx, 2, tgtColor)
+    Glyph.small(img, "m", endx, 3, tgtColor, colors.black)
+    local line = ""
+    if type(tgt.altDelta) == "number" then local a = round(tgt.altDelta); line = (a >= 0 and "+" or "") .. tostring(a) end
+    if type(tgt.relBearing) == "number" then
+      if tgt.relBearing > 2 then line = line .. " >" elseif tgt.relBearing < -2 then line = line .. " <" end
+    end
+    if line ~= "" then Glyph.small(img, line, cx, 4, tgtColor, colors.black) end
+  end
+end
 
 function M.build(basalt, frame, runtime, nav)
   local w, h = frame:getSize()
+  local tapeH, roH = M.TAPE_H, M.RO_H
+  local adiTop = tapeH + 1
+  local adiH = math.max(3, h - tapeH - roH)
+  local roTop = h - roH + 1
 
-  -- ---- Heading tape (top): scale row + fixed lubber + heading number ----
-  local tapeY = 1
-  local tapeLabel = frame:addLabel({ x = 1, y = tapeY, width = w, height = 1, autoSize = false, text = "" })
-  local lubCol = Tape.lubberCol(w)
-  local lubberMark = frame:addLabel({ x = lubCol, y = tapeY + 1, width = 1, height = 1, autoSize = false, text = "^" })
-  local lubberLabel = frame:addLabel({ x = math.max(1, lubCol - 1), y = tapeY + 2, width = 3, height = 1, autoSize = false, text = "" })
+  local tapeImg = frame:addImage({ x = 1, y = 1, width = w, height = tapeH }); tapeImg:resizeImage(w, tapeH)
+  local adiImg  = frame:addImage({ x = 1, y = adiTop, width = w, height = adiH }); adiImg:resizeImage(w, adiH)
+  local roImg   = frame:addImage({ x = 1, y = roTop, width = w, height = roH }); roImg:resizeImage(w, roH)
 
-  -- ---- Attitude box (center): a per-cell Image canvas the ADI draws sky/ground + horizon + pitch
-  -- ladder + aircraft symbol onto (see ui/basalt/instruments/adi.lua) ----
-  local boxTop = tapeY + 3
-  local boxBot = math.max(boxTop + 2, h - 2)  -- leave the bottom 2 rows for ALT/SPD (never invert on a tiny frame)
-  local boxH = math.max(3, boxBot - boxTop + 1)
-  local adiImg = frame:addImage({ x = 1, y = boxTop, width = w, height = boxH })
-  adiImg:resizeImage(w, boxH)                 -- blank the canvas to the box size
-
-  -- Give the attitude its sky/ground palette on this term (best-effort: the term API varies by mount).
   pcall(function()
     local term = frame:getBaseFrame():getTerm()
-    term.setPaletteColour(colors.brown, M.GROUND_RGB)   -- ADI.GND slot -> real brown
+    term.setPaletteColour(colors.brown, M.GROUND_RGB)
   end)
-
-  -- ---- ALT / SPD readouts (lower-right) ----
-  local roW = 12
-  local roX = math.max(1, w - roW + 1)
-  local altLabel = frame:addLabel({ x = roX, y = h - 1, width = roW, height = 1, autoSize = false, text = "" })
-  local spdLabel = frame:addLabel({ x = roX, y = h,     width = roW, height = 1, autoSize = false, text = "" })
-
-  -- ---- Waypoint target cue: bearing bug on the tape scale (created AFTER the tape so it renders on
-  -- top) + a TGT readout (lower-left, clear of ALT/SPD). GREEN for a waypoint, BLUE for a route leg.
-  local bugLabel = frame:addLabel({ x = lubCol, y = tapeY, width = 1, height = 1, autoSize = false, text = "" })
-  local tgtW = math.max(1, roX - 2)
-  local tgtLine1 = frame:addLabel({ x = 1, y = h - 1, width = tgtW, height = 1, autoSize = false, text = "" })
-  local tgtLine2 = frame:addLabel({ x = 1, y = h,     width = tgtW, height = 1, autoSize = false, text = "" })
 
   local function apply(state)
     state = state or {}
-
-    -- Tape. Pass heading through nil-safe: a nil (no fresh nav bearing) renders a blank scale +
-    -- "---" lubber rather than a fabricated 000/N. See ui/basalt/instruments/tape.lua.
-    -- GUARD (vertical-tape glitch): the tape has spaces, so if the label's resolved width ever comes
-    -- back smaller than the text (frame width not settled during a rebuild), Basalt's wrapText breaks
-    -- it into a VERTICAL column (and blits every wrapped line). Render the tape at the LIVE frame
-    -- width and match the label width to it, so text length always == label width -> it can never
-    -- wrap, and it self-heals once the frame settles.
-    local tw = ({ frame:getSize() })[1] or w
-    if tw < 1 then tw = w end
-    tapeLabel:setWidth(tw)
-    tapeLabel:setText(Tape.row(state.heading, tw))
-    lubberLabel:setText(Tape.lubberLabel(state.heading))
-
-    -- Attitude: draw the ADI onto the Image canvas. The FCS reports pitch/roll in RADIANS; the ADI
-    -- is degree-based, so convert at this page seam (else 0.35 rad ~ 20 deg bank reads as 0.35 deg).
-    -- Aircraft symbol takes the theme FONT colour (green default) -- higher contrast than yellow on
-    -- the light-blue sky / brown ground.
-    local craft = colors.toBlit(Theme.role("font"))
-    ADI.draw(adiImg, math.deg(state.pitch or 0), math.deg(state.roll or 0), w, boxH, M.BODY, craft)
-
-    -- Readouts. The live cockpit cadence state (ui/basalt/app.lua:M.buildState) names barometric
-    -- altitude `altitude`, while the Batch-A instrument contract calls it `baroAlt`. Bridge the two
-    -- HERE at the page seam so baro-ALT reads live in-game while the pure Readout view-model stays
-    -- contract-driven. A future Batch-B feed that sets `baroAlt` directly takes precedence.
-    local rstate = state
-    if state.baroAlt == nil and state.altitude ~= nil then
-      rstate = setmetatable({ baroAlt = state.altitude }, { __index = state })
-    end
-    -- Width guard (same class of fix as the tape): adding the attitude Image shifted layout timing so
-    -- these labels can resolve to a tiny width during a rebuild, which makes Basalt wrapText clip the
-    -- text to a few chars. Re-assert the intended width each apply so text length <= width (no wrap).
-    altLabel:setWidth(roW); spdLabel:setWidth(roW)
-    altLabel:setText(Readout.alt(rstate))
-    spdLabel:setText(Readout.spd(rstate))
-
-    -- Waypoint target cue: bearing bug on the tape + TGT readout. Colored by source (green wpt /
-    -- blue route). Hidden when there is no target or no heading to reference.
+    local fontColor = Theme.role("font")
     local tgt = state.target
-    -- Cue colour from config: a route leg (tgt.color=="blue") uses the NAV RT colour, a waypoint uses
-    -- the NAV WPT colour. Defaults (rt=blue, wpt=yellow) apply when no runtime/config is present.
     local cc = runtime and runtime.config and runtime.config.colors
     local tgtColor = (tgt and tgt.color == "blue") and Theme.resolve(cc, "rt") or Theme.resolve(cc, "wpt")
-    local haveHdg = tgt and type(state.heading) == "number"
-    local bugCol = haveHdg and Tape.bugCol(tgt.bearing, state.heading, w) or nil
-    if bugCol then
-      bugLabel:setX(bugCol); bugLabel:setText("v"); bugLabel:setForeground(tgtColor)
-    elseif haveHdg and type(tgt.relBearing) == "number" then
-      -- Target is off the visible tape: pin an edge arrow showing which way to turn toward it
-      -- (relBearing >= 0 -> to the right). Otherwise the pilot gets no cue for a side target.
-      if tgt.relBearing >= 0 then bugLabel:setX(w); bugLabel:setText(">")
-      else bugLabel:setX(1); bugLabel:setText("<") end
-      bugLabel:setForeground(tgtColor)
-    else
-      bugLabel:setText("")
-    end
-    local tr = tgt and Readout.tgt(tgt) or nil
-    tgtLine1:setWidth(tgtW); tgtLine2:setWidth(tgtW)
-    tgtLine1:setText(tr and tr.line1 or ""); tgtLine1:setForeground(tgtColor)
-    tgtLine2:setText(tr and tr.line2 or ""); tgtLine2:setForeground(tgtColor)
+
+    drawTape(tapeImg, w, tapeH, state.heading, tgt, tgtColor, fontColor)
+    ADI.draw(adiImg, math.deg(state.pitch or 0), math.deg(state.roll or 0), w, adiH, M.BODY, colors.toBlit(fontColor))
+    drawReadouts(roImg, w, roH, state, tgt, tgtColor, fontColor)
   end
 
   return {
     id = M.id,
     apply = apply,
-    elements = {
-      tapeLabel = tapeLabel,
-      lubberMark = lubberMark,
-      lubberLabel = lubberLabel,
-      adiImg = adiImg,
-      altLabel = altLabel,
-      spdLabel = spdLabel,
-      bugLabel = bugLabel,
-      tgtLine1 = tgtLine1,
-      tgtLine2 = tgtLine2,
-    },
+    elements = { tapeImg = tapeImg, adiImg = adiImg, roImg = roImg },
   }
 end
 
