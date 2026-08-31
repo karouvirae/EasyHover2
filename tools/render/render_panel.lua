@@ -48,6 +48,10 @@ local runtime = { config = cfg, engine = engineStub, monitors = { "monitor_0", "
 -- (advanced-computer terminal) 51x19; A/P 15x10.
 local function P(mod) return require(mod) end
 local function flightBuild(b, f) return P("ui.basalt.pages.flight").build(b, f, runtime, nil) end
+-- Shared demo state so every mock that shows the FCS mode region renders a selected mode (LDG lime
+-- + CPL lime) against the dim-green unselected ones, instead of an all-unselected default.
+local FLIGHT_STATE = { engaged = true, gndSafety = false, flightMode = "LDG", masterMode = "CPL",
+                       fuel = "Biodiesel", fuelPct = 60 }
 local RECIPES = {
   -- PFD (2x2 = 36x24)
   pfd     = { W = 36, H = 24, state = { heading = 45, pitch = 0.14, roll = 0.21, baroAlt = 128.6, sas = 145,
@@ -55,12 +59,10 @@ local RECIPES = {
               build = function(b, f) return P("ui.basalt.pages.pfd").build(b, f, {}, nil) end },
 
   -- Overhead (2w x 3h = 36x38): merged FLIGHT page + its in-context region drilldowns
-  flight        = { W = 36, H = 38, build = flightBuild,
-                    state = { engaged = true, gndSafety = false, flightMode = "LDG", masterMode = "CPL",
-                              fuel = "Biodiesel", fuelPct = 60 } },
-  flight_engine = { W = 36, H = 38, build = flightBuild, postBuild = function(h) h.elements.top:push("emc_config") end },
-  flight_calfuel= { W = 36, H = 38, build = flightBuild, postBuild = function(h) h.elements.top:push("emc_calfuel") end },
-  flight_params = { W = 36, H = 38, build = flightBuild, postBuild = function(h) h.elements.bottom:push("fcs_params") end },
+  flight        = { W = 36, H = 38, build = flightBuild, state = FLIGHT_STATE },
+  flight_engine = { W = 36, H = 38, build = flightBuild, state = FLIGHT_STATE, postBuild = function(h) h.elements.top:push("emc_config") end },
+  flight_calfuel= { W = 36, H = 38, build = flightBuild, state = FLIGHT_STATE, postBuild = function(h) h.elements.top:push("emc_calfuel") end },
+  flight_params = { W = 36, H = 38, build = flightBuild, state = FLIGHT_STATE, postBuild = function(h) h.elements.bottom:push("fcs_params") end },
 
   -- NAV surface (2w x 1h = 36x10): NAV page + BIT/CONFIG drilldowns + WPT entry panels
   nav        = { W = 36, H = 10, build = function(b, f)
