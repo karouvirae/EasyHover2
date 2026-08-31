@@ -36,7 +36,11 @@ local engineStub = {}
 function engineStub:status() return { master = false, feeding = false, pulses = 0, nextFeedInMs = nil } end
 function engineStub:setMaster() end
 function engineStub:feedNow() end
-local runtime = { config = cfg, engine = engineStub, monitors = { "monitor_0", "monitor_1" }, uiRev = 0 }
+-- Stub the comms links + command sender so opening a region that drives M.setParamsOpen
+-- (fcs_params) does not nil-index runtime.links/sender during a headless render.
+local noopSend = { send = function() end }
+local runtime = { config = cfg, engine = engineStub, monitors = { "monitor_0", "monitor_1" }, uiRev = 0,
+  links = { tel = noopSend, cmd = noopSend }, sender = noopSend }
 
 -- ---- panel registry: id -> { W, H, build(basalt, frame) -> handle, [postBuild(handle)], [state] } ----
 -- Resolutions match each panel's PARENT surface: PFD 36x24; overhead FLIGHT + its region drilldowns
@@ -47,7 +51,7 @@ local function flightBuild(b, f) return P("ui.basalt.pages.flight").build(b, f, 
 local RECIPES = {
   -- PFD (2x2 = 36x24)
   pfd     = { W = 36, H = 24, state = { heading = 45, pitch = 0.14, roll = 0.21, baroAlt = 128.6, sas = 145,
-              target = { bearing = 70, relBearing = 25, color = "green" } },
+              target = { name = "Pad-2", bearing = 70, relBearing = 25, distanceH = 420, altDelta = 12, color = "green" } },
               build = function(b, f) return P("ui.basalt.pages.pfd").build(b, f, {}, nil) end },
 
   -- Overhead (2w x 3h = 36x38): merged FLIGHT page + its in-context region drilldowns
@@ -78,7 +82,13 @@ local RECIPES = {
   dtc        = { W = 36, H = 10, build = function(b, f) return P("ui.basalt.bitconfig.dtc").build(b, f, nil, Nav.new("dtc"), deps) end },
   pfdrate    = { W = 36, H = 10, build = function(b, f) return P("ui.basalt.bitconfig.pfd").build(b, f, {}, Nav.new("pfdrate"), { save = noop }) end },
   -- WPT / entry panels that open over the NAV surface (overlays fill the 36x10 frame)
-  -- (waypointlist is part of the NAV menu, not a standalone panel -- see nav.png)
+  waypointlist = { W = 36, H = 10, build = function(b, f)
+      local ctrl = P("ui.basalt.waypointlist").make(f, { rows = 6, selColor = colors.yellow })
+      ctrl.setItems({
+        { name = "Home",  type = "base" },   { name = "Pad-2", type = "pad" },
+        { name = "Ridge", type = "wp" },     { name = "North", type = "outpost" },
+        { name = "Depot", type = "facility" } })
+      ctrl.selectRow(2); ctrl.refresh(); return {} end },
   keypad_name = { W = 36, H = 10, build = function(b, f)
       P("ui.basalt.keypad").make(f).show({ title = "WPT NAME", mode = "name", value = "Home" }); return {} end },
   keypad_num  = { W = 36, H = 10, build = function(b, f)
@@ -222,7 +232,7 @@ end
 
 local ORDER = { "pfd", "flight", "flight_engine", "flight_calfuel", "flight_params",
                 "nav", "hub", "tuning", "mdb", "uical", "uical_settings", "senscal", "senssource", "dtc", "pfdrate",
-                "keypad_name", "keypad_num", "listpicker", "config", "ap" }
+                "waypointlist", "keypad_name", "keypad_num", "listpicker", "config", "ap" }
 
 -- Render one recipe into a fresh rec-term and serialise it to /render_out_<id>.txt.
 local function renderOne(id)

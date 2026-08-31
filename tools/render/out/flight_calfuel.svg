@@ -33,15 +33,16 @@
 <rect x="350" y="84" width="84" height="21" fill="#4c4c4c"/>
 <rect x="434" y="84" width="70" height="21" fill="#111111"/>
 <rect x="0" y="105" width="14" height="21" fill="#57a64e"/>
-<rect x="14" y="105" width="490" height="21" fill="#111111"/>
+<rect x="14" y="105" width="98" height="21" fill="#111111"/>
+<rect x="112" y="105" width="280" height="21" fill="#4c4c4c"/>
+<rect x="392" y="105" width="112" height="21" fill="#111111"/>
 <rect x="0" y="126" width="14" height="21" fill="#57a64e"/>
 <rect x="14" y="126" width="14" height="21" fill="#111111"/>
 <rect x="28" y="126" width="14" height="21" fill="#f2b233"/>
-<rect x="42" y="126" width="182" height="21" fill="#111111"/>
-<rect x="224" y="126" width="14" height="21" fill="#f2b233"/>
-<rect x="238" y="126" width="14" height="21" fill="#111111"/>
+<rect x="42" y="126" width="70" height="21" fill="#111111"/>
+<rect x="112" y="126" width="140" height="21" fill="#4c4c4c"/>
 <rect x="252" y="126" width="84" height="21" fill="#f2b233"/>
-<rect x="336" y="126" width="14" height="21" fill="#111111"/>
+<rect x="336" y="126" width="14" height="21" fill="#4c4c4c"/>
 <rect x="350" y="126" width="56" height="21" fill="#f2b233"/>
 <rect x="406" y="126" width="14" height="21" fill="#111111"/>
 <rect x="420" y="126" width="56" height="21" fill="#f2b233"/>
@@ -421,26 +422,6 @@
 <rect x="84" y="133" width="7" height="7" fill="#f2b233"/>
 <rect x="105" y="126" width="7" height="7" fill="#f2b233"/>
 <rect x="98" y="133" width="7" height="7" fill="#f2b233"/>
-<rect x="119" y="126" width="7" height="7" fill="#f2b233"/>
-<rect x="112" y="133" width="7" height="7" fill="#f2b233"/>
-<rect x="133" y="126" width="7" height="7" fill="#f2b233"/>
-<rect x="126" y="133" width="7" height="7" fill="#f2b233"/>
-<rect x="147" y="126" width="7" height="7" fill="#f2b233"/>
-<rect x="140" y="133" width="7" height="7" fill="#f2b233"/>
-<rect x="161" y="126" width="7" height="7" fill="#f2b233"/>
-<rect x="154" y="133" width="7" height="7" fill="#f2b233"/>
-<rect x="175" y="126" width="7" height="7" fill="#f2b233"/>
-<rect x="168" y="133" width="7" height="7" fill="#f2b233"/>
-<rect x="189" y="126" width="7" height="7" fill="#f2b233"/>
-<rect x="182" y="133" width="7" height="7" fill="#f2b233"/>
-<rect x="203" y="126" width="7" height="7" fill="#f2b233"/>
-<rect x="196" y="133" width="7" height="7" fill="#f2b233"/>
-<rect x="217" y="126" width="7" height="7" fill="#f2b233"/>
-<rect x="210" y="133" width="7" height="7" fill="#f2b233"/>
-<rect x="224" y="126" width="7" height="7" fill="#111111"/>
-<rect x="231" y="133" width="7" height="7" fill="#111111"/>
-<rect x="224" y="140" width="7" height="7" fill="#111111"/>
-<rect x="238" y="133" width="7" height="7" fill="#f2b233"/>
 <rect x="490" y="126" width="7" height="7" fill="#57a64e"/>
 <rect x="490" y="133" width="7" height="7" fill="#57a64e"/>
 <rect x="490" y="140" width="7" height="7" fill="#57a64e"/>
@@ -1112,6 +1093,14 @@
 <text x="301" y="94.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">4</text>
 <text x="385" y="94.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">-</text>
 <text x="399" y="94.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">1</text>
+<text x="35" y="115.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">F</text>
+<text x="49" y="115.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">U</text>
+<text x="63" y="115.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">E</text>
+<text x="77" y="115.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">L</text>
+<text x="203" y="136.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">F</text>
+<text x="217" y="136.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">U</text>
+<text x="231" y="136.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">E</text>
+<text x="245" y="136.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">L</text>
 <text x="63" y="157.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">L</text>
 <text x="77" y="157.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">I</text>
 <text x="91" y="157.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">Q</text>
@@ -1179,9 +1168,9 @@
 <text x="77" y="724.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">D</text>
 <text x="91" y="724.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">R</text>
 <text x="105" y="724.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">N</text>
-<text x="231" y="724.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">N</text>
-<text x="245" y="724.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">O</text>
-<text x="259" y="724.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">L</text>
+<text x="231" y="724.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">L</text>
+<text x="245" y="724.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">D</text>
+<text x="259" y="724.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">G</text>
 <text x="385" y="724.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">T</text>
 <text x="399" y="724.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">R</text>
 <text x="413" y="724.5" fill="#57a64e" font-size="17" text-anchor="middle" dominant-baseline="central">K</text>
