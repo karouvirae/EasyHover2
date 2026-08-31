@@ -257,4 +257,40 @@ t.test("M.build: nav back integration", function()
   t.eq(afterDepth, beforeDepth - 1, "nav stack should have one fewer element after pop")
 end)
 
+-- ===== B2: apply on open and START/STOP =====
+
+t.test("M.build: paints SERVER/LINK on construct without the caller applying", function()
+  local basalt = BasaltApp.ensureBasalt()
+  local frame = basalt.createFrame()
+  local runtime = {
+    cfgserver = {
+      start = function() end, stop = function() end,
+      status = function() return { running = false, lastSeen = nil } end,
+    },
+    uiRev = 0,
+  }
+  local h = M.build(basalt, frame, runtime, Nav.new("bitconfig"))
+  t.eq(h.elements.serverLbl:getText(), "SERVER: STOPPED")
+  t.eq(h.elements.linkLbl:getText(), "LINK: STOPPED")
+end)
+
+t.test("START onClick applies after cfgserver:start", function()
+  local basalt = BasaltApp.ensureBasalt()
+  local frame = basalt.createFrame()
+  local running = false
+  local runtime = {
+    cfgserver = {
+      start = function() running = true end, stop = function() end,
+      status = function() return { running = running, lastSeen = nil } end,
+    },
+    uiRev = 0,
+  }
+  local h = M.build(basalt, frame, runtime, Nav.new("bitconfig"))
+  t.eq(h.elements.serverLbl:getText(), "SERVER: STOPPED")
+  h.elements.ssRow.buttons[1].button:fireEvent("mouse_click", 1, 1, 1)
+  t.eq(running, true)
+  t.eq(h.elements.serverLbl:getText(), "SERVER: RUNNING")
+  t.eq(h.elements.linkLbl:getText(), "LINK: WAITING FOR FCS")
+end)
+
 return t

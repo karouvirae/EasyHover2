@@ -72,16 +72,8 @@ function M.build(basalt, frame, runtime, nav)
 
   local footerY = dataTop + 3
 
-  -- configkit chrome (matches the rest of the NAV/BIT-CONFIG tree, e.g. tuning.lua): a compact
-  -- START/STOP actionRow, then a separate actionRow holding just the "< BACK" back item (which
-  -- pins itself to the bottom frame row regardless of the y passed here).
-  local ssRow = configkit.actionRow(frame, { x = x, y = footerY, w = iw }, {
-    { label = "START", onClick = function() M._onButton(runtime, "start", os.epoch("utc")) end },
-    { label = "STOP",  onClick = function() M._onButton(runtime, "stop",  os.epoch("utc")) end },
-  })
-  local backRow = configkit.actionRow(frame, { x = x, y = footerY + 1, w = iw }, {
-    { id = "back", label = "<", onClick = function() if nav then nav:pop() end end },
-  })
+  -- Forward-declare so apply can close over ssRow before actionRow is built.
+  local ssRow
 
   -- apply(state): read runtime.cfgserver:status() live (a cheap table read, NOT a peripheral
   -- poll -- safe on the render path), set the SERVER + LINK Labels via M.linkStatus, and
@@ -105,6 +97,24 @@ function M.build(basalt, frame, runtime, nav)
     ssRow.setState(1, status.running and "disabled" or "off")   -- START
     ssRow.setState(2, status.running and "off" or "disabled")   -- STOP
   end
+
+  -- configkit chrome (matches the rest of the NAV/BIT-CONFIG tree, e.g. tuning.lua): a compact
+  -- START/STOP actionRow, then a separate actionRow holding just the "< BACK" back item (which
+  -- pins itself to the bottom frame row regardless of the y passed here).
+  -- onClick: mutate via _onButton then paint immediately.
+  ssRow = configkit.actionRow(frame, { x = x, y = footerY, w = iw }, {
+    { label = "START", onClick = function()
+      M._onButton(runtime, "start", os.epoch("utc")); apply()
+    end },
+    { label = "STOP",  onClick = function()
+      M._onButton(runtime, "stop",  os.epoch("utc")); apply()
+    end },
+  })
+  local backRow = configkit.actionRow(frame, { x = x, y = footerY + 1, w = iw }, {
+    { id = "back", label = "<", onClick = function() if nav then nav:pop() end end },
+  })
+
+  apply()
 
   return {
     id = M.id,
