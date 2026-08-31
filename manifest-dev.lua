@@ -972,9 +972,9 @@
         },
         {
           ["dst"] = "ui/basalt/app.lua",
-          ["size"] = 58989,
+          ["size"] = 59680,
           ["src"] = "ui/basalt/app.lua",
-          ["sum"] = "6b22f6d1",
+          ["sum"] = "cc8c139e",
         },
         {
           ["dst"] = "ui/basalt/bitconfig/dtc.lua",
@@ -984,9 +984,9 @@
         },
         {
           ["dst"] = "ui/basalt/bitconfig/fcssync.lua",
-          ["size"] = 4815,
+          ["size"] = 5010,
           ["src"] = "ui/basalt/bitconfig/fcssync.lua",
-          ["sum"] = "314abbd0",
+          ["sum"] = "42202e9a",
         },
         {
           ["dst"] = "ui/basalt/bitconfig/hub.lua",
@@ -1134,9 +1134,9 @@
         },
         {
           ["dst"] = "ui/basalt/pages/nav.lua",
-          ["size"] = 22064,
+          ["size"] = 22908,
           ["src"] = "ui/basalt/pages/nav.lua",
-          ["sum"] = "c5e0c24c",
+          ["sum"] = "31ce96f5",
         },
         {
           ["dst"] = "ui/basalt/pages/pfd.lua",
@@ -1206,9 +1206,9 @@
         },
         {
           ["dst"] = "ui/basalt/wptclient.lua",
-          ["size"] = 3237,
+          ["size"] = 3887,
           ["src"] = "ui/basalt/wptclient.lua",
-          ["sum"] = "f2249c52",
+          ["sum"] = "54b66cbb",
         },
         {
           ["dst"] = "ui/cfgserver.lua",
@@ -1458,5 +1458,5 @@
     ["size"] = 71874,
     ["sum"] = "4f7c615b",
   },
-  ["version"] = "ed6426e7",
+  ["version"] = "db54a1d8",
 }
