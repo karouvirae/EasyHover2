@@ -244,7 +244,7 @@ t.test("fcs_main: missing-FCS blink cue drives the OUTLINE only (mode-chip borde
   local els = r.built.fcs_main.handle.elements
   local cpl = els.masterCtrls.CPL
   t.eq(cpl.chip.get("borderTop"), false, "healthy: mode chip has NO outline")
-  t.eq(els.fcsBtn.get("borderColor"), colors.green, "healthy: FCS border = engaged green")
+  t.eq(els.fcsBtn.get("borderColor"), colors.lime, "healthy: FCS border = engaged lime")
 
   -- Stale, red phase: all three groups' outline blinks to red; the mode chip's bar bg is unchanged.
   r:apply({ fcsStale = true, blinkPhase = 1, engaged = true, gndSafety = false, flightMode = "PRECISION" })

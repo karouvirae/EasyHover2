@@ -174,9 +174,9 @@ function M.main(basalt, frame, region, runtime, opts)
     -- their OUTLINE blinks gray<->red (ui/basalt/fcslink drives state.fcsStale/blinkPhase). Only the
     -- outline changes; the inner chip/label keep their last-known value.
     local blink = state.fcsStale and blinkOutline(state.blinkPhase) or nil
-    -- FCS / GND outlines: normally green engaged/on, red disengaged/off; blink when stale.
-    fcsBtn:addBorder(blink or (state.engaged and colors.green or colors.red))
-    gndBtn:addBorder(blink or (state.gndSafety and colors.green or colors.red))
+    -- FCS / GND outlines: lime engaged/on, red disengaged/off; blink when stale.
+    fcsBtn:addBorder(blink or (state.engaged and colors.lime or colors.red))
+    gndBtn:addBorder(blink or (state.gndSafety and colors.lime or colors.red))
     -- Mode chips: bright LIME for the one active mode, dim GREEN for the rest (radio, not an alarm).
     -- Add a blinking outline when stale; hide it (button-bg colour) otherwise.
     for _, id in ipairs(FcsPanel.MODES) do

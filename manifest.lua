@@ -1164,15 +1164,15 @@
         },
         {
           ["dst"] = "ui/basalt/regions/emc.lua",
-          ["size"] = 10394,
+          ["size"] = 10392,
           ["src"] = "dist/ui/basalt/regions/emc.lua",
-          ["sum"] = "11dd1ebf",
+          ["sum"] = "f9347015",
         },
         {
           ["dst"] = "ui/basalt/regions/fcs.lua",
-          ["size"] = 5080,
+          ["size"] = 5078,
           ["src"] = "dist/ui/basalt/regions/fcs.lua",
-          ["sum"] = "d770b767",
+          ["sum"] = "ce62bc67",
         },
         {
           ["dst"] = "ui/basalt/renderpolicy.lua",
@@ -1296,9 +1296,9 @@
         },
         {
           ["dst"] = "ui/theme.lua",
-          ["size"] = 3586,
+          ["size"] = 3595,
           ["src"] = "dist/ui/theme.lua",
-          ["sum"] = "a294e323",
+          ["sum"] = "b84e6e3f",
         },
         {
           ["dst"] = "ui/toolkit.lua",
@@ -1458,5 +1458,5 @@
     ["size"] = 71874,
     ["sum"] = "4f7c615b",
   },
-  ["version"] = "7361b645",
+  ["version"] = "8ff8ead3",
 }

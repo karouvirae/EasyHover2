@@ -304,8 +304,8 @@ function M.main(basalt, frame, region, runtime, opts)
     leftLabel:setText(fit(EnginePanel.leftLabel(state and state.fuelEst), leftW))
 
     local bound = relayBound(runtime)
-    -- ENG SW outline: green(on) / red(off) when a relay is bound, else gray (disabled).
-    engBtn:addBorder(bound and (state.engineMaster and colors.green or colors.red) or colors.gray)
+    -- ENG SW outline: lime(on) / red(off) when a relay is bound, else gray (disabled).
+    engBtn:addBorder(bound and (state.engineMaster and colors.lime or colors.red) or colors.gray)
     engBtn:setForeground(bound and Theme.role("font") or Theme.DISABLED_FG)
     engBtn:setEnabled(bound and true or false)
 
@@ -411,7 +411,7 @@ function M.config(basalt, frame, region, runtime, deps)
     local inv = e.invert and true or false
     invLbl:setText(string.format("%-8s%s", "INVERT:", inv and "ON" or "OFF"))
     setInvLed(inv)
-    invBtn.setChip(inv and colors.green or colors.red)
+    invBtn.setChip(inv and colors.lime or colors.red)
   end
 
   apply({})
