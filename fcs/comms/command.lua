@@ -70,8 +70,8 @@ function Receiver:receive(frame, apply)
   end
   local key = tostring(frame.sid or "") .. ":" .. tostring(frame.id)
   if not self.handled[key] then
-    self.handled[key] = true
     apply(frame.cmd)
+    self.handled[key] = true
   end
   return { k = "ack", sid = frame.sid, id = frame.id }
 end

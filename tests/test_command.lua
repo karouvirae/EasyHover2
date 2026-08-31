@@ -98,3 +98,29 @@ t.test("an ack arriving before exhaustion still clears a pending command normall
   s:ack(f.id)
   t.eq(#s:tick(5.0), 0, "acked -> never retried again, never dropped")
 end)
+
+t.test("receiver does not mark handled when apply throws; retry applies", function()
+  local r = command.Receiver.new()
+  local n = 0
+  local apply = function()
+    n = n + 1
+    if n == 1 then error("disk") end
+  end
+  local frame = { k = "cmd", sid = "S", id = 1, cmd = { k = "fuel" } }
+  local ok = pcall(function() r:receive(frame, apply) end)
+  t.eq(ok, false, "first apply throws")
+  t.eq(n, 1)
+  local ack = r:receive(frame, apply)
+  t.eq(n, 2, "retry applied because first throw was not remembered")
+  t.eq(ack.k, "ack"); t.eq(ack.id, 1); t.eq(ack.sid, "S")
+end)
+
+t.test("receiver still dedups after a successful apply", function()
+  local r = command.Receiver.new()
+  local n = 0
+  local apply = function() n = n + 1 end
+  local frame = { k = "cmd", sid = "S", id = 9, cmd = { k = "engage" } }
+  r:receive(frame, apply)
+  r:receive(frame, apply)
+  t.eq(n, 1)
+end)
