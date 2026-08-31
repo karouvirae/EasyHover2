@@ -64,3 +64,26 @@ t.test("tryAssemble returns nil,nil when neither split exists", function()
   local hw, err = C.tryAssemble(function() return nil end)
   t.eq(hw, nil); t.eq(err, nil)
 end)
+
+-- F3: a split is only usable when BOTH files exist. If only one is present, load() returns
+-- IDENTITY defaults for the missing kind (signHeading=1, gimbalRollIdx=2, ...); assembling then
+-- would fly a real craft (signHeading=-1) with an identity sign map -- the Flight #9 negative
+-- spring. tryAssemble must instead return nil so the caller falls through to the fused config.
+t.test("tryAssemble returns nil,nil when only devbind exists (falls through to fused)", function()
+  local files = { ["eh2_devbind.tbl"] = textutils.serialise({ thrusters = { FL = "t_fl" }, sensors = { altimeter = "alt" } }) }
+  local hw, err = C.tryAssemble(function(name) return files[name] end)
+  t.eq(hw, nil); t.eq(err, nil)
+end)
+
+t.test("tryAssemble returns nil,nil when only senscal exists (falls through to fused)", function()
+  local files = { ["eh2_senscal.tbl"] = textutils.serialise({ signPitch = -1, signHeading = -1 }) }
+  local hw, err = C.tryAssemble(function(name) return files[name] end)
+  t.eq(hw, nil); t.eq(err, nil)
+end)
+
+t.test("tryAssemble still returns nil,err on a corrupt split (no silent fused-over-corrupt)", function()
+  local files = { ["eh2_devbind.tbl"] = "not a table",
+                  ["eh2_senscal.tbl"] = textutils.serialise({ signPitch = 1, signHeading = 1 }) }
+  local hw, err = C.tryAssemble(function(name) return files[name] end)
+  t.eq(hw, nil); t.truthy(err)
+end)

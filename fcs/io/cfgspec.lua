@@ -49,7 +49,10 @@ function M.tryAssemble(read)
   local db, dbEx, dbErr = M.load("devbind", read)
   local sc, scEx, scErr = M.load("senscal", read)
   if dbErr or scErr then return nil, dbErr or scErr end
-  if not dbEx and not scEx then return nil, nil end
+  -- Both splits must exist to assemble. If only one is present, load() filled the other with
+  -- IDENTITY defaults; assembling would fly a real craft with an identity sign map (F3). Return
+  -- nil so the caller falls through to the fused /eh2_hw_config.tbl (split preferred only when complete).
+  if not dbEx or not scEx then return nil, nil end
   return M.assembleHw(db, sc)
 end
 
