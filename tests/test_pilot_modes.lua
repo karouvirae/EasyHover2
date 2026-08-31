@@ -94,6 +94,19 @@ t.test("existing mode (no translate field) still ramps sway/surge leash", functi
   t.truthy(sp.swayPos > 0, "swayPos ramps right without translate flag")
 end)
 
+-- F2: the CRUISE throttle detent is a persistent accumulator (self.throttle). reset() rebuilds sp
+-- but must ALSO drop the accumulator, or a disengage/re-engage (which reseeds via reset) re-derives
+-- sp.surgeThrottle from the stale detent and slams MAIN back on with no W held.
+t.test("reset drops the held CRUISE throttle detent (no MAIN demand returns without W)", function()
+  local p = Pilot.new(FEEL); p:setMode({ tilt = false, surge = "throttle" }, FEEL); p:reset(meas())
+  p:update(0.5, { surgeFwd = true }, meas())      -- ramp a forward-throttle detent
+  t.truthy(p.throttle > 0, "detent accumulated while W held")
+  p:reset(meas())                                  -- disengage/re-engage reseed
+  t.eq(p.throttle, 0, "reset zeros the throttle accumulator")
+  local sp = p:update(0.1, {}, meas())             -- first tick after re-engage, no W
+  t.near(sp.surgeThrottle or 0, 0, 1e-9, "MAIN stays off until W is held again")
+end)
+
 -- A1: CRUISE drives surge via throttle, not the position leash. Leaving CRUISE under CPL with a
 -- leashed-ahead surgePos rails reverse after detent; keep sp.surgePos on measured while throttle.
 t.test("CRUISE throttle policy does not advance surgePos off measured", function()

@@ -22,6 +22,11 @@ end
 function Pilot:reset(meas)
   self.sp = { altitude = meas.altitude, heading = meas.heading,
               swayPos = meas.swayPos, surgePos = meas.surgePos }
+  -- Drop the persistent held-input accumulators too (same neutralization as setMode's transition):
+  -- reset reseeds sp from measured, but update() re-derives sp.surgeThrottle/pitch/roll from these.
+  -- A CRUISE throttle detent (self.throttle) surviving a disengage would otherwise slam MAIN back on
+  -- at re-engage with no W held (F2). tilt/climbHeld cleared for the same reason on any reseed.
+  self.tilt.pitch, self.tilt.roll, self.throttle, self.climbHeld = 0, 0, 0, 0
   self.yawWasHeld = false
   return self.sp
 end

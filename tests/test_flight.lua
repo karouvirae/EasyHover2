@@ -88,6 +88,23 @@ t.test("clearDamped forwards to the loop", function()
   t.truthy(L.cleared, "loop cleared")
 end)
 
+-- F2: airborne disengage does NOT call setMode/reset, so a CRUISE throttle detent survived on the
+-- pilot; re-engage (reset via _needReset) must not put MAIN back at the old detent with no W held.
+local CRUISEFEEL = { headingRate=0.6, climbRate=0.8, leadCapVert=3, cruiseSpeed=1, maxLead=4,
+  cruiseThrottleRate=1.0, cruiseThrottleMax=1.0 }
+t.test("CRUISE: disengage then re-engage does not slam MAIN back to the old throttle detent", function()
+  local L = fakeLoop()
+  local f = Flight.new({ loop = L, pilot = Pilot.new(CFG) })
+  f.pilot:setMode({ tilt = false, surge = "throttle" }, CRUISEFEEL)
+  f:handleCommand({ k = "gndSafety", on = false }); f:handleCommand({ k = "engage" })
+  f:step(0.5, { surgeFwd = true }, meas())         -- ramp a throttle detent while airborne
+  t.truthy((L.sp.surgeThrottle or 0) > 0, "MAIN commanded while W held")
+  f:handleCommand({ k = "disengage" })
+  f:handleCommand({ k = "engage" })
+  f:step(0.1, {}, meas())                          -- re-engaged, no W held
+  t.near(L.sp.surgeThrottle or 0, 0, 1e-9, "MAIN stays off after re-engage until W")
+end)
+
 -- ---- ground-idle (engaged-but-parked) ----
 local function groundMeas(o) o = o or {}
   return { altitude=10, heading=0, swayPos=0, surgePos=0, pitch=0, roll=0, yawRate=0,
