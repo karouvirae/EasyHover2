@@ -193,7 +193,7 @@ end
 local function logPlain()
   if settings == nil then return false end
   local v = settings.get("eh2_log_plain")
-  return v == true or v == "true" or v == "1" or v == "yes"
+  return v == true or v == "true" or v == 1 or v == "1" or v == "yes"
 end
 
 -- Compose the log body (header + rows + running summary) to LOG_PATH. Returns rowCount.
@@ -211,12 +211,14 @@ local function logWriteFile()
       os.queueEvent("eh2_log_tick"); os.pullEvent("eh2_log_tick")
     end
   end
+  local summaryText = Inst.formatSummary(logSummary:finalize())
   pcall(function()
     if fs.exists(LOG_PATH) then fs.delete(LOG_PATH) end     -- reclaim space from a prior write
     local f = fs.open(LOG_PATH, "w")
     if f then
-      f.write(Codec.compose(logPlain(), Inst.header(), rows, summaryText))
-      f.close()
+      local ok, werr = pcall(f.write, Codec.compose(logPlain(), Inst.header(), rows, summaryText))
+      f.close()                                             -- close even on a failed write (handle cap)
+      if not ok then error(werr) end
     end
   end)
   return #rows
