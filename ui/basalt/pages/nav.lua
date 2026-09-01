@@ -78,6 +78,16 @@ function M._draftFromWpt(wpt)
   }
 end
 
+-- Display a coordinate / per-leg altitude rounded to one decimal. GPS-captured waypoints (HERE) carry
+-- long float coords; only the on-screen readout rounds -- the draft field and the stored waypoint keep
+-- full precision for navigation. Non-numeric input (blank field, mid-typed text) passes through so the
+-- caller's "..." placeholder still works.
+function M._fmtCoord(v)
+  local n = tonumber(v)
+  if n == nil then return tostring(v) end
+  return string.format("%.1f", n)
+end
+
 function M._nextType(cur)
   for i, tp in ipairs(W.TYPES) do
     if tp == cur then return W.TYPES[(i % #W.TYPES) + 1] end
@@ -313,9 +323,10 @@ function M.build(basalt, frame, runtime, nav)
       saveRow.setState(1, isLive() and "off" or "disabled")
       nameBtn:setText(draft.name ~= "" and draft.name or "...")
       typeBtn:setText(draft.type or "base")
-      xBtn:setText(draft.x ~= "" and draft.x or "...")
-      yBtn:setText(draft.y ~= "" and draft.y or "...")
-      zBtn:setText(draft.z ~= "" and draft.z or "...")
+      -- Display rounds to 1 decimal; draft.x/y/z keep full precision (the keypad edits + SAVE use them).
+      xBtn:setText(draft.x ~= "" and M._fmtCoord(draft.x) or "...")
+      yBtn:setText(draft.y ~= "" and M._fmtCoord(draft.y) or "...")
+      zBtn:setText(draft.z ~= "" and M._fmtCoord(draft.z) or "...")
     end
     refresh()
 
@@ -427,7 +438,7 @@ function M.build(basalt, frame, runtime, nav)
       })
       local listFrame = ff:addFrame({ x = 1, y = 3, width = ffw, height = math.max(3, ffh - 3) })
       local list = WL.make(listFrame, { rows = math.max(1, ffh - 4), selColor = rtColor,
-        fmt = function(it) return (it.wpt or "?") .. " @" .. tostring(it.alt) end,
+        fmt = function(it) return (it.wpt or "?") .. " @" .. M._fmtCoord(it.alt) end,
         keyOf = function(it) return it._i end,
         onSelect = function(it) selLeg = it and it._i or nil end })
       local backRow = configkit.actionRow(ff, { x = 1, y = ffh, w = ffw }, {

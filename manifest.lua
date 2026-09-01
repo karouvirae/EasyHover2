@@ -1134,15 +1134,15 @@
         },
         {
           ["dst"] = "ui/basalt/pages/nav.lua",
-          ["size"] = 11240,
+          ["size"] = 11389,
           ["src"] = "dist/ui/basalt/pages/nav.lua",
-          ["sum"] = "76a45cec",
+          ["sum"] = "a85abb59",
         },
         {
           ["dst"] = "ui/basalt/pages/pfd.lua",
-          ["size"] = 4236,
+          ["size"] = 4264,
           ["src"] = "dist/ui/basalt/pages/pfd.lua",
-          ["sum"] = "7436f9e1",
+          ["sum"] = "d87b53f7",
         },
         {
           ["dst"] = "ui/basalt/params.lua",
@@ -1458,5 +1458,5 @@
     ["size"] = 71874,
     ["sum"] = "4f7c615b",
   },
-  ["version"] = "221202e0",
+  ["version"] = "8a9fa9fd",
 }

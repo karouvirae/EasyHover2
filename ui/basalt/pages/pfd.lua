@@ -102,12 +102,19 @@ local function drawReadouts(img, w, h, state, tgt, tgtColor, fontColor)
   clear(img, w, h)
   local altV, altU = altPieces(state)
   local spdV, spdU = spdPieces(state)
-  -- ALT: label (row 1) + big value (rows 2-3), left.
-  Glyph.small(img, "ALT " .. altU, 1, 1, fontColor, colors.black)
-  Glyph.draw(img, altV, 1, 2, fontColor)
-  -- SPD: label + big value, right-aligned to the edge.
-  local spdX = math.max(1, w - Glyph.width(spdV) + 1)
-  Glyph.small(img, "SPD " .. spdU, math.max(1, w - #("SPD " .. spdU) + 1), 1, fontColor, colors.black)
+  -- ALT (left) and SPD (right) are the only readouts flush to a panel EDGE. A big digit's outer
+  -- stroke lights the edge column of its edge cell, so the green sits right on the panel border with
+  -- no black gap ("digits connect to the border"); centered readouts (TGT, tape labels) have black
+  -- both sides and look clean. Inset the edge label AND its big value by one cell so a black margin
+  -- always separates them from the panel edge.
+  local MARG = 1
+  -- ALT: label (row 1) + big value (rows 2-3), left, inset from the left edge.
+  Glyph.small(img, "ALT " .. altU, 1 + MARG, 1, fontColor, colors.black)
+  Glyph.draw(img, altV, 1 + MARG, 2, fontColor)
+  -- SPD: label + big value, right-aligned but inset from the right edge.
+  local spdLabel = "SPD " .. spdU
+  local spdX = math.max(1, w - Glyph.width(spdV) + 1 - MARG)
+  Glyph.small(img, spdLabel, math.max(1, w - #spdLabel + 1 - MARG), 1, fontColor, colors.black)
   Glyph.draw(img, spdV, spdX, 2, fontColor)
   -- TGT: name (row 1) + big distance (rows 2-3) + alt-delta/arrow (row 4), centered.
   if tgt then

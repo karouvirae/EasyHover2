@@ -91,6 +91,22 @@ t.test("_draftFromWpt fills strings + kind=edit; nil wpt is empty add", function
   t.eq(e.kind, "add"); t.eq(e.name, "")
 end)
 
+t.test("_draftFromWpt keeps FULL coordinate precision internally (display rounds separately)", function()
+  -- A HERE-captured waypoint carries long GPS decimals. The draft (edited + saved) must keep them in
+  -- full; only the on-screen readout rounds, via M._fmtCoord. Guards against rounding the stored value.
+  local d = M._draftFromWpt({ name = "Pad", x = 123.456789, y = -47.10001, z = 20.9, type = "base" })
+  t.eq(d.x, "123.456789"); t.eq(d.y, "-47.10001"); t.eq(d.z, "20.9")
+end)
+
+t.test("_fmtCoord rounds a coordinate to one decimal for display; non-numeric passes through", function()
+  t.eq(M._fmtCoord(123.456789), "123.5")
+  t.eq(M._fmtCoord("123.456789"), "123.5")   -- a numeric draft-field string rounds too
+  t.eq(M._fmtCoord(-47.10001), "-47.1")
+  t.eq(M._fmtCoord(20), "20.0")              -- integer altitude -> explicit one decimal
+  t.eq(M._fmtCoord(""), "")                  -- blank passes through (caller shows "..." placeholder)
+  t.eq(M._fmtCoord("abc"), "abc")            -- non-numeric passes through unchanged
+end)
+
 t.test("_nextType cycles the waypoint types", function()
   t.eq(M._nextType("base"), "outpost")
   t.eq(M._nextType("poi"), "base")
