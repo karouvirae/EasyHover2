@@ -870,6 +870,9 @@ function M.build(basalt, frame, runtime, nav, read, write, delete)
       end
       reason:setText(configkit.fitLabel(M._comAutoReason(ca, miss and ComAuto.label(miss)), fiw))
       startRow.setState(1, (miss or running) and "disabled" or "off")
+      -- ABORT only does anything while the procedure is running (comAuto:abort() no-ops on IDLE/DONE);
+      -- leaving it live after a finished/aborted run reads as a dead button -- disable it when idle.
+      abortRow.setState(1, running and "off" or "disabled")
       if ca.captured and not savedCap then
         workingCfg.com = workingCfg.com or {}
         workingCfg.com.fwd = ca.captured.fwd
