@@ -12,7 +12,12 @@ end
 local DEFAULTS = {
   gains = {
     hoverDuty = 0.26,
-    alt   = { kp = 0.02, ki = 0.01, kd = 0.15, tauD = 0.35, iMax = 0.3, iMin = -0.3 },
+    -- iBand: conditional-integration anti-windup. The vertical leash lets the setpoint lead the craft
+    -- by up to leadCapVert(8) blocks during a climb, so err_alt is large the whole climb WITHOUT heave
+    -- railing -- the integrator used to wind to iMax and then float the craft past the target (a long,
+    -- oscillatory drop after climb). Integrate only within 3 blocks of the setpoint: P/D drive the
+    -- climb, I only trims the steady-state hover residual near the target.
+    alt   = { kp = 0.02, ki = 0.01, kd = 0.15, tauD = 0.35, iMax = 0.3, iMin = -0.3, iBand = 3.0 },
     pitch = { kp = 0.10, ki = 0, kd = 0.22, tauD = 0.2 },
     roll  = { kp = 0.10, ki = 0, kd = 0.22, tauD = 0.2 },
     yaw   = { kp = 0.95, ki = 0, kd = 1.8 },   -- kd 1.0->1.8: damp the heavy craft's release ring

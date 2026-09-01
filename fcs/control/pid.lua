@@ -5,6 +5,11 @@ function Pid.new(cfg)
   self.kp = cfg.kp or 0; self.ki = cfg.ki or 0; self.kd = cfg.kd or 0
   self.tauD = cfg.tauD or 0
   self.iMin = cfg.iMin or -math.huge; self.iMax = cfg.iMax or math.huge
+  -- Conditional-integration anti-windup: when set, integrate ONLY while |err| <= iBand, so a large
+  -- sustained error (e.g. a moving setpoint that leads the craft during a climb) is left to P/D and
+  -- the integrator never winds up on the transient -- it only trims the steady-state residual near
+  -- the setpoint. nil => integrate at any error (classic PID; clamp-only anti-windup).
+  self.iBand = cfg.iBand
   self.dtMax = cfg.dtMax or 0.5
   self:reset()
   return self
@@ -13,7 +18,10 @@ function Pid:reset() self.i = 0; self.lastMeas = nil; self.dFilt = 0 end
 function Pid:update(sp, meas, dt, saturated)
   local err = sp - meas
   local usable = (dt > 0) and (dt <= self.dtMax) and not saturated
-  if usable then
+  -- Band gates INTEGRATION ONLY -- the derivative must stay live outside the band (that D damping is
+  -- what arrests the climb), so it keys off `usable`, not `integrate`.
+  local integrate = usable and not (self.iBand and (err > self.iBand or err < -self.iBand))
+  if integrate then
     self.i = self.i + self.ki * err * dt
     if self.i > self.iMax then self.i = self.iMax elseif self.i < self.iMin then self.i = self.iMin end
   end

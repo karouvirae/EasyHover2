@@ -225,9 +225,9 @@
         },
         {
           ["dst"] = "fcs/control/pid.lua",
-          ["size"] = 877,
+          ["size"] = 960,
           ["src"] = "dist/fcs/control/pid.lua",
-          ["sum"] = "9e646a0e",
+          ["sum"] = "b94da3d6",
         },
         {
           ["dst"] = "fcs/control/translate.lua",
@@ -327,9 +327,9 @@
         },
         {
           ["dst"] = "fcs/io/tuningdefaults.lua",
-          ["size"] = 1763,
+          ["size"] = 1773,
           ["src"] = "dist/fcs/io/tuningdefaults.lua",
-          ["sum"] = "5056d6f3",
+          ["sum"] = "346cf641",
         },
         {
           ["dst"] = "fcs/leash.lua",
@@ -756,9 +756,9 @@
         },
         {
           ["dst"] = "fcs/control/pid.lua",
-          ["size"] = 877,
+          ["size"] = 960,
           ["src"] = "dist/fcs/control/pid.lua",
-          ["sum"] = "9e646a0e",
+          ["sum"] = "b94da3d6",
         },
         {
           ["dst"] = "fcs/control/translate.lua",
@@ -834,9 +834,9 @@
         },
         {
           ["dst"] = "fcs/io/tuningdefaults.lua",
-          ["size"] = 1763,
+          ["size"] = 1773,
           ["src"] = "dist/fcs/io/tuningdefaults.lua",
-          ["sum"] = "5056d6f3",
+          ["sum"] = "346cf641",
         },
         {
           ["dst"] = "fcs/mixer/level_flight.lua",
@@ -1382,9 +1382,9 @@
         },
         {
           ["dst"] = "fcs/io/tuningdefaults.lua",
-          ["size"] = 1763,
+          ["size"] = 1773,
           ["src"] = "dist/fcs/io/tuningdefaults.lua",
-          ["sum"] = "5056d6f3",
+          ["sum"] = "346cf641",
         },
         {
           ["dst"] = "fcs2disk",
@@ -1434,9 +1434,9 @@
         },
         {
           ["dst"] = "fcs/io/tuningdefaults.lua",
-          ["size"] = 1763,
+          ["size"] = 1773,
           ["src"] = "dist/fcs/io/tuningdefaults.lua",
-          ["sum"] = "5056d6f3",
+          ["sum"] = "346cf641",
         },
         {
           ["dst"] = "splitconfig",
@@ -1458,5 +1458,5 @@
     ["size"] = 71874,
     ["sum"] = "4f7c615b",
   },
-  ["version"] = "7871efc4",
+  ["version"] = "221202e0",
 }

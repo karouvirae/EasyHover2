@@ -48,3 +48,22 @@ t.test("envelope sat on heave freezes the alt integrator (same as band saturatio
   sc:update({ altitude = 100 }, m(0), 0.1, false, { heave = true })
   t.eq(sc.altPid.i, i1, "alt integration skipped while heave envelope-flagged")
 end)
+
+t.test("alt integrator does NOT wind up on a large climb-tracking error (conditional integration)", function()
+  -- The reported bug: during a fast climb the setpoint leads the craft by up to leadCapVert(8)
+  -- blocks, so err_alt is large and sustained WITHOUT heave saturating (heave sits mid-band ~0.25).
+  -- The existing sat/band anti-windup never triggers, so `i` wound to iMax(0.3) and then floated the
+  -- craft past the setpoint -- a long, oscillatory drop. An alt iBand freezes integration outside the
+  -- band, so `i` stays near zero on the climb error (P drives the climb; I only trims near setpoint).
+  local sc = Scheme.new({ hoverDuty = 0.26, heaveMin = 0.05, heaveMax = 0.85,
+    alt = { kp = 0.02, ki = 0.01, kd = 0, iMax = 0.3, iBand = 3 } })
+  for _ = 1, 100 do sc:update({ altitude = 8 }, m(0), 0.1, false) end  -- 10s of err=8 climb, heave unrailed
+  t.truthy(sc._heaveSat == false, "sanity: heave never railed, so band/sat anti-windup is NOT what holds it")
+  t.truthy(math.abs(sc.altPid.i) < 0.02, "alt integrator stays near zero on a large climb error, not wound to iMax")
+end)
+t.test("alt integrator still trims a small steady-state error within the band", function()
+  local sc = Scheme.new({ hoverDuty = 0.26, heaveMin = 0.05, heaveMax = 0.85,
+    alt = { kp = 0.02, ki = 0.5, kd = 0, iMax = 0.3, iBand = 3 } })
+  for _ = 1, 20 do sc:update({ altitude = 2 }, m(0), 0.1, false) end   -- err=2 within band 3
+  t.truthy(sc.altPid.i > 0.05, "integrator trims the steady-state residual when the craft is near the setpoint")
+end)

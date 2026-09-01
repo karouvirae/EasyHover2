@@ -20,6 +20,23 @@ t.test("saturated freezes integration", function()
   p:update(1, 0, 0.5, true)                    -- saturated: no change
   t.near(p:update(1, 0, 0), 0.5, 1e-9)
 end)
+t.test("iBand freezes integration OUTSIDE the error band (conditional-integration anti-windup)", function()
+  -- Conditional integration: an integrator with a band only accumulates while the error is small
+  -- (steady-state trim). A large, sustained error -- e.g. a moving setpoint that leads the craft --
+  -- is left to P/D so the integrator never winds up on the transient.
+  local p = Pid.new({ kp = 0, ki = 1, kd = 0, iBand = 3 })
+  for _ = 1, 20 do p:update(10, 0, 0.1) end     -- err=10 > band 3: no integration over 2s
+  t.near(p:update(10, 0, 0), 0, 1e-9)           -- i stayed 0
+  p:update(2, 0, 0.5)                           -- err=2 <= band 3: i += 1*2*0.5 = 1.0
+  t.near(p:update(2, 0, 0), 1.0, 1e-9)
+  p:update(-2, 0, 0.5)                          -- err=-2 within band: i += 1*-2*0.5 -> 0.0
+  t.near(p:update(-2, 0, 0), 0.0, 1e-9)
+end)
+t.test("no iBand integrates at any error (backward compat)", function()
+  local p = Pid.new({ kp = 0, ki = 1, kd = 0 })   -- no band
+  p:update(10, 0, 0.1)                             -- err=10 still integrates -> i=1.0
+  t.near(p:update(10, 0, 0), 1.0, 1e-9)
+end)
 t.test("D opposes a rising measurement", function()
   local p = Pid.new({ kp = 0, ki = 0, kd = 1, tauD = 0 })  -- tauD 0 => alpha 1, unfiltered
   p:update(0, 0, 0.1)                        -- seed lastMeas
