@@ -140,9 +140,9 @@ function Flight:handleCommand(cmd)
   return false
 end
 
--- LDG landed-detector (design §4.3). Permissive, for uneven/tilted ground: parks when the craft
--- is at/below the configured clearance, drifting only very slightly, rested within the tilt band,
--- and the pilot is hands-off. Only reached in LDG (self.canPark). Autopilot never parks.
+-- LDG landed-detector (design §4.3). Permissive, for uneven/tilted ground: parks when the craft is
+-- ON the ground (the CALIBRATED onGround flag), drifting only very slightly, rested within the tilt
+-- band, and the pilot is hands-off. Only reached in LDG (self.canPark). Autopilot never parks.
 function Flight:_ldgLanded(held, meas)
   if self.comAuto and self.comAuto:active() then return false end
   local pk = self.park; if not pk then return false end
@@ -150,8 +150,10 @@ function Flight:_ldgLanded(held, meas)
   if held and (held.pitchUp or held.pitchDown or held.rollLeft or held.rollRight) then
     return false                                                    -- active tilt input
   end
-  local gd = meas and meas.groundDist
-  if gd == nil or gd > (pk.groundClear or 1.0) then return false end -- at-or-below clearance
+  -- Ground contact = the CALIBRATED onGround flag (backend: optD < onGroundThreshold), NOT the
+  -- separate, uncalibrated park.groundClear -- otherwise a craft whose landed optical distance
+  -- exceeds the stock groundClear (1.0) never parks and the FCS keeps stabilizing on the pad.
+  if meas == nil or meas.onGround ~= true then return false end
   local eps = pk.parkDriftEps or 0.15
   if math.abs(meas.vSpeed or 0) >= eps then return false end
   if math.abs(meas.swayVel or 0) >= eps then return false end

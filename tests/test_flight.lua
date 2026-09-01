@@ -239,7 +239,8 @@ end)
 local function landedMeas(o) o = o or {}
   return { groundDist = o.groundDist or 0.8, vSpeed = o.vSpeed or 0.05, swayVel = o.swayVel or 0.05,
            surgeVel = o.surgeVel or 0.05, pitch = o.pitch or 0.05, roll = o.roll or -0.05,
-           altitude = 1, heading = 0, onGround = true, swayPos = 0, surgePos = 0, yawRate = 0 } end
+           altitude = 1, heading = 0, onGround = (o.onGround == nil) and true or o.onGround,
+           swayPos = 0, surgePos = 0, yawRate = 0 } end
 local function parkFlight(L)
   local f = engagedFlight(L)
   f.canPark = true
@@ -255,6 +256,17 @@ t.test("LDG parks at a valid landed measurement: grounded, stable, within tilt b
   t.eq(L.armCalls[#L.armCalls], false, "SET disarms the loop")
 end)
 
+-- The parked detector must use the CALIBRATED on-ground flag (backend's onGroundThreshold), not the
+-- separate, uncalibrated park.groundClear. On a real pad the optical ground distance (e.g. 2.2) can
+-- exceed the stock groundClear (1.0) while the craft is squarely on the ground (onGround=true) --
+-- that must still park, or the FCS keeps stabilizing on the pad.
+t.test("LDG parks on calibrated ground contact even when groundDist exceeds the stock groundClear", function()
+  local L = fakeLoop(); local f = parkFlight(L)
+  f:step(0.05, {}, landedMeas{ onGround = true, groundDist = 2.2 })
+  t.eq(f.parked, true, "parks on the calibrated onGround flag, ignoring the orphan groundClear")
+  t.eq(L.armCalls[#L.armCalls], false, "SET disarms the loop on the ground")
+end)
+
 t.test("LDG refuses to park when tilt exceeds parkTiltBand", function()
   local L = fakeLoop(); local f = parkFlight(L)
   f:step(0.05, {}, landedMeas{ pitch = 0.3 })
@@ -267,10 +279,10 @@ t.test("LDG refuses to park while a tilt input is held", function()
   t.eq(f.parked, false, "tilt input refuses park")
 end)
 
-t.test("LDG refuses to park above groundClear", function()
+t.test("LDG refuses to park without calibrated ground contact (onGround false)", function()
   local L = fakeLoop(); local f = parkFlight(L)
-  f:step(0.05, {}, landedMeas{ groundDist = 1.4 })
-  t.eq(f.parked, false, "above groundClear refuses park")
+  f:step(0.05, {}, landedMeas{ onGround = false })
+  t.eq(f.parked, false, "no calibrated ground contact -> no park")
 end)
 
 t.test("non-LDG (canPark=false) never sets the parked latch even when grounded+still", function()

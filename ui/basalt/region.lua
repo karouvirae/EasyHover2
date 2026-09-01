@@ -33,8 +33,12 @@ function M.new(basalt, parent, opts)
   }, Region)
 end
 
-function Region:push(id) self.nav:push(id); if self.onNav then self.onNav() end; return self end
-function Region:pop() self.nav:pop(); if self.onNav then self.onNav() end; return self end
+-- push/pop repaint the region THEMSELVES (showTop + re-apply the last state), so a drilldown works
+-- even on an applyNow-only BIT/CONFIG screen that has no gate-render loop to swap the visible screen
+-- (the onNav uiRev bump only wakes gate-rendered pages). Harmless on gate-rendered pages (a cheap
+-- extra showTop before the gate's own apply).
+function Region:push(id) self.nav:push(id); if self.onNav then self.onNav() end; self:apply(self._lastState); return self end
+function Region:pop() self.nav:pop(); if self.onNav then self.onNav() end; self:apply(self._lastState); return self end
 function Region:top() return self.nav:top() end
 function Region:canBack() return self.nav:canBack() end
 
@@ -61,8 +65,10 @@ function Region:showTop()
   return rec
 end
 
--- Ensure the top screen is shown, then forward apply() to it.
+-- Ensure the top screen is shown, then forward apply() to it. Caches the state so a subsequent
+-- push/pop can repaint the new top with it (see push/pop above).
 function Region:apply(state)
+  self._lastState = state
   local rec = self:showTop()
   if rec and rec.handle and rec.handle.apply then rec.handle.apply(state) end
 end
