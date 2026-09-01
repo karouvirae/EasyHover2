@@ -129,6 +129,19 @@ local function deepEq(a, b)
   return true
 end
 
+t.test("_comAutoReason: live run shows the phase; a finished run surfaces the abort reason; else prereq/READY", function()
+  -- During a run the AUTO COM status shows PROGRESS (phase), NOT the ON GROUND prereq -- which goes
+  -- false the moment the craft lifts off and stays false on a slope, masking everything. After a
+  -- failed run it surfaces WHY (POS/TILT/TIME) so the operator isn't flying blind.
+  t.eq(M._comAutoReason({ phase = "HOLD" }, "ON GROUND"), "HOLD")                     -- running -> phase, prereq ignored
+  t.eq(M._comAutoReason({ phase = "CLIMB" }, nil), "CLIMB")
+  t.eq(M._comAutoReason({ phase = "DONE", abortReason = "POS" }, "ON GROUND"), "ABORT POS")  -- abort beats the masking prereq
+  t.eq(M._comAutoReason({ phase = "DONE" }, nil), "DONE")                             -- clean finish on the pad
+  t.eq(M._comAutoReason({ phase = "DONE" }, "ON GROUND"), "ON GROUND")                -- finished but on a slope
+  t.eq(M._comAutoReason({}, nil), "READY")                                           -- idle, all prereqs met
+  t.eq(M._comAutoReason(nil, nil), "READY")                                          -- nil-safe
+end)
+
 t.test("M.MODES lists PRECISION, MAN, CRUISE, LDG, DRN in that order (Task 14: CPL/DCPL are master modes, not flight modes)", function()
   t.eq(#M.MODES, 5)
   t.eq(M.MODES[1], "PRECISION")

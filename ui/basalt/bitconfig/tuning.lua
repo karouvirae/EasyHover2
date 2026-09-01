@@ -347,6 +347,21 @@ function M.resetMode(cfg, mode)
   return copy
 end
 
+-- ===== AUTO COM status line: TESTABLE, Basalt-free =====
+-- The text shown under the lamp. Priority: a LIVE run shows its phase (CLIMB/HOLD/DESCEND) as
+-- progress; a finished/aborted run surfaces the abort REASON -- so a failure isn't masked by the
+-- ON GROUND prereq, which goes false the instant the craft lifts off and stays false on a slope.
+-- Otherwise the missing-prereq label (missLabel = the already-resolved ComAuto.label(miss) or nil),
+-- else the phase or READY.
+function M._comAutoReason(ca, missLabel)
+  ca = ca or {}
+  local running = ca.phase == "CLIMB" or ca.phase == "HOLD" or ca.phase == "DESCEND"
+  if running then return ca.phase end
+  if ca.abortReason then return "ABORT " .. tostring(ca.abortReason) end
+  if missLabel then return missLabel end
+  return ca.phase or "READY"
+end
+
 -- ===== Save / reset: TESTABLE, Basalt-free seams =====
 
 -- M._save(workingCfg, write) -> serialises workingCfg to /eh2_tuning.tbl via cfgspec (write is
@@ -853,7 +868,7 @@ function M.build(basalt, frame, runtime, nav, read, write, delete)
         lamp.set("off")
         lamp.button:setText("WAIT")
       end
-      reason:setText(miss and ComAuto.label(miss) or (ca.phase or "READY"))
+      reason:setText(configkit.fitLabel(M._comAutoReason(ca, miss and ComAuto.label(miss)), fiw))
       startRow.setState(1, (miss or running) and "disabled" or "off")
       if ca.captured and not savedCap then
         workingCfg.com = workingCfg.com or {}
