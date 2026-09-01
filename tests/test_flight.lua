@@ -347,6 +347,22 @@ t.test("comAuto HOLD: capture saves and restores THIS scheme's ki", function()
   t.near(sA.rollPid.ki, 0.11, 1e-9)
 end)
 
+t.test("comAuto capture hands off to the mixer: pitch/roll integrators are ZEROED (no double-compensation)", function()
+  -- During HOLD the captureKi integral builds the level-hold differential; at capture that SAME
+  -- compensation is measured (offsetFromDuties reads the duties) and applied to the MIXER as the CoM
+  -- offset. If the integrator is left in place it STACKS with the mixer offset (double-compensation)
+  -- -> the craft over-corrects, rolls/pitches off attitude, and the angled lift converts that into a
+  -- lateral drift. The integrators must be zeroed at the hand-off so the mixer alone carries it.
+  local f, L, sA, _, setR = autoFlight({ captureKi = 0.5 })
+  L.mixer = { setCom = function(self, c) self.com = c end }
+  sA.pitchPid.i = 0.37; sA.rollPid.i = -0.12                 -- integral built up over the HOLD
+  setR({ captured = { fwd = -0.7, right = -0.1 }, captureKi = 0 })
+  f:step(0.1, {}, groundMeas{ onGround = false })
+  t.eq(sA.pitchPid.i, 0, "pitch integrator zeroed at the capture hand-off")
+  t.eq(sA.rollPid.i, 0, "roll integrator zeroed at the capture hand-off")
+  t.truthy(L.mixer.com and L.mixer.com.fwd == -0.7, "CoM offset applied to the mixer")
+end)
+
 t.test("comAuto HOLD: a mode switch mid-capture never writes A's ki into B", function()
   local f, L, sA, sB, setR = autoFlight({ captureKi = 0.5 })
   f:step(0.1, {}, groundMeas{ onGround = false })            -- capturing into A

@@ -252,6 +252,16 @@ function Flight:step(dt, held, meas)
             fwd = ar.captured.fwd, right = ar.captured.right,
             spanFwd = self.comAuto.spanFwd, spanRight = self.comAuto.spanRight,
           })
+          -- Hand-off: the captureKi integral built the level-hold differential during HOLD, and the
+          -- mixer now carries that SAME compensation as the measured CoM offset. Leaving the pitch/
+          -- roll integrators in place stacks the two (mixer + integral = DOUBLE compensation) -> the
+          -- craft over-corrects, tilts off attitude, and the angled lift turns that into a lateral
+          -- drift (the descent runaway seen right after a capture). Zero them so only the mixer
+          -- carries it -- ki is already restored to 0 for DESCEND, so they stay zero.
+          if sch then
+            if sch.pitchPid then sch.pitchPid.i = 0 end
+            if sch.rollPid then sch.rollPid.i = 0 end
+          end
         end
         if ar.setpoints then self.loop:setpoints(ar.setpoints) end
         self.loop:arm(true)
