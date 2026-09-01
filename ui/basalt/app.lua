@@ -1045,6 +1045,7 @@ function M.startScheduled(basalt, runtime, frameRecs)
         local ev = { os.pullEvent() }
         local e, now = ev[1], os.epoch("utc")
         if e == "mouse_click" then runtime.uilog:event("INPUT", ("click b%s @%s,%s"):format(tostring(ev[2]), tostring(ev[3]), tostring(ev[4])), now)
+        elseif e == "monitor_touch" then runtime.uilog:event("INPUT", ("touch %s @%s,%s"):format(tostring(ev[2]), tostring(ev[3]), tostring(ev[4])), now)  -- cockpit MONITORS fire this, not mouse_click
         elseif e == "mouse_up" then runtime.uilog:event("INPUT", ("up @%s,%s"):format(tostring(ev[3]), tostring(ev[4])), now)
         elseif e == "mouse_drag" then runtime.uilog:event("INPUT", ("drag @%s,%s"):format(tostring(ev[3]), tostring(ev[4])), now)
         elseif e == "mouse_scroll" then runtime.uilog:event("INPUT", ("scroll %s @%s,%s"):format(tostring(ev[2]), tostring(ev[3]), tostring(ev[4])), now)

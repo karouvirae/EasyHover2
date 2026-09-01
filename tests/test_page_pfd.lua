@@ -97,6 +97,43 @@ t.test("attitude indicator responds to a realistic RADIAN bank (rad->deg at the 
   t.truthy(snap() ~= level, "a 20-degree (0.35 rad) bank must visibly tilt the attitude indicator")
 end)
 
+-- Per-canvas dirty-gate: each canvas must track its own inputs (so gating never skips a needed
+-- redraw), and be independent of the others (so an ALT tick doesn't force the expensive ADI redraw).
+t.test("PFD canvases are per-input gated: independent, and none stale", function()
+  local basalt = BasaltApp.ensureBasalt()
+  local frame = basalt.createFrame()
+  local page = PFD.build(basalt, frame, {}, nil)
+  local function snap(img)
+    local w, hh = img:getImageSize(); local s = {}
+    for y = 1, hh do for x = 1, w do s[#s + 1] = tostring(img:getBg(x, y)) end end
+    return table.concat(s)
+  end
+  local tape, adi, ro = page.elements.tapeImg, page.elements.adiImg, page.elements.roImg
+
+  page.apply({ heading = 45, pitch = 0.1, roll = 0.1, baroAlt = 100, sas = 50,
+    target = { bearing = 70, relBearing = 25, distanceH = 400, color = "green" } })
+  local t0, a0, r0 = snap(tape), snap(adi), snap(ro)
+
+  -- change ONLY ALT/SPD -> readouts update; tape + ADI unchanged (independent).
+  page.apply({ heading = 45, pitch = 0.1, roll = 0.1, baroAlt = 999, sas = 5,
+    target = { bearing = 70, relBearing = 25, distanceH = 400, color = "green" } })
+  t.eq(snap(tape), t0, "tape unchanged when only ALT/SPD change")
+  t.eq(snap(adi), a0, "ADI unchanged when only ALT/SPD change")
+  t.truthy(snap(ro) ~= r0, "readouts update with ALT/SPD")
+
+  -- change ONLY pitch -> ADI updates (sig must include pitch, not just roll).
+  local a1 = snap(adi)
+  page.apply({ heading = 45, pitch = 0.4, roll = 0.1, baroAlt = 999, sas = 5,
+    target = { bearing = 70, relBearing = 25, distanceH = 400, color = "green" } })
+  t.truthy(snap(adi) ~= a1, "ADI repaints when pitch changes")
+
+  -- change ONLY the target bearing -> tape updates (sig must include the target cue).
+  local t1 = snap(tape)
+  page.apply({ heading = 45, pitch = 0.4, roll = 0.1, baroAlt = 999, sas = 5,
+    target = { bearing = 45, relBearing = 0, distanceH = 400, color = "green" } })
+  t.truthy(snap(tape) ~= t1, "tape repaints when the target bearing changes")
+end)
+
 t.test("buildState surfaces the PFD sensor + gps fields from the FCS snapshot (rx) and runtime.nav", function()
   local BasaltApp = require("ui.basalt.app")
   local runtime = {

@@ -141,6 +141,12 @@ function M.build(basalt, frame, runtime, nav)
     term.setPaletteColour(colors.brown, M.GROUND_RGB)
   end)
 
+  -- Per-canvas dirty-gate: each of the three canvases redraws only when ITS OWN inputs change. The
+  -- ADI is ~600 cells (the expensive one, ~20ms), so skipping it while attitude is steady -- while
+  -- only heading/ALT/SPD tick -- is the big win vs redrawing all three every apply. Sigs use the
+  -- DISPLAYED (rounded) values so sub-value telemetry jitter never forces a redraw. A canvas's Image
+  -- retains its last drawing when skipped.
+  local lastTape, lastAdi, lastRo
   local function apply(state)
     state = state or {}
     local fontColor = Theme.role("font")
@@ -148,9 +154,28 @@ function M.build(basalt, frame, runtime, nav)
     local cc = runtime and runtime.config and runtime.config.colors
     local tgtColor = (tgt and tgt.color == "blue") and Theme.resolve(cc, "rt") or Theme.resolve(cc, "wpt")
 
-    drawTape(tapeImg, w, tapeH, state.heading, tgt, tgtColor, fontColor)
-    ADI.draw(adiImg, math.deg(state.pitch or 0), math.deg(state.roll or 0), w, adiH, M.BODY, colors.toBlit(fontColor))
-    drawReadouts(roImg, w, roH, state, tgt, tgtColor, fontColor)
+    -- TAPE: heading scale/number + the target cue (bearing/relBearing/colour).
+    local tgtTape = tgt and (tostring(tgt.bearing) .. "/" .. tostring(tgt.relBearing) .. "/" .. tostring(tgt.color)) or "-"
+    local tapeSig = (type(state.heading) == "number" and tostring(round(state.heading)) or "nil") .. "|" .. tgtTape
+    if tapeSig ~= lastTape then
+      drawTape(tapeImg, w, tapeH, state.heading, tgt, tgtColor, fontColor); lastTape = tapeSig
+    end
+
+    -- ADI: pitch + roll only (degrees, 1-degree resolution).
+    local adiSig = round(math.deg(state.pitch or 0)) .. "|" .. round(math.deg(state.roll or 0))
+    if adiSig ~= lastAdi then
+      ADI.draw(adiImg, math.deg(state.pitch or 0), math.deg(state.roll or 0), w, adiH, M.BODY, colors.toBlit(fontColor)); lastAdi = adiSig
+    end
+
+    -- READOUTS: displayed ALT/SPD + the TGT line.
+    local altV, altU = altPieces(state)
+    local spdV, spdU = spdPieces(state)
+    local tgtRo = tgt and (tostring(tgt.name) .. "/" .. tostring(tgt.distanceH and round(tgt.distanceH))
+      .. "/" .. tostring(tgt.altDelta and round(tgt.altDelta)) .. "/" .. tostring(tgt.relBearing) .. "/" .. tostring(tgt.color)) or "-"
+    local roSig = altV .. "|" .. altU .. "|" .. spdV .. "|" .. spdU .. "|" .. tgtRo
+    if roSig ~= lastRo then
+      drawReadouts(roImg, w, roH, state, tgt, tgtColor, fontColor); lastRo = roSig
+    end
   end
 
   return {
